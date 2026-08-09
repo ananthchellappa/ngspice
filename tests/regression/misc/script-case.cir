@@ -1,0 +1,22 @@
+*ng_script
+setcs option="--Mdir"
+setcs prefix="Vlng"
+setcs in="VL_IN"
+setcs out="VL_OUT"
+setcs inout="VL_INOUT"
+setcs data="VL_DATA"
+
+echo preserved: $option $prefix $in $out $inout $data
+echo generated: VL_DATA(8,Clk,0,0)
+
+strcmp result "$prefix" "Vlng"
+echo strcmp-prefix: $result
+strstr result "VL_IN8(&Clk,0,0);" "$in"
+echo strstr-in: $result
+strstr result "VL_OUT8(&Result,0,0);" "$out"
+echo strstr-out: $result
+strstr result "VL_INOUT8(&Bus,0,0);" "$inout"
+echo strstr-inout: $result
+strstr result "VL_DATA(8,Clk,0,0)" "$data"
+echo strstr-data: $result
+quit

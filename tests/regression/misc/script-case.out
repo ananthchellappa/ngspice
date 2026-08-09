@@ -1,0 +1,7 @@
+preserved: --Mdir Vlng VL_IN VL_OUT VL_INOUT VL_DATA
+generated: VL_DATA(8,Clk,0,0)
+strcmp-prefix: 0
+strstr-in: 0
+strstr-out: 0
+strstr-inout: 0
+strstr-data: 0
