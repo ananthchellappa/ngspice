@@ -1,0 +1,16 @@
+* lower case twin of meas-current-vsource-case.cir
+.OPTIONS noacct
+v1 1 0 dc 2
+x1 1 2 rload
+r3 2 0 1k
+b1 3 0 v = 1k*i(v.x1.vs)
+r2 3 0 1k
+.subckt rload a b
+vs a c dc 0
+r1 c b 1k
+.ends
+.control
+op
+print v(3)
+.endc
+.end

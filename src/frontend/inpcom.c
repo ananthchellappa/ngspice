@@ -4361,14 +4361,14 @@ static int inp_fix_subckt_multiplier(struct names *subckt_w_params,
         /* no 'm' for comment line, V, E, H and some others that are not
            using 'm' in their model description.
            B source will get 'm' only when it is a current source. */
-        if (strchr("*vehaknopstuwy", curr_line[0]))
+        if (strchr("*vehaknopstuwy", elem_letter(curr_line)))
             continue;
         /* no 'm' for model cards */
         if (ciprefix(".model", curr_line))
             continue;
         /* Special treatment for B source:
            Skip voltage source */
-        if (curr_line[0] == 'b') {
+        if (elem_letter(curr_line) == 'b') {
             char* tmpstr = curr_line;
             /* Skip Bxxx, node1, node2 */
             tmpstr = nexttok(tmpstr);
@@ -9036,7 +9036,7 @@ static void inp_meas_current(struct card *deck)
              * line */
             if (s && s > v) {
                 /* %i( may be part of the node definition in a XSPICE instance, so skip it here */
-                if (*v == 'a' && s[-1] == '%') {
+                if (elem_letter(v) == 'a' && s[-1] == '%') {
                     s++;
                     continue;
                 }
@@ -9044,7 +9044,7 @@ static void inp_meas_current(struct card *deck)
                 else if (is_arith_char(s[-1]) || s[-1] == '{' || s[-1] == '=' ||
                         isspace_c(s[-1])) {
                     s += 2;
-                    if (*s == 'v') {
+                    if (elem_letter(s) == 'v') {
                         // printf("i(v...) found in\n%s\n not converted!\n\n",
                         // curr_line);
                         continue;
@@ -9149,7 +9149,7 @@ static void inp_meas_current(struct card *deck)
                 source: check if it is a simple linear source, if yes, don't
                 do a replacement, instead undo the already done name
                 conversion */
-                if (((tok[0] == 'e') || (tok[0] == 'h')) &&
+                if (((elem_letter(tok) == 'e') || (elem_letter(tok) == 'h')) &&
                         !strchr(curr_line, '=') &&
                         !is_poly_source(card->line)) {
                     /* simple linear e source */

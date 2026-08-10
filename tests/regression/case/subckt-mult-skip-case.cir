@@ -1,0 +1,22 @@
+* upper case V card inside a subcircuit instantiated with m=, under preserve
+* inp_fix_subckt_multiplier() appends ' m={m}' to the instance cards of a
+* subcircuit whose caller passes an m multiplier, and skips the device
+* letters that do not take one with
+*   strchr("*vehaknopstuwy", curr_line[0])
+* That list was matched against the raw first byte, so under preserve an
+* upper case V card inside the subcircuit was not skipped, got ' m={m}'
+* appended, and the run died before printing anything.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:4364.
+.OPTIONS noacct
+V1 1 0 dc 2
+X1 1 2 divider m=2
+R1 2 0 1k
+.subckt divider a b
+V2 a c dc 0
+R2 c b 1k
+.ends
+.control
+op
+print v(2)
+.endc
+.end

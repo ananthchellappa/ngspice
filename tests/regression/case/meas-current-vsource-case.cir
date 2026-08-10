@@ -1,0 +1,25 @@
+* upper case voltage source name inside i(), under casemode=preserve
+* inp_meas_current() turns i(XYZ) inside a B expression into i(v_XYZ) and
+* inserts an ammeter, and exempts i(v...) because a voltage source already
+* carries its own branch current.  The exemption was 'if (*s == 'v')' on the
+* first byte of the referenced name, so under preserve 'i(V.X1.VS)' was not
+* exempt: the card became i(v_V.X1.VS), no such source exists, and
+*   b1: unknown controlling source v_V.X1.VS
+* aborted the run before v(3) was printed.
+* The B card itself is lower case in both twins on purpose - the two 'b'
+* sites have their own decks - so this pair isolates inpcom.c:9047.
+.OPTIONS noacct
+V1 1 0 dc 2
+X1 1 2 rload
+R3 2 0 1k
+b1 3 0 v = 1k*i(V.X1.VS)
+R2 3 0 1k
+.subckt rload a b
+VS a c dc 0
+R1 c b 1k
+.ends
+.control
+op
+print v(3)
+.endc
+.end

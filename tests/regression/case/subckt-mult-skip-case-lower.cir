@@ -1,0 +1,14 @@
+* lower case twin of subckt-mult-skip-case.cir
+.OPTIONS noacct
+v1 1 0 dc 2
+x1 1 2 divider m=2
+r1 2 0 1k
+.subckt divider a b
+v2 a c dc 0
+r2 c b 1k
+.ends
+.control
+op
+print v(2)
+.endc
+.end
