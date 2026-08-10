@@ -5,7 +5,7 @@ TESTS = alter-1.cmd flow-keyword-case.cmd \
 	resource-keyword-case.cmd spiceif-keyword-case.cmd \
 	inpcompat-keyword-case.cmd plot-keyword-case.cmd \
 	breakp-keyword-case.cmd postcoms-keyword-case.cmd \
-	variable-keyword-case.cmd
+	variable-keyword-case.cmd spec-keyword-case.cmd
 
 TESTS_ENVIRONMENT = \
 	SPICE_SCRIPTS=$(top_srcdir)/tests/bin \

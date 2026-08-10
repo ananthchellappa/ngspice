@@ -90,10 +90,10 @@ com_spec(wordlist *wl)
         double maxt = time[tlen-1];
         if (!cp_getvar("specwindow", CP_STRING, window, sizeof(window)))
             strcpy(window, "hanning");
-        if (eq(window, "none"))
+        if (eqc(window, "none"))
             for (i = 0; i < tlen; i++)
                 win[i] = 1;
-        else if (eq(window, "rectangular"))
+        else if (eqc(window, "rectangular"))
             for (i = 0; i < tlen; i++) {
                 if (maxt-time[i] > span) {
                     win[i] = 0;
@@ -101,7 +101,7 @@ com_spec(wordlist *wl)
                     win[i] = 1;
                 }
             }
-        else if (eq(window, "hanning") || eq(window, "cosine"))
+        else if (eqc(window, "hanning") || eqc(window, "cosine"))
             for (i = 0; i < tlen; i++) {
                 if (maxt-time[i] > span) {
                     win[i] = 0;
@@ -109,7 +109,7 @@ com_spec(wordlist *wl)
                     win[i] = 1 - cos(2*M_PI*(time[i]-maxt)/span);
                 }
             }
-        else if (eq(window, "hamming"))
+        else if (eqc(window, "hamming"))
             for (i = 0; i < tlen; i++) {
                 if (maxt-time[i] > span) {
                     win[i] = 0;
@@ -117,7 +117,7 @@ com_spec(wordlist *wl)
                     win[i] = 1 - 0.92/1.08*cos(2*M_PI*(time[i]-maxt)/span);
                 }
             }
-        else if (eq(window, "triangle") || eq(window, "bartlet"))
+        else if (eqc(window, "triangle") || eqc(window, "bartlet"))
             for (i = 0; i < tlen; i++) {
                 if (maxt-time[i] > span) {
                     win[i] = 0;
@@ -125,7 +125,7 @@ com_spec(wordlist *wl)
                     win[i] = 2 - fabs(2+4*(time[i]-maxt)/span);
                 }
             }
-        else if (eq(window, "blackman")) {
+        else if (eqc(window, "blackman")) {
             for (i = 0; i < tlen; i++) {
                 if (maxt-time[i] > span) {
                     win[i] = 0;
@@ -135,7 +135,7 @@ com_spec(wordlist *wl)
                     win[i] += 0.08/0.42*cos(4*M_PI*(time[i]-maxt)/span);
                 }
             }
-        } else if (eq(window, "gaussian")) {
+        } else if (eqc(window, "gaussian")) {
             int order;
             double scale;
             if (!cp_getvar("specwindoworder", CP_NUM, &order, 0))

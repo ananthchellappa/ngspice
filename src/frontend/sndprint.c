@@ -211,12 +211,12 @@ void snd_configure(char* fn, int srate, int fmt, double mult, double off, int os
 
 int snd_format(char* fmt) {
     int f = atoi(fmt);
-    if (!strcmp(fmt, "wav")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_24);
-    if (!strcmp(fmt, "wav16")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_16);
-    if (!strcmp(fmt, "wav24")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_24);
-    if (!strcmp(fmt, "wav32")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_32);
-    if (!strcmp(fmt, "aiff")) f = (SF_FORMAT_AIFF | SF_FORMAT_PCM_16);
-    if (!strcmp(fmt, "aliki")) f = 0;
+    if (cieq(fmt, "wav")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_24);
+    if (cieq(fmt, "wav16")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_16);
+    if (cieq(fmt, "wav24")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_24);
+    if (cieq(fmt, "wav32")) f = (SF_FORMAT_WAV | SF_FORMAT_PCM_32);
+    if (cieq(fmt, "aiff")) f = (SF_FORMAT_AIFF | SF_FORMAT_PCM_16);
+    if (cieq(fmt, "aliki")) f = 0;
     return (f);
 }
 
