@@ -414,7 +414,7 @@ static bool there_are_name_collisions(void)
 
 static void add_pin_name(char *name, NAME_ENTRY *nelistp)
 {
-    if (strncmp(name, "$d_", 3) != 0) {
+    if (!cieqn(name, "$d_", 3)) {
         if (!(*nelistp)) {
             *nelistp = add_name_entry(name, *nelistp);
         } else {
@@ -481,15 +481,15 @@ static void add_all_port_names(char *subckt_line)
         printf("%s\n", subckt_line);
     }
     copy_line = tprintf("%s", subckt_line);
-    pos = strstr(copy_line, "optional:");
+    pos = cistrstr(copy_line, "optional:");
     if (pos) {
         *pos = '\0';
     } else {
-        pos = strstr(copy_line, "params:");
+        pos = cistrstr(copy_line, "params:");
         if (pos) {
             *pos = '\0';
         } else {
-            pos = strstr(copy_line, "text:");
+            pos = cistrstr(copy_line, "text:");
             if (pos) {
                 *pos = '\0';
             }
@@ -542,87 +542,87 @@ static char *find_xspice_for_delay(char *itype)
     switch (itype[0]) {
     case 'a': {
         /* and anda and3 and3a */
-        if (eq(itype, "and"))   { return xspice_tab[D_AND]; }
-        if (eq(itype, "anda"))  { return xspice_tab[D_AND]; }
-        if (eq(itype, "and3"))  { return xspice_tab[D_AND]; }
-        if (eq(itype, "and3a")) { return xspice_tab[D_AND]; }
+        if (eqc(itype, "and"))   { return xspice_tab[D_AND]; }
+        if (eqc(itype, "anda"))  { return xspice_tab[D_AND]; }
+        if (eqc(itype, "and3"))  { return xspice_tab[D_AND]; }
+        if (eqc(itype, "and3a")) { return xspice_tab[D_AND]; }
 
-        if (eq(itype, "ao"))  { return xspice_tab[D_AO]; }
-        if (eq(itype, "aoi")) { return xspice_tab[D_AOI]; }
+        if (eqc(itype, "ao"))  { return xspice_tab[D_AO]; }
+        if (eqc(itype, "aoi")) { return xspice_tab[D_AOI]; }
         break;
     }
     case 'b': {
         /* buf3 buf3a */
-        if (eq(itype, "buf3a")) { return xspice_tab[D_TRI]; }
-        if (eq(itype, "buf"))   { return xspice_tab[D_BUF]; }
-        if (eq(itype, "bufa"))  { return xspice_tab[D_BUF]; }
-        if (eq(itype, "buf3"))  { return xspice_tab[D_TRI]; }
+        if (eqc(itype, "buf3a")) { return xspice_tab[D_TRI]; }
+        if (eqc(itype, "buf"))   { return xspice_tab[D_BUF]; }
+        if (eqc(itype, "bufa"))  { return xspice_tab[D_BUF]; }
+        if (eqc(itype, "buf3"))  { return xspice_tab[D_TRI]; }
         break;
     }
     case 'd': {
-        if (eq(itype, "dff"))   { return xspice_tab[D_DFF]; }
-        if (eq(itype, "dltch")) { return xspice_tab[D_DLTCH]; }
-        if (eq(itype, "dlyline")) { return xspice_tab[D_DLYLINE]; }
+        if (eqc(itype, "dff"))   { return xspice_tab[D_DFF]; }
+        if (eqc(itype, "dltch")) { return xspice_tab[D_DLTCH]; }
+        if (eqc(itype, "dlyline")) { return xspice_tab[D_DLYLINE]; }
         break;
     }
     case 'i': {
         /* inv inva inv3 inv3a */
-        if (eq(itype, "inv"))   { return xspice_tab[D_INV]; }
-        if (eq(itype, "inv3a")) { return xspice_tab[D_INV]; }
-        if (eq(itype, "inva"))  { return xspice_tab[D_INV]; }
-        if (eq(itype, "inv3"))  { return xspice_tab[D_INV]; }
+        if (eqc(itype, "inv"))   { return xspice_tab[D_INV]; }
+        if (eqc(itype, "inv3a")) { return xspice_tab[D_INV]; }
+        if (eqc(itype, "inva"))  { return xspice_tab[D_INV]; }
+        if (eqc(itype, "inv3"))  { return xspice_tab[D_INV]; }
         break;
     }
     case 'j': {
-        if (eq(itype, "jkff")) { return xspice_tab[D_JKFF]; }
+        if (eqc(itype, "jkff")) { return xspice_tab[D_JKFF]; }
         break;
     }
     case 'n': {
         /* nand nanda nand3 nand3a */
-        if (eq(itype, "nand"))   { return xspice_tab[D_NAND]; }
-        if (eq(itype, "nanda"))  { return xspice_tab[D_NAND]; }
-        if (eq(itype, "nand3"))  { return xspice_tab[D_NAND]; }
-        if (eq(itype, "nand3a")) { return xspice_tab[D_NAND]; }
+        if (eqc(itype, "nand"))   { return xspice_tab[D_NAND]; }
+        if (eqc(itype, "nanda"))  { return xspice_tab[D_NAND]; }
+        if (eqc(itype, "nand3"))  { return xspice_tab[D_NAND]; }
+        if (eqc(itype, "nand3a")) { return xspice_tab[D_NAND]; }
 
         /* nor nora nor3 nor3a */
-        if (eq(itype, "nor"))   { return xspice_tab[D_NOR]; }
-        if (eq(itype, "nora"))  { return xspice_tab[D_NOR]; }
-        if (eq(itype, "nor3"))  { return xspice_tab[D_NOR]; }
-        if (eq(itype, "nor3a")) { return xspice_tab[D_NOR]; }
+        if (eqc(itype, "nor"))   { return xspice_tab[D_NOR]; }
+        if (eqc(itype, "nora"))  { return xspice_tab[D_NOR]; }
+        if (eqc(itype, "nor3"))  { return xspice_tab[D_NOR]; }
+        if (eqc(itype, "nor3a")) { return xspice_tab[D_NOR]; }
 
         /* nxor nxora nxor3 nxor3a */
-        if (eq(itype, "nxor"))   { return xspice_tab[D_NXOR]; }
-        if (eq(itype, "nxora"))  { return xspice_tab[D_NXOR]; }
-        if (eq(itype, "nxor3"))  { return xspice_tab[D_NXOR]; }
-        if (eq(itype, "nxor3a")) { return xspice_tab[D_NXOR]; }
+        if (eqc(itype, "nxor"))   { return xspice_tab[D_NXOR]; }
+        if (eqc(itype, "nxora"))  { return xspice_tab[D_NXOR]; }
+        if (eqc(itype, "nxor3"))  { return xspice_tab[D_NXOR]; }
+        if (eqc(itype, "nxor3a")) { return xspice_tab[D_NXOR]; }
         break;
     }
     case 'o': {
         /* or ora or3 or3a */
-        if (eq(itype, "or"))   { return xspice_tab[D_OR]; }
-        if (eq(itype, "ora"))  { return xspice_tab[D_OR]; }
-        if (eq(itype, "or3"))  { return xspice_tab[D_OR]; }
-        if (eq(itype, "or3a")) { return xspice_tab[D_OR]; }
+        if (eqc(itype, "or"))   { return xspice_tab[D_OR]; }
+        if (eqc(itype, "ora"))  { return xspice_tab[D_OR]; }
+        if (eqc(itype, "or3"))  { return xspice_tab[D_OR]; }
+        if (eqc(itype, "or3a")) { return xspice_tab[D_OR]; }
 
-        if (eq(itype, "oa"))  { return xspice_tab[D_OA]; }
-        if (eq(itype, "oai")) { return xspice_tab[D_OAI]; }
+        if (eqc(itype, "oa"))  { return xspice_tab[D_OA]; }
+        if (eqc(itype, "oai")) { return xspice_tab[D_OAI]; }
         break;
     }
     case 'p': {
-        if (eq(itype, "pulldn")) { return xspice_tab[D_DOWN]; }
-        if (eq(itype, "pullup")) { return xspice_tab[D_UP]; }
+        if (eqc(itype, "pulldn")) { return xspice_tab[D_DOWN]; }
+        if (eqc(itype, "pullup")) { return xspice_tab[D_UP]; }
         break;
     }
     case 's': {
-        if (eq(itype, "srff")) { return xspice_tab[D_SRFF]; }
+        if (eqc(itype, "srff")) { return xspice_tab[D_SRFF]; }
         break;
     }
     case 'x': {
         /* xor xora xor3 xor3a */
-        if (eq(itype, "xor"))   { return xspice_tab[D_XOR]; }
-        if (eq(itype, "xora"))  { return xspice_tab[D_XOR]; }
-        if (eq(itype, "xor3"))  { return xspice_tab[D_XOR]; }
-        if (eq(itype, "xor3a")) { return xspice_tab[D_XOR]; }
+        if (eqc(itype, "xor"))   { return xspice_tab[D_XOR]; }
+        if (eqc(itype, "xora"))  { return xspice_tab[D_XOR]; }
+        if (eqc(itype, "xor3"))  { return xspice_tab[D_XOR]; }
+        if (eqc(itype, "xor3a")) { return xspice_tab[D_XOR]; }
         break;
     }
     default:
@@ -855,8 +855,8 @@ struct card *replacement_udevice_cards(void)
         char *tmp = NULL, *pos = NULL, *posp = NULL;
         tmp = TMALLOC(char, strlen(current_subckt) + 1);
         (void) memcpy(tmp, current_subckt, strlen(current_subckt) + 1);
-        pos = strstr(tmp, "optional:");
-        posp = strstr(tmp, "params:");
+        pos = cistrstr(tmp, "optional:");
+        posp = cistrstr(tmp, "params:");
         ds_clear(&ds_tmp);
         /* If there is an optional: and a param: then posp > pos */
         if (pos) {
@@ -894,7 +894,7 @@ struct card *replacement_udevice_cards(void)
     if (current_subckt && (ps_ports_and_pins & 2)) {
         char *p1 = NULL, *p2 = NULL;
         DS_CREATE(tmpds, 64);
-        p1 = strstr(current_subckt, ".subckt");
+        p1 = cistrstr(current_subckt, ".subckt");
         p1 += strlen(".subckt");
         p1 = skip_ws(p1);
         p2 = p1;
@@ -1017,7 +1017,7 @@ void initialize_udevice(char *subckt_line)
         ps_with_tri_inverters = 0;
     }
 
-    if (subckt_line && strncmp(subckt_line, ".subckt", 7) == 0) {
+    if (subckt_line && cieqn(subckt_line, ".subckt", 7)) {
         add_all_port_names(subckt_line);
         current_subckt = TMALLOC(char, strlen(subckt_line) + 1);
         strcpy(current_subckt, subckt_line);
@@ -1139,7 +1139,7 @@ static Xlate_datap find_tmodel_in_xlator(Xlate_datap x, Xlatorp xlp)
     if (!x) { return NULL; }
     if (!xlp) { return NULL; }
     for (x1 = first_xlator(xlp); x1; x1 = next_xlator(xlp)) {
-        if (eq(x1->tmodel, x->tmodel) && eq(x1->utype, x->utype)) {
+        if (eq(x1->tmodel, x->tmodel) && eqc(x1->utype, x->utype)) {
             if (eq(x1->xspice, x->xspice)) {
                 return x1;
             }
@@ -1256,25 +1256,25 @@ static void add_delays_to_model_xlator(char *delays,
 /* classify gate variants */
 static bool is_tristate_buf_array(char *itype)
 {
-    if (eq(itype, "buf3a")) { return TRUE; }
-    if (eq(itype, "inv3a")) { return TRUE; }
+    if (eqc(itype, "buf3a")) { return TRUE; }
+    if (eqc(itype, "inv3a")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_tristate_xor_array(char *itype)
 {
     /* xor/nxor have vector inputs */
-    if (eq(itype, "xor3a")) { return TRUE; }
-    if (eq(itype, "nxor3a")) { return TRUE; }
+    if (eqc(itype, "xor3a")) { return TRUE; }
+    if (eqc(itype, "nxor3a")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_tristate_vector_array(char *itype)
 {
-    if (eq(itype, "and3a")) { return TRUE; }
-    if (eq(itype, "nand3a")) { return TRUE; }
-    if (eq(itype, "or3a")) { return TRUE; }
-    if (eq(itype, "nor3a")) { return TRUE; }
+    if (eqc(itype, "and3a")) { return TRUE; }
+    if (eqc(itype, "nand3a")) { return TRUE; }
+    if (eqc(itype, "or3a")) { return TRUE; }
+    if (eqc(itype, "nor3a")) { return TRUE; }
     return FALSE;
 }
 
@@ -1288,25 +1288,25 @@ static bool is_tristate_array(char *itype)
 
 static bool is_buf_tristate(char *itype)
 {
-    if (eq(itype, "buf3")) { return TRUE; }
-    if (eq(itype, "inv3")) { return TRUE; }
+    if (eqc(itype, "buf3")) { return TRUE; }
+    if (eqc(itype, "inv3")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_xor_tristate(char *itype)
 {
     /* xor/nxor have vector inputs */
-    if (eq(itype, "xor3")) { return TRUE; }
-    if (eq(itype, "nxor3")) { return TRUE; }
+    if (eqc(itype, "xor3")) { return TRUE; }
+    if (eqc(itype, "nxor3")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_vector_tristate(char *itype)
 {
-    if (eq(itype, "and3")) { return TRUE; }
-    if (eq(itype, "nand3")) { return TRUE; }
-    if (eq(itype, "or3")) { return TRUE; }
-    if (eq(itype, "nor3")) { return TRUE; }
+    if (eqc(itype, "and3")) { return TRUE; }
+    if (eqc(itype, "nand3")) { return TRUE; }
+    if (eqc(itype, "or3")) { return TRUE; }
+    if (eqc(itype, "nor3")) { return TRUE; }
     return FALSE;
 }
 
@@ -1320,25 +1320,25 @@ static bool is_tristate(char *itype)
 
 static bool is_vector_gate_array(char *itype)
 {
-    if (eq(itype, "anda")) { return TRUE; }
-    if (eq(itype, "nanda")) { return TRUE; }
-    if (eq(itype, "ora")) { return TRUE; }
-    if (eq(itype, "nora")) { return TRUE; }
+    if (eqc(itype, "anda")) { return TRUE; }
+    if (eqc(itype, "nanda")) { return TRUE; }
+    if (eqc(itype, "ora")) { return TRUE; }
+    if (eqc(itype, "nora")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_buf_gate_array(char *itype)
 {
-    if (eq(itype, "bufa")) { return TRUE; }
-    if (eq(itype, "inva")) { return TRUE; }
+    if (eqc(itype, "bufa")) { return TRUE; }
+    if (eqc(itype, "inva")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_xor_gate_array(char *itype)
 {
     /* xor/nxor have vector inputs */
-    if (eq(itype, "xora")) { return TRUE; }
-    if (eq(itype, "nxora")) { return TRUE; }
+    if (eqc(itype, "xora")) { return TRUE; }
+    if (eqc(itype, "nxora")) { return TRUE; }
     return FALSE;
 }
 
@@ -1352,25 +1352,25 @@ static bool is_gate_array(char *itype)
 
 static bool is_vector_gate(char *itype)
 {
-    if (eq(itype, "nand")) { return TRUE; }
-    if (eq(itype, "and")) { return TRUE; }
-    if (eq(itype, "nor")) { return TRUE; }
-    if (eq(itype, "or")) { return TRUE; }
+    if (eqc(itype, "nand")) { return TRUE; }
+    if (eqc(itype, "and")) { return TRUE; }
+    if (eqc(itype, "nor")) { return TRUE; }
+    if (eqc(itype, "or")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_buf_gate(char *itype)
 {
-    if (eq(itype, "inv")) { return TRUE; }
-    if (eq(itype, "buf")) { return TRUE; }
+    if (eqc(itype, "inv")) { return TRUE; }
+    if (eqc(itype, "buf")) { return TRUE; }
     return FALSE;
 }
 
 static bool is_xor_gate(char *itype)
 {
     /* xor/nxor have vector inputs */
-    if (eq(itype, "xor")) { return TRUE; }
-    if (eq(itype, "nxor")) { return TRUE; }
+    if (eqc(itype, "xor")) { return TRUE; }
+    if (eqc(itype, "nxor")) { return TRUE; }
     return FALSE;
 }
 
@@ -1384,10 +1384,10 @@ static bool is_gate(char *itype)
 
 static bool is_compound_gate(char *itype)
 {
-    if (eq(itype, "aoi")) { return TRUE; }
-    if (eq(itype, "ao")) { return TRUE; }
-    if (eq(itype, "oa")) { return TRUE; }
-    if (eq(itype, "oai")) { return TRUE; }
+    if (eqc(itype, "aoi")) { return TRUE; }
+    if (eqc(itype, "ao")) { return TRUE; }
+    if (eqc(itype, "oa")) { return TRUE; }
+    if (eqc(itype, "oai")) { return TRUE; }
     return FALSE;
 }
 
@@ -1395,21 +1395,21 @@ static bool has_vector_inputs(char *itype)
 {
     switch (itype[0]) {
     case 'a': {
-        if (strncmp(itype, "and", 3) == 0) { return TRUE; }
+        if (cieqn(itype, "and", 3)) { return TRUE; }
         break;
     }
     case 'n': {
-        if (strncmp(itype, "nand", 4) == 0) { return TRUE; }
-        if (strncmp(itype, "nor", 3) == 0) { return TRUE; }
-        if (strncmp(itype, "nxor", 4) == 0) { return TRUE; }
+        if (cieqn(itype, "nand", 4)) { return TRUE; }
+        if (cieqn(itype, "nor", 3)) { return TRUE; }
+        if (cieqn(itype, "nxor", 4)) { return TRUE; }
         break;
     }
     case 'o': {
-        if (strncmp(itype, "or", 2) == 0) { return TRUE; }
+        if (cieqn(itype, "or", 2)) { return TRUE; }
         break;
     }
     case 'x': {
-        if (strncmp(itype, "xor", 3) == 0) { return TRUE; }
+        if (cieqn(itype, "xor", 3)) { return TRUE; }
         break;
     }
     default:
@@ -1894,7 +1894,7 @@ static Xlatorp gen_dff_instance(struct dff_instance *ip, int withinv)
     clrb = ip->clrbar;
 
     xxp = create_xlator();
-    if (eq(preb, "$d_hi") || eq(preb, "$d_nc")) {
+    if (eqc(preb, "$d_hi") || eqc(preb, "$d_nc")) {
         preb = "NULL";
     } else {
         add_input_pin(preb);
@@ -1904,7 +1904,7 @@ static Xlatorp gen_dff_instance(struct dff_instance *ip, int withinv)
         }
     }
 
-    if (eq(clrb, "$d_hi") || eq(clrb, "$d_nc")) {
+    if (eqc(clrb, "$d_hi") || eqc(clrb, "$d_nc")) {
         clrb = "NULL";
     } else {
         add_input_pin(clrb);
@@ -1923,13 +1923,13 @@ static Xlatorp gen_dff_instance(struct dff_instance *ip, int withinv)
         char *instance_name = NULL;
         ds_clear(&tmpdstr);
         qout = qarr[i];
-        if (eq(qout, "$d_nc")) {
+        if (eqc(qout, "$d_nc")) {
             qout = "NULL";
         } else {
             add_output_pin(qout);
         }
         qbout = qbarr[i];
-        if (eq(qbout, "$d_nc")) {
+        if (eqc(qbout, "$d_nc")) {
             qbout = "NULL";
         } else {
             add_output_pin(qbout);
@@ -2007,7 +2007,7 @@ static Xlatorp gen_jkff_instance(struct jkff_instance *ip, int withinv)
     clrb = ip->clrbar;
 
     xxp = create_xlator();
-    if (eq(preb, "$d_hi") || eq(preb, "$d_nc")) {
+    if (eqc(preb, "$d_hi") || eqc(preb, "$d_nc")) {
         preb = "NULL";
     } else {
         add_input_pin(preb);
@@ -2017,7 +2017,7 @@ static Xlatorp gen_jkff_instance(struct jkff_instance *ip, int withinv)
         }
     }
 
-    if (eq(clrb, "$d_hi") || eq(clrb, "$d_nc")) {
+    if (eqc(clrb, "$d_hi") || eqc(clrb, "$d_nc")) {
         clrb = "NULL";
     } else {
         add_input_pin(clrb);
@@ -2041,13 +2041,13 @@ static Xlatorp gen_jkff_instance(struct jkff_instance *ip, int withinv)
         char *instance_name = NULL;
         ds_clear(&tmpdstr);
         qout = qarr[i];
-        if (eq(qout, "$d_nc")) {
+        if (eqc(qout, "$d_nc")) {
             qout = "NULL";
         } else {
             add_output_pin(qout);
         }
         qbout = qbarr[i];
-        if (eq(qbout, "$d_nc")) {
+        if (eqc(qbout, "$d_nc")) {
             qbout = "NULL";
         } else {
             add_output_pin(qbout);
@@ -2121,7 +2121,7 @@ static Xlatorp gen_dltch_instance(struct dltch_instance *ip, int withinv)
     clrb = ip->clrbar;
 
     xxp = create_xlator();
-    if (eq(preb, "$d_hi") || eq(preb, "$d_nc")) {
+    if (eqc(preb, "$d_hi") || eqc(preb, "$d_nc")) {
         preb = "NULL";
     } else {
         add_input_pin(preb);
@@ -2131,7 +2131,7 @@ static Xlatorp gen_dltch_instance(struct dltch_instance *ip, int withinv)
         }
     }
 
-    if (eq(clrb, "$d_hi") || eq(clrb, "$d_nc")) {
+    if (eqc(clrb, "$d_hi") || eqc(clrb, "$d_nc")) {
         clrb = "NULL";
     } else {
         add_input_pin(clrb);
@@ -2149,7 +2149,7 @@ static Xlatorp gen_dltch_instance(struct dltch_instance *ip, int withinv)
         char *instance_name = NULL;
         qout = qarr[i];
         instance_name = tprintf("a%s_%d", iname, i);
-        if (eq(qout, "$d_nc")) {
+        if (eqc(qout, "$d_nc")) {
             /* NULL not allowed??? */
             s3 = tprintf("nco_%s_%d", iname, i);
             check_name_unused(s3);
@@ -2180,7 +2180,7 @@ static Xlatorp gen_dltch_instance(struct dltch_instance *ip, int withinv)
         tfree(s3);
         add_input_pin(darr[i]);
         qbout = qbarr[i];
-        if (eq(qbout, "$d_nc")) {
+        if (eqc(qbout, "$d_nc")) {
             /* NULL not allowed??? */
             s3 = tprintf("ncn_%s_%d", iname, i);
             check_name_unused(s3);
@@ -2237,7 +2237,7 @@ static Xlatorp gen_srff_instance(struct srff_instance *srffp, int withinv)
     clrb = srffp->clrbar;
 
     xxp = create_xlator();
-    if (eq(preb, "$d_hi") || eq(preb, "$d_nc")) {
+    if (eqc(preb, "$d_hi") || eqc(preb, "$d_nc")) {
         preb = "NULL";
     } else {
         add_input_pin(preb);
@@ -2247,7 +2247,7 @@ static Xlatorp gen_srff_instance(struct srff_instance *srffp, int withinv)
         }
     }
 
-    if (eq(clrb, "$d_hi") || eq(clrb, "$d_nc")) {
+    if (eqc(clrb, "$d_hi") || eqc(clrb, "$d_nc")) {
         clrb = "NULL";
     } else {
         add_input_pin(clrb);
@@ -2267,7 +2267,7 @@ static Xlatorp gen_srff_instance(struct srff_instance *srffp, int withinv)
         instance_name = tprintf("a%s_%d", iname, i);
         add_input_pin(sarr[i]);
         add_input_pin(rarr[i]);
-        if (eq(qout, "$d_nc")) {
+        if (eqc(qout, "$d_nc")) {
             /* NULL not allowed??? */
             s3 = tprintf("nco_%s_%d", iname, i);
             check_name_unused(s3);
@@ -2298,7 +2298,7 @@ static Xlatorp gen_srff_instance(struct srff_instance *srffp, int withinv)
         tfree(s3);
 
         qbout = qbarr[i];
-        if (eq(qbout, "$d_nc")) {
+        if (eqc(qbout, "$d_nc")) {
             /* NULL not allowed??? */
             s3 = tprintf("ncn_%s_%d", iname, i);
             check_name_unused(s3);
@@ -2354,19 +2354,19 @@ static Xlatorp gen_compound_instance(struct compound_instance *compi)
     }
     itype = compi->hdrp->instance_type;
     inst = compi->hdrp->instance_name;
-    if (eq(itype, "aoi")) {
+    if (eqc(itype, "aoi")) {
         outgate = "d_nor";
         ingates = "d_and";
         logic_val = "$d_hi";
-    } else if (eq(itype, "ao")) {
+    } else if (eqc(itype, "ao")) {
         outgate = "d_or";
         ingates = "d_and";
         logic_val = "$d_hi";
-    } else if (eq(itype, "oai")) {
+    } else if (eqc(itype, "oai")) {
         outgate = "d_nand";
         ingates = "d_or";
         logic_val = "$d_lo";
-    } else if (eq(itype, "oa")) {
+    } else if (eqc(itype, "oa")) {
         outgate = "d_and";
         ingates = "d_or";
         logic_val = "$d_lo";
@@ -2389,15 +2389,15 @@ static Xlatorp gen_compound_instance(struct compound_instance *compi)
         /* $d_hi AND gate inputs are ignored */
         /* $d_lo OR gate inputs are ignored */
         for (j = 0; j < width; j++) {
-            if (!eq(inarr[k], logic_val)) {
+            if (!eqc(inarr[k], logic_val)) {
                 num_ins_kept++;
-                if (eq(inarr[k], "$d_hi")) {
+                if (eqc(inarr[k], "$d_hi")) {
                 /* This must be a 1 input on an OR gate of oa/oai */
                     if (!high_name) {
                         high_name = get_name_hilo("$d_hi");
                     }
                     ds_cat_printf(&tmp_dstr, " %s", high_name);
-                } else if (eq(inarr[k], "$d_lo")) {
+                } else if (eqc(inarr[k], "$d_lo")) {
                 /* This must be a 0 input on an AND gate of ao/aoi */
                     if (!low_name) {
                         low_name = get_name_hilo("$d_lo");
@@ -2538,11 +2538,11 @@ static Xlatorp gen_gate_instance(struct gate_instance *gip)
             return NULL;
         }
 
-        inv3_to_buf3 = (!withinv && eq(itype, "inv3"));
+        inv3_to_buf3 = (!withinv && eqc(itype, "inv3"));
         add_tristate = FALSE;
         xspice = find_xspice_for_delay(itype);
         if (tristate_gate) {
-            if (!eq(itype, "buf3")) {
+            if (!eqc(itype, "buf3")) {
                 if (inv3_to_buf3) {
                     add_tristate = FALSE;
                 } else {
@@ -2670,11 +2670,11 @@ static Xlatorp gen_gate_instance(struct gate_instance *gip)
         /* arrays of gates */
         tristate_array = is_tristate_array(itype);
 
-        inv3a_to_buf3a = (!withinv && eq(itype, "inv3a"));
+        inv3a_to_buf3a = (!withinv && eqc(itype, "inv3a"));
         add_tristate = FALSE;
         xspice = find_xspice_for_delay(itype);
         if (tristate_array) {
-            if (eq(itype, "buf3a")) {
+            if (eqc(itype, "buf3a")) {
                 add_tristate = FALSE;
             } else if (inv3a_to_buf3a) {
                 xspice = find_xspice_for_delay("buf3a");
@@ -2827,7 +2827,7 @@ static void extract_model_param(char *rem, char *param_name, char *buf)
     */
     char *p1 = NULL;
 
-    p1 = strstr(rem, param_name);
+    p1 = cistrstr(rem, param_name);
     if (p1) {
         p1 += strlen(param_name);
         p1 = skip_ws(p1);
@@ -2934,7 +2934,7 @@ static void estimate_typ(struct timing_data *tdp)
         if (strlen(tmpmin) > 0 && strlen(tmpmax) > 0) {
             valmin = strtof(tmpmin, &unitsmin);
             valmax = strtof(tmpmax, &unitsmax);
-            if (!eq(unitsmin, unitsmax)) {
+            if (!eqc(unitsmin, unitsmax)) {
                 printf("WARNING estimate_typ units do not match"
                        " min %s max %s", tmpmin, tmpmax);
                 if (unitsmin[0] == unitsmax[0]) {
@@ -3028,7 +3028,7 @@ static char *select_delay(char *delay1, char *delay2)
 
     val1 = strtof(delay1, &units1);
     val2 = strtof(delay2, &units2);
-    if (!eq(units1, units2)) {
+    if (!eqc(units1, units2)) {
         printf("WARNING select_delay units do not match"
                " min %s max %s", delay1, delay2);
         warns = TRUE;
@@ -3423,22 +3423,22 @@ static bool u_process_model(char *nline, char *original, bool global)
     /* delay info */
     remainder = strchr(original, '(');
     if (remainder) {
-        if (eq(utype, "ugate")) {
+        if (eqc(utype, "ugate")) {
             delays = get_delays_ugate(remainder);
             add_delays_to_model_xlator((delays ? delays : ""),
                 utype, "", tmodel, global);
             if (delays) { tfree(delays); }
-        } else if (eq(utype, "utgate")) {
+        } else if (eqc(utype, "utgate")) {
             delays = get_delays_utgate(remainder);
             add_delays_to_model_xlator((delays ? delays : ""),
                 utype, "", tmodel, global);
             if (delays) { tfree(delays); }
-        } else if (eq(utype, "ueff")) {
+        } else if (eqc(utype, "ueff")) {
             delays = get_delays_ueff(remainder);
             add_delays_to_model_xlator((delays ? delays : ""),
                 utype, "", tmodel, global);
             if (delays) { tfree(delays); }
-        } else if (eq(utype, "ugff")) {
+        } else if (eqc(utype, "ugff")) {
             delays = get_delays_ugff(remainder, "d_dlatch");
             add_delays_to_model_xlator((delays ? delays : ""),
                 utype, "d_dlatch", tmodel, global);
@@ -3447,11 +3447,11 @@ static bool u_process_model(char *nline, char *original, bool global)
             add_delays_to_model_xlator((delays ? delays : ""),
                 utype, "d_srlatch", tmodel, global);
             if (delays) { tfree(delays); }
-        } else if (eq(utype, "uio")) {
+        } else if (eqc(utype, "uio")) {
             /* skip uio models */
             retval = TRUE;
             delays = NULL;
-        } else if (eq(utype, "udly")) {
+        } else if (eqc(utype, "udly")) {
             delays = get_delays_udly(remainder);
             add_delays_to_model_xlator((delays ? delays : ""),
                 utype, "", tmodel, global);
@@ -3473,11 +3473,11 @@ static char *get_name_hilo(char *tok_str)
 {
     char *name = NULL;
 
-    if (eq(tok_str, "$d_hi")) {
+    if (eqc(tok_str, "$d_hi")) {
         name = TMALLOC(char, strlen("hilo_drive___1") + 1);
         strcpy(name, "hilo_drive___1");
         add_drive_hilo = TRUE;
-    } else if (eq(tok_str, "$d_lo")) {
+    } else if (eqc(tok_str, "$d_lo")) {
         name = TMALLOC(char, strlen("hilo_drive___0") + 1);
         strcpy(name, "hilo_drive___0");
         add_drive_hilo = TRUE;
@@ -3553,13 +3553,13 @@ static struct dff_instance *add_dff_inout_timing_model(
     /* Reject incompatible inputs */
     arrp = dffip->d_in;
     for (i = 0; i < num_gates; i++) {
-        if (eq(arrp[i], "$d_nc")) {
+        if (eqc(arrp[i], "$d_nc")) {
             fprintf(stderr, "ERROR incompatible dff d input $d_nc\n");
             compat = FALSE;
             break;
         }
     }
-    if (eq(dffip->clk, "$d_nc")) {
+    if (eqc(dffip->clk, "$d_nc")) {
         fprintf(stderr, "ERROR incompatible dff clk $d_nc\n");
         compat = FALSE;
     }
@@ -3642,13 +3642,13 @@ static struct dltch_instance *add_dltch_inout_timing_model(
     /* Reject incompatible inputs */
     arrp = dlp->d_in;
     for (i = 0; i < num_gates; i++) {
-        if (eq(arrp[i], "$d_nc")) {
+        if (eqc(arrp[i], "$d_nc")) {
             fprintf(stderr, "ERROR incompatible dltch d input $d_nc\n");
             compat = FALSE;
             break;
         }
     }
-    if (eq(dlp->gate, "$d_nc")) {
+    if (eqc(dlp->gate, "$d_nc")) {
         fprintf(stderr, "ERROR incompatible dltch gate $d_nc\n");
         compat = FALSE;
     }
@@ -3740,13 +3740,13 @@ static struct jkff_instance *add_jkff_inout_timing_model(
     arrp = jkffip->j_in;
     arrpk = jkffip->k_in;
     for (i = 0; i < num_gates; i++) {
-        if (eq(arrp[i], "$d_nc") || eq(arrpk[i], "$d_nc")) {
+        if (eqc(arrp[i], "$d_nc") || eqc(arrpk[i], "$d_nc")) {
             fprintf(stderr, "ERROR incompatible jkff j/k input $d_nc\n");
             compat = FALSE;
             break;
         }
     }
-    if (eq(jkffip->clkbar, "$d_nc")) {
+    if (eqc(jkffip->clkbar, "$d_nc")) {
         fprintf(stderr, "ERROR incompatible jkff clkbar $d_nc\n");
         compat = FALSE;
     }
@@ -3841,13 +3841,13 @@ static struct srff_instance *add_srff_inout_timing_model(
     arrp = srffp->s_in;
     arrpr = srffp->r_in;
     for (i = 0; i < num_gates; i++) {
-        if (eq(arrp[i], "$d_nc") || eq(arrpr[i], "$d_nc")) {
+        if (eqc(arrp[i], "$d_nc") || eqc(arrpr[i], "$d_nc")) {
             fprintf(stderr, "ERROR incompatible srff s/r input $d_nc\n");
             compat = FALSE;
             break;
         }
     }
-    if (eq(srffp->gate, "$d_nc")) { /* d_srff clk cannot be null */
+    if (eqc(srffp->gate, "$d_nc")) { /* d_srff clk cannot be null */
         fprintf(stderr, "ERROR incompatible srff gate $d_nc\n");
         compat = FALSE;
     }
@@ -4243,28 +4243,28 @@ static Xlatorp translate_ff_latch(struct instance_hdr *hdr, char *start)
     int withinv = ps_with_inverters;
 
     itype = hdr->instance_type;
-    if (eq(itype, "dff")) {
+    if (eqc(itype, "dff")) {
         dffp = add_dff_inout_timing_model(hdr, start);
         if (dffp) {
             xp = gen_dff_instance(dffp, withinv);
             delete_dff_instance(dffp);
             return xp;
         }
-    } else if (eq(itype, "jkff")) {
+    } else if (eqc(itype, "jkff")) {
         jkffp = add_jkff_inout_timing_model(hdr, start);
         if (jkffp) {
             xp = gen_jkff_instance(jkffp, withinv);
             delete_jkff_instance(jkffp);
             return xp;
         }
-    } else if (eq(itype, "srff")) {
+    } else if (eqc(itype, "srff")) {
         srffp = add_srff_inout_timing_model(hdr, start);
         if (srffp) {
             xp = gen_srff_instance(srffp, withinv);
             delete_srff_instance(srffp);
             return xp;
         }
-    } else if (eq(itype, "dltch")) {
+    } else if (eqc(itype, "dltch")) {
         dltchp = add_dltch_inout_timing_model(hdr, start);
         if (dltchp) {
             xp = gen_dltch_instance(dltchp, withinv);
@@ -4333,8 +4333,8 @@ bool u_check_instance(char *line)
     itype = hdr->instance_type;
     xspice = find_xspice_for_delay(itype);
     if (!xspice) {
-        if (eq(itype, "logicexp") || eq(itype, "pindly")
-            || eq(itype, "constraint")) {
+        if (eqc(itype, "logicexp") || eqc(itype, "pindly")
+            || eqc(itype, "constraint")) {
             delete_instance_hdr(hdr);
             return TRUE;
         }
@@ -4366,7 +4366,7 @@ void u_subckt_line(char *subckt_line)
     */
     char *copy_line, *tok, *pos;
     if (!ciprefix(".subckt", subckt_line)) { return; }
-    pos = strstr(subckt_line, "optional:");
+    pos = cistrstr(subckt_line, "optional:");
     if (!pos) {
         DS_CREATE(ds, 128);
         copy_line = tprintf("%s", subckt_line);
@@ -4428,9 +4428,9 @@ static int remove_optional(DSTRING *dstrp, char *line)
     while (*s) {
         if (isalpha(*s)) {
             if (was_space) {
-                if (strncmp(s, "dpwr ", 5) == 0) {
+                if (cieqn(s, "dpwr ", 5)) {
                     s += 4;
-                } else if (strncmp(s, "dgnd ", 5) == 0) {
+                } else if (cieqn(s, "dgnd ", 5)) {
                     s += 4;
                 } else if (strncmp(s, "vdd ", 4) == 0) {
                     s += 3;
@@ -4501,7 +4501,7 @@ bool u_process_instance(char *nline)
     itype = hdr->instance_type;
     xspice = find_xspice_for_delay(itype);
     if (!xspice) {
-        if (eq(itype, "logicexp")) {
+        if (eqc(itype, "logicexp")) {
             delete_instance_hdr(hdr);
             if (ps_ports_and_pins & 4) {
                 printf("TRANS_IN  %s\n", nline);
@@ -4516,7 +4516,7 @@ bool u_process_instance(char *nline)
                 controlled_exit(EXIT_FAILURE);
             }
             return behav_ret;
-        } else if (eq(itype, "pindly")) {
+        } else if (eqc(itype, "pindly")) {
             delete_instance_hdr(hdr);
             if (ps_ports_and_pins & 4) {
                 printf("TRANS_IN  %s\n", nline);
@@ -4531,7 +4531,7 @@ bool u_process_instance(char *nline)
                 controlled_exit(EXIT_FAILURE);
             }
             return behav_ret;
-        } else if (eq(itype, "constraint")) {
+        } else if (eqc(itype, "constraint")) {
             delete_instance_hdr(hdr);
             return TRUE;
         } else {
@@ -4554,12 +4554,12 @@ bool u_process_instance(char *nline)
         xp = translate_gate(hdr, p1);
     } else if (is_compound_gate(itype)) {
         xp = translate_gate(hdr, p1);
-    } else if (eq(itype, "dff") || eq(itype, "jkff") ||
-        eq(itype, "dltch") || eq(itype, "srff")) {
+    } else if (eqc(itype, "dff") || eqc(itype, "jkff") ||
+        eqc(itype, "dltch") || eqc(itype, "srff")) {
         xp = translate_ff_latch(hdr, p1);
-    } else if (eq(itype, "pullup") || eq(itype, "pulldn")) {
+    } else if (eqc(itype, "pullup") || eqc(itype, "pulldn")) {
         xp = translate_pull(hdr, p1);
-    } else if (eq(itype, "dlyline")) {
+    } else if (eqc(itype, "dlyline")) {
         xp = translate_dlyline(hdr, p1);
     } else {
         delete_instance_hdr(hdr);
@@ -4605,7 +4605,7 @@ bool u_process_model_line(char *line, bool global)
     size_t n = strlen(line) - 1;
 
     if (n > 0 && line[n] == '\n') line[n] = '\0';
-    if (strncmp(line, ".model ", strlen(".model ")) == 0) {
+    if (cieqn(line, ".model ", strlen(".model "))) {
         if (ps_ports_and_pins & 4) {
             printf("TRANS_IN  %s\n", line);
         }
