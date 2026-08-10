@@ -421,3 +421,67 @@ sweep reports them OK — three failing runs that agree — rather than
 not because anything was proved about them; the other four are the
 `rkm-c-case`/`rkm-l-case` pairs described above. `make check` is what covers
 those directories.
+
+## Re-run after `doc/codex/issues/0019`
+
+`doc/codex/issues/0019` folded the seven remaining lower-case
+card-classification sites — three in `src/frontend/inpcompat.c`, three in
+`src/frontend/inp.c`, two in `src/frontend/inpcom.c` — and added eight twin
+pairs. The same command reports:
+
+| verdict | after the follow-up table | after issue 0019 |
+| --- | ---: | ---: |
+| OK | 157 | 173 |
+| DIFF | 53 | 53 |
+| PARSE-FAIL | 0 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **213** | **229** |
+
+Both columns were measured on this tree with the same command, the left one
+immediately before the series and the right one immediately after. As
+before, the baseline used here is the one measured on this tree rather than
+the figures quoted in the previous section.
+
+Compared per deck rather than on the totals: **no deck's verdict got worse,
+no deck that was OK became anything else, and no pre-existing deck moved at
+all.** The comparison is a straight `diff` of the two runs' non-OK lists,
+which the sweep prints in full; the only entries that differ are the sixteen
+new decks, and all sixteen report OK.
+
+The three SKIPs are unchanged — `tests/mesa/mesa-12.cir`, `tests/mesa/mesa12.cir`
+and `tests/vbic/FG.cir`, whose *stock* run exceeds the 90 s timeout.
+
+### The twelve `doc/codex/issues/0020` decks did not grow to fourteen
+
+Two of the eight new pairs reached a plot the analysis does not leave
+current, and the obvious way to write that — `setplot noise2`, `setplot op1`
+— is exactly the control-language-identifier gap of `doc/codex/issues/0020`:
+plot names are generated in lower case, so the sweep's uppercased copy got
+`error: no such plot named noise2`. `print mag(v(2))` had the same problem
+one level down, because the function name is echoed back as the printed
+label.
+
+Measured first, then fixed in the decks rather than left as a footnote: the
+noise pair drops `setplot` entirely (the noise analysis already leaves
+`noise2` current) and the `noopac` pair uses `setplot previous`, which
+reaches the same plot and survives uppercasing. Both pairs report OK. The
+count of new-case decks reporting `DIFF` therefore stays at twelve, and all
+twelve are still the two `doc/codex/issues/0020` gaps described above.
+
+### What the sweep still cannot see, and what covered it instead
+
+Five of the seven sites are invisible to the sweep by construction, and this
+is the round where that stopped being a theoretical remark:
+
+- `inpcompat.c:1101` and `:1153` need `-D ngbehavior=ps`, `:1771` needs
+  `-D ngbehavior=lt`; the sweep passes neither.
+- `inp.c:2454` needs `.options savecurrents`, which no deck under `tests/`
+  set before this round.
+- `inp.c:2030` needs `.options noopac` together with `.options keepopinfo`.
+
+Two of those five were silently wrong numbers — the PSpice substrate rewrite
+and the LTspice `noiseless` translation — so for this round `make check` was
+the harness that mattered and the sweep was the regression guard. That is the
+reverse of `doc/codex/issues/0009`, where the sweep found the defect and
+`make check` could not see it.
