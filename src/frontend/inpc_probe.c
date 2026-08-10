@@ -248,7 +248,7 @@ void inp_probe(struct card* deck)
                 continue;
 
             /* exclude B voltage source */
-            if (strchr("b", *instname) && strstr(curr_line, "v="))
+            if (strchr("b", *instname) && cistrstr(curr_line, "v="))
                 continue;
 
             /* exclude a devices (code models may have special characters in their instance line.
@@ -1373,7 +1373,7 @@ static int setallvsources(struct card *tmpcard, NGHASHPTR instances, char *instn
         sadd(&Bpowersave, "power");
 
         /* special for VDMOS: exclude thermal nodes */
-        if (*instname == 'm' && strstr(tmpcard->line, "thermal"))
+        if (*instname == 'm' && cistrstr(tmpcard->line, "thermal"))
             numnodes = 3;
         /* special for MOS, exclude temp nodes (not always possible) */
         if (*instname == 'm' && numnodes > 5)

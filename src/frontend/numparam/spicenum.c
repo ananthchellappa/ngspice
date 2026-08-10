@@ -238,23 +238,23 @@ transform(dico_t *dico, DSTRINGPTR dstr_p, bool incontrol)
 
     if (s[0] == '.') {
         /* check PS parameter format */
-        if (prefix(".param", s)) {
+        if (ciprefix(".param", s)) {
             /* comment it out */
             /* s[0] = '*'; */
             category = 'P';
-        } else if (prefix(".subckt", s)) {
+        } else if (ciprefix(".subckt", s)) {
             char *params;
             /* split off any "params" tail */
-            params = strstr(s, "params:");
+            params = cistrstr(s, "params:");
             if (params) {
                 ds_set_length(dstr_p, (size_t) (params - s));
             }
             category = 'S';
-        } else if (prefix(".control", s)) {
+        } else if (ciprefix(".control", s)) {
             category = 'C';
-        } else if (prefix(".endc", s)) {
+        } else if (ciprefix(".endc", s)) {
             category = 'E';
-        } else if (prefix(".ends", s)) {
+        } else if (ciprefix(".ends", s)) {
             category = 'U';
         } else {
             category = '.';

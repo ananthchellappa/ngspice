@@ -173,7 +173,7 @@ static int lexer_set_start(char *s, LEXER lx)
     char *pos;
     if (!lx)
         return -1;
-    pos = strstr(lx->lexer_line, s);
+    pos = cistrstr(lx->lexer_line, s);
     if (!pos)
         return -1;
     lx->lexer_pos = (int) (pos - &lx->lexer_line[0]);
@@ -1242,7 +1242,7 @@ static bool expect_token(
     if (tok == LEX_ID) {
         if (expected_str) {
             LEXER lx = current_lexer;
-            if (eq(expected_str, lx->lexer_buf))
+            if (eqc(expected_str, lx->lexer_buf))
                 return TRUE;
             else {
                 if (msg) {
@@ -1323,7 +1323,7 @@ bool f_logicexp(char *line, int optimize)
     /* timing model */
     t = lex_scan();
     if (!expect_token(t, LEX_ID, NULL, TRUE, 12)) goto error_return;
-    if (!eq(parse_lexer->lexer_buf, "d0_gate")) {
+    if (!eqc(parse_lexer->lexer_buf, "d0_gate")) {
         u_add_logicexp_model(parse_lexer->lexer_buf,
             "d_and", "dxspice_dly_and");
         u_add_logicexp_model(parse_lexer->lexer_buf,
@@ -1576,7 +1576,7 @@ static char *get_typ_estimate(char *min, char *typ, char *max, DSTRING *pds)
         if (strlen(tmpmin) > 0 && strlen(tmpmax) > 0) {
             valmin = strtof(tmpmin, &unitsmin);
             valmax = strtof(tmpmax, &unitsmax);
-            if (!eq(unitsmin, unitsmax)) {
+            if (!eqc(unitsmin, unitsmax)) {
                 printf("WARNING typ_estimate units do not match"
                        " min %s max %s", tmpmin, tmpmax);
                 fflush(stdout);
@@ -1727,7 +1727,7 @@ static bool extract_delay(
     val = lexer_scan(lx);
     while (val != '}') {
         if (val == LEX_ID) {
-            if (eq(lx->lexer_buf, "delay")) {
+            if (eqc(lx->lexer_buf, "delay")) {
                 in_delay = TRUE;
                 ds_clear(&dly);
             } else {
@@ -1827,25 +1827,25 @@ static bool new_gen_output_models(LEXER lx)
     val = lexer_scan(lx);
     while (val != 0) { // Outer while loop
         if (val == LEX_ID) {
-            if (eq(lx->lexer_buf, "pindly")) {
+            if (eqc(lx->lexer_buf, "pindly")) {
                 in_pindly = TRUE;
                 in_tristate = FALSE;
                 val = lexer_scan(lx);
                 if (val != ':') {
                     goto err_return;
                 }
-            } else if (eq(lx->lexer_buf, "tristate")) {
+            } else if (eqc(lx->lexer_buf, "tristate")) {
                 in_pindly = FALSE;
                 in_tristate = TRUE;
                 val = lexer_scan(lx);
                 if (val != ':') {
                     goto err_return;
                 }
-            } else if (eq(lx->lexer_buf, "setup_hold")
-                || eq(lx->lexer_buf, "width")
-                || eq(lx->lexer_buf, "freq")
-                || eq(lx->lexer_buf, "boolean")
-                || eq(lx->lexer_buf, "general")) {
+            } else if (eqc(lx->lexer_buf, "setup_hold")
+                || eqc(lx->lexer_buf, "width")
+                || eqc(lx->lexer_buf, "freq")
+                || eqc(lx->lexer_buf, "boolean")
+                || eqc(lx->lexer_buf, "general")) {
                 in_pindly = FALSE;
                 in_tristate = FALSE;
             }
@@ -1870,12 +1870,12 @@ static bool new_gen_output_models(LEXER lx)
             idx = 0; // end in_pindly and LEX_ID
         } else if (in_tristate && val == LEX_ID) {
         // start in_tristate and LEX_ID
-            if (eq(lx->lexer_buf, "enable")) {
+            if (eqc(lx->lexer_buf, "enable")) {
                 val = lexer_scan(lx);
-                if (val == LEX_ID && (eq(lx->lexer_buf, "hi")
-                        || eq(lx->lexer_buf, "lo"))) {
+                if (val == LEX_ID && (eqc(lx->lexer_buf, "hi")
+                        || eqc(lx->lexer_buf, "lo"))) {
                     bool invert = FALSE;
-                    if (eq(lx->lexer_buf, "lo"))
+                    if (eqc(lx->lexer_buf, "lo"))
                         invert = TRUE;
                     val = lexer_scan(lx);
                     if (val != '=') {

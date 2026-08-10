@@ -133,12 +133,12 @@ inp_nutsource(FILE *fp, bool comfile, char *filename)
             } else {
                 inp_casefix(s);
                 inp_casefix(dd->line);
-                if (eq(s, ".width") || ciprefix(".four", s) ||
-                    eq(s, ".plot")  ||
-                    eq(s, ".print") ||
-                    eq(s, ".sndprint") ||
-                    eq(s, ".sndparam") ||
-                    eq(s, ".save"))
+                if (eqc(s, ".width") || ciprefix(".four", s) ||
+                    eqc(s, ".plot")  ||
+                    eqc(s, ".print") ||
+                    eqc(s, ".sndprint") ||
+                    eqc(s, ".sndparam") ||
+                    eqc(s, ".save"))
                 {
                     wl_append_word(&wl, &end, copy(dd->line));
                     ld->nextcard = dd->nextcard;

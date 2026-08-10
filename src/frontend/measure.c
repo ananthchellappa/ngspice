@@ -146,8 +146,8 @@ static bool
 chkAnalysisType(char *an_type)
 {
     /* only support tran, dc, ac, sp analysis type for now */
-    if (strcmp(an_type, "tran") != 0 && strcmp(an_type, "ac") != 0 &&
-            strcmp(an_type, "dc") != 0 && strcmp(an_type, "sp") != 0)
+    if (!cieq(an_type, "tran") && !cieq(an_type, "ac") &&
+            !cieq(an_type, "dc") && !cieq(an_type, "sp"))
         return FALSE;
     else
         return TRUE;
@@ -169,7 +169,7 @@ get_double_value(
     char *equal_ptr, *junk;
     int  err = 0;
 
-    if (name && (strncmp(token, name, strlen(name)) != 0)) {
+    if (name && (!cieqn(token, name, strlen(name)))) {
         if (just_chk_meas != TRUE) fprintf(cp_err, "Error: syntax error for measure statement; expecting next field to be '%s'.\n", name);
         return_val = FALSE;
     } else {
@@ -316,22 +316,22 @@ do_measure(
         else if (first_time) {
             first_time = FALSE;
 
-            if (!chk_only && strcmp(an_type, "tran") == 0) {
+            if (!chk_only && cieq(an_type, "tran")) {
                 fprintf(stdout, "\n  Measurements for Transient Analysis\n\n");
                 if (measout)
                     fprintf(measout, "\n  Measurements for Transient Analysis\n\n");
             }
-            else if (!chk_only && strcmp(an_type, "dc") == 0) {
+            else if (!chk_only && cieq(an_type, "dc")) {
                 fprintf(stdout, "\n  Measurements for DC Analysis\n\n");
                 if (measout)
                     fprintf(measout, "\n  Measurements for DC Analysis\n\n");
             }
-            else if (!chk_only && strcmp(an_type, "ac") == 0) {
+            else if (!chk_only && cieq(an_type, "ac")) {
                 fprintf(stdout, "\n  Measurements for AC Analysis\n\n");
                 if (measout)
                     fprintf(measout, "\n  Measurements for AC Analysis\n\n");
             }
-            else if (!chk_only && strcmp(an_type, "sp") == 0) {
+            else if (!chk_only && cieq(an_type, "sp")) {
                 fprintf(stdout, "\n  Measurements for SP Analysis\n\n");
                 if (measout)
                     fprintf(measout, "\n  Measurements for SP Analysis\n\n");
@@ -339,7 +339,7 @@ do_measure(
         }
 
         /* skip param|expr measurement types for now -- will be done after other measurements */
-        if (strncmp(meastype, "param", 5) == 0 || strncmp(meastype, "expr", 4) == 0) {
+        if (cieqn(meastype, "param", 5) || cieqn(meastype, "expr", 4)) {
             txfree(an_type);
             txfree(resname);
             txfree(meastype);
@@ -347,7 +347,7 @@ do_measure(
         }
 
         /* skip .meas line, if analysis type from line and name of analysis performed differ */
-        if (strcmp(an_name, an_type) != 0) {
+        if (!cieq(an_name, an_type)) {
             txfree(an_type);
             txfree(resname);
             txfree(meastype);
@@ -442,14 +442,14 @@ do_measure(
             txfree(meastype);
             continue;
         }
-        if (strcmp(an_name, an_type) != 0) {
+        if (!cieq(an_name, an_type)) {
             txfree(an_type);
             txfree(resname);
             txfree(meastype);
             continue;
         }
 
-        if (strncmp(meastype, "param", 5) != 0 && strncmp(meastype, "expr", 4) != 0) {
+        if (!cieqn(meastype, "param", 5) && !cieqn(meastype, "expr", 4)) {
 
             if (!chk_only) {
                 fprintf(stdout, "%s", newcard->line);
@@ -478,7 +478,7 @@ do_measure(
             ok = nupa_eval(meas_card);
 
             if (ok) {
-                str_ptr = strstr(meas_card->line, meastype);
+                str_ptr = cistrstr(meas_card->line, meastype);
                 if (!get_double_value(&str_ptr, meastype, &result, chk_only)) {
                     if (!chk_only) {
                         fprintf(stdout, "   failed\n");

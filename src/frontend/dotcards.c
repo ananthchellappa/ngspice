@@ -123,7 +123,7 @@ ft_savedotargs(void)
                     for (wl = w; wl; wl = w_next) {
                         w_next = wl->wl_next;
                         for (i = 0; (size_t) i < NUMELEMS(plot_opts); i++) {
-                            if (!strcmp(wl->wl_word, plot_opts[i])) {
+                            if (cieq(wl->wl_word, plot_opts[i])) {
                                 /* skip it */
                                 *prev_wl = w_next;
                                 tfree(wl);
@@ -284,7 +284,7 @@ ft_cktcoms(bool terse)
             wl_free(freecom);
             goto bad;
         }
-        if (eq(command->wl_word, ".width")) {
+        if (eqc(command->wl_word, ".width")) {
             do
                 command = command->wl_next;
             while (command && !ciprefix("out", command->wl_word));
@@ -299,7 +299,7 @@ ft_cktcoms(bool terse)
                 i = atoi(++s);
                 cp_vset("width", CP_NUM, &i);
             }
-        } else if (eq(command->wl_word, ".print")) {
+        } else if (eqc(command->wl_word, ".print")) {
             if (terse) {
                 fprintf(cp_out,
                         ".print line ignored since rawfile was produced.\n");
@@ -327,7 +327,7 @@ ft_cktcoms(bool terse)
                     fprintf(cp_err, "Error: .print: no %s analysis found.\n",
                             plottype);
             }
-        } else if (eq(command->wl_word, ".plot")) {
+        } else if (eqc(command->wl_word, ".plot")) {
             if (terse) {
                 fprintf(cp_out,
                         ".plot line ignored since rawfile was produced.\n");
@@ -356,14 +356,14 @@ ft_cktcoms(bool terse)
                             plottype);
             }
 #if defined(HAVE_LIBSNDFILE) && defined(HAVE_LIBSAMPLERATE)
-        } else if (eq(command->wl_word, ".sndparam")) {
+        } else if (eqc(command->wl_word, ".sndparam")) {
             if (terse) {
                 fprintf(cp_out, ".sndparam line ignored since rawfile was produced.\n");
             }
             else {
                 com_sndparam(command->wl_next);
             }
-        } else if (eq(command->wl_word, ".sndprint")) {
+        } else if (eqc(command->wl_word, ".sndprint")) {
             if (terse) {
                 fprintf(cp_out, ".sndprint line ignored since rawfile was produced.\n");
             }
@@ -407,10 +407,10 @@ ft_cktcoms(bool terse)
                     fprintf(cp_err, "No transient data available for "
                             "fourier analysis");
             }
-        } else if (!eq(command->wl_word, ".save") &&
-                   !eq(command->wl_word, ".op") &&
+        } else if (!eqc(command->wl_word, ".save") &&
+                   !eqc(command->wl_word, ".op") &&
                    !ciprefix(".meas", command->wl_word) &&
-                   !eq(command->wl_word, ".tf")) {
+                   !eqc(command->wl_word, ".tf")) {
             wl_free(freecom);
             goto bad;
         }

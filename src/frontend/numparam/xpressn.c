@@ -1586,7 +1586,7 @@ nupa_subcktcall(dico_t *dico, const char *s, const char *x,
 
     /* Get the subcircuit name in subname. */
 
-    const char *j2 = strstr(ds_get_buf(&tstr), "subckt");
+    const char *j2 = cistrstr(ds_get_buf(&tstr), "subckt");
     if (j2) {
         j2 = skip_ws(j2 + 6);     /* skip subckt and whitespace */
         pscopy(&subname, j2, skip_non_ws(j2));
@@ -1596,7 +1596,7 @@ nupa_subcktcall(dico_t *dico, const char *s, const char *x,
 
     /* Scan the .subckt line for assignments, copying templates to idlist. */
 
-    const char *i2 = strstr(ds_get_buf(&tstr), "params:");
+    const char *i2 = cistrstr(ds_get_buf(&tstr), "params:");
 
     if (i2) {
         const char* optr, * jptr;
