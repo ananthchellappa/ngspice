@@ -1,0 +1,16 @@
+* upper case H source with a temper expression, under casemode=preserve
+* The CCVS twin of compat-f-temper-case.cir, entered on
+* 'else if (*curr_line == 'h')'.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:6956.
+.OPTIONS noacct
+.options temp=75
+V1 1 0 dc 1
+R1 1 2 1k
+VM 2 0 dc 0
+H1 3 0 VM {2*(temper-27)}
+R2 3 0 1k
+.control
+op
+print v(3)
+.endc
+.end

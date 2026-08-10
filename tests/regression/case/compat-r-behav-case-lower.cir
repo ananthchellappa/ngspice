@@ -1,0 +1,11 @@
+* lower case twin of compat-r-behav-case.cir
+.OPTIONS noacct
+v1 1 0 dc 1
+vc 3 0 dc 2
+r1 1 2 r={1k*v(3)}
+r2 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

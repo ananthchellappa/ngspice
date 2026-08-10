@@ -1,0 +1,14 @@
+* lower case twin of compat-k-mutual-case.cir
+.OPTIONS noacct
+v1 1 0 ac 1
+l1 1 0 1m
+l2 2 0 1m
+l3 3 0 1m
+r2 2 0 1k
+r3 3 0 1k
+k1 l1 l2 l3 0.5
+.control
+ac lin 1 100000 100000
+print vm(2) vm(3)
+.endc
+.end

@@ -1,0 +1,21 @@
+* upper case F source with a temper expression, under casemode=preserve
+* inp_compat()'s F arm rewrites 'Fxxx n1 n2 vnam {equation}' into a
+* B-source triple when the equation mentions 'temper', because a CCCS gain
+* cannot itself be an expression.  The arm was entered on
+* 'else if (*curr_line == 'f')', so under preserve an upper case F card kept
+* the expression as its gain and the parser rejected it.
+* .options temp=75 makes the gain 2*(75-27) = 96, so the number is a witness
+* that the rewrite happened and used the right temperature.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:6909.
+.OPTIONS noacct
+.options temp=75
+V1 1 0 dc 1
+R1 1 2 1k
+VM 2 0 dc 0
+F1 3 0 VM {2*(temper-27)}
+R2 3 0 1k
+.control
+op
+print v(3)
+.endc
+.end

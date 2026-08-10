@@ -1,0 +1,16 @@
+* upper case behavioural capacitor, under casemode=preserve
+* inp_compat()'s C arm turns 'Cxxx n1 n2 C={equation}' into an E/C/B network,
+* and was entered on 'else if (*curr_line == 'c')'.  The AC magnitude at
+* 100 Hz is the witness: with v(3) = 2 the capacitance is 2u and
+* vm(2) = 1/sqrt(1 + (2*pi*f*R*C)^2).
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:7089.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+C1 2 0 C={1u*v(3)}
+VC 3 0 dc 2
+.control
+ac lin 1 100 100
+print vm(2)
+.endc
+.end

@@ -1,0 +1,14 @@
+* upper case behavioural inductor, under casemode=preserve
+* inp_compat()'s L arm turns 'Lxxx n1 n2 L={equation}' into an F/L/B network,
+* and was entered on 'else if (*curr_line == 'l')'.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:7189.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+L1 2 0 L={1m*v(3)}
+VC 3 0 dc 2
+.control
+ac lin 1 100000 100000
+print vm(2)
+.endc
+.end

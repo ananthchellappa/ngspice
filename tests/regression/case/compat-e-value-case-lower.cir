@@ -1,0 +1,10 @@
+* lower case twin of compat-e-value-case.cir
+.OPTIONS noacct
+v1 1 0 dc 2
+e1 2 0 value={v(1)*2}
+r1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

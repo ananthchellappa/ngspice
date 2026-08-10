@@ -1,0 +1,14 @@
+* upper case G source with the PSpice VALUE={} form, under casemode=preserve
+* The G twin of compat-e-value-case.cir: inp_compat() rewrites
+* 'Gxxx n1 n2 VALUE={expr}' into ' cur={expr}', and the arm was entered on
+* 'else if (*curr_line == 'g')'.  Same failure, same shape.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:6665.
+.OPTIONS noacct
+V1 1 0 dc 2
+G1 2 0 VALUE={v(1)*1m}
+R1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

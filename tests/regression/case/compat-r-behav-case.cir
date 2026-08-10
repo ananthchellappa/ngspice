@@ -1,0 +1,19 @@
+* upper case behavioural resistor, under casemode=preserve
+* inp_compat()'s R arm turns 'Rxxx n1 n2 R={equation}' into a B current
+* source, and was entered on 'else if (*curr_line == 'r')'.  Under preserve
+* an upper case R card kept the R={...} token and the parser rejected it.
+* The equation is spelled in lower case on purpose: b_transformation_wanted()
+* (inpcom.c:5974) scans it with a lower-case-only strpbrk set, which is a
+* separate site with its own deck.  This deck isolates the first-character
+* test.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:7007.
+.OPTIONS noacct
+V1 1 0 dc 1
+VC 3 0 dc 2
+R1 1 2 R={1k*v(3)}
+R2 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

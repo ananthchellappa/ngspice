@@ -1,0 +1,20 @@
+* upper case E source with the PSpice VALUE={} form, under casemode=preserve
+* inp_compat()'s E arm rewrites 'Exxx n1 n2 VALUE={expr}' into ' vol={expr}'.
+* The arm was entered on 'if (*curr_line == 'e')', lower case only, so under
+* preserve an upper case E card kept its VALUE= spelling and the parser
+* rejected it:
+*   Error in netlist line no. 4, new internal line no. 3:
+*   E1 2 0 VALUE={v(1)*2}
+* The keyword search inside the arm, search_plain_identifier(curr_line,
+* "value"), was already folded by doc/codex/issues/0013; folding the arm's
+* own first-character test is what makes that fold reachable.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:6385.
+.OPTIONS noacct
+V1 1 0 dc 2
+E1 2 0 VALUE={v(1)*2}
+R1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

@@ -1,0 +1,21 @@
+* upper case three-inductor coupling, under casemode=preserve
+* inp_compat()'s K arm expands 'K1 L1 L2 L3 k' into the three pairwise
+* couplings K1_1_2, K1_1_3 and K1_2_3, because the device itself takes only
+* two inductors.  The arm was entered on 'else if (*curr_line == 'k')', so
+* under preserve the unexpanded card reached the parser:
+*   Error on line 8 or its substitute:
+*   Error: incomplete or empty netlist
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:7248.
+.OPTIONS noacct
+V1 1 0 ac 1
+L1 1 0 1m
+L2 2 0 1m
+L3 3 0 1m
+R2 2 0 1k
+R3 3 0 1k
+K1 L1 L2 L3 0.5
+.control
+ac lin 1 100000 100000
+print vm(2) vm(3)
+.endc
+.end

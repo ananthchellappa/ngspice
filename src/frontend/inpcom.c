@@ -6382,7 +6382,7 @@ static void inp_compat(struct card *card)
         if (*curr_line == '*')
             continue;
 
-        if (*curr_line == 'e') {
+        if (elem_letter(curr_line) == 'e') {
             /*    Exxx n1 n2 VCVS n3 n4 gain --> Exxx n1 n2 n3 n4 gain
                   remove vcvs */
             replace_token(curr_line, "vcvs", 4, 7);
@@ -6662,7 +6662,7 @@ static void inp_compat(struct card *card)
                 tfree(node2);
             }
         }
-        else if (*curr_line == 'g') {
+        else if (elem_letter(curr_line) == 'g') {
             /* Gxxx n1 n2 VCCS n3 n4 tr --> Gxxx n1 n2 n3 n4 tr
                remove vccs */
             replace_token(curr_line, "vccs", 4, 7);
@@ -6906,7 +6906,7 @@ static void inp_compat(struct card *card)
         }
 
         /* F element compatibility */
-        else if (*curr_line == 'f') {
+        else if (elem_letter(curr_line) == 'f') {
             char *equastr, *vnamstr;
             /* Fxxx n1 n2 CCCS vnam gain --> Fxxx n1 n2 vnam gain
                remove cccs */
@@ -6953,7 +6953,7 @@ static void inp_compat(struct card *card)
             }
         }
         /* H element compatibility */
-        else if (*curr_line == 'h') {
+        else if (elem_letter(curr_line) == 'h') {
             char *equastr, *vnamstr;
             /* Hxxx n1 n2 CCVS vnam transres --> Hxxx n1 n2 vnam transres
                remove cccs */
@@ -7004,7 +7004,7 @@ static void inp_compat(struct card *card)
            -->
            BRxxx pos neg I = V(pos, neg)/{equation}
         */
-        else if (*curr_line == 'r') {
+        else if (elem_letter(curr_line) == 'r') {
             cut_line = curr_line;
             /* make BRxxx pos neg I = V(pos, neg)/{equation}*/
             title_tok = gettok(&cut_line);
@@ -7086,7 +7086,7 @@ static void inp_compat(struct card *card)
            Lxxx  n-aux 0        1
            Bxxx  0 n-aux I = equation
         */
-        else if (*curr_line == 'c') {
+        else if (elem_letter(curr_line) == 'c') {
             cut_line = curr_line;
             title_tok = gettok(&cut_line);
             node1 = gettok(&cut_line);
@@ -7186,7 +7186,7 @@ static void inp_compat(struct card *card)
            Lxxx n-aux 0      1
            Bxxx n1 n2 V = v(n-aux) * equation
         */
-        else if (*curr_line == 'l') {
+        else if (elem_letter(curr_line) == 'l') {
             cut_line = curr_line;
             /* title and nodes */
             title_tok = gettok(&cut_line);
@@ -7245,7 +7245,7 @@ static void inp_compat(struct card *card)
            K12 L1 L3 1
            K13 L2 L3 1
          */
-        else if (*curr_line == 'k') {
+        else if (elem_letter(curr_line) == 'k') {
             int tokcount = 0, idx1, idx2;
             char* kinst, **ltok, *couple;
             cut_line = curr_line;
