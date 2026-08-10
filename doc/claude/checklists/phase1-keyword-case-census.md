@@ -128,6 +128,157 @@ So the RED for this phase is `tests/regression/pipe/analysis-keyword-case.cmd`,
 not a `.cir`. The same correction applies to every keyword the plan lists under a
 dot card.
 
+## Status — Phase 1 complete
+
+All 713 keyword sites are converted. The identifier, filename, internal and
+unclear rows are deliberately untouched.
+
+| commit | area | keyword | fold-visible | test |
+| --- | --- | ---: | ---: | --- |
+| `inp2dot.c` | analysis keywords | 39 | 4 | `analysis-keyword-case.cmd` |
+| `options.c` | shell options | 39 | 39 | `options-keyword-case.cmd` |
+| `resource.c` | rusage | 16 | 16 | `resource-keyword-case.cmd` |
+| `spiceif.c` `typesdef.c` | analysis options | 16 | 15 | `spiceif-keyword-case.cmd` |
+| `inpcompat.c` | compatibility modes | 50 | 13 | `inpcompat-keyword-case.cmd` |
+| `plotit.c` `com_hardcopy.c` | plot / hardcopy | 21 | 15 | `plot-keyword-case.cmd` |
+| `breakp.c` `breakp2.c` | breakpoints | 15 | 15 | `breakp-keyword-case.cmd` |
+| `postcoms.c` `outitf.c` | print / write | 13 | 13 | `postcoms-keyword-case.cmd` |
+| `variable.c` `define.c` | shell variables | 11 | 11 | `variable-keyword-case.cmd` |
+| `spec.c` `sndprint.c` | spectrum / sound | 15 | 15 | `spec-keyword-case.cmd` |
+| `device.c` `inpaname.c` | device query | 11 | 9 | `device-keyword-case.cmd` |
+| 5 expression/vector files | let / compose / diff | 17 | 14 | `exprcoms-keyword-case.cmd` |
+| 9 XSPICE files | MIF values, UDN, bridges | 16 | 7 | `xspice-keyword-case.cmd` |
+| 12 cp shell files | shell commands | 138 | 19 | `shell-keyword-case.cmd` |
+| `udevices.c` | PSPICE U devices | 171 | 0 | none, no-op |
+| 14 parser files | cards and parameters | 68 | 0 | none, no-op |
+| 7 frontend files | measure, numparam, dotcards | 57 | 0 | none, no-op |
+
+Two conversions could not be expressed as a token swap and were made by hand:
+`enhtrans.c:557`, which already open-coded a two-spelling `strcmp(tok,"poly")
+&& strcmp(tok,"POLY")` test and now uses one `cieq`, and
+`evtcheck_nodes.c:657`, whose bare `strncmp(setup, ".inc", 4)` is a truthy test
+and became `!cieqn(...)`.
+
+`variable.c` needed more than the census listed. `update_option_variables()`
+dispatches on `sz_var_name[0] - 'a'` through a lowercase-indexed table, with
+bare `sz_var_name[1] != 'o'` and `[2] != 'o'` tests behind it, so an uppercase
+first letter left the switch before any string comparison ran. Those are
+character comparisons, which the census script does not enumerate. They were
+converted with `tolower_c()`; the RED test still failed on `NOGLOB` and
+`NOCLOBBER` until they were. This is the concrete instance of the census limit
+recorded above, and it is the reason that limit is written down rather than
+waved at.
+
+### Fold-visible sites left without a test
+
+The 205 fold-visible keyword rows occupy 195 distinct `file:line` positions.
+The thirteen new `tests/regression/pipe/*-keyword-case.cmd` files carry 113
+assertions, each written against a named site and each proved to fail on the
+tree as it stood before its commit. 86 sites are recorded below with the reason
+no test was written; they were still converted, because the reason is that the
+effect cannot be observed, not that the site is wrong to convert. The
+attribution is the test author's, and for `resource.c` in particular the
+line numbers in the test's comments are the authority rather than this table.
+
+One site is neither covered nor in the table: `inp2dot.c:695`, the `uic` flag
+of `dot_pss()`. `WITH_PSS` is undefined in
+`build-ver_50/src/include/ngspice/config.h`, so that function is not compiled
+and no test can reach it in this configuration.
+
+| site | test group | why no test |
+| --- | --- | --- |
+| `src/frontend/breakp.c:304` | breakp | iplot needs a display device, and DB_IPLOTALL vs DB_IPLOT("all") only changes drawing/warnings; measured identical vectors and 59 rows either way. |
+| `src/frontend/breakp2.c:68` | breakp | nosub: save nosub/NOSUB both store the nodename verbatim and outitf.c:251 matches with cieq, so the saved vector sets are identical. |
+| `src/frontend/breakp2.c:68` | breakp | save: both branches yield DB_SAVE with the same nodename (copynode is identity here) and outitf.c:235 already uses cieq; trace differs only in console text. |
+| `src/frontend/breakp2.c:99` | breakp | Dedupe exemption for 'all': with ALL the second save is dropped, but both cases set saveall, so saved vectors and row counts are identical. |
+| `src/frontend/com_compose.c:260` | exprcoms | needs an XSPICE event node; the pipe suite's tests/bin/spinit loads no code models, and both spellings leave no vector behind |
+| `src/frontend/com_hardcopy.c:62` | plot | Only reached by bare 'hardcopy' (no args), which then blocks on the X click-to-select prompt (hangs) or, headless, aborts and dumps core. |
+| `src/frontend/com_hardcopy.c:67` | plot | Same bare-'hardcopy' branch; the .ps/.svg suffix goes onto a $HOME temp name that is only ever reported in a message, never turned into a readable file. |
+| `src/frontend/define.c:99` | variable | parse.c strtolowers a call name before matching ft_funcs, so a colliding user function is always shadowed; accepting or rejecting the define changes only the me |
+| `src/frontend/diff.c:237` | exprcoms | com_diff only prints text; its sole state change is the internal v_link2 cross-link, which print/let/display never expose |
+| `src/frontend/help/readhelp.c:326` | shell | configure defines NOINTHELP, so com_ghelp calls com_help and never reaches hlp_main/findsubject; no ngspice.idx help index is built or shipped either. |
+| `src/frontend/inpcom.c:2399` | shell | inp_read folds every node position; uppercase reaches this loop only on .lib/.inc paths and whitelisted control text, where matching corrupts rather than fixes. |
+| `src/frontend/inpcom.c:2406` | shell | Same loop, same reason: no card position that means the gnd keyword survives the fold, so a case-insensitive match can only newly hit case-preserved non-node te |
+| `src/frontend/inpcom.c:2420` | shell | KiCad /gnd rewrite, same unguarded loop; the only uppercase it can see is a preserved .lib/.inc path or echo argument, where rewriting is a regression. |
+| `src/frontend/inpcom.c:7779` | shell | Deck .option cards are folded before this scan; uppercase reaches it only inside echo/shell/source text, where firing the rseries rewrite is a regression, not a |
+| `src/frontend/inpcom.c:7780` | shell | Same scan and same reason for the rseries literal: no case-preserved surface is an option card, so no positive assertion exists. |
+| `src/frontend/inpcompat.c:89` | inpcompat | newcompat.ll is never read; grep shows only assignments plus print_compat_mode's diagnostic line, so no value or state depends on it |
+| `src/frontend/inpcompat.c:168` | inpcompat | cut_line is card->line, already lowercased by inp_read; the enclosing gate *cut_line=='e'\|\|'g' itself only matches folded text |
+| `src/frontend/inpcompat.c:187` | inpcompat | same cut_line, which here is neweline rebuilt from the already-folded card text, so uppercase TABLE( can never reach it |
+| `src/frontend/options.c:284` | options | sets cp_debug/ft_*db flags whose only effect is extra diagnostic text; no debug flag is readable back as a value |
+| `src/frontend/options.c:305` | options | ft_acctprint only gates accounting text printed by dotcards.c; harness asserts on exit code only |
+| `src/frontend/options.c:307` | options | ft_noacctprint only suppresses printed accounting/init output (dotcards.c, dctran.c); nothing readable back |
+| `src/frontend/options.c:309` | options | ft_ngdebug only gates informational printouts; no file or state side effect anywhere in the tree |
+| `src/frontend/options.c:311` | options | ft_nginfo is read only by sharedspice.c/winmain.c to print an analysis note; unreachable and unreadable here |
+| `src/frontend/options.c:313` | options | ft_noinitprint only suppresses printed initial-condition and accounting output; no value observable |
+| `src/frontend/options.c:315` | options | ft_norefprint only suppresses the printed reference-value line in outitf.c/dctran.c |
+| `src/frontend/options.c:317` | options | ft_listprint only gates the netlist listing printed by dotcards.c:215 |
+| `src/frontend/options.c:319` | options | ft_nopage only removes form feeds from print/plot page output (postcoms.c, agraf.c) |
+| `src/frontend/options.c:321` | options | ft_nomod only gates the model listing printed by dotcards.c:254 |
+| `src/frontend/options.c:323` | options | ft_nodesprint only gates the node table printed by dotcards.c:423 |
+| `src/frontend/options.c:325` | options | ft_optsprint only gates the option listing printed by dotcards.c:428 |
+| `src/frontend/options.c:329` | options | honouring it calls controlled_exit(EXIT_BAD) at the next error, so a fixed binary exits 1, indistinguishable from failure |
+| `src/frontend/options.c:346` | options | measure_precision only widens printed %.*e output; com_meas stores the result with a hardcoded %e, so no value changes |
+| `src/frontend/options.c:355` | options | cp_numdgt only sets display precision in printnum.c/fourier.c/gnuplot.c; no stored value depends on it |
+| `src/frontend/options.c:471` | options | ft_simdb has no remaining reader in the tree, so setting it changes nothing observable |
+| `src/frontend/options.c:473` | options | cp_debug only makes streams.c/control.c echo parsed wordlists to cp_err; diagnostic text only |
+| `src/frontend/options.c:475` | options | ft_parsedb only gates parse.c/numparse.c diagnostic printouts; parse results are unchanged |
+| `src/frontend/options.c:477` | options | ft_evdb only suppresses renaming a temporary result vector and prints traces; no value or readable state changes |
+| `src/frontend/options.c:479` | options | ft_vecdb only gates vectors.c debug printouts |
+| `src/frontend/options.c:481` | options | ft_grdb only gates plotting/graf.c debug printouts and needs a display device |
+| `src/frontend/options.c:483` | options | ft_controldb only gates a cpitf.c debug printout |
+| `src/frontend/options.c:485` | options | ft_asyncdb only gates an aspice.c printout on the background job path |
+| `src/frontend/options.c:487` | options | ft_shvecsearch is read only by sharedspice.c; libngspice has no harness in tests/ and it only prints |
+| `src/frontend/parse.c:214` | exprcoms | same loop's i(\" arm: I("v1") and i("v1") both evaluate to -2.5e-4; no command exposes pn_name as a readable value |
+| `src/frontend/parse.c:214` | exprcoms | strstr(pn_name,"v(\"") only strips quotes from the parse node display name; print V("/out") and print v("/out") both give 7.5e-01 |
+| `src/frontend/parse.c:253` | exprcoms | eq(v_name,"all") only selects which warning text checkvalid prints; both branches return FALSE, so no value or state differs |
+| `src/frontend/plotting/plotit.c:565` | plot | Recognised 'lingrid' and any unrecognised value both yield GRID_LIN with gfound TRUE; renders byte-identical svg. Only the warning text differs. |
+| `src/frontend/plotting/plotit.c:662` | plot | Recognised 'linplot' and any unrecognised value both yield PLOT_LIN with pfound TRUE; renders byte-identical svg. Only the warning text differs. |
+| `src/frontend/postcoms.c:452` | postcoms | com_sndprint is inside #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE; both undefined in build-ver_50 config.h, so the sndprint command is not registered. |
+| `src/frontend/postcoms.c:455` | postcoms | Same #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE guard; sndprint is not compiled or registered in this build, so the site is unreachable. |
+| `src/frontend/postcoms.c:591` | postcoms | Unrecognised filetype falls back to AsciiRawFile = 0 (binary), so BINARY and a rejected value write identical files; only SPICE_ASCIIRAWFILE flips it, unsettabl |
+| `src/frontend/postcoms.c:1034` | postcoms | pl_typename is never user text: it is the compile-time "const" of static constantplot or ft_plotabbrev's fixed lowercase table plus a digit. |
+| `src/frontend/postcoms.c:1067` | postcoms | Same operand as 1034 in killplot's guard; pl_typename is machine-generated lowercase, so no uppercase value can ever reach this eq(). |
+| `src/frontend/resource.c:219` | resource | NO_RUDATA branch; USE_OMP/HAVE_CLOCK_GETTIME are defined in config.h so this eq(name,"totalcputime") is not compiled. |
+| `src/frontend/resource.c:221` | resource | NO_RUDATA branch; USE_OMP/HAVE_CLOCK_GETTIME are defined in config.h so this eq(name,"cputime") is not compiled. |
+| `src/frontend/resource.c:275` | resource | HAVE_GETRUSAGE is undefined, so the "faults" body is empty; lowercase and uppercase both print only the cp_err note. |
+| `src/frontend/resource.c:322` | resource | PER_DEVICE_STATS is commented out in cktload.c, so devCounts stay 0 and "devtimes" prints nothing; only the cp_err note differs. |
+| `src/frontend/resource.c:340` | resource | CIDER is undefined in config.h, so this eq(name,"circuit") is not compiled into the binary under test. |
+| `src/frontend/resource.c:340` | resource | CIDER is undefined in config.h, so this eq(name,"task") is not compiled into the binary under test. |
+| `src/frontend/resource.c:378` | resource | CIDER is undefined in config.h, so this eq(name,"devices") is not compiled into the binary under test. |
+| `src/frontend/runcoms.c:235` | shell | The else branch also sets ascii=TRUE, so an unmatched value behaves exactly like "ascii"; only the warning text differs and warnings are not assertable. |
+| `src/frontend/runcoms2.c:104` | shell | An unmatched value leaves ascii at AsciiRawFile (FALSE), which is what "binary" selects anyway, so uppercase BINARY already produces the binary append. |
+| `src/frontend/runcoms2.c:106` | shell | Reaching com_resume's filetype block needs an interrupted run plus last_used_rawfile; the stock binary then segfaults on the binary append, so the session dies  |
+| `src/frontend/sndprint.c:214` | spec | snd_format sits inside #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE; both undefined in this build, so `sndparam` is not a registered command |
+| `src/frontend/sndprint.c:215` | spec | same guard, not compiled; even when built the chosen format only reaches the audio file header, with no shell-readable state |
+| `src/frontend/sndprint.c:216` | spec | same guard, not compiled; `sndparam foo.wav 48000 WAV` answers 'sndparam: no such command available in ngspice' |
+| `src/frontend/sndprint.c:217` | spec | same guard, not compiled; no vector or variable records the format, so any assertion would rest on a printed message |
+| `src/frontend/sndprint.c:218` | spec | same guard, not compiled; libsndfile/libsamplerate are absent from the build tree and tests/ has no audio harness |
+| `src/frontend/sndprint.c:219` | spec | same guard, not compiled; the aliki path differs only by an 'info: opened aliki file' diagnostic, which may not be asserted on |
+| `src/frontend/spiceif.c:443` | spiceif | acct sets only stdout print flag ft_acctprint; both spellings return US_OK so cp variable and vector state are identical and nothing is readable back |
+| `src/frontend/spiceif.c:446` | spiceif | noacct sets only stdout print flag ft_noacctprint; both spellings return US_OK, so no variable or vector state differs |
+| `src/frontend/spiceif.c:449` | spiceif | noinit sets only stdout print flag ft_noinitprint (dctran.c:251); both spellings return US_OK, no readable state differs |
+| `src/frontend/spiceif.c:452` | spiceif | norefvalue sets only stdout print flag ft_norefprint (outitf.c, dctran.c); both spellings return US_OK, no readable state differs |
+| `src/frontend/spiceif.c:455` | spiceif | list sets only stdout print flag ft_listprint (dotcards.c:215 netlist listing); both spellings return US_OK, no readable state differs |
+| `src/frontend/spiceif.c:458` | spiceif | ft_nodesprint has no reader at all: its sole consumer at dotcards.c:421 is commented out, so setting it changes nothing observable |
+| `src/frontend/spiceif.c:461` | spiceif | opts sets only stdout print flag ft_optsprint (dotcards.c:428); both spellings return US_OK, no readable state differs |
+| `src/frontend/spiceif.c:464` | spiceif | nopage sets only stdout paging flag ft_nopage (postcoms.c, agraf.c); both spellings return US_OK, no readable state differs |
+| `src/frontend/spiceif.c:467` | spiceif | nomod sets only stdout print flag ft_nomod (dotcards.c:254 model summary); both spellings return US_OK, no readable state differs |
+| `src/frontend/subckt.c:1387` | shell | The sibling arm already compares "POLY", translate() itself emits uppercase POLY(, and a folded deck cannot deliver a third spelling, so merging changes no beha |
+| `src/frontend/variable.c:295` | variable | cp_nonomatch is read only in cp_tildexpand's failure branch; the shell's own tilde expansion never calls it and the reachable callers cannot fail here |
+| `src/frontend/variable.c:301` | variable | readline expands '!' before ngspice sees the line, so cp_histsubst, the only reader of cp_no_histsubst, is unreachable from the pipe harness |
+| `src/frontend/variable.c:311` | variable | cp_maxhistlength only trims the printed history list and stifles readline at exit; no value or state is readable back from the shell |
+| `src/frontend/variable.c:330` | variable | cp_echo only makes pwlist_echo print the parsed word list to stderr; there is no value or state to read back |
+| `src/frontend/variable.c:342` | variable | cp_promptstring only selects the text printed before each input line; the harness asserts on the exit code, never on stdout |
+| `src/frontend/variable.c:353` | variable | cp_program appears only in help text, usage text, the default prompt and error messages; no value or readable state changes |
+| `src/frontend/variable.c:366` | variable | cp_debug only gates diagnostic printing and #ifdef CPDEBUG blocks that are not compiled; it changes no readable value |
+| `src/xspice/evt/evtprint.c:998` | xspice | Unmatched "NONE" falls through to the node loop, which calls set_all(FALSE) before rejecting the word: state identical to lowercase (both measured length 2). |
+
+The recurring reasons are: the flag's only effect is text that
+`tests/bin/check.sh` filters or that the pipe harness discards (it asserts on
+the exit code alone); the code is dead; the site needs a display device; or it
+needs a shared-library harness, which `tests/` does not have at all.
+
 ## Per-file checklist
 
 `fv` marks a keyword row that is fold-visible: converting it changes observable
@@ -139,490 +290,490 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 262 | `eq` | `eq(x->name, name)` | identifier | both operands are pin, node or generated instance names collected from the deck |
 | n/a | 280 | `eq` | `eq(x->name, name)` | identifier | both operands are pin, node or subckt names collected from the deck |
-| [ ] | 417 | `strncmp` | `$d_` | keyword | name is a pin/node token from a U* card; $d_ is the PSPICE reserved digital-node prefix |
-| [ ] | 484 | `strstr` | `optional:` | keyword | copy_line is the .subckt card text; optional: is a PSPICE subckt section keyword |
-| [ ] | 488 | `strstr` | `params:` | keyword | copy_line is the .subckt card text; params: is a subckt section keyword |
-| [ ] | 492 | `strstr` | `text:` | keyword | copy_line is the .subckt card text; text: is a PSPICE subckt section keyword |
-| [ ] | 545 | `eq` | `and` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 546 | `eq` | `anda` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 547 | `eq` | `and3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 548 | `eq` | `and3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 550 | `eq` | `ao` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 551 | `eq` | `aoi` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 556 | `eq` | `buf3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 557 | `eq` | `buf` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 558 | `eq` | `bufa` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 559 | `eq` | `buf3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 563 | `eq` | `dff` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 564 | `eq` | `dltch` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 565 | `eq` | `dlyline` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 570 | `eq` | `inv` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 571 | `eq` | `inv3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 572 | `eq` | `inva` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 573 | `eq` | `inv3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 577 | `eq` | `jkff` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 582 | `eq` | `nand` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 583 | `eq` | `nanda` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 584 | `eq` | `nand3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 585 | `eq` | `nand3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 588 | `eq` | `nor` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 589 | `eq` | `nora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 590 | `eq` | `nor3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 591 | `eq` | `nor3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 594 | `eq` | `nxor` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 595 | `eq` | `nxora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 596 | `eq` | `nxor3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 597 | `eq` | `nxor3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 602 | `eq` | `or` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 603 | `eq` | `ora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 604 | `eq` | `or3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 605 | `eq` | `or3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 607 | `eq` | `oa` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 608 | `eq` | `oai` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 612 | `eq` | `pulldn` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 613 | `eq` | `pullup` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 617 | `eq` | `srff` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
-| [ ] | 622 | `eq` | `xor` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 623 | `eq` | `xora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 624 | `eq` | `xor3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 625 | `eq` | `xor3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
-| [ ] | 858 | `strstr` | `optional:` | keyword | tmp is a copy of the saved .subckt card; optional: is a subckt section keyword |
-| [ ] | 859 | `strstr` | `params:` | keyword | tmp is a copy of the saved .subckt card; params: is a subckt section keyword |
-| [ ] | 897 | `strstr` | `.subckt` | keyword | current_subckt is the saved .subckt deck card; .subckt is a dot-command keyword |
-| [ ] | 1020 | `strncmp` | `.subckt` | keyword | subckt_line is a deck card passed from inpcompat; .subckt is a dot-command keyword |
+| [x] | 417 | `strncmp` | `$d_` | keyword | name is a pin/node token from a U* card; $d_ is the PSPICE reserved digital-node prefix |
+| [x] | 484 | `strstr` | `optional:` | keyword | copy_line is the .subckt card text; optional: is a PSPICE subckt section keyword |
+| [x] | 488 | `strstr` | `params:` | keyword | copy_line is the .subckt card text; params: is a subckt section keyword |
+| [x] | 492 | `strstr` | `text:` | keyword | copy_line is the .subckt card text; text: is a PSPICE subckt section keyword |
+| [x] | 545 | `eq` | `and` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 546 | `eq` | `anda` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 547 | `eq` | `and3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 548 | `eq` | `and3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 550 | `eq` | `ao` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 551 | `eq` | `aoi` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 556 | `eq` | `buf3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 557 | `eq` | `buf` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 558 | `eq` | `bufa` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 559 | `eq` | `buf3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 563 | `eq` | `dff` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 564 | `eq` | `dltch` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 565 | `eq` | `dlyline` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 570 | `eq` | `inv` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 571 | `eq` | `inv3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 572 | `eq` | `inva` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 573 | `eq` | `inv3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 577 | `eq` | `jkff` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 582 | `eq` | `nand` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 583 | `eq` | `nanda` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 584 | `eq` | `nand3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 585 | `eq` | `nand3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 588 | `eq` | `nor` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 589 | `eq` | `nora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 590 | `eq` | `nor3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 591 | `eq` | `nor3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 594 | `eq` | `nxor` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 595 | `eq` | `nxora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 596 | `eq` | `nxor3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 597 | `eq` | `nxor3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 602 | `eq` | `or` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 603 | `eq` | `ora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 604 | `eq` | `or3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 605 | `eq` | `or3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 607 | `eq` | `oa` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 608 | `eq` | `oai` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 612 | `eq` | `pulldn` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 613 | `eq` | `pullup` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 617 | `eq` | `srff` | keyword | itype is the U* instance device-type keyword parsed from the folded deck card |
+| [x] | 622 | `eq` | `xor` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 623 | `eq` | `xora` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 624 | `eq` | `xor3` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 625 | `eq` | `xor3a` | keyword | itype is the U* instance gate-type keyword parsed from the folded deck card |
+| [x] | 858 | `strstr` | `optional:` | keyword | tmp is a copy of the saved .subckt card; optional: is a subckt section keyword |
+| [x] | 859 | `strstr` | `params:` | keyword | tmp is a copy of the saved .subckt card; params: is a subckt section keyword |
+| [x] | 897 | `strstr` | `.subckt` | keyword | current_subckt is the saved .subckt deck card; .subckt is a dot-command keyword |
+| [x] | 1020 | `strncmp` | `.subckt` | keyword | subckt_line is a deck card passed from inpcompat; .subckt is a dot-command keyword |
 | n/a | 1142 | `eq` | `eq(x1->tmodel, x->tmodel)` | identifier | both operands hold user-chosen PSPICE timing model names taken from .model and U* cards |
-| [ ] | 1142 | `eq` | `eq(x1->utype, x->utype)` | keyword | both operands hold the PSPICE model type keyword ugate/utgate/ueff/ugff/udly |
+| [x] | 1142 | `eq` | `eq(x1->utype, x->utype)` | keyword | both operands hold the PSPICE model type keyword ugate/utgate/ueff/ugff/udly |
 | n/a | 1143 | `eq` | `eq(x1->xspice, x->xspice)` | internal | xspice holds internally generated xspice device names (d_dlatch, d_srlatch) or an empty string |
-| [ ] | 1259 | `eq` | `buf3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1260 | `eq` | `inv3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1267 | `eq` | `xor3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1268 | `eq` | `nxor3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1274 | `eq` | `and3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1275 | `eq` | `nand3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1276 | `eq` | `or3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1277 | `eq` | `nor3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1291 | `eq` | `buf3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1292 | `eq` | `inv3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1299 | `eq` | `xor3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1300 | `eq` | `nxor3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1306 | `eq` | `and3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1307 | `eq` | `nand3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1308 | `eq` | `or3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1309 | `eq` | `nor3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1323 | `eq` | `anda` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1324 | `eq` | `nanda` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1325 | `eq` | `ora` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1326 | `eq` | `nora` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1332 | `eq` | `bufa` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1333 | `eq` | `inva` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1340 | `eq` | `xora` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1341 | `eq` | `nxora` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1355 | `eq` | `nand` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1356 | `eq` | `and` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1357 | `eq` | `nor` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1358 | `eq` | `or` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1364 | `eq` | `inv` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1365 | `eq` | `buf` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1372 | `eq` | `xor` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1373 | `eq` | `nxor` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 1387 | `eq` | `aoi` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 1388 | `eq` | `ao` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 1389 | `eq` | `oa` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 1390 | `eq` | `oai` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 1398 | `strncmp` | `and` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
-| [ ] | 1402 | `strncmp` | `nand` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
-| [ ] | 1403 | `strncmp` | `nor` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
-| [ ] | 1404 | `strncmp` | `nxor` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
-| [ ] | 1408 | `strncmp` | `or` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
-| [ ] | 1412 | `strncmp` | `xor` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
+| [x] | 1259 | `eq` | `buf3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1260 | `eq` | `inv3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1267 | `eq` | `xor3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1268 | `eq` | `nxor3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1274 | `eq` | `and3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1275 | `eq` | `nand3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1276 | `eq` | `or3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1277 | `eq` | `nor3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1291 | `eq` | `buf3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1292 | `eq` | `inv3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1299 | `eq` | `xor3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1300 | `eq` | `nxor3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1306 | `eq` | `and3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1307 | `eq` | `nand3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1308 | `eq` | `or3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1309 | `eq` | `nor3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1323 | `eq` | `anda` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1324 | `eq` | `nanda` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1325 | `eq` | `ora` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1326 | `eq` | `nora` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1332 | `eq` | `bufa` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1333 | `eq` | `inva` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1340 | `eq` | `xora` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1341 | `eq` | `nxora` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1355 | `eq` | `nand` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1356 | `eq` | `and` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1357 | `eq` | `nor` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1358 | `eq` | `or` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1364 | `eq` | `inv` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1365 | `eq` | `buf` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1372 | `eq` | `xor` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1373 | `eq` | `nxor` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 1387 | `eq` | `aoi` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 1388 | `eq` | `ao` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 1389 | `eq` | `oa` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 1390 | `eq` | `oai` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 1398 | `strncmp` | `and` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
+| [x] | 1402 | `strncmp` | `nand` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
+| [x] | 1403 | `strncmp` | `nor` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
+| [x] | 1404 | `strncmp` | `nxor` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
+| [x] | 1408 | `strncmp` | `or` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
+| [x] | 1412 | `strncmp` | `xor` | keyword | itype is the U* gate-type keyword; prefix test for vector-input gate families |
 | n/a | 1844 | `eq` | `ugff` | internal | every caller passes a compile-time literal utype (ugate/ueff/ugff/utgate/udly); constant versus constant |
-| [ ] | 1897 | `eq` | `$d_hi` | keyword | preb is the dff prebar node field of the U* card; $d_hi is a reserved node |
-| [ ] | 1897 | `eq` | `$d_nc` | keyword | preb is the dff prebar node field of the U* card; $d_nc is a reserved node |
-| [ ] | 1907 | `eq` | `$d_hi` | keyword | clrb is the dff clrbar node field of the U* card; $d_hi is a reserved node |
-| [ ] | 1907 | `eq` | `$d_nc` | keyword | clrb is the dff clrbar node field of the U* card; $d_nc is a reserved node |
-| [ ] | 1926 | `eq` | `$d_nc` | keyword | qout is a dff q output node from the U* card; $d_nc is a reserved node name |
-| [ ] | 1932 | `eq` | `$d_nc` | keyword | qbout is a dff qbar output node from the U* card; $d_nc is reserved |
-| [ ] | 2010 | `eq` | `$d_hi` | keyword | preb is the jkff prebar node field of the U* card; $d_hi is reserved |
-| [ ] | 2010 | `eq` | `$d_nc` | keyword | preb is the jkff prebar node field of the U* card; $d_nc is reserved |
-| [ ] | 2020 | `eq` | `$d_hi` | keyword | clrb is the jkff clrbar node field of the U* card; $d_hi is reserved |
-| [ ] | 2020 | `eq` | `$d_nc` | keyword | clrb is the jkff clrbar node field of the U* card; $d_nc is reserved |
-| [ ] | 2044 | `eq` | `$d_nc` | keyword | qout is a jkff q output node from the U* card; $d_nc is a reserved node |
-| [ ] | 2050 | `eq` | `$d_nc` | keyword | qbout is a jkff qbar output node from the U* card; $d_nc is reserved |
-| [ ] | 2124 | `eq` | `$d_hi` | keyword | preb is the dltch prebar node field of the U* card; $d_hi is reserved |
-| [ ] | 2124 | `eq` | `$d_nc` | keyword | preb is the dltch prebar node field of the U* card; $d_nc is reserved |
-| [ ] | 2134 | `eq` | `$d_hi` | keyword | clrb is the dltch clrbar node field of the U* card; $d_hi is reserved |
-| [ ] | 2134 | `eq` | `$d_nc` | keyword | clrb is the dltch clrbar node field of the U* card; $d_nc is reserved |
-| [ ] | 2152 | `eq` | `$d_nc` | keyword | qout is a dltch q output node from the U* card; $d_nc is a reserved node |
-| [ ] | 2183 | `eq` | `$d_nc` | keyword | qbout is a dltch qbar output node from the U* card; $d_nc is reserved |
-| [ ] | 2240 | `eq` | `$d_hi` | keyword | preb is the srff prebar node field of the U* card; $d_hi is reserved |
-| [ ] | 2240 | `eq` | `$d_nc` | keyword | preb is the srff prebar node field of the U* card; $d_nc is reserved |
-| [ ] | 2250 | `eq` | `$d_hi` | keyword | clrb is the srff clrbar node field of the U* card; $d_hi is reserved |
-| [ ] | 2250 | `eq` | `$d_nc` | keyword | clrb is the srff clrbar node field of the U* card; $d_nc is reserved |
-| [ ] | 2270 | `eq` | `$d_nc` | keyword | qout is an srff q output node from the U* card; $d_nc is reserved |
-| [ ] | 2301 | `eq` | `$d_nc` | keyword | qbout is an srff qbar output node from the U* card; $d_nc is reserved |
-| [ ] | 2357 | `eq` | `aoi` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 2361 | `eq` | `ao` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 2365 | `eq` | `oai` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 2369 | `eq` | `oa` | keyword | itype is the U* compound-gate type keyword from the instance header |
-| [ ] | 2392 | `eq` | `eq(inarr[k], logic_val)` | keyword | inarr[k] is a deck input node; logic_val is the reserved literal $d_hi or $d_lo |
-| [ ] | 2394 | `eq` | `$d_hi` | keyword | inarr[k] is a compound-gate input node from the U* card; $d_hi is reserved |
-| [ ] | 2400 | `eq` | `$d_lo` | keyword | inarr[k] is a compound-gate input node from the U* card; $d_lo is reserved |
+| [x] | 1897 | `eq` | `$d_hi` | keyword | preb is the dff prebar node field of the U* card; $d_hi is a reserved node |
+| [x] | 1897 | `eq` | `$d_nc` | keyword | preb is the dff prebar node field of the U* card; $d_nc is a reserved node |
+| [x] | 1907 | `eq` | `$d_hi` | keyword | clrb is the dff clrbar node field of the U* card; $d_hi is a reserved node |
+| [x] | 1907 | `eq` | `$d_nc` | keyword | clrb is the dff clrbar node field of the U* card; $d_nc is a reserved node |
+| [x] | 1926 | `eq` | `$d_nc` | keyword | qout is a dff q output node from the U* card; $d_nc is a reserved node name |
+| [x] | 1932 | `eq` | `$d_nc` | keyword | qbout is a dff qbar output node from the U* card; $d_nc is reserved |
+| [x] | 2010 | `eq` | `$d_hi` | keyword | preb is the jkff prebar node field of the U* card; $d_hi is reserved |
+| [x] | 2010 | `eq` | `$d_nc` | keyword | preb is the jkff prebar node field of the U* card; $d_nc is reserved |
+| [x] | 2020 | `eq` | `$d_hi` | keyword | clrb is the jkff clrbar node field of the U* card; $d_hi is reserved |
+| [x] | 2020 | `eq` | `$d_nc` | keyword | clrb is the jkff clrbar node field of the U* card; $d_nc is reserved |
+| [x] | 2044 | `eq` | `$d_nc` | keyword | qout is a jkff q output node from the U* card; $d_nc is a reserved node |
+| [x] | 2050 | `eq` | `$d_nc` | keyword | qbout is a jkff qbar output node from the U* card; $d_nc is reserved |
+| [x] | 2124 | `eq` | `$d_hi` | keyword | preb is the dltch prebar node field of the U* card; $d_hi is reserved |
+| [x] | 2124 | `eq` | `$d_nc` | keyword | preb is the dltch prebar node field of the U* card; $d_nc is reserved |
+| [x] | 2134 | `eq` | `$d_hi` | keyword | clrb is the dltch clrbar node field of the U* card; $d_hi is reserved |
+| [x] | 2134 | `eq` | `$d_nc` | keyword | clrb is the dltch clrbar node field of the U* card; $d_nc is reserved |
+| [x] | 2152 | `eq` | `$d_nc` | keyword | qout is a dltch q output node from the U* card; $d_nc is a reserved node |
+| [x] | 2183 | `eq` | `$d_nc` | keyword | qbout is a dltch qbar output node from the U* card; $d_nc is reserved |
+| [x] | 2240 | `eq` | `$d_hi` | keyword | preb is the srff prebar node field of the U* card; $d_hi is reserved |
+| [x] | 2240 | `eq` | `$d_nc` | keyword | preb is the srff prebar node field of the U* card; $d_nc is reserved |
+| [x] | 2250 | `eq` | `$d_hi` | keyword | clrb is the srff clrbar node field of the U* card; $d_hi is reserved |
+| [x] | 2250 | `eq` | `$d_nc` | keyword | clrb is the srff clrbar node field of the U* card; $d_nc is reserved |
+| [x] | 2270 | `eq` | `$d_nc` | keyword | qout is an srff q output node from the U* card; $d_nc is reserved |
+| [x] | 2301 | `eq` | `$d_nc` | keyword | qbout is an srff qbar output node from the U* card; $d_nc is reserved |
+| [x] | 2357 | `eq` | `aoi` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 2361 | `eq` | `ao` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 2365 | `eq` | `oai` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 2369 | `eq` | `oa` | keyword | itype is the U* compound-gate type keyword from the instance header |
+| [x] | 2392 | `eq` | `eq(inarr[k], logic_val)` | keyword | inarr[k] is a deck input node; logic_val is the reserved literal $d_hi or $d_lo |
+| [x] | 2394 | `eq` | `$d_hi` | keyword | inarr[k] is a compound-gate input node from the U* card; $d_hi is reserved |
+| [x] | 2400 | `eq` | `$d_lo` | keyword | inarr[k] is a compound-gate input node from the U* card; $d_lo is reserved |
 | n/a | 2430 | `eq` | `d_or` | internal | ingates was set to literal d_and or d_or earlier in this function; constant versus constant |
-| [ ] | 2541 | `eq` | `inv3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 2545 | `eq` | `buf3` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 2673 | `eq` | `inv3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 2677 | `eq` | `buf3a` | keyword | itype is the U* gate-type keyword from the instance header |
-| [ ] | 2830 | `strstr` | `strstr(rem, param_name)` | keyword | rem is the .model card remainder; param_name is a built-in delay parameter name like tplhmn |
-| [ ] | 2937 | `eq` | `eq(unitsmin, unitsmax)` | keyword | both operands are units suffix words (ns, ps) left by strtof on deck delay values |
-| [ ] | 3031 | `eq` | `eq(units1, units2)` | keyword | both operands are units suffix words (ns, ps) left by strtof on deck delay values |
+| [x] | 2541 | `eq` | `inv3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 2545 | `eq` | `buf3` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 2673 | `eq` | `inv3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 2677 | `eq` | `buf3a` | keyword | itype is the U* gate-type keyword from the instance header |
+| [x] | 2830 | `strstr` | `strstr(rem, param_name)` | keyword | rem is the .model card remainder; param_name is a built-in delay parameter name like tplhmn |
+| [x] | 2937 | `eq` | `eq(unitsmin, unitsmax)` | keyword | both operands are units suffix words (ns, ps) left by strtof on deck delay values |
+| [x] | 3031 | `eq` | `eq(units1, units2)` | keyword | both operands are units suffix words (ns, ps) left by strtof on deck delay values |
 | n/a | 3288 | `eq` | `d_dlatch` | internal | d_name is only ever passed the literals d_dlatch/d_srlatch by u_process_model; constant versus constant |
 | n/a | 3290 | `eq` | `d_srlatch` | internal | d_name is only ever passed the literals d_dlatch/d_srlatch by u_process_model; constant versus constant |
-| [ ] | 3426 | `eq` | `ugate` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
-| [ ] | 3431 | `eq` | `utgate` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
-| [ ] | 3436 | `eq` | `ueff` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
-| [ ] | 3441 | `eq` | `ugff` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
-| [ ] | 3450 | `eq` | `uio` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
-| [ ] | 3454 | `eq` | `udly` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
-| [ ] | 3476 | `eq` | `$d_hi` | keyword | tok_str is a node field token of the U* card; $d_hi is a reserved node name |
-| [ ] | 3480 | `eq` | `$d_lo` | keyword | tok_str is a node field token of the U* card; $d_lo is a reserved node name |
-| [ ] | 3556 | `eq` | `$d_nc` | keyword | arrp[i] is a dff d-input node from the U* card; $d_nc is a reserved node |
-| [ ] | 3562 | `eq` | `$d_nc` | keyword | dffip->clk is the clock node field of the U* dff card; $d_nc is reserved |
-| [ ] | 3645 | `eq` | `$d_nc` | keyword | arrp[i] is a dltch d-input node from the U* card; $d_nc is reserved |
-| [ ] | 3651 | `eq` | `$d_nc` | keyword | dlp->gate is the gate node field of the U* dltch card; $d_nc is reserved |
-| [ ] | 3743 | `eq` | `$d_nc (arrp[i])` | keyword | arrp[i] is a jkff j-input node from the U* card; $d_nc is reserved |
-| [ ] | 3743 | `eq` | `$d_nc (arrpk[i])` | keyword | arrpk[i] is a jkff k-input node from the U* card; $d_nc is reserved |
-| [ ] | 3749 | `eq` | `$d_nc` | keyword | jkffip->clkbar is the clock node field of the U* jkff card; $d_nc is reserved |
-| [ ] | 3844 | `eq` | `$d_nc (arrp[i])` | keyword | arrp[i] is an srff s-input node from the U* card; $d_nc is reserved |
-| [ ] | 3844 | `eq` | `$d_nc (arrpr[i])` | keyword | arrpr[i] is an srff r-input node from the U* card; $d_nc is reserved |
-| [ ] | 3850 | `eq` | `$d_nc` | keyword | srffp->gate is the gate node field of the U* srff card; $d_nc is reserved |
-| [ ] | 4246 | `eq` | `dff` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4253 | `eq` | `jkff` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4260 | `eq` | `srff` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4267 | `eq` | `dltch` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4336 | `eq` | `logicexp` | keyword | itype is the U* instance device-type keyword; logicexp is a PSPICE behavioural device |
-| [ ] | 4336 | `eq` | `pindly` | keyword | itype is the U* instance device-type keyword; pindly is a PSPICE behavioural device |
-| [ ] | 4337 | `eq` | `constraint` | keyword | itype is the U* instance device-type keyword; constraint is a PSPICE device type |
-| [ ] | 4369 | `strstr` | `optional:` | keyword | subckt_line is a .subckt deck card; optional: is a PSPICE subckt section keyword |
+| [x] | 3426 | `eq` | `ugate` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
+| [x] | 3431 | `eq` | `utgate` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
+| [x] | 3436 | `eq` | `ueff` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
+| [x] | 3441 | `eq` | `ugff` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
+| [x] | 3450 | `eq` | `uio` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
+| [x] | 3454 | `eq` | `udly` | keyword | utype is the model-type token of a PSPICE .model timing card in the deck |
+| [x] | 3476 | `eq` | `$d_hi` | keyword | tok_str is a node field token of the U* card; $d_hi is a reserved node name |
+| [x] | 3480 | `eq` | `$d_lo` | keyword | tok_str is a node field token of the U* card; $d_lo is a reserved node name |
+| [x] | 3556 | `eq` | `$d_nc` | keyword | arrp[i] is a dff d-input node from the U* card; $d_nc is a reserved node |
+| [x] | 3562 | `eq` | `$d_nc` | keyword | dffip->clk is the clock node field of the U* dff card; $d_nc is reserved |
+| [x] | 3645 | `eq` | `$d_nc` | keyword | arrp[i] is a dltch d-input node from the U* card; $d_nc is reserved |
+| [x] | 3651 | `eq` | `$d_nc` | keyword | dlp->gate is the gate node field of the U* dltch card; $d_nc is reserved |
+| [x] | 3743 | `eq` | `$d_nc (arrp[i])` | keyword | arrp[i] is a jkff j-input node from the U* card; $d_nc is reserved |
+| [x] | 3743 | `eq` | `$d_nc (arrpk[i])` | keyword | arrpk[i] is a jkff k-input node from the U* card; $d_nc is reserved |
+| [x] | 3749 | `eq` | `$d_nc` | keyword | jkffip->clkbar is the clock node field of the U* jkff card; $d_nc is reserved |
+| [x] | 3844 | `eq` | `$d_nc (arrp[i])` | keyword | arrp[i] is an srff s-input node from the U* card; $d_nc is reserved |
+| [x] | 3844 | `eq` | `$d_nc (arrpr[i])` | keyword | arrpr[i] is an srff r-input node from the U* card; $d_nc is reserved |
+| [x] | 3850 | `eq` | `$d_nc` | keyword | srffp->gate is the gate node field of the U* srff card; $d_nc is reserved |
+| [x] | 4246 | `eq` | `dff` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4253 | `eq` | `jkff` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4260 | `eq` | `srff` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4267 | `eq` | `dltch` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4336 | `eq` | `logicexp` | keyword | itype is the U* instance device-type keyword; logicexp is a PSPICE behavioural device |
+| [x] | 4336 | `eq` | `pindly` | keyword | itype is the U* instance device-type keyword; pindly is a PSPICE behavioural device |
+| [x] | 4337 | `eq` | `constraint` | keyword | itype is the U* instance device-type keyword; constraint is a PSPICE device type |
+| [x] | 4369 | `strstr` | `optional:` | keyword | subckt_line is a .subckt deck card; optional: is a PSPICE subckt section keyword |
 | n/a | 4398 | `strstr` | `strstr(str, x->name)` | identifier | x->name is a subckt name from a .subckt card; str is the X* instance line |
 | n/a | 4403 | `eq` | `eq(tok, x->name)` | identifier | both operands are subckt names taken from .subckt cards and X* instance lines |
-| [ ] | 4431 | `strncmp` | `dpwr ` | keyword | s scans an X* instance line; dpwr is the PSPICE reserved digital power pin name |
-| [ ] | 4433 | `strncmp` | `dgnd ` | keyword | s scans an X* instance line; dgnd is the PSPICE reserved digital ground pin name |
+| [x] | 4431 | `strncmp` | `dpwr ` | keyword | s scans an X* instance line; dpwr is the PSPICE reserved digital power pin name |
+| [x] | 4433 | `strncmp` | `dgnd ` | keyword | s scans an X* instance line; dgnd is the PSPICE reserved digital ground pin name |
 | n/a | 4435 | `strncmp` | `vdd ` | identifier | (overturned) remove_optional() deletes whitespace-delimited tokens from an X* subckt-instance line: `} else if (strncmp(s, "vdd ", 4) == 0) { s += 3;`. Unlike DPWR |
 | n/a | 4437 | `strncmp` | `vss ` | identifier | (overturned) Same site and same defect as line 4435: `} else if (strncmp(s, "vss ", 4) == 0) { s += 3;` in remove_optional(). `vss` is a conventional user net name |
-| [ ] | 4504 | `eq` | `logicexp` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4519 | `eq` | `pindly` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4534 | `eq` | `constraint` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4557 | `eq` | `dff` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4557 | `eq` | `jkff` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4558 | `eq` | `dltch` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4558 | `eq` | `srff` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4560 | `eq` | `pullup` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4560 | `eq` | `pulldn` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4562 | `eq` | `dlyline` | keyword | itype is the U* instance device-type keyword from the instance header |
-| [ ] | 4608 | `strncmp` | `.model ` | keyword | line is a deck card passed from inpcompat; .model is a dot-command keyword |
+| [x] | 4504 | `eq` | `logicexp` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4519 | `eq` | `pindly` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4534 | `eq` | `constraint` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4557 | `eq` | `dff` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4557 | `eq` | `jkff` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4558 | `eq` | `dltch` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4558 | `eq` | `srff` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4560 | `eq` | `pullup` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4560 | `eq` | `pulldn` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4562 | `eq` | `dlyline` | keyword | itype is the U* instance device-type keyword from the instance header |
+| [x] | 4608 | `strncmp` | `.model ` | keyword | line is a deck card passed from inpcompat; .model is a dot-command keyword |
 
 ### `src/frontend/inpcom.c` — 81 keyword, 5 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 385 | `strstr` | `ic.file` | keyword | str is the local literal "ic.file", a CIDER parameter keyword; s is a lower-cased copy |
-| [ ] | 406 | `strstr` | `numos` | keyword | CIDER model type name; s is make_lower_case_copy of the .model card |
-| [ ] | 406 | `strstr` | `numd` | keyword | CIDER model type name; s is make_lower_case_copy of the .model card |
-| [ ] | 406 | `strstr` | `nbjt` | keyword | CIDER model type name; s is make_lower_case_copy of the .model card |
-| [ ] | 429 | `strstr` | `filesource` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 429 | `strstr` | `table2d` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 429 | `strstr` | `table3d` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 430 | `strstr` | `d_state` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 430 | `strstr` | `d_source` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 430 | `strstr` | `d_process` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 430 | `strstr` | `d_cosim` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
-| [ ] | 965 | `strstr` | ` w=` | keyword | Instance parameter keyword on a folded X card; loop skips .control and requires leading 'x' |
-| [ ] | 980 | `strstr` | ` l=` | keyword | Instance parameter keyword on a folded X card; loop skips .control and requires leading 'x' |
-| [ ] | 994 | `strstr` | ` nf=` | keyword | Instance parameter keyword on a folded X card; loop skips .control and requires leading 'x' |
-| [ ] | 1866 | `strncmp` | `sourcepath` | keyword | Reserved control-shell variable name; 'set' is not whitelisted so the buffer was already folded |
-| [ ] | 2399 | `strstr` | `gnd` | keyword **fv** | Ground node keyword; loop has no .control skip, so case-preserving echo/write/shell lines are scanned |
-| [ ] | 2406 | `strstr` | `gnd` | keyword **fv** | Ground node keyword; same loop rewrites any card, including case-preserved .control and .lib text |
-| [ ] | 2420 | `strstr` | `/gnd` | keyword **fv** | KiCad local ground keyword; same unguarded loop, case-preserved control lines can reach it |
-| [ ] | 2467 | `strstr` | `nand(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
-| [ ] | 2468 | `strstr` | `and(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
-| [ ] | 2469 | `strstr` | `nor(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
-| [ ] | 2470 | `strstr` | `or(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
-| [ ] | 2622 | `strstr` | `freq` | keyword | E/G source FREQ syntax keyword; operand is a folded e/g device card, .control skipped |
-| [ ] | 2697 | `strcmp` | `mag` | keyword | FREQ table format keyword parsed from a folded e/g card token |
-| [ ] | 2700 | `strcmp` | `db` | keyword | FREQ table format keyword parsed from a folded e/g card token |
-| [ ] | 2703 | `strcmp` | `rad` | keyword | FREQ table format keyword parsed from a folded e/g card token |
-| [ ] | 2706 | `strcmp` | `deg` | keyword | FREQ table format keyword parsed from a folded e/g card token |
-| [ ] | 2709 | `strcmp` | `r_i` | keyword | FREQ table format keyword parsed from a folded e/g card token |
+| [x] | 385 | `strstr` | `ic.file` | keyword | str is the local literal "ic.file", a CIDER parameter keyword; s is a lower-cased copy |
+| [x] | 406 | `strstr` | `numos` | keyword | CIDER model type name; s is make_lower_case_copy of the .model card |
+| [x] | 406 | `strstr` | `numd` | keyword | CIDER model type name; s is make_lower_case_copy of the .model card |
+| [x] | 406 | `strstr` | `nbjt` | keyword | CIDER model type name; s is make_lower_case_copy of the .model card |
+| [x] | 429 | `strstr` | `filesource` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 429 | `strstr` | `table2d` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 429 | `strstr` | `table3d` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 430 | `strstr` | `d_state` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 430 | `strstr` | `d_source` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 430 | `strstr` | `d_process` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 430 | `strstr` | `d_cosim` | keyword | XSPICE code model type name; s is an explicitly lower-cased copy of the buffer |
+| [x] | 965 | `strstr` | ` w=` | keyword | Instance parameter keyword on a folded X card; loop skips .control and requires leading 'x' |
+| [x] | 980 | `strstr` | ` l=` | keyword | Instance parameter keyword on a folded X card; loop skips .control and requires leading 'x' |
+| [x] | 994 | `strstr` | ` nf=` | keyword | Instance parameter keyword on a folded X card; loop skips .control and requires leading 'x' |
+| [x] | 1866 | `strncmp` | `sourcepath` | keyword | Reserved control-shell variable name; 'set' is not whitelisted so the buffer was already folded |
+| [x] | 2399 | `strstr` | `gnd` | keyword **fv** | Ground node keyword; loop has no .control skip, so case-preserving echo/write/shell lines are scanned |
+| [x] | 2406 | `strstr` | `gnd` | keyword **fv** | Ground node keyword; same loop rewrites any card, including case-preserved .control and .lib text |
+| [x] | 2420 | `strstr` | `/gnd` | keyword **fv** | KiCad local ground keyword; same unguarded loop, case-preserved control lines can reach it |
+| [x] | 2467 | `strstr` | `nand(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
+| [x] | 2468 | `strstr` | `and(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
+| [x] | 2469 | `strstr` | `nor(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
+| [x] | 2470 | `strstr` | `or(` | keyword | Multi-input VCVS gate function keyword; caller skips .control and requires an 'e' card |
+| [x] | 2622 | `strstr` | `freq` | keyword | E/G source FREQ syntax keyword; operand is a folded e/g device card, .control skipped |
+| [x] | 2697 | `strcmp` | `mag` | keyword | FREQ table format keyword parsed from a folded e/g card token |
+| [x] | 2700 | `strcmp` | `db` | keyword | FREQ table format keyword parsed from a folded e/g card token |
+| [x] | 2703 | `strcmp` | `rad` | keyword | FREQ table format keyword parsed from a folded e/g card token |
+| [x] | 2706 | `strcmp` | `deg` | keyword | FREQ table format keyword parsed from a folded e/g card token |
+| [x] | 2709 | `strcmp` | `r_i` | keyword | FREQ table format keyword parsed from a folded e/g card token |
 | n/a | 3086 | `eq` |  | internal | st is strtod's endptr into s; equality just detects a failed numeric conversion |
 | n/a | 3168 | `strcmp` |  | identifier | Both operands are subckt or model instance names collected from folded deck cards |
 | n/a | 3246 | `strcmp` |  | identifier | Subcircuit name from a .subckt card compared with a requested subckt name |
-| [ ] | 3522 | `strstr` | `file="` | keyword | Code model file parameter keyword; inp_read folds everything outside the quoted pair on such .model cards |
+| [x] | 3522 | `strstr` | `file="` | keyword | Code model file parameter keyword; inp_read folds everything outside the quoted pair on such .model cards |
 | n/a | 3742 | `strcmp` |  | identifier | Names list holds subckt names carrying params; both operands are user-chosen subckt names |
-| [ ] | 3756 | `strstr` | `params:` | keyword | Subckt parameter-list keyword on a folded .subckt card; caller skips .control and .lib |
-| [ ] | 3928 | `strstr` | `params:` | keyword | Subckt parameter-list keyword; loop skips .control and .lib, so line is folded |
+| [x] | 3756 | `strstr` | `params:` | keyword | Subckt parameter-list keyword on a folded .subckt card; caller skips .control and .lib |
+| [x] | 3928 | `strstr` | `params:` | keyword | Subckt parameter-list keyword; loop skips .control and .lib, so line is folded |
 | n/a | 4195 | `strcmp` |  | identifier | Both operands are user-chosen parameter names from .subckt and X instance lines |
-| [ ] | 4230 | `strcmp` | `m` | keyword | Multiplier parameter keyword; names were tokenised from folded X or .subckt cards |
-| [ ] | 4253 | `strstr` | `params:` | keyword | Subckt parameter-list keyword on a folded .subckt card reached via an x invocation |
-| [ ] | 4289 | `strstr` | ` m=` | keyword | Multiplier parameter keyword on folded instance lines inside a subcircuit body |
+| [x] | 4230 | `strcmp` | `m` | keyword | Multiplier parameter keyword; names were tokenised from folded X or .subckt cards |
+| [x] | 4253 | `strstr` | `params:` | keyword | Subckt parameter-list keyword on a folded .subckt card reached via an x invocation |
+| [x] | 4289 | `strstr` | ` m=` | keyword | Multiplier parameter keyword on folded instance lines inside a subcircuit body |
 | n/a | 4446 | `strcmp` |  | identifier | f->name and name are user-defined .func names from folded deck cards |
 | n/a | 4618 | `strncmp` |  | identifier | fcn->params[i] are user-chosen .func formal argument names |
-| [ ] | 4998 | `strstr` | `numos` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
-| [ ] | 4998 | `strstr` | `numd` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
-| [ ] | 4999 | `strstr` | `nbjt` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
-| [ ] | 4999 | `strstr` | `nbjt2` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
-| [ ] | 5000 | `strstr` | `numd2` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
-| [ ] | 5005 | `strstr` | `ic.file` | keyword | CIDER instance parameter keyword; only the quoted filename keeps case, the keyword itself is folded |
+| [x] | 4998 | `strstr` | `numos` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
+| [x] | 4998 | `strstr` | `numd` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
+| [x] | 4999 | `strstr` | `nbjt` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
+| [x] | 4999 | `strstr` | `nbjt2` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
+| [x] | 5000 | `strstr` | `numd2` | keyword | CIDER model type name; loop skips .control and the .model card is folded outside quotes |
+| [x] | 5005 | `strstr` | `ic.file` | keyword | CIDER instance parameter keyword; only the quoted filename keeps case, the keyword itself is folded |
 | n/a | 5535 | `strcmp` |  | identifier | Both operands are user-chosen .param names extracted from folded param cards |
-| [ ] | 5620 | `strstr` | `params:` | keyword | Subckt parameter-list keyword on a folded .subckt card |
-| [ ] | 5883 | `strncmp` | `v(` | keyword | B-source expression function keyword; operand is a folded R/C/L device card from inp_compat |
-| [ ] | 5883 | `strncmp` | `i(` | keyword | B-source expression function keyword; operand is a folded R/C/L device card from inp_compat |
-| [ ] | 5885 | `strncmp` | `temper` | keyword | Built-in expression variable keyword; operand is a folded device card |
-| [ ] | 5887 | `strncmp` | `hertz` | keyword | Built-in expression variable keyword; operand is a folded device card |
-| [ ] | 5889 | `strncmp` | `time` | keyword | Built-in expression variable keyword; operand is a folded device card |
+| [x] | 5620 | `strstr` | `params:` | keyword | Subckt parameter-list keyword on a folded .subckt card |
+| [x] | 5883 | `strncmp` | `v(` | keyword | B-source expression function keyword; operand is a folded R/C/L device card from inp_compat |
+| [x] | 5883 | `strncmp` | `i(` | keyword | B-source expression function keyword; operand is a folded R/C/L device card from inp_compat |
+| [x] | 5885 | `strncmp` | `temper` | keyword | Built-in expression variable keyword; operand is a folded device card |
+| [x] | 5887 | `strncmp` | `hertz` | keyword | Built-in expression variable keyword; operand is a folded device card |
+| [x] | 5889 | `strncmp` | `time` | keyword | Built-in expression variable keyword; operand is a folded device card |
 | n/a | 5900 | `strstr` |  | unclear | (overturned) The compared text is the `identifier` PARAMETER of the shared helper search_identifier(), not a literal, so its class depends on the caller. At inpcom |
 | n/a | 5926 | `strstr` |  | identifier | Sole caller (line 8589) passes deps[i].param_name, a user-chosen .param name |
 | n/a | 5954 | `strstr` |  | unclear | (overturned) Same mixed-helper problem in search_plain_identifier(). inp_sort_params calls it with a user-chosen parameter name: line 5545 `char *param = deps[i].p |
-| [ ] | 5981 | `strstr` | `tc1=` | keyword | Temperature coefficient parameter keyword; line comes from inp_compat which skips .control |
-| [ ] | 6013 | `strstr` | `tc2=` | keyword | Temperature coefficient parameter keyword; line comes from inp_compat which skips .control |
-| [ ] | 6058 | `strstr` | ` m=` | keyword | Multiplier parameter keyword on a folded R/C/L card passed in by inp_compat |
-| [ ] | 6100 | `strstr` | ` m=` | keyword | Multiplier parameter keyword on a folded R/C/L card passed in by inp_compat |
-| [ ] | 6475 | `prefix` | `vol` | keyword | E-source VOL= syntax keyword; inp_compat skips .control and comment cards |
-| [ ] | 6565 | `strstr` | `m=` | keyword | Multiplier parameter keyword on a folded g card inside inp_compat |
-| [ ] | 6705 | `prefix` | `cur` | keyword | G-source CUR= syntax keyword; inp_compat skips .control and comment cards |
-| [ ] | 6722 | `strstr` | `m=` | keyword | Multiplier parameter keyword on a folded g card inside inp_compat |
-| [ ] | 6887 | `strstr` | `noisy=1` | keyword | Resistor instance parameter keyword plus value on a folded r card |
-| [ ] | 6887 | `strstr` | `noise=1` | keyword | Resistor instance parameter keyword plus value on a folded r card |
-| [ ] | 6889 | `strstr` | `noisy=0` | keyword | Resistor instance parameter keyword plus value on a folded r card |
-| [ ] | 6889 | `strstr` | `noise=0` | keyword | Resistor instance parameter keyword plus value on a folded r card |
-| [ ] | 6940 | `strstr` | `q=` | keyword | Capacitor charge-formulation parameter keyword on a folded c card |
-| [ ] | 6963 | `strstr` | `q=` | keyword | Capacitor charge-formulation parameter keyword on a folded c card |
-| [ ] | 7135 | `strstr` | `.probe` | keyword | Dot-command keyword rewritten to .save; inp_compat skips .control, card starts with '.' |
-| [ ] | 7184 | `strstr` | `par(` | keyword | Language function keyword on a folded .meas card inside inp_compat |
-| [ ] | 7188 | `strstr` | `par(` | keyword | Language function keyword on a folded .meas card inside inp_compat |
-| [ ] | 7284 | `strstr` | `par(` | keyword | Language function keyword on folded .save/.four/.print/.plot cards |
-| [ ] | 7288 | `strstr` | `par(` | keyword | Language function keyword on folded .save/.four/.print/.plot cards |
-| [ ] | 7393 | `strstr` |  | keyword | All four callers pass device-type keywords vcvs/vccs/cccs/ccvs on folded e,g,f,h cards |
-| [ ] | 7454 | `strstr` | `=pwl(` | keyword | B-source PWL function keyword; inp_bsource_compat skips .control and requires a 'b' card |
-| [ ] | 7518 | `prefix` | `.model` | keyword | Dot-command keyword; inp_temper_compat skips .control, so curr_line is folded |
-| [ ] | 7521 | `strstr` | `temper` | keyword | Built-in temperature variable keyword; inp_temper_compat skips .control sections |
-| [ ] | 7779 | `strstr` | `option` | keyword **fv** | Dot-command keyword, but this scan loop has no .control skip; case-preserved echo/shell lines pass through |
-| [ ] | 7780 | `strstr` | `rseries` | keyword **fv** | Option name; same unguarded loop, so case-preserved .control or .lib text can reach it |
-| [ ] | 7863 | `strstr` | `params:` | keyword | Subckt parameter-list keyword; branch is gated on ciprefix(".subckt"), so line is folded |
-| [ ] | 8227 | `prefix` | `.para` | keyword | Dot-command keyword; new_str derives from a folded .param card, .control skipped upstream |
-| [ ] | 8682 | `strncmp` | `vdmos` | keyword | Model type name on a .model card; deck lines are folded by inp_read |
-| [ ] | 8746 | `strstr` | `thermal` | keyword | VDMOS instance flag keyword; branch requires leading 'm', no whitelisted control command starts with m |
-| [ ] | 8872 | `strstr` | `i(` | keyword | Current-measure operator keyword; inp_meas_current skips .control and comment cards |
-| [ ] | 8878 | `strstr` | `i(` | keyword | Current-measure operator keyword scanned repeatedly in the same folded deck line |
-| [ ] | 8987 | `eq` | `.ends` | keyword | Dot-command keyword compared with the first token of a folded deck card |
+| [x] | 5981 | `strstr` | `tc1=` | keyword | Temperature coefficient parameter keyword; line comes from inp_compat which skips .control |
+| [x] | 6013 | `strstr` | `tc2=` | keyword | Temperature coefficient parameter keyword; line comes from inp_compat which skips .control |
+| [x] | 6058 | `strstr` | ` m=` | keyword | Multiplier parameter keyword on a folded R/C/L card passed in by inp_compat |
+| [x] | 6100 | `strstr` | ` m=` | keyword | Multiplier parameter keyword on a folded R/C/L card passed in by inp_compat |
+| [x] | 6475 | `prefix` | `vol` | keyword | E-source VOL= syntax keyword; inp_compat skips .control and comment cards |
+| [x] | 6565 | `strstr` | `m=` | keyword | Multiplier parameter keyword on a folded g card inside inp_compat |
+| [x] | 6705 | `prefix` | `cur` | keyword | G-source CUR= syntax keyword; inp_compat skips .control and comment cards |
+| [x] | 6722 | `strstr` | `m=` | keyword | Multiplier parameter keyword on a folded g card inside inp_compat |
+| [x] | 6887 | `strstr` | `noisy=1` | keyword | Resistor instance parameter keyword plus value on a folded r card |
+| [x] | 6887 | `strstr` | `noise=1` | keyword | Resistor instance parameter keyword plus value on a folded r card |
+| [x] | 6889 | `strstr` | `noisy=0` | keyword | Resistor instance parameter keyword plus value on a folded r card |
+| [x] | 6889 | `strstr` | `noise=0` | keyword | Resistor instance parameter keyword plus value on a folded r card |
+| [x] | 6940 | `strstr` | `q=` | keyword | Capacitor charge-formulation parameter keyword on a folded c card |
+| [x] | 6963 | `strstr` | `q=` | keyword | Capacitor charge-formulation parameter keyword on a folded c card |
+| [x] | 7135 | `strstr` | `.probe` | keyword | Dot-command keyword rewritten to .save; inp_compat skips .control, card starts with '.' |
+| [x] | 7184 | `strstr` | `par(` | keyword | Language function keyword on a folded .meas card inside inp_compat |
+| [x] | 7188 | `strstr` | `par(` | keyword | Language function keyword on a folded .meas card inside inp_compat |
+| [x] | 7284 | `strstr` | `par(` | keyword | Language function keyword on folded .save/.four/.print/.plot cards |
+| [x] | 7288 | `strstr` | `par(` | keyword | Language function keyword on folded .save/.four/.print/.plot cards |
+| [x] | 7393 | `strstr` |  | keyword | All four callers pass device-type keywords vcvs/vccs/cccs/ccvs on folded e,g,f,h cards |
+| [x] | 7454 | `strstr` | `=pwl(` | keyword | B-source PWL function keyword; inp_bsource_compat skips .control and requires a 'b' card |
+| [x] | 7518 | `prefix` | `.model` | keyword | Dot-command keyword; inp_temper_compat skips .control, so curr_line is folded |
+| [x] | 7521 | `strstr` | `temper` | keyword | Built-in temperature variable keyword; inp_temper_compat skips .control sections |
+| [x] | 7779 | `strstr` | `option` | keyword **fv** | Dot-command keyword, but this scan loop has no .control skip; case-preserved echo/shell lines pass through |
+| [x] | 7780 | `strstr` | `rseries` | keyword **fv** | Option name; same unguarded loop, so case-preserved .control or .lib text can reach it |
+| [x] | 7863 | `strstr` | `params:` | keyword | Subckt parameter-list keyword; branch is gated on ciprefix(".subckt"), so line is folded |
+| [x] | 8227 | `prefix` | `.para` | keyword | Dot-command keyword; new_str derives from a folded .param card, .control skipped upstream |
+| [x] | 8682 | `strncmp` | `vdmos` | keyword | Model type name on a .model card; deck lines are folded by inp_read |
+| [x] | 8746 | `strstr` | `thermal` | keyword | VDMOS instance flag keyword; branch requires leading 'm', no whitelisted control command starts with m |
+| [x] | 8872 | `strstr` | `i(` | keyword | Current-measure operator keyword; inp_meas_current skips .control and comment cards |
+| [x] | 8878 | `strstr` | `i(` | keyword | Current-measure operator keyword scanned repeatedly in the same folded deck line |
+| [x] | 8987 | `eq` | `.ends` | keyword | Dot-command keyword compared with the first token of a folded deck card |
 | n/a | 8991 | `eq` |  | identifier | rep->rtoken is a device instance name taken from i(xyz); tok is the card's first token |
 | n/a | 9002 | `strstr` |  | internal | searchstr is tprintf("i(v_%s)", tok) generated here, matched against a line this pass rewrote |
 | n/a | 9004 | `prefix` |  | internal | Same generated i(v_NAME) marker; findstr points into the line this pass produced |
 | n/a | 9006 | `strstr` |  | internal | Same generated i(v_NAME) marker re-searched in the line this pass produced |
 | n/a | 9018 | `strstr` | `_vmeas` | internal | Suffix this same pass generates and appends; node1 comes from lines it already rewrote |
-| [ ] | 9142 | `strstr` | ` m=` | keyword | Multiplier parameter keyword; branch is gated on ciprefix(".subckt"), line is folded |
-| [ ] | 9142 | `strstr` | ` m =` | keyword | Multiplier parameter keyword with spaces; same folded .subckt card |
+| [x] | 9142 | `strstr` | ` m=` | keyword | Multiplier parameter keyword; branch is gated on ciprefix(".subckt"), line is folded |
+| [x] | 9142 | `strstr` | ` m =` | keyword | Multiplier parameter keyword with spaces; same folded .subckt card |
 | n/a | 9254 | `eq` | `circbyline` | internal | Sentinel linesource set at inpcom.c:1354; the field otherwise holds a real filename with case |
 | n/a | 9403 | `eq` |  | identifier | Both operands are subcircuit names registered in the scope tree from folded cards |
-| [ ] | 9808 | `strstr` | `(temper)` | keyword | Built-in variable keyword on a folded .dc card produced by pspice compatibility rewriting |
+| [x] | 9808 | `strstr` | `(temper)` | keyword | Built-in variable keyword on a folded .dc card produced by pspice compatibility rewriting |
 | n/a | 10010 | `strcmp` |  | filename | Compares directory paths from cp_doglob against existing sourcepath entries; paths keep disk case |
 
 ### `src/frontend/inpcompat.c` — 50 keyword, 13 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 77 | `strstr` | `hs` | keyword **fv** | ngbehavior shell variable value; compat-mode option keyword, unfolded when set at prompt or via setcs |
-| [ ] | 79 | `strstr` | `ps` | keyword **fv** | ngbehavior variable value; PSPICE compat-mode option keyword, can carry uppercase from interactive set |
-| [ ] | 81 | `strstr` | `xs` | keyword **fv** | ngbehavior variable value; XSPICE compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 83 | `strstr` | `lt` | keyword **fv** | ngbehavior variable value; LTSPICE compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 85 | `strstr` | `ki` | keyword **fv** | ngbehavior variable value; KiCad compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 87 | `strstr` | `a` | keyword **fv** | ngbehavior variable value; 'whole netlist' compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 89 | `strstr` | `ll` | keyword **fv** | ngbehavior variable value; 'all' compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 91 | `strstr` | `s3` | keyword **fv** | ngbehavior variable value; spice3 compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 93 | `strstr` | `eg` | keyword **fv** | ngbehavior variable value; EAGLE compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 95 | `strstr` | `spe` | keyword **fv** | ngbehavior variable value; Spectre compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 99 | `strstr` | `mc` | keyword **fv** | ngbehavior variable value; 'make check' compat-mode option keyword, unfolded on the cp shell path |
-| [ ] | 168 | `strstr` | `table(` | keyword **fv** | (overturned) Class confirmed, fold_visible overturned. replace_table() (line 158) never skips .control, and its gate is *cut_line=='e'\|\|'g', which admits unfolded  |
-| [ ] | 187 | `strstr` | `table(` | keyword **fv** | (overturned) Class confirmed, fold_visible overturned, same root cause as :168. cut_line at :187 is neweline built at lines 175-176 as begline + " v(table_new_%d)" |
-| [ ] | 225 | `eq` |  | keyword | both operands are .model type names (npn, nmos, d) from folded deck cards |
-| [ ] | 297 | `strstr` | `ako:` | keyword | card->line of a .model card; PSPICE 'a kind of' keyword, folded deck text |
+| [x] | 77 | `strstr` | `hs` | keyword **fv** | ngbehavior shell variable value; compat-mode option keyword, unfolded when set at prompt or via setcs |
+| [x] | 79 | `strstr` | `ps` | keyword **fv** | ngbehavior variable value; PSPICE compat-mode option keyword, can carry uppercase from interactive set |
+| [x] | 81 | `strstr` | `xs` | keyword **fv** | ngbehavior variable value; XSPICE compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 83 | `strstr` | `lt` | keyword **fv** | ngbehavior variable value; LTSPICE compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 85 | `strstr` | `ki` | keyword **fv** | ngbehavior variable value; KiCad compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 87 | `strstr` | `a` | keyword **fv** | ngbehavior variable value; 'whole netlist' compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 89 | `strstr` | `ll` | keyword **fv** | ngbehavior variable value; 'all' compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 91 | `strstr` | `s3` | keyword **fv** | ngbehavior variable value; spice3 compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 93 | `strstr` | `eg` | keyword **fv** | ngbehavior variable value; EAGLE compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 95 | `strstr` | `spe` | keyword **fv** | ngbehavior variable value; Spectre compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 99 | `strstr` | `mc` | keyword **fv** | ngbehavior variable value; 'make check' compat-mode option keyword, unfolded on the cp shell path |
+| [x] | 168 | `strstr` | `table(` | keyword **fv** | (overturned) Class confirmed, fold_visible overturned. replace_table() (line 158) never skips .control, and its gate is *cut_line=='e'\|\|'g', which admits unfolded  |
+| [x] | 187 | `strstr` | `table(` | keyword **fv** | (overturned) Class confirmed, fold_visible overturned, same root cause as :168. cut_line at :187 is neweline built at lines 175-176 as begline + " v(table_new_%d)" |
+| [x] | 225 | `eq` |  | keyword | both operands are .model type names (npn, nmos, d) from folded deck cards |
+| [x] | 297 | `strstr` | `ako:` | keyword | card->line of a .model card; PSPICE 'a kind of' keyword, folded deck text |
 | n/a | 356 | `eq` |  | identifier | user-chosen switch model name from .model card versus name token on s/w instance line |
 | n/a | 357 | `eq` |  | identifier | whole .subckt card line used as scope key, or the internal 'top' sentinel |
-| [ ] | 535 | `strstr` | `optional:` | keyword | copy of a .subckt card line; PSPICE section keyword, folded deck text |
-| [ ] | 536 | `strstr` | `params:` | keyword | copy of a .subckt card line; PSPICE section keyword, folded deck text |
-| [ ] | 737 | `strstr` | `params:` | keyword | .subckt card->line; PSPICE parameter-section keyword, folded deck text |
-| [ ] | 779 | `strstr` | `level=` | keyword | .model NMOS/PMOS card tail; model parameter keyword, folded deck text with whitespace removed |
-| [ ] | 819 | `strstr` | `level=` | keyword | .model NPN/PNP card tail; model parameter keyword, folded deck text with whitespace removed |
-| [ ] | 864 | `strncmp` | `dev=` | keyword | .model token; PSPICE Monte-Carlo qualifier keyword, folded deck text |
-| [ ] | 865 | `strncmp` | `lot=` | keyword | .model token; PSPICE Monte-Carlo qualifier keyword, folded deck text |
-| [ ] | 889 | `strstr` | `params:` | keyword | x-instance card->line; PSPICE parameter-section keyword, folded deck text |
-| [ ] | 1212 | `strstr` | `vswitch` | keyword | .model card->line; PSPICE model type name, folded deck text (not an XSPICE-exempt model) |
-| [ ] | 1226 | `strstr` | `vt=` | keyword | vswitch model parameter list; switch threshold parameter keyword, folded deck text |
-| [ ] | 1226 | `strstr` | `vh=` | keyword | vswitch model parameter list; switch hysteresis parameter keyword, folded deck text |
-| [ ] | 1229 | `strstr` | `ron=` | keyword | copy of vswitch parameter list; on-resistance parameter keyword, folded deck text |
-| [ ] | 1235 | `strstr` | `roff=` | keyword | copy of vswitch parameter list; off-resistance parameter keyword, folded deck text |
-| [ ] | 1241 | `strstr` | `vt=` | keyword | copy of vswitch parameter list; threshold parameter keyword, folded deck text |
-| [ ] | 1247 | `strstr` | `vh=` | keyword | copy of vswitch parameter list; hysteresis parameter keyword, folded deck text |
-| [ ] | 1266 | `strstr` | `von=` | keyword | vswitch model parameter list; control-on parameter keyword, folded deck text |
-| [ ] | 1266 | `strstr` | `voff=` | keyword | vswitch model parameter list; control-off parameter keyword, folded deck text |
-| [ ] | 1270 | `strstr` | `ron=` | keyword | copy of vswitch parameter list; on-resistance parameter keyword, folded deck text |
-| [ ] | 1282 | `strstr` | `roff=` | keyword | copy of vswitch parameter list; off-resistance parameter keyword, folded deck text |
-| [ ] | 1294 | `strstr` | `von=` | keyword | copy of vswitch parameter list; control-on parameter keyword, folded deck text |
-| [ ] | 1308 | `strstr` | `voff=` | keyword | copy of vswitch parameter list; control-off parameter keyword, folded deck text |
-| [ ] | 1459 | `strstr` | `iswitch` | keyword | .model card->line; PSPICE model type name, folded deck text |
-| [ ] | 1473 | `strstr` | `it=` | keyword | iswitch model parameter list; current threshold parameter keyword, folded deck text |
-| [ ] | 1473 | `strstr` | `ih=` | keyword | iswitch model parameter list; current hysteresis parameter keyword, folded deck text |
-| [ ] | 1476 | `strstr` | `ron=` | keyword | copy of iswitch parameter list; on-resistance parameter keyword, folded deck text |
-| [ ] | 1482 | `strstr` | `roff=` | keyword | copy of iswitch parameter list; off-resistance parameter keyword, folded deck text |
-| [ ] | 1488 | `strstr` | `it=` | keyword | copy of iswitch parameter list; current threshold parameter keyword, folded deck text |
-| [ ] | 1494 | `strstr` | `ih=` | keyword | copy of iswitch parameter list; current hysteresis parameter keyword, folded deck text |
-| [ ] | 1513 | `strstr` | `ion=` | keyword | iswitch model parameter list; control-on current parameter keyword, folded deck text |
-| [ ] | 1513 | `strstr` | `ioff=` | keyword | iswitch model parameter list; control-off current parameter keyword, folded deck text |
-| [ ] | 1517 | `strstr` | `ron=` | keyword | copy of iswitch parameter list; on-resistance parameter keyword, folded deck text |
-| [ ] | 1528 | `strstr` | `roff=` | keyword | copy of iswitch parameter list; off-resistance parameter keyword, folded deck text |
-| [ ] | 1539 | `strstr` | `ion=` | keyword | copy of iswitch parameter list; control-on current parameter keyword, folded deck text |
-| [ ] | 1552 | `strstr` | `ioff=` | keyword | copy of iswitch parameter list; control-off current parameter keyword, folded deck text |
+| [x] | 535 | `strstr` | `optional:` | keyword | copy of a .subckt card line; PSPICE section keyword, folded deck text |
+| [x] | 536 | `strstr` | `params:` | keyword | copy of a .subckt card line; PSPICE section keyword, folded deck text |
+| [x] | 737 | `strstr` | `params:` | keyword | .subckt card->line; PSPICE parameter-section keyword, folded deck text |
+| [x] | 779 | `strstr` | `level=` | keyword | .model NMOS/PMOS card tail; model parameter keyword, folded deck text with whitespace removed |
+| [x] | 819 | `strstr` | `level=` | keyword | .model NPN/PNP card tail; model parameter keyword, folded deck text with whitespace removed |
+| [x] | 864 | `strncmp` | `dev=` | keyword | .model token; PSPICE Monte-Carlo qualifier keyword, folded deck text |
+| [x] | 865 | `strncmp` | `lot=` | keyword | .model token; PSPICE Monte-Carlo qualifier keyword, folded deck text |
+| [x] | 889 | `strstr` | `params:` | keyword | x-instance card->line; PSPICE parameter-section keyword, folded deck text |
+| [x] | 1212 | `strstr` | `vswitch` | keyword | .model card->line; PSPICE model type name, folded deck text (not an XSPICE-exempt model) |
+| [x] | 1226 | `strstr` | `vt=` | keyword | vswitch model parameter list; switch threshold parameter keyword, folded deck text |
+| [x] | 1226 | `strstr` | `vh=` | keyword | vswitch model parameter list; switch hysteresis parameter keyword, folded deck text |
+| [x] | 1229 | `strstr` | `ron=` | keyword | copy of vswitch parameter list; on-resistance parameter keyword, folded deck text |
+| [x] | 1235 | `strstr` | `roff=` | keyword | copy of vswitch parameter list; off-resistance parameter keyword, folded deck text |
+| [x] | 1241 | `strstr` | `vt=` | keyword | copy of vswitch parameter list; threshold parameter keyword, folded deck text |
+| [x] | 1247 | `strstr` | `vh=` | keyword | copy of vswitch parameter list; hysteresis parameter keyword, folded deck text |
+| [x] | 1266 | `strstr` | `von=` | keyword | vswitch model parameter list; control-on parameter keyword, folded deck text |
+| [x] | 1266 | `strstr` | `voff=` | keyword | vswitch model parameter list; control-off parameter keyword, folded deck text |
+| [x] | 1270 | `strstr` | `ron=` | keyword | copy of vswitch parameter list; on-resistance parameter keyword, folded deck text |
+| [x] | 1282 | `strstr` | `roff=` | keyword | copy of vswitch parameter list; off-resistance parameter keyword, folded deck text |
+| [x] | 1294 | `strstr` | `von=` | keyword | copy of vswitch parameter list; control-on parameter keyword, folded deck text |
+| [x] | 1308 | `strstr` | `voff=` | keyword | copy of vswitch parameter list; control-off parameter keyword, folded deck text |
+| [x] | 1459 | `strstr` | `iswitch` | keyword | .model card->line; PSPICE model type name, folded deck text |
+| [x] | 1473 | `strstr` | `it=` | keyword | iswitch model parameter list; current threshold parameter keyword, folded deck text |
+| [x] | 1473 | `strstr` | `ih=` | keyword | iswitch model parameter list; current hysteresis parameter keyword, folded deck text |
+| [x] | 1476 | `strstr` | `ron=` | keyword | copy of iswitch parameter list; on-resistance parameter keyword, folded deck text |
+| [x] | 1482 | `strstr` | `roff=` | keyword | copy of iswitch parameter list; off-resistance parameter keyword, folded deck text |
+| [x] | 1488 | `strstr` | `it=` | keyword | copy of iswitch parameter list; current threshold parameter keyword, folded deck text |
+| [x] | 1494 | `strstr` | `ih=` | keyword | copy of iswitch parameter list; current hysteresis parameter keyword, folded deck text |
+| [x] | 1513 | `strstr` | `ion=` | keyword | iswitch model parameter list; control-on current parameter keyword, folded deck text |
+| [x] | 1513 | `strstr` | `ioff=` | keyword | iswitch model parameter list; control-off current parameter keyword, folded deck text |
+| [x] | 1517 | `strstr` | `ron=` | keyword | copy of iswitch parameter list; on-resistance parameter keyword, folded deck text |
+| [x] | 1528 | `strstr` | `roff=` | keyword | copy of iswitch parameter list; off-resistance parameter keyword, folded deck text |
+| [x] | 1539 | `strstr` | `ion=` | keyword | copy of iswitch parameter list; control-on current parameter keyword, folded deck text |
+| [x] | 1552 | `strstr` | `ioff=` | keyword | copy of iswitch parameter list; control-off current parameter keyword, folded deck text |
 | n/a | 1631 | `strstr` | `iswitch` | internal | dead code inside the #if(0) block spanning lines 1584-1654; never compiled |
-| [ ] | 1771 | `strstr` | `noiseless` | keyword | r-instance card->line; LTspice resistor keyword, folded deck text |
+| [x] | 1771 | `strstr` | `noiseless` | keyword | r-instance card->line; LTspice resistor keyword, folded deck text |
 
 ### `src/frontend/options.c` — 39 keyword, 39 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 61 | `eq` |  | identifier | plot-environment variable names (from rawfile Option: lines) versus the user's $-reference name |
-| [ ] | 70 | `strncmp` | `curplot` | keyword **fv** | word is the $-reference name from unfolded shell input; curplot is a built-in variable name |
-| [ ] | 76 | `eq` | `name` | keyword **fv** | rest is the tail of $curplot...; completes the built-in variable name curplotname |
-| [ ] | 80 | `eq` | `title` | keyword **fv** | rest is the tail of $curplot...; completes the built-in variable name curplottitle |
-| [ ] | 84 | `eq` | `date` | keyword **fv** | rest is the tail of $curplot...; completes the built-in variable name curplotdate |
-| [ ] | 90 | `eq` | `plots` | keyword **fv** | word is the user's $-reference; plots is a built-in read-only shell variable name |
+| [x] | 70 | `strncmp` | `curplot` | keyword **fv** | word is the $-reference name from unfolded shell input; curplot is a built-in variable name |
+| [x] | 76 | `eq` | `name` | keyword **fv** | rest is the tail of $curplot...; completes the built-in variable name curplotname |
+| [x] | 80 | `eq` | `title` | keyword **fv** | rest is the tail of $curplot...; completes the built-in variable name curplottitle |
+| [x] | 84 | `eq` | `date` | keyword **fv** | rest is the tail of $curplot...; completes the built-in variable name curplotdate |
+| [x] | 90 | `eq` | `plots` | keyword **fv** | word is the user's $-reference; plots is a built-in read-only shell variable name |
 | n/a | 104 | `eq` |  | identifier | circuit variable names versus the user's $-reference name; a generic variable-table lookup |
-| [ ] | 284 | `eq` | `debug` | keyword **fv** | va_name is the name given to set; debug is a built-in option variable name |
-| [ ] | 303 | `eq` | `rawfile` | keyword **fv** | va_name from set; rawfile is a built-in option variable name |
-| [ ] | 305 | `eq` | `acct` | keyword **fv** | va_name from set; acct is a built-in option variable name |
-| [ ] | 307 | `eq` | `noacct` | keyword **fv** | va_name from set; noacct is a built-in option variable name |
-| [ ] | 309 | `eq` | `ngdebug` | keyword **fv** | va_name from set; ngdebug is a built-in option variable name |
-| [ ] | 311 | `eq` | `nginfo` | keyword **fv** | va_name from set; nginfo is a built-in option variable name |
-| [ ] | 313 | `eq` | `noinit` | keyword **fv** | va_name from set; noinit is a built-in option variable name |
-| [ ] | 315 | `eq` | `norefvalue` | keyword **fv** | va_name from set; norefvalue is a built-in option variable name |
-| [ ] | 317 | `eq` | `list` | keyword **fv** | va_name from set; list is a built-in option variable name (listed in miscvars.c) |
-| [ ] | 319 | `eq` | `nopage` | keyword **fv** | va_name from set; nopage is a built-in option variable name |
-| [ ] | 321 | `eq` | `nomod` | keyword **fv** | va_name from set; nomod is a built-in option variable name |
-| [ ] | 323 | `eq` | `node` | keyword **fv** | va_name from set; node is a built-in option variable name |
-| [ ] | 325 | `eq` | `opts` | keyword **fv** | va_name from set; opts is a built-in option variable name |
-| [ ] | 327 | `eq` | `strictnumparse` | keyword **fv** | va_name from set; strictnumparse is a built-in option variable name |
-| [ ] | 329 | `eq` | `strict_errorhandling` | keyword **fv** | va_name from set (often spinit/.spiceinit); built-in option variable name |
-| [ ] | 336 | `eq` | `rawfileprec` | keyword **fv** | va_name from set; rawfileprec is a built-in option variable name |
-| [ ] | 346 | `eq` | `measureprec` | keyword **fv** | va_name from set; measureprec is a built-in option variable name |
-| [ ] | 355 | `eq` | `numdgt` | keyword **fv** | va_name from set; numdgt is a built-in option variable name |
-| [ ] | 364 | `eq` | `unixcom` | keyword **fv** | va_name from set; unixcom is a built-in option variable name |
-| [ ] | 373 | `eq` | `units` | keyword **fv** | va_name from set; units is a built-in option variable name |
-| [ ] | 378 | `eq` | `curplot` | keyword **fv** | va_name from set; curplot is a built-in option variable name |
-| [ ] | 384 | `eq` | `curplotname` | keyword **fv** | va_name from set; curplotname is a built-in option variable name |
+| [x] | 284 | `eq` | `debug` | keyword **fv** | va_name is the name given to set; debug is a built-in option variable name |
+| [x] | 303 | `eq` | `rawfile` | keyword **fv** | va_name from set; rawfile is a built-in option variable name |
+| [x] | 305 | `eq` | `acct` | keyword **fv** | va_name from set; acct is a built-in option variable name |
+| [x] | 307 | `eq` | `noacct` | keyword **fv** | va_name from set; noacct is a built-in option variable name |
+| [x] | 309 | `eq` | `ngdebug` | keyword **fv** | va_name from set; ngdebug is a built-in option variable name |
+| [x] | 311 | `eq` | `nginfo` | keyword **fv** | va_name from set; nginfo is a built-in option variable name |
+| [x] | 313 | `eq` | `noinit` | keyword **fv** | va_name from set; noinit is a built-in option variable name |
+| [x] | 315 | `eq` | `norefvalue` | keyword **fv** | va_name from set; norefvalue is a built-in option variable name |
+| [x] | 317 | `eq` | `list` | keyword **fv** | va_name from set; list is a built-in option variable name (listed in miscvars.c) |
+| [x] | 319 | `eq` | `nopage` | keyword **fv** | va_name from set; nopage is a built-in option variable name |
+| [x] | 321 | `eq` | `nomod` | keyword **fv** | va_name from set; nomod is a built-in option variable name |
+| [x] | 323 | `eq` | `node` | keyword **fv** | va_name from set; node is a built-in option variable name |
+| [x] | 325 | `eq` | `opts` | keyword **fv** | va_name from set; opts is a built-in option variable name |
+| [x] | 327 | `eq` | `strictnumparse` | keyword **fv** | va_name from set; strictnumparse is a built-in option variable name |
+| [x] | 329 | `eq` | `strict_errorhandling` | keyword **fv** | va_name from set (often spinit/.spiceinit); built-in option variable name |
+| [x] | 336 | `eq` | `rawfileprec` | keyword **fv** | va_name from set; rawfileprec is a built-in option variable name |
+| [x] | 346 | `eq` | `measureprec` | keyword **fv** | va_name from set; measureprec is a built-in option variable name |
+| [x] | 355 | `eq` | `numdgt` | keyword **fv** | va_name from set; numdgt is a built-in option variable name |
+| [x] | 364 | `eq` | `unixcom` | keyword **fv** | va_name from set; unixcom is a built-in option variable name |
+| [x] | 373 | `eq` | `units` | keyword **fv** | va_name from set; units is a built-in option variable name |
+| [x] | 378 | `eq` | `curplot` | keyword **fv** | va_name from set; curplot is a built-in option variable name |
+| [x] | 384 | `eq` | `curplotname` | keyword **fv** | va_name from set; curplotname is a built-in option variable name |
 | n/a | 386 | `eq` | `constants` | internal | guards FREE of the static non-malloced pl_name of the built-in constantplot struct in plotting.c |
-| [ ] | 393 | `eq` | `curplottitle` | keyword **fv** | va_name from set; curplottitle is a built-in option variable name |
-| [ ] | 402 | `eq` | `curplotdate` | keyword **fv** | va_name from set; curplotdate is a built-in option variable name |
-| [ ] | 410 | `eq` | `plots` | keyword **fv** | va_name from set; plots is the built-in read-only variable name |
+| [x] | 393 | `eq` | `curplottitle` | keyword **fv** | va_name from set; curplottitle is a built-in option variable name |
+| [x] | 402 | `eq` | `curplotdate` | keyword **fv** | va_name from set; curplotdate is a built-in option variable name |
+| [x] | 410 | `eq` | `plots` | keyword **fv** | va_name from set; plots is the built-in read-only variable name |
 | n/a | 416 | `eq` |  | identifier | plot-environment variable name versus the name being set; both are runtime variable names |
-| [ ] | 471 | `eq` | `siminterface` | keyword **fv** | str is the value of the debug variable (set debug=...); built-in debug class name |
-| [ ] | 473 | `eq` | `cshpar` | keyword **fv** | str is the debug variable's value; cshpar is a built-in debug class name |
-| [ ] | 475 | `eq` | `parser` | keyword **fv** | str is the debug variable's value; parser is a built-in debug class name |
-| [ ] | 477 | `eq` | `eval` | keyword **fv** | str is the debug variable's value; eval is a built-in debug class name |
-| [ ] | 479 | `eq` | `vecdb` | keyword **fv** | str is the debug variable's value; vecdb is a built-in debug class name |
-| [ ] | 481 | `eq` | `graf` | keyword **fv** | str is the debug variable's value; graf is a built-in debug class name |
-| [ ] | 483 | `eq` | `control` | keyword **fv** | str is the debug variable's value; control is a built-in debug class name |
-| [ ] | 485 | `eq` | `async` | keyword **fv** | str is the debug variable's value; async is a built-in debug class name |
-| [ ] | 487 | `eq` | `shvecsearch` | keyword **fv** | str is the debug variable's value; shvecsearch is a built-in debug class name |
+| [x] | 471 | `eq` | `siminterface` | keyword **fv** | str is the value of the debug variable (set debug=...); built-in debug class name |
+| [x] | 473 | `eq` | `cshpar` | keyword **fv** | str is the debug variable's value; cshpar is a built-in debug class name |
+| [x] | 475 | `eq` | `parser` | keyword **fv** | str is the debug variable's value; parser is a built-in debug class name |
+| [x] | 477 | `eq` | `eval` | keyword **fv** | str is the debug variable's value; eval is a built-in debug class name |
+| [x] | 479 | `eq` | `vecdb` | keyword **fv** | str is the debug variable's value; vecdb is a built-in debug class name |
+| [x] | 481 | `eq` | `graf` | keyword **fv** | str is the debug variable's value; graf is a built-in debug class name |
+| [x] | 483 | `eq` | `control` | keyword **fv** | str is the debug variable's value; control is a built-in debug class name |
+| [x] | 485 | `eq` | `async` | keyword **fv** | str is the debug variable's value; async is a built-in debug class name |
+| [x] | 487 | `eq` | `shvecsearch` | keyword **fv** | str is the debug variable's value; shvecsearch is a built-in debug class name |
 
 ### `src/spicelib/parser/inp2dot.c` — 39 keyword, 4 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 442 | `strcmp` | `uic` | keyword **fv** | (overturned) Class is right, fold_visible is WRONG. dot_tran is also reached from the interactive prompt: com_tran -> dosim -> if_run, which does sprintf(buf, ".%s |
-| [ ] | 548 | `strcmp` | `ac` | keyword **fv** | (overturned) Same token, same gate as the 'ac' literal on this line, same unfolded interactive path. 'sens v(2) DC' today falls through the break, leaves name==NUL |
-| [ ] | 548 | `strcmp` | `dc` | keyword **fv** | (overturned) Same token, same gate as the 'ac' literal on this line, same unfolded interactive path. 'sens v(2) DC' today falls through the break, leaves name==NUL |
-| [ ] | 560 | `strcmp` | `ac` | keyword | same folded .sens token; ac selects the AC sensitivity sweep sub-form |
-| [ ] | 571 | `strcmp` | `dc` | keyword | same folded .sens token; dc is the alternative analysis-type keyword |
-| [ ] | 695 | `strcmp` | `uic` | keyword **fv** | (overturned) fold_visible wrong whenever the code is compiled. commands.c:326 registers 'pss' -> com_pss -> dosim("pss") and spiceif.c:245 accepts what=="pss", so  |
+| [x] | 442 | `strcmp` | `uic` | keyword **fv** | (overturned) Class is right, fold_visible is WRONG. dot_tran is also reached from the interactive prompt: com_tran -> dosim -> if_run, which does sprintf(buf, ".%s |
+| [x] | 548 | `strcmp` | `ac` | keyword **fv** | (overturned) Same token, same gate as the 'ac' literal on this line, same unfolded interactive path. 'sens v(2) DC' today falls through the break, leaves name==NUL |
+| [x] | 548 | `strcmp` | `dc` | keyword **fv** | (overturned) Same token, same gate as the 'ac' literal on this line, same unfolded interactive path. 'sens v(2) DC' today falls through the break, leaves name==NUL |
+| [x] | 560 | `strcmp` | `ac` | keyword | same folded .sens token; ac selects the AC sensitivity sweep sub-form |
+| [x] | 571 | `strcmp` | `dc` | keyword | same folded .sens token; dc is the alternative analysis-type keyword |
+| [x] | 695 | `strcmp` | `uic` | keyword **fv** | (overturned) fold_visible wrong whenever the code is compiled. commands.c:326 registers 'pss' -> com_pss -> dosim("pss") and spiceif.c:245 accepts what=="pss", so  |
 | n/a | 793 | `strcmp` | `uic` | internal | (overturned) dot_hb sits inside '#ifdef WITH_HB' (inp2dot.c:744). WITH_HB has no AC_DEFINE and no AC_ARG_ENABLE in configure.ac, is absent from the generated build |
-| [ ] | 837 | `strcmp` | `.model` | keyword | token is the leading dot-command of a folded deck card; xspice carve-out still lowercases outside quotes |
-| [ ] | 841 | `strcmp` | `.param` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 845 | `strcmp` | `.width` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 846 | `strcmp` | `.print` | keyword | dot-command keyword; print redirection carve-out keys on bare print, not .print, so line is folded |
-| [ ] | 846 | `strcmp` | `.plot` | keyword | dot-command keyword; plot title carve-out keys on bare plot, not .plot, so line is folded |
-| [ ] | 852 | `strcmp` | `.temp` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 859 | `strcmp` | `.op` | keyword | leading dot-command keyword (operating point analysis) of a folded deck card |
-| [ ] | 862 | `strcmp` | `.nodeset` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 864 | `strcmp` | `.disto` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 867 | `strcmp` | `.noise` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 870 | `strcmp` | `.four` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 871 | `strcmp` | `.fourier` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 876 | `strcmp` | `.ic` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 878 | `strcmp` | `.ac` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 881 | `strcmp` | `.pz` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 884 | `strcmp` | `.dc` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 890 | `strcmp` | `.tf` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 893 | `strcmp` | `.tran` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 898 | `strcmp` | `.pss` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
-| [ ] | 905 | `strcmp` | `.sp` | keyword | leading dot-command keyword (S-parameter analysis) of a folded deck card |
+| [x] | 837 | `strcmp` | `.model` | keyword | token is the leading dot-command of a folded deck card; xspice carve-out still lowercases outside quotes |
+| [x] | 841 | `strcmp` | `.param` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 845 | `strcmp` | `.width` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 846 | `strcmp` | `.print` | keyword | dot-command keyword; print redirection carve-out keys on bare print, not .print, so line is folded |
+| [x] | 846 | `strcmp` | `.plot` | keyword | dot-command keyword; plot title carve-out keys on bare plot, not .plot, so line is folded |
+| [x] | 852 | `strcmp` | `.temp` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 859 | `strcmp` | `.op` | keyword | leading dot-command keyword (operating point analysis) of a folded deck card |
+| [x] | 862 | `strcmp` | `.nodeset` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 864 | `strcmp` | `.disto` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 867 | `strcmp` | `.noise` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 870 | `strcmp` | `.four` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 871 | `strcmp` | `.fourier` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 876 | `strcmp` | `.ic` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 878 | `strcmp` | `.ac` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 881 | `strcmp` | `.pz` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 884 | `strcmp` | `.dc` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 890 | `strcmp` | `.tf` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 893 | `strcmp` | `.tran` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 898 | `strcmp` | `.pss` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 905 | `strcmp` | `.sp` | keyword | leading dot-command keyword (S-parameter analysis) of a folded deck card |
 | n/a | 911 | `strcmp` | `.hb` | internal | (overturned) The '.hb' branch is nested '#ifdef RFSPICE' + '#ifdef WITH_HB' (inp2dot.c:909-915). RFSPICE is on by default but WITH_HB is defined nowhere in the tre |
-| [ ] | 917 | `strcmp` | `.subckt` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 918 | `strcmp` | `.ends` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 922 | `strcmp` | `.end` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 927 | `strcmp` | `.sens` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
+| [x] | 917 | `strcmp` | `.subckt` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 918 | `strcmp` | `.ends` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 922 | `strcmp` | `.end` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 927 | `strcmp` | `.sens` | keyword | leading dot-command keyword (analysis name) of a folded deck card |
 | n/a | 932 | `strcmp` | `.sens2` | internal | (overturned) '#ifdef WANT_SENSE2' (inp2dot.c:931). configure.ac only declares AC_ARG_ENABLE([sense2]) and AM_CONDITIONAL([SENSE2_WANTED]) at line 1236 - it never A |
-| [ ] | 937 | `strcmp` | `.probe` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 940 | `strcmp` | `.options` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 941 | `strcmp` | `.option` | keyword | leading dot-command keyword (abbreviated form) of a folded deck card |
-| [ ] | 942 | `strcmp` | `.opt` | keyword | leading dot-command keyword (abbreviated form) of a folded deck card |
-| [ ] | 947 | `strcmp` | `.global` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 955 | `strcmp` | `.meas` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 955 | `strcmp` | `.measure` | keyword | leading dot-command keyword (long form of .meas) of a folded deck card |
-| [ ] | 956 | `strcmp` | `.prot` | keyword | leading dot-command keyword of a folded deck card |
-| [ ] | 956 | `strcmp` | `.unprot` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 937 | `strcmp` | `.probe` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 940 | `strcmp` | `.options` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 941 | `strcmp` | `.option` | keyword | leading dot-command keyword (abbreviated form) of a folded deck card |
+| [x] | 942 | `strcmp` | `.opt` | keyword | leading dot-command keyword (abbreviated form) of a folded deck card |
+| [x] | 947 | `strcmp` | `.global` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 955 | `strcmp` | `.meas` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 955 | `strcmp` | `.measure` | keyword | leading dot-command keyword (long form of .meas) of a folded deck card |
+| [x] | 956 | `strcmp` | `.prot` | keyword | leading dot-command keyword of a folded deck card |
+| [x] | 956 | `strcmp` | `.unprot` | keyword | leading dot-command keyword of a folded deck card |
 
 ### `src/frontend/inp.c` — 37 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 160 | `strcmp` | `param` | keyword **fv** | wl_word of the interactive 'listing' command; cp shell input is never folded |
-| [ ] | 439 | `strstr` | `seedinfo` | keyword | .option deck card line from inp_getopts, folded by inp_read |
-| [ ] | 441 | `strstr` | `seed=` | keyword | .option deck card line, option parameter keyword, already folded |
-| [ ] | 449 | `eq` | `random` | keyword | token is the seed= value off a folded .option deck line |
-| [ ] | 449 | `eq` | `{random}` | keyword | same folded .option seed= value, braced keyword form |
-| [ ] | 472 | `strstr` | `cshunt=` | keyword | .option deck card line, option parameter keyword, already folded |
-| [ ] | 816 | `eq` | `.plot` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 816 | `eq` | `.print` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 818 | `eq` | `.width` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
-| [ ] | 820 | `eq` | `.plot` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
-| [ ] | 821 | `eq` | `.print` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
-| [ ] | 823 | `eq` | `.sndprint` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
-| [ ] | 824 | `eq` | `.sndparam` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
-| [ ] | 825 | `eq` | `.op` | keyword | first token of a deck card, analysis dot command, already folded |
-| [ ] | 827 | `eq` | `.tf` | keyword | first token of a deck card, analysis dot command, already folded |
-| [ ] | 830 | `eq` | `.op` | keyword | same folded first deck token, re-tested to decide card removal |
-| [ ] | 830 | `eq` | `.tf` | keyword | same folded first deck token, re-tested to decide card removal |
-| [ ] | 878 | `strstr` | `scale=` | keyword | com_options lines come from 'option' cards in a comfile; option is not whitelisted, so folded |
-| [ ] | 890 | `strstr` | `scalm=` | keyword | com_options line from comfile 'option' card, folded; option name keyword |
-| [ ] | 905 | `strstr` | `scale=` | keyword | .option deck lines extracted by inp_getopts, folded by inp_read |
-| [ ] | 917 | `strstr` | `scalm=` | keyword | .option deck lines extracted by inp_getopts, folded by inp_read |
-| [ ] | 1143 | `strstr` | ` max ` | keyword | .meas deck card line, measurement function keyword, already folded |
-| [ ] | 1144 | `strstr` | ` min ` | keyword | .meas deck card line, measurement function keyword, already folded |
-| [ ] | 1145 | `strstr` | ` avg ` | keyword | .meas deck card line, measurement function keyword, already folded |
-| [ ] | 1146 | `strstr` | ` rms ` | keyword | .meas deck card line, measurement function keyword, already folded |
-| [ ] | 1147 | `strstr` | ` integ ` | keyword | .meas deck card line, measurement function keyword, already folded |
-| [ ] | 1487 | `strstr` | `.model` | keyword | deck card line in inp_dodeck error report; card keyword, folded |
+| [x] | 160 | `strcmp` | `param` | keyword **fv** | wl_word of the interactive 'listing' command; cp shell input is never folded |
+| [x] | 439 | `strstr` | `seedinfo` | keyword | .option deck card line from inp_getopts, folded by inp_read |
+| [x] | 441 | `strstr` | `seed=` | keyword | .option deck card line, option parameter keyword, already folded |
+| [x] | 449 | `eq` | `random` | keyword | token is the seed= value off a folded .option deck line |
+| [x] | 449 | `eq` | `{random}` | keyword | same folded .option seed= value, braced keyword form |
+| [x] | 472 | `strstr` | `cshunt=` | keyword | .option deck card line, option parameter keyword, already folded |
+| [x] | 816 | `eq` | `.plot` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 816 | `eq` | `.print` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 818 | `eq` | `.width` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
+| [x] | 820 | `eq` | `.plot` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
+| [x] | 821 | `eq` | `.print` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
+| [x] | 823 | `eq` | `.sndprint` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
+| [x] | 824 | `eq` | `.sndparam` | keyword | first token of a deck card, folded by inp_read and inp_casefix |
+| [x] | 825 | `eq` | `.op` | keyword | first token of a deck card, analysis dot command, already folded |
+| [x] | 827 | `eq` | `.tf` | keyword | first token of a deck card, analysis dot command, already folded |
+| [x] | 830 | `eq` | `.op` | keyword | same folded first deck token, re-tested to decide card removal |
+| [x] | 830 | `eq` | `.tf` | keyword | same folded first deck token, re-tested to decide card removal |
+| [x] | 878 | `strstr` | `scale=` | keyword | com_options lines come from 'option' cards in a comfile; option is not whitelisted, so folded |
+| [x] | 890 | `strstr` | `scalm=` | keyword | com_options line from comfile 'option' card, folded; option name keyword |
+| [x] | 905 | `strstr` | `scale=` | keyword | .option deck lines extracted by inp_getopts, folded by inp_read |
+| [x] | 917 | `strstr` | `scalm=` | keyword | .option deck lines extracted by inp_getopts, folded by inp_read |
+| [x] | 1143 | `strstr` | ` max ` | keyword | .meas deck card line, measurement function keyword, already folded |
+| [x] | 1144 | `strstr` | ` min ` | keyword | .meas deck card line, measurement function keyword, already folded |
+| [x] | 1145 | `strstr` | ` avg ` | keyword | .meas deck card line, measurement function keyword, already folded |
+| [x] | 1146 | `strstr` | ` rms ` | keyword | .meas deck card line, measurement function keyword, already folded |
+| [x] | 1147 | `strstr` | ` integ ` | keyword | .meas deck card line, measurement function keyword, already folded |
+| [x] | 1487 | `strstr` | `.model` | keyword | deck card line in inp_dodeck error report; card keyword, folded |
 | n/a | 1804 | `eq` |  | identifier | subckt name: folded deck .subckt name vs subcktname typed on the alterparam command |
-| [ ] | 1806 | `strstr` | `params:` | keyword | .subckt deck line; params: is a subckt card keyword, folded |
+| [x] | 1806 | `strstr` | `params:` | keyword | .subckt deck line; params: is a subckt card keyword, folded |
 | n/a | 1829 | `strstr` |  | identifier | subckt name from the alterparam command searched inside a folded x instance line |
 | n/a | 1860 | `eq` |  | identifier | param name: folded .param name vs pname typed on the alterparam command |
-| [ ] | 2262 | `prefix` | `.model` | keyword | mc_deck/deck card line, dot command keyword, folded by inp_read |
-| [ ] | 2265 | `strstr` | `temper` | keyword | deck line; temper is a reserved expression token, folded |
-| [ ] | 2268 | `prefix` | `.model` | keyword | same folded deck card line, re-tested to set is_model |
-| [ ] | 2422 | `strstr` | `savecurrents` | keyword | .option deck line; option name keyword, folded |
-| [ ] | 2430 | `prefix` | `save` | keyword | controls wordlist holds .control deck lines; save is not whitelisted, so folded |
-| [ ] | 2436 | `prefix` | `.save` | keyword | wl_first entries are deck dot cards, folded; .save is a card keyword |
-| [ ] | 2457 | `strstr` | `savecurrents_bsim3` | keyword | .option deck line; option name keyword, folded |
-| [ ] | 2460 | `strstr` | `savecurrents_bsim4` | keyword | .option deck line; option name keyword, folded |
-| [ ] | 2463 | `strstr` | `savecurrents_mos1` | keyword | .option deck line; option name keyword, folded |
+| [x] | 2262 | `prefix` | `.model` | keyword | mc_deck/deck card line, dot command keyword, folded by inp_read |
+| [x] | 2265 | `strstr` | `temper` | keyword | deck line; temper is a reserved expression token, folded |
+| [x] | 2268 | `prefix` | `.model` | keyword | same folded deck card line, re-tested to set is_model |
+| [x] | 2422 | `strstr` | `savecurrents` | keyword | .option deck line; option name keyword, folded |
+| [x] | 2430 | `prefix` | `save` | keyword | controls wordlist holds .control deck lines; save is not whitelisted, so folded |
+| [x] | 2436 | `prefix` | `.save` | keyword | wl_first entries are deck dot cards, folded; .save is a card keyword |
+| [x] | 2457 | `strstr` | `savecurrents_bsim3` | keyword | .option deck line; option name keyword, folded |
+| [x] | 2460 | `strstr` | `savecurrents_bsim4` | keyword | .option deck line; option name keyword, folded |
+| [x] | 2463 | `strstr` | `savecurrents_mos1` | keyword | .option deck line; option name keyword, folded |
 | n/a | 2701 | `strstr` | ` wmin=` | internal | (overturned) rem_unused_mos_models() is wholly inside `#ifdef REM_UNUSED` (inp.c:2682); its only call site is also guarded (inp.c:1084-1091) and its prototype too  |
 | n/a | 2714 | `strstr` | ` wmax=` | internal | (overturned) Same dead block: `strstr(curr_line, " wmax=")` sits in rem_unused_mos_models(), guarded by `#ifdef REM_UNUSED` (inp.c:2682) with the macro undefined a |
 | n/a | 2728 | `strstr` | ` lmin=` | internal | (overturned) Same dead block: `strstr(curr_line, " lmin=")` inside `#ifdef REM_UNUSED` (inp.c:2682); macro never defined, call site at inp.c:1090 also compiled out |
@@ -637,41 +788,41 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 46 | `strcmp` | `npn` | keyword | type_name is the model type field of the folded .model card; npn is a model type name |
-| [ ] | 46 | `strcmp` | `pnp` | keyword | type_name off the folded .model card; pnp is a model type name |
-| [ ] | 83 | `strcmp` | `d` | keyword | type_name off the folded .model card; d is the diode model type name |
-| [ ] | 94 | `strcmp` | `njf` | keyword | type_name off the folded .model card; njf is a JFET model type name |
-| [ ] | 95 | `strcmp` | `pjf` | keyword | type_name off the folded .model card; pjf is a JFET model type name |
-| [ ] | 125 | `strcmp` | `nmf` | keyword | type_name off the folded .model card; nmf is a MESFET model type name |
-| [ ] | 126 | `strcmp` | `pmf` | keyword | type_name off the folded .model card; pmf is a MESFET model type name |
-| [ ] | 127 | `strcmp` | `nhfet` | keyword | type_name off the folded .model card; nhfet is an HFET model type name |
-| [ ] | 128 | `strcmp` | `phfet` | keyword | type_name off the folded .model card; phfet is an HFET model type name |
-| [ ] | 184 | `strcmp` | `urc` | keyword | type_name off the folded .model card; urc is the uniform-RC model type name |
-| [ ] | 195 | `strcmp` | `vdmos` | keyword | type_name off the folded .model card; vdmos is a model type name |
-| [ ] | 196 | `strcmp` | `vdmosn` | keyword | type_name off the folded .model card; vdmosn is a model type name |
-| [ ] | 197 | `strcmp` | `vdmosp` | keyword | type_name off the folded .model card; vdmosp is a model type name |
-| [ ] | 208 | `strcmp` | `nmos` | keyword | type_name off the folded .model card; nmos is a MOSFET model type name |
-| [ ] | 209 | `strcmp` | `pmos` | keyword | type_name off the folded .model card; pmos is a MOSFET model type name |
-| [ ] | 210 | `strcmp` | `nsoi` | keyword | type_name off the folded .model card; nsoi is a MOSFET model type name |
-| [ ] | 211 | `strcmp` | `psoi` | keyword | type_name off the folded .model card; psoi is a MOSFET model type name |
-| [ ] | 283 | `strstr` | `default` | keyword | ver is the version= value scanned off the folded .model card, or INPfindVer's own literal |
-| [ ] | 308 | `strstr` | `default` | keyword | ver is the version= value from the folded .model card, or INPfindVer's own literal |
-| [ ] | 376 | `strstr` | `default` | keyword | ver is the version= value from the folded .model card, or INPfindVer's own literal |
-| [ ] | 392 | `strcmp` | `ndev` | keyword | type_name off the folded .model card; ndev is a model type name (CIDER/NDEV build) |
-| [ ] | 403 | `strcmp` | `r` | keyword | type_name off the folded .model card; r is the resistor model type name |
-| [ ] | 421 | `strcmp` | `res` | keyword | type_name off the folded .model card; res is the PSPICE resistor model type name |
-| [ ] | 432 | `strcmp` | `txl` | keyword | type_name off the folded .model card; txl is a transmission-line model type name |
-| [ ] | 439 | `strcmp` | `l` | keyword | val is a token of the folded .model txl line; 'l' is the inductance model parameter keyword |
-| [ ] | 466 | `strcmp` | `cpl` | keyword | type_name off the folded .model card; cpl is the coupled-line model type name |
-| [ ] | 477 | `strcmp` | `c` | keyword | type_name off the folded .model card; c is the capacitor model type name |
-| [ ] | 488 | `strcmp` | `l` | keyword | type_name off the folded .model card; l is the inductor model type name |
-| [ ] | 500 | `strcmp` | `sw` | keyword | type_name off the folded .model card; sw is the switch model type name |
-| [ ] | 511 | `strcmp` | `csw` | keyword | type_name off the folded .model card; csw is the current-controlled switch model type name |
-| [ ] | 522 | `strcmp` | `ltra` | keyword | type_name off the folded .model card; ltra is the lossy transmission-line model type name |
-| [ ] | 533 | `strcmp` | `numd` | keyword | type_name off the folded .model card; numd is a CIDER model type name |
-| [ ] | 555 | `strcmp` | `nbjt` | keyword | type_name off the folded .model card; nbjt is a CIDER model type name |
-| [ ] | 577 | `strcmp` | `numos` | keyword | type_name off the folded .model card; numos is a CIDER model type name |
-| [ ] | 591 | `strcmp` | `poly` | keyword | type_name off the folded .model card; poly is the XSPICE poly model type name |
+| [x] | 46 | `strcmp` | `npn` | keyword | type_name is the model type field of the folded .model card; npn is a model type name |
+| [x] | 46 | `strcmp` | `pnp` | keyword | type_name off the folded .model card; pnp is a model type name |
+| [x] | 83 | `strcmp` | `d` | keyword | type_name off the folded .model card; d is the diode model type name |
+| [x] | 94 | `strcmp` | `njf` | keyword | type_name off the folded .model card; njf is a JFET model type name |
+| [x] | 95 | `strcmp` | `pjf` | keyword | type_name off the folded .model card; pjf is a JFET model type name |
+| [x] | 125 | `strcmp` | `nmf` | keyword | type_name off the folded .model card; nmf is a MESFET model type name |
+| [x] | 126 | `strcmp` | `pmf` | keyword | type_name off the folded .model card; pmf is a MESFET model type name |
+| [x] | 127 | `strcmp` | `nhfet` | keyword | type_name off the folded .model card; nhfet is an HFET model type name |
+| [x] | 128 | `strcmp` | `phfet` | keyword | type_name off the folded .model card; phfet is an HFET model type name |
+| [x] | 184 | `strcmp` | `urc` | keyword | type_name off the folded .model card; urc is the uniform-RC model type name |
+| [x] | 195 | `strcmp` | `vdmos` | keyword | type_name off the folded .model card; vdmos is a model type name |
+| [x] | 196 | `strcmp` | `vdmosn` | keyword | type_name off the folded .model card; vdmosn is a model type name |
+| [x] | 197 | `strcmp` | `vdmosp` | keyword | type_name off the folded .model card; vdmosp is a model type name |
+| [x] | 208 | `strcmp` | `nmos` | keyword | type_name off the folded .model card; nmos is a MOSFET model type name |
+| [x] | 209 | `strcmp` | `pmos` | keyword | type_name off the folded .model card; pmos is a MOSFET model type name |
+| [x] | 210 | `strcmp` | `nsoi` | keyword | type_name off the folded .model card; nsoi is a MOSFET model type name |
+| [x] | 211 | `strcmp` | `psoi` | keyword | type_name off the folded .model card; psoi is a MOSFET model type name |
+| [x] | 283 | `strstr` | `default` | keyword | ver is the version= value scanned off the folded .model card, or INPfindVer's own literal |
+| [x] | 308 | `strstr` | `default` | keyword | ver is the version= value from the folded .model card, or INPfindVer's own literal |
+| [x] | 376 | `strstr` | `default` | keyword | ver is the version= value from the folded .model card, or INPfindVer's own literal |
+| [x] | 392 | `strcmp` | `ndev` | keyword | type_name off the folded .model card; ndev is a model type name (CIDER/NDEV build) |
+| [x] | 403 | `strcmp` | `r` | keyword | type_name off the folded .model card; r is the resistor model type name |
+| [x] | 421 | `strcmp` | `res` | keyword | type_name off the folded .model card; res is the PSPICE resistor model type name |
+| [x] | 432 | `strcmp` | `txl` | keyword | type_name off the folded .model card; txl is a transmission-line model type name |
+| [x] | 439 | `strcmp` | `l` | keyword | val is a token of the folded .model txl line; 'l' is the inductance model parameter keyword |
+| [x] | 466 | `strcmp` | `cpl` | keyword | type_name off the folded .model card; cpl is the coupled-line model type name |
+| [x] | 477 | `strcmp` | `c` | keyword | type_name off the folded .model card; c is the capacitor model type name |
+| [x] | 488 | `strcmp` | `l` | keyword | type_name off the folded .model card; l is the inductor model type name |
+| [x] | 500 | `strcmp` | `sw` | keyword | type_name off the folded .model card; sw is the switch model type name |
+| [x] | 511 | `strcmp` | `csw` | keyword | type_name off the folded .model card; csw is the current-controlled switch model type name |
+| [x] | 522 | `strcmp` | `ltra` | keyword | type_name off the folded .model card; ltra is the lossy transmission-line model type name |
+| [x] | 533 | `strcmp` | `numd` | keyword | type_name off the folded .model card; numd is a CIDER model type name |
+| [x] | 555 | `strcmp` | `nbjt` | keyword | type_name off the folded .model card; nbjt is a CIDER model type name |
+| [x] | 577 | `strcmp` | `numos` | keyword | type_name off the folded .model card; numos is a CIDER model type name |
+| [x] | 591 | `strcmp` | `poly` | keyword | type_name off the folded .model card; poly is the XSPICE poly model type name |
 
 ### `src/frontend/logicexp.c` — 16 keyword, 0 fold-visible
 
@@ -679,7 +830,7 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 70 | `strcmp` |  | identifier | btree insert of logicexp pin/model names (inputs, outputs, tmodel) against stored names; deck-derived |
 | n/a | 85 | `strcmp` |  | identifier | btree lookup of logicexp pin/model names against stored names; both sides deck-derived and folded |
-| [ ] | 176 | `strstr` |  | keyword | s is always the literal "logic:" from bparse line 1193, searched in the folded deck line |
+| [x] | 176 | `strstr` |  | keyword | s is always the literal "logic:" from bparse line 1193, searched in the folded deck line |
 | n/a | 441 | `eq` |  | identifier | gate input/operator name list dedup; names are deck node ids or generated tmp__/operator strings |
 | n/a | 523 | `strncmp` |  | internal | TMP_PREFIX "tmp__" tests a compiler-generated temporary net name, never user text |
 | n/a | 524 | `strncmp` |  | internal | TMP_PREFIX "tmp__" tests a compiler-generated temporary net name, never user text |
@@ -693,64 +844,64 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | n/a | 626 | `eq` |  | identifier | gate input name versus earlier gate output name; both already known to be tmp__ temporaries |
 | n/a | 807 | `strncmp` |  | internal | collision warning comparing deck id against internal TMP_PREFIX; prefix is generated, not language text |
 | n/a | 1102 | `strncmp` |  | internal | collision warning comparing deck lhs id against internal TMP_PREFIX; prefix is generated, not language text |
-| [ ] | 1245 | `eq` |  | keyword | expected_str is only ever "logicexp" or "pindly" statement keywords; lexer buffer holds folded deck text |
-| [ ] | 1326 | `eq` | `d0_gate` | keyword | PSpice reserved zero-delay timing-model name on a U instance card; deck lines are folded |
+| [x] | 1245 | `eq` |  | keyword | expected_str is only ever "logicexp" or "pindly" statement keywords; lexer buffer holds folded deck text |
+| [x] | 1326 | `eq` | `d0_gate` | keyword | PSpice reserved zero-delay timing-model name on a U instance card; deck lines are folded |
 | n/a | 1506 | `eq` |  | identifier | pindly table output pin names versus lexer id; both deck node names, folded |
-| [ ] | 1579 | `eq` |  | keyword | time-unit suffixes (ns, ps) left by strtof on PINDLY min/max delays; deck text folded |
-| [ ] | 1730 | `eq` | `delay` | keyword | PINDLY DELAY() function keyword from the U deck card; deck text already folded |
-| [ ] | 1830 | `eq` | `pindly` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
-| [ ] | 1837 | `eq` | `tristate` | keyword | PINDLY TRISTATE section keyword from the U deck card; deck text already folded |
-| [ ] | 1844 | `eq` | `setup_hold` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
-| [ ] | 1845 | `eq` | `width` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
-| [ ] | 1846 | `eq` | `freq` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
-| [ ] | 1847 | `eq` | `boolean` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
-| [ ] | 1848 | `eq` | `general` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
-| [ ] | 1873 | `eq` | `enable` | keyword | PINDLY TRISTATE ENABLE keyword from the U deck card; deck text already folded |
-| [ ] | 1875 | `eq` | `hi` | keyword | ENABLE HI polarity keyword from the U deck card; deck text already folded |
-| [ ] | 1876 | `eq` | `lo` | keyword | ENABLE LO polarity keyword from the U deck card; deck text already folded |
-| [ ] | 1878 | `eq` | `lo` | keyword | ENABLE LO polarity keyword re-test on same lexer buffer; deck text already folded |
+| [x] | 1579 | `eq` |  | keyword | time-unit suffixes (ns, ps) left by strtof on PINDLY min/max delays; deck text folded |
+| [x] | 1730 | `eq` | `delay` | keyword | PINDLY DELAY() function keyword from the U deck card; deck text already folded |
+| [x] | 1830 | `eq` | `pindly` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
+| [x] | 1837 | `eq` | `tristate` | keyword | PINDLY TRISTATE section keyword from the U deck card; deck text already folded |
+| [x] | 1844 | `eq` | `setup_hold` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
+| [x] | 1845 | `eq` | `width` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
+| [x] | 1846 | `eq` | `freq` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
+| [x] | 1847 | `eq` | `boolean` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
+| [x] | 1848 | `eq` | `general` | keyword | PINDLY section keyword from the U deck card; deck text already folded |
+| [x] | 1873 | `eq` | `enable` | keyword | PINDLY TRISTATE ENABLE keyword from the U deck card; deck text already folded |
+| [x] | 1875 | `eq` | `hi` | keyword | ENABLE HI polarity keyword from the U deck card; deck text already folded |
+| [x] | 1876 | `eq` | `lo` | keyword | ENABLE LO polarity keyword from the U deck card; deck text already folded |
+| [x] | 1878 | `eq` | `lo` | keyword | ENABLE LO polarity keyword re-test on same lexer buffer; deck text already folded |
 
 ### `src/frontend/measure.c` — 16 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 149 | `strcmp` | `tran` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
-| [ ] | 149 | `strcmp` | `ac` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
-| [ ] | 150 | `strcmp` | `dc` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
-| [ ] | 150 | `strcmp` | `sp` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
-| [ ] | 172 | `strncmp` |  | keyword | name is the expected field keyword (meastype) and token comes from the same folded card |
-| [ ] | 319 | `strcmp` | `tran` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
-| [ ] | 324 | `strcmp` | `dc` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
-| [ ] | 329 | `strcmp` | `ac` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
-| [ ] | 334 | `strcmp` | `sp` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
-| [ ] | 342 | `strncmp` | `param` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
-| [ ] | 342 | `strncmp` | `expr` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
-| [ ] | 350 | `strcmp` |  | keyword | an_name is strtolower'd analysis name; an_type is folded deck analysis keyword |
-| [ ] | 445 | `strcmp` |  | keyword | an_name is strtolower'd analysis name; an_type is folded deck analysis keyword |
-| [ ] | 452 | `strncmp` | `param` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
-| [ ] | 452 | `strncmp` | `expr` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
-| [ ] | 481 | `strstr` |  | keyword | locates the param/expr keyword token inside the same folded .meas card it came from |
+| [x] | 149 | `strcmp` | `tran` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
+| [x] | 149 | `strcmp` | `ac` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
+| [x] | 150 | `strcmp` | `dc` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
+| [x] | 150 | `strcmp` | `sp` | keyword | an_type is the analysis-name field of a .meas deck card, already folded by inp_read |
+| [x] | 172 | `strncmp` |  | keyword | name is the expected field keyword (meastype) and token comes from the same folded card |
+| [x] | 319 | `strcmp` | `tran` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
+| [x] | 324 | `strcmp` | `dc` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
+| [x] | 329 | `strcmp` | `ac` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
+| [x] | 334 | `strcmp` | `sp` | keyword | an_type token gettok'd from a folded .meas deck card; analysis-name keyword |
+| [x] | 342 | `strncmp` | `param` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
+| [x] | 342 | `strncmp` | `expr` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
+| [x] | 350 | `strcmp` |  | keyword | an_name is strtolower'd analysis name; an_type is folded deck analysis keyword |
+| [x] | 445 | `strcmp` |  | keyword | an_name is strtolower'd analysis name; an_type is folded deck analysis keyword |
+| [x] | 452 | `strncmp` | `param` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
+| [x] | 452 | `strncmp` | `expr` | keyword | meastype is the measurement-type keyword field of a folded .meas deck card |
+| [x] | 481 | `strstr` |  | keyword | locates the param/expr keyword token inside the same folded .meas card it came from |
 
 ### `src/frontend/resource.c` — 16 keyword, 16 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 88 | `eq` | `everything` | keyword **fv** | rusage sub-keyword from command wordlist; prompt/ngSpice_Command input is never folded |
-| [ ] | 88 | `eq` | `all` | keyword **fv** | rusage sub-keyword from command wordlist; prompt/ngSpice_Command input is never folded |
-| [ ] | 156 | `eq` | `totalcputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 156 | `eq` | `cputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 195 | `eq` | `totalcputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 200 | `eq` | `cputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 219 | `eq` | `totalcputime` | keyword **fv** | rusage resource name (NO_RUDATA build) from command word; prompt input is not folded |
-| [ ] | 221 | `eq` | `cputime` | keyword **fv** | rusage resource name (NO_RUDATA build) from command word; prompt input is not folded |
-| [ ] | 228 | `eq` | `space` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 275 | `eq` | `faults` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 293 | `eq` | `task` | keyword **fv** | rusage resource name selecting all frontend stats; command word from prompt is unfolded |
-| [ ] | 322 | `eq` | `devtimes` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
-| [ ] | 340 | `eq` | `circuit` | keyword **fv** | rusage CIDER resource name from command word; prompt input is not folded |
-| [ ] | 340 | `eq` | `task` | keyword **fv** | rusage CIDER resource name from command word; prompt input is not folded |
-| [ ] | 349 | `eq` | `task` | keyword **fv** | rusage resource name selecting all simulator stats; command word from prompt is unfolded |
-| [ ] | 378 | `eq` | `devices` | keyword **fv** | rusage CIDER resource name from command word; prompt input is not folded |
+| [x] | 88 | `eq` | `everything` | keyword **fv** | rusage sub-keyword from command wordlist; prompt/ngSpice_Command input is never folded |
+| [x] | 88 | `eq` | `all` | keyword **fv** | rusage sub-keyword from command wordlist; prompt/ngSpice_Command input is never folded |
+| [x] | 156 | `eq` | `totalcputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 156 | `eq` | `cputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 195 | `eq` | `totalcputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 200 | `eq` | `cputime` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 219 | `eq` | `totalcputime` | keyword **fv** | rusage resource name (NO_RUDATA build) from command word; prompt input is not folded |
+| [x] | 221 | `eq` | `cputime` | keyword **fv** | rusage resource name (NO_RUDATA build) from command word; prompt input is not folded |
+| [x] | 228 | `eq` | `space` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 275 | `eq` | `faults` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 293 | `eq` | `task` | keyword **fv** | rusage resource name selecting all frontend stats; command word from prompt is unfolded |
+| [x] | 322 | `eq` | `devtimes` | keyword **fv** | rusage resource name from unquoted command word; prompt input is not folded |
+| [x] | 340 | `eq` | `circuit` | keyword **fv** | rusage CIDER resource name from command word; prompt input is not folded |
+| [x] | 340 | `eq` | `task` | keyword **fv** | rusage CIDER resource name from command word; prompt input is not folded |
+| [x] | 349 | `eq` | `task` | keyword **fv** | rusage resource name selecting all simulator stats; command word from prompt is unfolded |
+| [x] | 378 | `eq` | `devices` | keyword **fv** | rusage CIDER resource name from command word; prompt input is not folded |
 
 ### `src/frontend/spiceif.c` — 14 keyword, 14 fold-visible
 
@@ -785,41 +936,41 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | n/a | 379 | `eq` | `hb` | internal | what is always a hard-coded C literal; no dosim caller passes hb |
 | n/a | 382 | `eq` | `run` | internal | what is always a hard-coded C literal from dosim("run"); constant vs constant |
 | n/a | 395 | `eq` | `resume` | internal | what is the literal passed by com_resume (runcoms2.c:146); constant vs constant |
-| [ ] | 443 | `eq` | `acct` | keyword **fv** | name is a cp variable/.options keyword; `set ACCT` at prompt is never folded |
-| [ ] | 446 | `eq` | `noacct` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 449 | `eq` | `noinit` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 452 | `eq` | `norefvalue` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 455 | `eq` | `list` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 458 | `eq` | `node` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 461 | `eq` | `opts` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 464 | `eq` | `nopage` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 467 | `eq` | `nomod` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
-| [ ] | 484 | `eq` |  | keyword **fv** | unsupported[] holds .options keywords itl3/itl5/lvltim/maxord/method; name may come unfolded from set |
-| [ ] | 489 | `eq` |  | keyword **fv** | obsolete[] holds .options keywords limpts/limtim/lvlcod; name may come unfolded from set |
-| [ ] | 685 | `eq` | `all` | keyword **fv** | param is the show/@dev[all] wildcard keyword typed at the unfolded cp prompt |
+| [x] | 443 | `eq` | `acct` | keyword **fv** | name is a cp variable/.options keyword; `set ACCT` at prompt is never folded |
+| [x] | 446 | `eq` | `noacct` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 449 | `eq` | `noinit` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 452 | `eq` | `norefvalue` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 455 | `eq` | `list` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 458 | `eq` | `node` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 461 | `eq` | `opts` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 464 | `eq` | `nopage` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 467 | `eq` | `nomod` | keyword **fv** | name is a cp variable/.options keyword; `set` at prompt bypasses inp_read fold |
+| [x] | 484 | `eq` |  | keyword **fv** | unsupported[] holds .options keywords itl3/itl5/lvltim/maxord/method; name may come unfolded from set |
+| [x] | 489 | `eq` |  | keyword **fv** | obsolete[] holds .options keywords limpts/limtim/lvlcod; name may come unfolded from set |
+| [x] | 685 | `eq` | `all` | keyword **fv** | param is the show/@dev[all] wildcard keyword typed at the unfolded cp prompt |
 | n/a | 789 | `eq` | `all` | internal | (overturned) spif_getparam() is dead code, so no `param` ever reaches this eq(). The if_getparam function pointer is installed as spif_getparam_special in ALL thre |
-| [ ] | 1115 | `eq` |  | keyword **fv** | modelParms keyword is a model parameter keyword; param typed at prompt (show/@mod[par]) |
+| [x] | 1115 | `eq` |  | keyword **fv** | modelParms keyword is a model parameter keyword; param typed at prompt (show/@mod[par]) |
 | n/a | 1424 | `strstr` | `script` | identifier | ci_name is the deck title line, a user-chosen name; folded by inp_read |
 | n/a | 1812 | `strcmp` |  | internal | every ft_find_analysis caller passes a C literal; analyses[]->name is a table constant |
-| [ ] | 1823 | `strcmp` |  | keyword **fv** | analysisParms keyword is an option/analysis parameter keyword; name may arrive unfolded via set |
+| [x] | 1823 | `strcmp` |  | keyword **fv** | analysisParms keyword is an option/analysis parameter keyword; name may arrive unfolded via set |
 
 ### `src/frontend/plotting/plotit.c` — 13 keyword, 13 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 565 | `eq` | `lingrid` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 568 | `eq` | `loglog` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 571 | `eq` | `xlog` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 574 | `eq` | `ylog` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 577 | `eq` | `smith` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 580 | `eq` | `smithgrid` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 583 | `eq` | `polar` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 586 | `eq` | `nogrid` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
-| [ ] | 662 | `eq` | `linplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
-| [ ] | 665 | `eq` | `retraceplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
-| [ ] | 668 | `eq` | `combplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
-| [ ] | 671 | `eq` | `pointplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
-| [ ] | 805 | `eq` | `vs` | keyword **fv** | zero-length dvec named from the plot command token; 'vs' is a plot-command separator keyword |
+| [x] | 565 | `eq` | `lingrid` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 568 | `eq` | `loglog` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 571 | `eq` | `xlog` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 574 | `eq` | `ylog` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 577 | `eq` | `smith` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 580 | `eq` | `smithgrid` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 583 | `eq` | `polar` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 586 | `eq` | `nogrid` | keyword **fv** | buf holds the gridstyle variable value; grid-type keyword, unfolded via prompt or setcs |
+| [x] | 662 | `eq` | `linplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
+| [x] | 665 | `eq` | `retraceplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
+| [x] | 668 | `eq` | `combplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
+| [x] | 671 | `eq` | `pointplot` | keyword **fv** | buf holds the plotstyle variable value; plot-type keyword, unfolded via prompt or setcs |
+| [x] | 805 | `eq` | `vs` | keyword **fv** | zero-length dvec named from the plot command token; 'vs' is a plot-command separator keyword |
 | n/a | 973 | `strcmp` | `temp-sweep` | internal | scale vector name generated by dctrcurv.c IFnewUid, never user-authored text |
 | n/a | 976 | `strcmp` | `res-sweep` | internal | scale vector name generated by dctrcurv.c IFnewUid, never user-authored text |
 | n/a | 979 | `strcmp` | `i-sweep` | internal | scale vector name generated by dctrcurv.c IFnewUid, never user-authored text |
@@ -834,51 +985,51 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 72 | `eq` | `after` | keyword **fv** | wl_word is the stop command's first sub-keyword, typed at the cp prompt, never folded |
-| [ ] | 90 | `eq` | `when` | keyword **fv** | wl_word is the stop command's sub-keyword from unfolded cp shell input |
-| [ ] | 95 | `strstr` | `when` | keyword **fv** | lookahead word on the stop command line; language sub-keyword, unfolded cp input |
-| [ ] | 96 | `strstr` | `after` | keyword **fv** | lookahead word on the stop command line; language sub-keyword, unfolded cp input |
-| [ ] | 131 | `eq` | `eq` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
-| [ ] | 133 | `eq` | `ne` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
-| [ ] | 135 | `eq` | `gt` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
-| [ ] | 137 | `eq` | `lt` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
-| [ ] | 150 | `eq` | `ge` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
-| [ ] | 152 | `eq` | `le` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
-| [ ] | 304 | `eq` | `all` | keyword **fv** | reserved wildcard word of iplot; s is cp_unquote of unfolded command word |
-| [ ] | 457 | `eq` | `all` | keyword **fv** | reserved wildcard argument of delete command, from unfolded cp shell input |
+| [x] | 72 | `eq` | `after` | keyword **fv** | wl_word is the stop command's first sub-keyword, typed at the cp prompt, never folded |
+| [x] | 90 | `eq` | `when` | keyword **fv** | wl_word is the stop command's sub-keyword from unfolded cp shell input |
+| [x] | 95 | `strstr` | `when` | keyword **fv** | lookahead word on the stop command line; language sub-keyword, unfolded cp input |
+| [x] | 96 | `strstr` | `after` | keyword **fv** | lookahead word on the stop command line; language sub-keyword, unfolded cp input |
+| [x] | 131 | `eq` | `eq` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
+| [x] | 133 | `eq` | `ne` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
+| [x] | 135 | `eq` | `gt` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
+| [x] | 137 | `eq` | `lt` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
+| [x] | 150 | `eq` | `ge` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
+| [x] | 152 | `eq` | `le` | keyword **fv** | relational operator word of the stop-when condition syntax, from unfolded command line |
+| [x] | 304 | `eq` | `all` | keyword **fv** | reserved wildcard word of iplot; s is cp_unquote of unfolded command word |
+| [x] | 457 | `eq` | `all` | keyword **fv** | reserved wildcard argument of delete command, from unfolded cp shell input |
 
 ### `src/frontend/postcoms.c` — 11 keyword, 11 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 141 | `eq` | `col` | keyword **fv** | first word of the print command; unfolded when typed at the prompt or via ngSpice_Command |
-| [ ] | 145 | `eq` | `line` | keyword **fv** | first word of the print command; unfolded when typed at the prompt or via ngSpice_Command |
-| [ ] | 349 | `eq` | `frequency` | keyword **fv** | reserved AC scale vector name; v_name of a plot loaded from a rawfile is unfolded |
-| [ ] | 390 | `eq` | `frequency` | keyword **fv** | reserved AC scale vector name; v_name of a plot loaded from a rawfile is unfolded |
-| [ ] | 452 | `eq` | `col` | keyword **fv** | first word of the sndprint command; unfolded when typed interactively |
-| [ ] | 455 | `eq` | `line` | keyword **fv** | first word of the sndprint command; unfolded when typed interactively |
-| [ ] | 591 | `eq` | `binary` | keyword **fv** | value of the filetype shell variable; setcs or interactive set preserves case |
-| [ ] | 593 | `eq` | `ascii` | keyword **fv** | value of the filetype shell variable; setcs or interactive set preserves case |
-| [ ] | 1030 | `eq` | `all` | keyword **fv** | destroy sub-keyword from the command wordlist; unfolded when typed interactively |
-| [ ] | 1034 | `eq` | `const` | keyword **fv** | (overturned) "const" is the reserved name of the built-in constants plot (plotting.c:8-9 static constantplot has compile-time pl_typename "const"), not a user-chos |
+| [x] | 141 | `eq` | `col` | keyword **fv** | first word of the print command; unfolded when typed at the prompt or via ngSpice_Command |
+| [x] | 145 | `eq` | `line` | keyword **fv** | first word of the print command; unfolded when typed at the prompt or via ngSpice_Command |
+| [x] | 349 | `eq` | `frequency` | keyword **fv** | reserved AC scale vector name; v_name of a plot loaded from a rawfile is unfolded |
+| [x] | 390 | `eq` | `frequency` | keyword **fv** | reserved AC scale vector name; v_name of a plot loaded from a rawfile is unfolded |
+| [x] | 452 | `eq` | `col` | keyword **fv** | first word of the sndprint command; unfolded when typed interactively |
+| [x] | 455 | `eq` | `line` | keyword **fv** | first word of the sndprint command; unfolded when typed interactively |
+| [x] | 591 | `eq` | `binary` | keyword **fv** | value of the filetype shell variable; setcs or interactive set preserves case |
+| [x] | 593 | `eq` | `ascii` | keyword **fv** | value of the filetype shell variable; setcs or interactive set preserves case |
+| [x] | 1030 | `eq` | `all` | keyword **fv** | destroy sub-keyword from the command wordlist; unfolded when typed interactively |
+| [x] | 1034 | `eq` | `const` | keyword **fv** | (overturned) "const" is the reserved name of the built-in constants plot (plotting.c:8-9 static constantplot has compile-time pl_typename "const"), not a user-chos |
 | n/a | 1047 | `eq` |  | identifier | user-typed plot name against generated pl_typename; destroy argument unfolded interactively |
-| [ ] | 1067 | `eq` | `const` | keyword **fv** | (overturned) Same reserved literal in killplot's "can't destroy the constant plot" guard; vectors.c:618 uses cieq for it. pl_typename can be user text only via com |
+| [x] | 1067 | `eq` | `const` | keyword **fv** | (overturned) Same reserved literal in killplot's "can't destroy the constant plot" guard; vectors.c:618 uses cieq for it. pl_typename can be user text only via com |
 
 ### `src/frontend/device.c` — 10 keyword, 8 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 83 | `eq` | `-type` | keyword **fv** | devhelp option word from command wordlist; interactive/ngSpice_Command path is never folded |
-| [ ] | 85 | `eq` | `-flags` | keyword **fv** | devhelp option word from command wordlist; interactive prompt input is not folded |
-| [ ] | 87 | `eq` | `-csv` | keyword **fv** | devhelp option word from command wordlist; interactive prompt input is not folded |
-| [ ] | 399 | `eq` | `-v` | keyword **fv** | show command option word; typed at nutmeg prompt, no inp_read fold applied |
-| [ ] | 427 | `eq` | `all` | keyword **fv** | show device/param wildcard word from command wordlist; prompt input unfolded |
-| [ ] | 561 | `eq` | `-v` | keyword **fv** | show option word in all_show_old; command wordlist from prompt is unfolded |
-| [ ] | 588 | `eq` | `all` | keyword **fv** | show wildcard word in all_show_old; command wordlist from prompt is unfolded |
-| [ ] | 1484 | `eq` | `w` | keyword | alter parameter name; strtolower(param) at line 1417 already forces lowercase |
-| [ ] | 1484 | `eq` | `l` | keyword | alter parameter name; strtolower(param) at line 1417 already forces lowercase |
+| [x] | 83 | `eq` | `-type` | keyword **fv** | devhelp option word from command wordlist; interactive/ngSpice_Command path is never folded |
+| [x] | 85 | `eq` | `-flags` | keyword **fv** | devhelp option word from command wordlist; interactive prompt input is not folded |
+| [x] | 87 | `eq` | `-csv` | keyword **fv** | devhelp option word from command wordlist; interactive prompt input is not folded |
+| [x] | 399 | `eq` | `-v` | keyword **fv** | show command option word; typed at nutmeg prompt, no inp_read fold applied |
+| [x] | 427 | `eq` | `all` | keyword **fv** | show device/param wildcard word from command wordlist; prompt input unfolded |
+| [x] | 561 | `eq` | `-v` | keyword **fv** | show option word in all_show_old; command wordlist from prompt is unfolded |
+| [x] | 588 | `eq` | `all` | keyword **fv** | show wildcard word in all_show_old; command wordlist from prompt is unfolded |
+| [x] | 1484 | `eq` | `w` | keyword | alter parameter name; strtolower(param) at line 1417 already forces lowercase |
+| [x] | 1484 | `eq` | `l` | keyword | alter parameter name; strtolower(param) at line 1417 already forces lowercase |
 | n/a | 1507 | `strcmp` |  | identifier | device instance names: circuit device list vs command word already lowercased by inp_casefix at 1156 |
-| [ ] | 1566 | `strstr` | `file` | keyword **fv** | altermod keyword in flattened command text; loop at 1544 accepts FILE via ciprefix, strstr then NULLs |
+| [x] | 1566 | `strstr` | `file` | keyword **fv** | altermod keyword in flattened command text; loop at 1544 accepts FILE via ciprefix, strstr then NULLs |
 
 ### `src/frontend/variable.c` — 10 keyword, 10 fold-visible
 
@@ -886,15 +1037,15 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 100 | `eq` |  | identifier | lookup of an existing shell variable by its user-chosen name in the variables list |
 | n/a | 207 | `eq` |  | identifier | lookup of a circuit variable by user-chosen name when recording a simulator variable |
-| [ ] | 292 | `eq` | `glob` | keyword **fv** | sz_rest is the tail of a set/unset variable name; completes built-in option variable noglob |
-| [ ] | 295 | `eq` | `nomatch` | keyword **fv** | tail of a set variable name; completes built-in option variable nonomatch |
-| [ ] | 298 | `eq` | `clobber` | keyword **fv** | tail of a set variable name; completes built-in option variable noclobber |
-| [ ] | 301 | `eq` | `_histsubst` | keyword **fv** | tail of a set variable name; completes built-in option variable no_histsubst |
-| [ ] | 311 | `eq` | `istory` | keyword **fv** | tail after 'h' of a set variable name; completes built-in option variable history |
-| [ ] | 330 | `eq` | `cho` | keyword **fv** | tail after 'e' of a set variable name; completes built-in option variable echo |
-| [ ] | 342 | `eq` | `mpt` | keyword **fv** | tail after 'pro' of a set variable name; completes built-in option variable prompt |
-| [ ] | 353 | `eq` | `gram` | keyword **fv** | tail after 'pro' of a set variable name; completes built-in option variable program |
-| [ ] | 366 | `eq` | `pdebug` | keyword **fv** | tail after 'c' of a set variable name; completes built-in option variable cpdebug |
+| [x] | 292 | `eq` | `glob` | keyword **fv** | sz_rest is the tail of a set/unset variable name; completes built-in option variable noglob |
+| [x] | 295 | `eq` | `nomatch` | keyword **fv** | tail of a set variable name; completes built-in option variable nonomatch |
+| [x] | 298 | `eq` | `clobber` | keyword **fv** | tail of a set variable name; completes built-in option variable noclobber |
+| [x] | 301 | `eq` | `_histsubst` | keyword **fv** | tail of a set variable name; completes built-in option variable no_histsubst |
+| [x] | 311 | `eq` | `istory` | keyword **fv** | tail after 'h' of a set variable name; completes built-in option variable history |
+| [x] | 330 | `eq` | `cho` | keyword **fv** | tail after 'e' of a set variable name; completes built-in option variable echo |
+| [x] | 342 | `eq` | `mpt` | keyword **fv** | tail after 'pro' of a set variable name; completes built-in option variable prompt |
+| [x] | 353 | `eq` | `gram` | keyword **fv** | tail after 'pro' of a set variable name; completes built-in option variable program |
+| [x] | 366 | `eq` | `pdebug` | keyword **fv** | tail after 'c' of a set variable name; completes built-in option variable cpdebug |
 | n/a | 459 | `eq` |  | internal | tests only whether cp_unquote stripped quotes; the two strings differ by quotes, never by case |
 | n/a | 483 | `eq` |  | internal | tests whether a list element was quoted; string compared with its own unquoted copy |
 | n/a | 526 | `eq` |  | internal | tests whether the value was quoted; string compared with its own unquoted copy |
@@ -910,7 +1061,7 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | n/a | 950 | `eq` |  | identifier | $?var existence test: user-typed name matched against shell variable names |
 | n/a | 966 | `eq` |  | identifier | $#var count: user-typed name matched against shell variable names |
 | n/a | 1006 | `eq` |  | identifier | $var evaluation: user-typed name matched against shell variable names |
-| [ ] | 1012 | `eq` | `argv` | keyword **fv** | argv is the built-in positional-parameter variable; the scanned list holds arbitrary user variable names |
+| [x] | 1012 | `eq` | `argv` | keyword **fv** | argv is the built-in positional-parameter variable; the scanned list holds arbitrary user variable names |
 | n/a | 1097 | `strcmp` |  | identifier | qsort comparator ordering user variable names for the set listing output |
 | n/a | 1162 | `eq` |  | identifier | suppresses duplicate adjacent variable names when printing; both operands are runtime variable names |
 
@@ -918,208 +1069,208 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 126 | `strcmp` | `linear/xlog/ylog/loglog` | keyword | plot_opts holds .plot scale keywords matched against tokens of a folded .plot deck card. |
-| [ ] | 287 | `eq` | `.width` | keyword | First token of a .width dot card from ci_commands, collected from the deck after inp_read folded it. |
-| [ ] | 302 | `eq` | `.print` | keyword | Dot-card keyword from ci_commands; deck lines are lowercased by inp_read, '.print' is not whitelisted. |
-| [ ] | 330 | `eq` | `.plot` | keyword | Dot-card keyword; the plot/gnuplot/hardcopy case exemption only matches lines starting with 'plot', not '.plot'. |
-| [ ] | 359 | `eq` | `.sndparam` | keyword | Dot-card keyword from the folded deck's ci_commands wordlist. |
-| [ ] | 366 | `eq` | `.sndprint` | keyword | Dot-card keyword from the folded deck's ci_commands wordlist. |
-| [ ] | 410 | `eq` | `.save` | keyword | Dot-card keyword; ci_commands entries come from folded deck lines. |
-| [ ] | 411 | `eq` | `.op` | keyword | Analysis dot-card keyword; ci_commands entries come from folded deck lines. |
-| [ ] | 413 | `eq` | `.tf` | keyword | Analysis dot-card keyword; ci_commands entries come from folded deck lines. |
+| [x] | 126 | `strcmp` | `linear/xlog/ylog/loglog` | keyword | plot_opts holds .plot scale keywords matched against tokens of a folded .plot deck card. |
+| [x] | 287 | `eq` | `.width` | keyword | First token of a .width dot card from ci_commands, collected from the deck after inp_read folded it. |
+| [x] | 302 | `eq` | `.print` | keyword | Dot-card keyword from ci_commands; deck lines are lowercased by inp_read, '.print' is not whitelisted. |
+| [x] | 330 | `eq` | `.plot` | keyword | Dot-card keyword; the plot/gnuplot/hardcopy case exemption only matches lines starting with 'plot', not '.plot'. |
+| [x] | 359 | `eq` | `.sndparam` | keyword | Dot-card keyword from the folded deck's ci_commands wordlist. |
+| [x] | 366 | `eq` | `.sndprint` | keyword | Dot-card keyword from the folded deck's ci_commands wordlist. |
+| [x] | 410 | `eq` | `.save` | keyword | Dot-card keyword; ci_commands entries come from folded deck lines. |
+| [x] | 411 | `eq` | `.op` | keyword | Analysis dot-card keyword; ci_commands entries come from folded deck lines. |
+| [x] | 413 | `eq` | `.tf` | keyword | Analysis dot-card keyword; ci_commands entries come from folded deck lines. |
 
 ### `src/frontend/spec.c` — 9 keyword, 9 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 93 | `eq` | `none` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 96 | `eq` | `rectangular` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 104 | `eq` | `hanning` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 104 | `eq` | `cosine` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 112 | `eq` | `hamming` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 120 | `eq` | `triangle` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 120 | `eq` | `bartlet` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 128 | `eq` | `blackman` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
-| [ ] | 138 | `eq` | `gaussian` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 93 | `eq` | `none` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 96 | `eq` | `rectangular` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 104 | `eq` | `hanning` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 104 | `eq` | `cosine` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 112 | `eq` | `hamming` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 120 | `eq` | `triangle` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 120 | `eq` | `bartlet` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 128 | `eq` | `blackman` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
+| [x] | 138 | `eq` | `gaussian` | keyword **fv** | specwindow variable value; setcs or interactive set keeps case |
 
 ### `src/spicelib/parser/inpptree.c` — 9 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 990 | `strcmp` |  | internal | opstr is always a C literal supplied by the yacc grammar ("+", "-", "," ...) |
-| [ ] | 1163 | `strcmp` | `ternary_fcn` | keyword | buf is a strtolower'd copy of the function name; ternary_fcn is an expression-language function |
-| [ ] | 1189 | `strcmp` | `gauss` | keyword | buf is strtolower'd locally at line 1161; gauss is an expression-language function name |
-| [ ] | 1213 | `strcmp` |  | keyword | funcs[] holds expression-language function names; buf is strtolower'd locally at line 1161 |
-| [ ] | 1341 | `strcmp` | `time` | keyword | buf is strtolower'd locally at line 1335; time is an expression special variable |
-| [ ] | 1347 | `strcmp` | `temper` | keyword | buf is strtolower'd locally at line 1335; temper is an expression special variable |
-| [ ] | 1353 | `strcmp` | `hertz` | keyword | buf is strtolower'd locally at line 1335; hertz is an expression special variable |
-| [ ] | 1361 | `strcmp` |  | keyword | specSigs is the static specSigList {"time"} table; buf is strtolower'd locally |
-| [ ] | 1365 | `strcmp` |  | keyword | values[].sValue caches a previously seen special-signal name; both sides already lowercase |
-| [ ] | 1386 | `strcmp` |  | keyword | constants[] holds e and pi, expression-language constants; buf is strtolower'd locally |
+| [x] | 1163 | `strcmp` | `ternary_fcn` | keyword | buf is a strtolower'd copy of the function name; ternary_fcn is an expression-language function |
+| [x] | 1189 | `strcmp` | `gauss` | keyword | buf is strtolower'd locally at line 1161; gauss is an expression-language function name |
+| [x] | 1213 | `strcmp` |  | keyword | funcs[] holds expression-language function names; buf is strtolower'd locally at line 1161 |
+| [x] | 1341 | `strcmp` | `time` | keyword | buf is strtolower'd locally at line 1335; time is an expression special variable |
+| [x] | 1347 | `strcmp` | `temper` | keyword | buf is strtolower'd locally at line 1335; temper is an expression special variable |
+| [x] | 1353 | `strcmp` | `hertz` | keyword | buf is strtolower'd locally at line 1335; hertz is an expression special variable |
+| [x] | 1361 | `strcmp` |  | keyword | specSigs is the static specSigList {"time"} table; buf is strtolower'd locally |
+| [x] | 1365 | `strcmp` |  | keyword | values[].sValue caches a previously seen special-signal name; both sides already lowercase |
+| [x] | 1386 | `strcmp` |  | keyword | constants[] holds e and pi, expression-language constants; buf is strtolower'd locally |
 
 ### `src/frontend/com_hardcopy.c` — 8 keyword, 2 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 62 | `strcmp` | `svg` | keyword **fv** | devtype is the hcopydevtype shell-variable value; graphics device-type keyword, unfolded via prompt or setcs |
-| [ ] | 67 | `strcmp` | `postscript` | keyword **fv** | devtype is the hcopydevtype variable value; device-type keyword, sibling test uses uppercase MFB |
-| [ ] | 94 | `strcmp` | `svg` | keyword | (overturned) Class is right, fold_visible is not. Line 82 `if (DevSwitch(devtype)) return;` runs first, and DevSwitch (display.c:427) does `dispdev = FindDev(devna |
-| [ ] | 213 | `strcmp` | `plot5` | keyword | (overturned) Same guard: every path to line 211 has passed a successful DevSwitch(devtype) - line 82 (WinGUI), line 153 (X11), or line 196 in the `if (!foundit)` b |
-| [ ] | 229 | `strcmp` | `postscript` | keyword | (overturned) Unreachable with a devtype that is not an exact device[] name: DevSwitch(devtype) at line 196 (or 82/153 when foundit was set) already rejected anythi |
-| [ ] | 248 | `strcmp` | `plot5` | keyword | (overturned) Same DevSwitch gate as line 213/229. devtype at line 248 is guaranteed byte-equal to a device[] entry, so "plot5" can only be reached as exactly "plot |
-| [ ] | 255 | `strcmp` | `postscript` | keyword | (overturned) Same DevSwitch gate. devtype is already validated by FindDev's strcmp, so an uppercase "Postscript" never arrives at this line - it dies at line 196/1 |
-| [ ] | 260 | `strcmp` | `svg` | keyword | (overturned) Same DevSwitch gate. Only lines 62 and 67 (in the `else` of `if (wl)`, before any DevSwitch call) genuinely see an unvalidated hcopydevtype value; tho |
+| [x] | 62 | `strcmp` | `svg` | keyword **fv** | devtype is the hcopydevtype shell-variable value; graphics device-type keyword, unfolded via prompt or setcs |
+| [x] | 67 | `strcmp` | `postscript` | keyword **fv** | devtype is the hcopydevtype variable value; device-type keyword, sibling test uses uppercase MFB |
+| [x] | 94 | `strcmp` | `svg` | keyword | (overturned) Class is right, fold_visible is not. Line 82 `if (DevSwitch(devtype)) return;` runs first, and DevSwitch (display.c:427) does `dispdev = FindDev(devna |
+| [x] | 213 | `strcmp` | `plot5` | keyword | (overturned) Same guard: every path to line 211 has passed a successful DevSwitch(devtype) - line 82 (WinGUI), line 153 (X11), or line 196 in the `if (!foundit)` b |
+| [x] | 229 | `strcmp` | `postscript` | keyword | (overturned) Unreachable with a devtype that is not an exact device[] name: DevSwitch(devtype) at line 196 (or 82/153 when foundit was set) already rejected anythi |
+| [x] | 248 | `strcmp` | `plot5` | keyword | (overturned) Same DevSwitch gate as line 213/229. devtype at line 248 is guaranteed byte-equal to a device[] entry, so "plot5" can only be reached as exactly "plot |
+| [x] | 255 | `strcmp` | `postscript` | keyword | (overturned) Same DevSwitch gate. devtype is already validated by FindDev's strcmp, so an uppercase "Postscript" never arrives at this line - it dies at line 196/1 |
+| [x] | 260 | `strcmp` | `svg` | keyword | (overturned) Same DevSwitch gate. Only lines 62 and 67 (in the `else` of `if (wl)`, before any DevSwitch call) genuinely see an unvalidated hcopydevtype value; tho |
 
 ### `src/frontend/parse.c` — 8 keyword, 5 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 105 | `strstr` | `v(` | keyword | (overturned) Same line, same argument for the "i(" literal: strstr(sz, "I(") is already a disjunct of the identical condition, and the i-branch at line 168 tests t |
-| [ ] | 105 | `strstr` | `i(` | keyword | (overturned) Same line, same argument for the "i(" literal: strstr(sz, "I(") is already a disjunct of the identical condition, and the i-branch at line 168 tests t |
-| [ ] | 214 | `strstr` | `v("` | keyword **fv** | pn_name keeps user case when the deck already wrote V("..."), which the rewriter skips |
-| [ ] | 214 | `strstr` | `i("` | keyword **fv** | pn_name keeps user case when the command already wrote I("..."), which the rewriter skips |
-| [ ] | 252 | `eq` | `list` | keyword **fv** | v_name is the token typed on an unfolded command line; 'list' is reserved |
-| [ ] | 253 | `eq` | `all` | keyword **fv** | v_name is the token typed on an unfolded command line; 'all' is the reserved wildcard |
-| [ ] | 479 | `eq` |  | keyword | buf is the function name explicitly strtolower'd; fu_name is the ft_funcs table keyword |
-| [ ] | 912 | `prefix` | `i(v` | keyword **fv** | expression lexer buffer from unfolded command text; i() and device letter v are literals |
+| [x] | 105 | `strstr` | `v(` | keyword | (overturned) Same line, same argument for the "i(" literal: strstr(sz, "I(") is already a disjunct of the identical condition, and the i-branch at line 168 tests t |
+| [x] | 105 | `strstr` | `i(` | keyword | (overturned) Same line, same argument for the "i(" literal: strstr(sz, "I(") is already a disjunct of the identical condition, and the i-branch at line 168 tests t |
+| [x] | 214 | `strstr` | `v("` | keyword **fv** | pn_name keeps user case when the deck already wrote V("..."), which the rewriter skips |
+| [x] | 214 | `strstr` | `i("` | keyword **fv** | pn_name keeps user case when the command already wrote I("..."), which the rewriter skips |
+| [x] | 252 | `eq` | `list` | keyword **fv** | v_name is the token typed on an unfolded command line; 'list' is reserved |
+| [x] | 253 | `eq` | `all` | keyword **fv** | v_name is the token typed on an unfolded command line; 'all' is the reserved wildcard |
+| [x] | 479 | `eq` |  | keyword | buf is the function name explicitly strtolower'd; fu_name is the ft_funcs table keyword |
+| [x] | 912 | `prefix` | `i(v` | keyword **fv** | expression lexer buffer from unfolded command text; i() and device letter v are literals |
 
 ### `src/frontend/subckt.c` — 8 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 377 | `strstr` | `param` | keyword | The 'param' measurement-type keyword on a .meas card; deck lines are folded by inp_read. |
+| [x] | 377 | `strstr` | `param` | keyword | The 'param' measurement-type keyword on a .meas card; deck lines are folded by inp_read. |
 | n/a | 604 | `eq` | `su_name (var)` | identifier | Compares the last token of an X instance line against a stored user-chosen subcircuit name. |
-| [ ] | 636 | `strstr` | ` wmin=` | keyword | HSPICE model-binning parameter keyword on a .model card; non-XSPICE .model cards are folded. |
-| [ ] | 652 | `strstr` | ` wmax=` | keyword | HSPICE model-binning parameter keyword on a folded .model card. |
-| [ ] | 669 | `strstr` | ` lmin=` | keyword | HSPICE model-binning parameter keyword on a folded .model card. |
-| [ ] | 685 | `strstr` | ` lmax=` | keyword | HSPICE model-binning parameter keyword on a folded .model card. |
-| [ ] | 1304 | `eq` | `vnam` | keyword | XSPICE port-type qualifier following '%' on an A-device line; A lines are folded deck text. |
-| [ ] | 1387 | `strcmp` | `poly` | keyword **fv** | (overturned) The sibling uppercase arm at line 1386 is live, not dead. translate() emits uppercase itself at line 1416: bxx_printf(&buffer, "POLY( %d ) ", dim). do |
+| [x] | 636 | `strstr` | ` wmin=` | keyword | HSPICE model-binning parameter keyword on a .model card; non-XSPICE .model cards are folded. |
+| [x] | 652 | `strstr` | ` wmax=` | keyword | HSPICE model-binning parameter keyword on a folded .model card. |
+| [x] | 669 | `strstr` | ` lmin=` | keyword | HSPICE model-binning parameter keyword on a folded .model card. |
+| [x] | 685 | `strstr` | ` lmax=` | keyword | HSPICE model-binning parameter keyword on a folded .model card. |
+| [x] | 1304 | `eq` | `vnam` | keyword | XSPICE port-type qualifier following '%' on an A-device line; A lines are folded deck text. |
+| [x] | 1387 | `strcmp` | `poly` | keyword **fv** | (overturned) The sibling uppercase arm at line 1386 is live, not dead. translate() emits uppercase itself at line 1416: bxx_printf(&buffer, "POLY( %d ) ", dim). do |
 | n/a | 1610 | `eq` | `subname (var)` | identifier | Checks a surplus actual argument against the user-chosen subcircuit name on the X call line. |
-| [ ] | 2174 | `strstr` | `len` | keyword | len/length parameter keyword terminating a CPL (P device) line; deck text is folded. |
+| [x] | 2174 | `strstr` | `len` | keyword | len/length parameter keyword terminating a CPL (P device) line; deck text is folded. |
 
 ### `src/frontend/numparam/spicenum.c` — 6 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 241 | `prefix` | `.param` | keyword | Dot-card keyword tested at start of a numparam-processed deck line, already lowercased by inp_read. |
-| [ ] | 245 | `prefix` | `.subckt` | keyword | Dot-card keyword on a folded deck line inside transform()'s category dispatch. |
-| [ ] | 248 | `strstr` | `params:` | keyword | The params: separator keyword on a .subckt definition line, which inp_read has folded. |
-| [ ] | 253 | `prefix` | `.control` | keyword | Control-section delimiter dot card; deck lines beginning with '.control' are folded, not whitelisted. |
-| [ ] | 255 | `prefix` | `.endc` | keyword | Control-section end delimiter dot card on a folded deck line. |
-| [ ] | 257 | `prefix` | `.ends` | keyword | Subckt end dot card on a folded deck line. |
+| [x] | 241 | `prefix` | `.param` | keyword | Dot-card keyword tested at start of a numparam-processed deck line, already lowercased by inp_read. |
+| [x] | 245 | `prefix` | `.subckt` | keyword | Dot-card keyword on a folded deck line inside transform()'s category dispatch. |
+| [x] | 248 | `strstr` | `params:` | keyword | The params: separator keyword on a .subckt definition line, which inp_read has folded. |
+| [x] | 253 | `prefix` | `.control` | keyword | Control-section delimiter dot card; deck lines beginning with '.control' are folded, not whitelisted. |
+| [x] | 255 | `prefix` | `.endc` | keyword | Control-section end delimiter dot card on a folded deck line. |
+| [x] | 257 | `prefix` | `.ends` | keyword | Subckt end dot card on a folded deck line. |
 
 ### `src/frontend/nutinp.c` — 6 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 136 | `eq` | `.width` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 137 | `eq` | `.plot` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 138 | `eq` | `.print` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 139 | `eq` | `.sndprint` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 140 | `eq` | `.sndparam` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
-| [ ] | 141 | `eq` | `.save` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 136 | `eq` | `.width` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 137 | `eq` | `.plot` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 138 | `eq` | `.print` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 139 | `eq` | `.sndprint` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 140 | `eq` | `.sndparam` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
+| [x] | 141 | `eq` | `.save` | keyword | s is first deck token, inp_casefix(s) applied two lines earlier |
 
 ### `src/frontend/sndprint.c` — 6 keyword, 6 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 214 | `strcmp` | `wav` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
-| [ ] | 215 | `strcmp` | `wav16` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
-| [ ] | 216 | `strcmp` | `wav24` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
-| [ ] | 217 | `strcmp` | `wav32` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
-| [ ] | 218 | `strcmp` | `aiff` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
-| [ ] | 219 | `strcmp` | `aliki` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
+| [x] | 214 | `strcmp` | `wav` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
+| [x] | 215 | `strcmp` | `wav16` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
+| [x] | 216 | `strcmp` | `wav24` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
+| [x] | 217 | `strcmp` | `wav32` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
+| [x] | 218 | `strcmp` | `aiff` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
+| [x] | 219 | `strcmp` | `aliki` | keyword **fv** | fmt is the third sndparam argument; audio-format keyword, prompt input is unfolded |
 
 ### `src/spicelib/parser/inpgmod.c` — 5 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 52 | `strcmp` |  | keyword | name is a model-parameter token off the folded .model card; p->keyword is the device parm table |
-| [ ] | 66 | `strcmp` |  | keyword | name is an instance-parameter token off the folded .model card; p->keyword is the device parm table |
-| [ ] | 151 | `strcmp` | `level` | keyword | parm is a token of the folded .model card; level is a model parameter keyword |
-| [ ] | 151 | `strcmp` | `m` | keyword | parm is a token of the folded .model card; m is the multiplier parameter keyword |
-| [ ] | 224 | `strcmp` |  | keyword | tokens[] are l/w/nf/wnflag and lmin/lmax/wmin/wmax binning parameter keywords; token is folded |
+| [x] | 52 | `strcmp` |  | keyword | name is a model-parameter token off the folded .model card; p->keyword is the device parm table |
+| [x] | 66 | `strcmp` |  | keyword | name is an instance-parameter token off the folded .model card; p->keyword is the device parm table |
+| [x] | 151 | `strcmp` | `level` | keyword | parm is a token of the folded .model card; level is a model parameter keyword |
+| [x] | 151 | `strcmp` | `m` | keyword | parm is a token of the folded .model card; m is the multiplier parameter keyword |
+| [x] | 224 | `strcmp` |  | keyword | tokens[] are l/w/nf/wnflag and lmin/lmax/wmin/wmax binning parameter keywords; token is folded |
 | n/a | 398 | `strcmp` |  | internal | sits inside an #if (0) block; dead code, and both operands are user .model names anyway |
 
 ### `src/frontend/com_let.c` — 4 keyword, 4 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 93 | `eq` | `all` | keyword **fv** | rejects reserved wildcard word as an LHS vector name; let line is unfolded |
-| [ ] | 172 | `strstr` | `v(/` | keyword **fv** | detects the v() accessor keyword on a KiCad node in the unfolded let RHS |
-| [ ] | 869 | `strstr` | `v(/` | keyword **fv** | counts occurrences of the v() accessor keyword in the unfolded let RHS string |
-| [ ] | 876 | `strstr` | `v(/` | keyword **fv** | locates the v() accessor keyword in the unfolded let RHS to insert quotes |
+| [x] | 93 | `eq` | `all` | keyword **fv** | rejects reserved wildcard word as an LHS vector name; let line is unfolded |
+| [x] | 172 | `strstr` | `v(/` | keyword **fv** | detects the v() accessor keyword on a KiCad node in the unfolded let RHS |
+| [x] | 869 | `strstr` | `v(/` | keyword **fv** | counts occurrences of the v() accessor keyword in the unfolded let RHS string |
+| [x] | 876 | `strstr` | `v(/` | keyword **fv** | locates the v() accessor keyword in the unfolded let RHS to insert quotes |
 
 ### `src/spicelib/parser/inp2p.c` — 4 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 58 | `strcmp` | `length` | keyword | tempname is a token of the folded P card; length is a P-card parameter keyword |
-| [ ] | 58 | `strcmp` | `len` | keyword | same folded P-card token; len is the short spelling of the length parameter keyword |
-| [ ] | 105 | `strcmp` | `length` | keyword | model holds the token after the model name on the folded P card; length parameter keyword |
-| [ ] | 105 | `strcmp` | `len` | keyword | same folded P-card token; len parameter keyword |
+| [x] | 58 | `strcmp` | `length` | keyword | tempname is a token of the folded P card; length is a P-card parameter keyword |
+| [x] | 58 | `strcmp` | `len` | keyword | same folded P-card token; len is the short spelling of the length parameter keyword |
+| [x] | 105 | `strcmp` | `length` | keyword | model holds the token after the model name on the folded P card; length parameter keyword |
+| [x] | 105 | `strcmp` | `len` | keyword | same folded P-card token; len parameter keyword |
 
 ### `src/spicelib/parser/inp2y.c` — 4 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 77 | `strcmp` | `len` | keyword | model holds a token of the folded Y card; len is the length parameter keyword |
-| [ ] | 100 | `strcmp` | `l` | keyword | buf is a token of the folded .model txl line; 'l' is an inductance model parameter keyword |
-| [ ] | 104 | `strcmp` | `c` | keyword | buf is a token of the folded .model txl line; 'c' is a capacitance model parameter keyword |
-| [ ] | 109 | `strcmp` | `length` | keyword | buf is a token of the folded .model txl line; length is a model parameter keyword |
+| [x] | 77 | `strcmp` | `len` | keyword | model holds a token of the folded Y card; len is the length parameter keyword |
+| [x] | 100 | `strcmp` | `l` | keyword | buf is a token of the folded .model txl line; 'l' is an inductance model parameter keyword |
+| [x] | 104 | `strcmp` | `c` | keyword | buf is a token of the folded .model txl line; 'c' is a capacitance model parameter keyword |
+| [x] | 109 | `strcmp` | `length` | keyword | buf is a token of the folded .model txl line; length is a model parameter keyword |
 
 ### `src/xspice/mif/mifgetvalue.c` — 4 keyword, 4 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 286 | `strcmp` | `t` | keyword **fv** | (overturned) Same proof: `.model fs filesource(timerelative="TRUE")` run through build-ver_50/src/ngspice gives "MIF-ERROR - model: fs - Bad boolean value" today,  |
-| [ ] | 286 | `strcmp` | `true` | keyword **fv** | (overturned) Same proof: `.model fs filesource(timerelative="TRUE")` run through build-ver_50/src/ngspice gives "MIF-ERROR - model: fs - Bad boolean value" today,  |
-| [ ] | 288 | `strcmp` | `f` | keyword **fv** | (overturned) See line 286/288 above: MIFgetValue routes IF_FLAG params through MIFget_token->MIFgettok (quote-stripping, case-preserving), not through get_string() |
-| [ ] | 288 | `strcmp` | `false` | keyword **fv** | (overturned) See line 286/288 above: MIFgetValue routes IF_FLAG params through MIFget_token->MIFgettok (quote-stripping, case-preserving), not through get_string() |
+| [x] | 286 | `strcmp` | `t` | keyword **fv** | (overturned) Same proof: `.model fs filesource(timerelative="TRUE")` run through build-ver_50/src/ngspice gives "MIF-ERROR - model: fs - Bad boolean value" today,  |
+| [x] | 286 | `strcmp` | `true` | keyword **fv** | (overturned) Same proof: `.model fs filesource(timerelative="TRUE")` run through build-ver_50/src/ngspice gives "MIF-ERROR - model: fs - Bad boolean value" today,  |
+| [x] | 288 | `strcmp` | `f` | keyword **fv** | (overturned) See line 286/288 above: MIFgetValue routes IF_FLAG params through MIFget_token->MIFgettok (quote-stripping, case-preserving), not through get_string() |
+| [x] | 288 | `strcmp` | `false` | keyword **fv** | (overturned) See line 286/288 above: MIFgetValue routes IF_FLAG params through MIFget_token->MIFgettok (quote-stripping, case-preserving), not through get_string() |
 
 ### `src/frontend/breakp2.c` — 3 keyword, 3 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 68 | `eq` | `all` | keyword **fv** | reserved wildcard word of save/trace; s is cp_unquote of unfolded command word |
-| [ ] | 68 | `eq` | `nosub` | keyword **fv** | reserved save/trace wildcard keyword; s comes from unfolded cp command line |
+| [x] | 68 | `eq` | `all` | keyword **fv** | reserved wildcard word of save/trace; s is cp_unquote of unfolded command word |
+| [x] | 68 | `eq` | `nosub` | keyword **fv** | reserved save/trace wildcard keyword; s comes from unfolded cp command line |
 | n/a | 98 | `eq` |  | identifier | both operands are user node names from save commands, taken from unfolded cp input |
-| [ ] | 99 | `eq` | `all` | keyword **fv** | db_nodename1 may hold the reserved wildcard 'all' copied from unfolded command word |
+| [x] | 99 | `eq` | `all` | keyword **fv** | db_nodename1 may hold the reserved wildcard 'all' copied from unfolded command word |
 
 ### `src/frontend/com_compose.c` — 3 keyword, 3 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 121 | `eq` | `values` | keyword **fv** | sub-keyword selecting compose's value-list form; wordlist from unfolded cp shell input |
-| [ ] | 229 | `eq` | `device` | keyword **fv** | sub-keyword selecting compose's device-parameter form; wordlist from unfolded cp shell input |
-| [ ] | 260 | `eq` | `xspice` | keyword **fv** | sub-keyword selecting compose's event-node form; wordlist from unfolded cp shell input |
+| [x] | 121 | `eq` | `values` | keyword **fv** | sub-keyword selecting compose's value-list form; wordlist from unfolded cp shell input |
+| [x] | 229 | `eq` | `device` | keyword **fv** | sub-keyword selecting compose's device-parameter form; wordlist from unfolded cp shell input |
+| [x] | 260 | `eq` | `xspice` | keyword **fv** | sub-keyword selecting compose's event-node form; wordlist from unfolded cp shell input |
 
 ### `src/xspice/idn/idndig.c` — 3 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 213 | `strcmp` | `strength` | keyword | member is the node(member) qualifier; Evt_Parse_Node strtolowers it, other callers pass literals |
-| [ ] | 273 | `strcmp` | `state` | keyword | member is the event-node member sub-keyword, already lowercased by Evt_Parse_Node before arriving |
-| [ ] | 295 | `strcmp` | `strength` | keyword | member is the event-node member sub-keyword, already lowercased by Evt_Parse_Node before arriving |
+| [x] | 213 | `strcmp` | `strength` | keyword | member is the node(member) qualifier; Evt_Parse_Node strtolowers it, other callers pass literals |
+| [x] | 273 | `strcmp` | `state` | keyword | member is the event-node member sub-keyword, already lowercased by Evt_Parse_Node before arriving |
+| [x] | 295 | `strcmp` | `strength` | keyword | member is the event-node member sub-keyword, already lowercased by Evt_Parse_Node before arriving |
 
 ### `src/frontend/com_help.c` — 2 keyword, 2 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 19 | `eq` | `all` | keyword **fv** | Sub-keyword of the help command; argument comes from the unfolded cp shell input |
-| [ ] | 85 | `eq` |  | keyword **fv** | co_comname is a command name from the cp_coms table; user word comes unfolded from the prompt |
+| [x] | 19 | `eq` | `all` | keyword **fv** | Sub-keyword of the help command; argument comes from the unfolded cp shell input |
+| [x] | 85 | `eq` |  | keyword **fv** | co_comname is a command name from the cp_coms table; user word comes unfolded from the prompt |
 | n/a | 99 | `eq` |  | identifier | al_name is a user-chosen alias name; help falls back to alias lookup for the typed word |
 
 ### `src/frontend/inpc_probe.c` — 2 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 251 | `strstr` | `v=` | keyword | B source instance deck line; v= is a B element parameter keyword, folded |
+| [x] | 251 | `strstr` | `v=` | keyword | B source instance deck line; v= is a B element parameter keyword, folded |
 | n/a | 344 | `strstr` | `unconnected` | identifier | thisnode is a node name token from the deck; KiCad naming convention, not a language word |
 | n/a | 535 | `eq` |  | identifier | two instance names parsed out of a folded .probe deck card |
 | n/a | 1303 | `prefix` | `vcurr_` | internal | GENname of a measure source synthesised by inp_probe itself as vcurr_%s |
-| [ ] | 1376 | `strstr` | `thermal` | keyword | VDMOS instance deck line; thermal is an instance-line qualifier keyword, folded |
+| [x] | 1376 | `strstr` | `thermal` | keyword | VDMOS instance deck line; thermal is an instance-line qualifier keyword, folded |
 
 ### `src/frontend/numparam/xpressn.c` — 2 keyword, 0 fold-visible
 
@@ -1127,17 +1278,17 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 1264 | `strstr` | `MARKER` | internal | MARKER is numparam's own generated placeholder "numparm__________" it previously wrote into the line. |
 | n/a | 1552 | `strstr` | `identifier (param)` | identifier | Sole caller passes subname, a user-chosen subcircuit name, searched in a folded call line. |
-| [ ] | 1589 | `strstr` | `subckt` | keyword | Locates the .subckt keyword in a stored subckt definition line, which came folded from the deck. |
-| [ ] | 1599 | `strstr` | `params:` | keyword | The params: separator keyword on the same folded .subckt definition line. |
+| [x] | 1589 | `strstr` | `subckt` | keyword | Locates the .subckt keyword in a stored subckt definition line, which came folded from the deck. |
+| [x] | 1599 | `strstr` | `params:` | keyword | The params: separator keyword on the same folded .subckt definition line. |
 
 ### `src/frontend/outitf.c` — 2 keyword, 2 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 307 | `eq` | `time` | internal | refName is the analysis scale UID built from the C literal in dctran.c/dcpss.c |
-| [ ] | 307 | `eq` | `speedcheck` | keyword **fv** | saves[i].name from .save card or interactive save; speedcheck is a reserved save keyword |
+| [x] | 307 | `eq` | `speedcheck` | keyword **fv** | saves[i].name from .save card or interactive save; speedcheck is a reserved save keyword |
 | n/a | 313 | `eq` | `time` | internal | refName is the analysis scale UID built from a C literal, never deck text |
-| [ ] | 313 | `eq` | `deltacheck` | keyword **fv** | saves[i].name from .save or interactive save; deltacheck is a reserved save keyword |
+| [x] | 313 | `eq` | `deltacheck` | keyword **fv** | saves[i].name from .save or interactive save; deltacheck is a reserved save keyword |
 | n/a | 329 | `strstr` | `#branch` | internal | dataNames are CKT node names; #branch suffix concatenated in C by CKTmkCur/IFnewUid |
 | n/a | 331 | `strstr` | `probe_int_` | internal | prefix generated by .probe expansion in inpc_probe.c, always lowercase |
 | n/a | 333 | `strstr` | `#internal` | internal | device-generated node suffix passed as C literal to CKTmkVolt/IFnewUid |
@@ -1174,8 +1325,8 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 222 | `eq` | `run` | internal | what is a compile-time literal passed by com_run/com_tran etc., never user text |
-| [ ] | 232 | `eq` | `binary` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
-| [ ] | 235 | `eq` | `ascii` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
+| [x] | 232 | `eq` | `binary` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
+| [x] | 235 | `eq` | `ascii` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
 | n/a | 262 | `eq` | `resume` | internal | what is a compile-time literal; no caller ever passes "resume", dead branch |
 | n/a | 322 | `eq` | `sens2` | internal | what is a compile-time literal; no caller ever passes "sens2", dead branch |
 
@@ -1183,38 +1334,38 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 104 | `eq` | `binary` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
-| [ ] | 106 | `eq` | `ascii` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
+| [x] | 104 | `eq` | `binary` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
+| [x] | 106 | `eq` | `ascii` | keyword **fv** | buf holds the filetype shell variable value, settable unfolded via setcs or prompt |
 
 ### `src/frontend/typesdef.c` — 2 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 303 | `eq` |  | keyword **fv** | types[].t_name are vector type literals; type comes from settype typed at prompt |
-| [ ] | 317 | `eq` | `none` | keyword | (overturned) Class keyword is right, but converting eq(name,"none") to cieq is unobservable, so fold_visible=false. The only caller is rawfile.c:542 `v->v_type = f |
+| [x] | 303 | `eq` |  | keyword **fv** | types[].t_name are vector type literals; type comes from settype typed at prompt |
+| [x] | 317 | `eq` | `none` | keyword | (overturned) Class keyword is right, but converting eq(name,"none") to cieq is unobservable, so fold_visible=false. The only caller is rawfile.c:542 `v->v_type = f |
 
 ### `src/spicelib/parser/inp2r.c` — 2 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 101 | `strstr` | `tc` | keyword | s scans the folded R card looking for the tc= temperature-coefficient parameter keyword |
-| [ ] | 162 | `strcmp` | `r` | keyword | token off the folded R card; 'r' is the resistance parameter keyword of r=val |
+| [x] | 101 | `strstr` | `tc` | keyword | s scans the folded R card looking for the tc= temperature-coefficient parameter keyword |
+| [x] | 162 | `strcmp` | `r` | keyword | token off the folded R card; 'r' is the resistance parameter keyword of r=val |
 
 ### `src/spicelib/parser/inppas3.c` — 2 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 52 | `strcmp` | `.nodeset` | keyword | token is the first token of a folded deck card; .nodeset is a dot-command keyword |
+| [x] | 52 | `strcmp` | `.nodeset` | keyword | token is the first token of a folded deck card; .nodeset is a dot-command keyword |
 | n/a | 56 | `strcmp` | `nodeset` | internal | prm->keyword comes from the static nodeParms[] table in ngspice.c; two compile-time literals |
-| [ ] | 113 | `strcmp` | `.ic` | keyword | token is the first token of a folded deck card; .ic is a dot-command keyword |
+| [x] | 113 | `strcmp` | `.ic` | keyword | token is the first token of a folded deck card; .ic is a dot-command keyword |
 | n/a | 117 | `strcmp` | `ic` | internal | prm->keyword comes from the static nodeParms[] table in ngspice.c; two compile-time literals |
 
 ### `src/xspice/enh/enhtrans.c` — 2 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 316 | `strstr` | ` m=` | keyword | orig_card is a deck E/F/G/H poly card from inp_readall; 'm' is the multiplier parameter keyword |
-| [ ] | 557 | `strcmp` | `poly` | keyword | token from a folded deck card; POLY is a SPICE2 source keyword (code already also tests uppercase) |
+| [x] | 316 | `strstr` | ` m=` | keyword | orig_card is a deck E/F/G/H poly card from inp_readall; 'm' is the multiplier parameter keyword |
+| [x] | 557 | `strcmp` | `poly` | keyword | token from a folded deck card; POLY is a SPICE2 source keyword (code already also tests uppercase) |
 
 ### `src/xspice/evt/evtprint.c` — 2 keyword, 2 fold-visible
 
@@ -1223,21 +1374,21 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | n/a | 341 | `strcmp` |  | identifier | node_name is an esave/eprint argument typed at the prompt; node->name is a deck node name |
 | n/a | 481 | `eq` |  | internal | xspiceval is a UDN print_val output string compared to the static 12-state map; both C generated |
 | n/a | 915 | `eq` |  | internal | compares previous and current formatted node value strings produced by print_val or sprintf |
-| [ ] | 998 | `strcmp` | `none` | keyword **fv** | wl_word is an esave command argument typed at the nutmeg prompt; sub-keyword of esave |
-| [ ] | 1001 | `strcmp` | `all` | keyword **fv** | wl_word is an esave command argument from the cp shell path, which never runs inp_read |
+| [x] | 998 | `strcmp` | `none` | keyword **fv** | wl_word is an esave command argument typed at the nutmeg prompt; sub-keyword of esave |
+| [x] | 1001 | `strcmp` | `all` | keyword **fv** | wl_word is an esave command argument from the cp shell path, which never runs inp_read |
 
 ### `src/frontend/com_alias.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 89 | `eq` |  | keyword **fv** | (overturned) Not a name lookup - it is the self-alias guard on the command head word, and that namespace is already case-insensitive: com_alias.c:35 'if (cieq(word |
+| [x] | 89 | `eq` |  | keyword **fv** | (overturned) Not a name lookup - it is the self-alias guard on the command head word, and that namespace is already case-insensitive: com_alias.c:35 'if (cieq(word |
 | n/a | 134 | `strcmp` |  | identifier | Ordering comparison of two user-chosen alias names for alphabetical insertion into the alias list |
 
 ### `src/frontend/com_echo.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 18 | `eq` | `-n` | keyword **fv** | Option flag of the echo command; word typed at prompt or on a whitelisted (unfolded) echo line |
+| [x] | 18 | `eq` | `-n` | keyword **fv** | Option flag of the echo command; word typed at prompt or on a whitelisted (unfolded) echo line |
 
 ### `src/frontend/com_history.c` — 1 keyword, 1 fold-visible
 
@@ -1245,19 +1396,19 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 344 | `prefix` |  | identifier | History event pattern vs first word of a previously typed command line; both raw user text |
 | n/a | 509 | `prefix` |  | identifier | csh :s substitution: arbitrary user pattern scanned against stored history text, no language literal involved |
-| [ ] | 534 | `eq` | `-r` | keyword **fv** | Option flag of the history command; argument typed at the prompt, never folded |
+| [x] | 534 | `eq` | `-r` | keyword **fv** | Option flag of the history command; argument typed at the prompt, never folded |
 
 ### `src/frontend/com_setscale.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 60 | `strcmp` | `none` | keyword **fv** | Documented keyword clearing a vector scale; second word of the interactively typed setscale command |
+| [x] | 60 | `strcmp` | `none` | keyword **fv** | Documented keyword clearing a vector scale; second word of the interactively typed setscale command |
 
 ### `src/frontend/define.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 99 | `eq` |  | keyword **fv** | ft_funcs holds built-in math function names; tbuf is the user's define name being collision-checked |
+| [x] | 99 | `eq` |  | keyword **fv** | ft_funcs holds built-in math function names; tbuf is the user's define name being collision-checked |
 | n/a | 134 | `prefix` |  | identifier | both operands are user-defined function names: the new define head versus existing udfunc names |
 | n/a | 163 | `eq` | `list` | identifier | (overturned) No code in src/ ever creates a dvec named "list" (grep -rn '"list"' src/). The zero-length dvec reaching savetree() is built by PP_mksnode() at parse. |
 | n/a | 200 | `eq` |  | identifier | printing definitions: requested name matched against user-defined function names |
@@ -1276,75 +1427,75 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | n/a | 165 | `eq` |  | identifier | Plot lookup by pl_typename (plot name) against the second argument of diff |
 | n/a | 177 | `eq` |  | internal | Two stored pl_name analysis descriptions (run->type, or rawfile Plotname) compared to each other; no literal |
 | n/a | 181 | `eq` |  | internal | Two stored circuit titles compared; .title text and rawfile Title lines escape the fold |
-| [ ] | 237 | `eq` | `all` | keyword **fv** | Sub-keyword of the diff command meaning all vectors; argument from unfolded shell input |
+| [x] | 237 | `eq` | `all` | keyword **fv** | Sub-keyword of the diff command meaning all vectors; argument from unfolded shell input |
 
 ### `src/frontend/display.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 153 | `strcmp` |  | keyword **fv** | device[].name is a display device type (X11, postscript, svg); caller passes hcopydevtype variable value |
+| [x] | 153 | `strcmp` |  | keyword **fv** | device[].name is a display device type (X11, postscript, svg); caller passes hcopydevtype variable value |
 | n/a | 441 | `strcmp` | `error` | internal | dispdev->name is a pointer into the compiled device[] table; both operands compile-time constants |
 
 ### `src/frontend/ftesopt.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 41 | `eq` |  | keyword **fv** | FTEOPTtbl keywords are statistic option names (decklineno...); name is the rusage argument typed interactively |
+| [x] | 41 | `eq` |  | keyword **fv** | FTEOPTtbl keywords are statistic option names (decklineno...); name is the rusage argument typed interactively |
 
 ### `src/frontend/help/readhelp.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 34 | `strcmp` |  | internal | qsort comparator over two help topic descriptions read from the help files on disk |
-| [ ] | 326 | `strstr` |  | keyword **fv** | Help topic (command/card name) typed at the prompt vs help index subject; adjacent matches already use strncasecmp |
+| [x] | 326 | `strstr` |  | keyword **fv** | Help topic (command/card name) typed at the prompt vs help index subject; adjacent matches already use strncasecmp |
 
 ### `src/spicelib/parser/inp2b.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 41 | `strstr` | `hertz` | keyword | current->line is the folded B-source deck card; hertz is the frequency special variable |
+| [x] | 41 | `strstr` | `hertz` | keyword | current->line is the folded B-source deck card; hertz is the frequency special variable |
 
 ### `src/spicelib/parser/inp2c.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 83 | `strcmp` | `c` | keyword | model holds a token off the folded C card; 'c' is the capacitance parameter keyword of c=val |
+| [x] | 83 | `strcmp` | `c` | keyword | model holds a token off the folded C card; 'c' is the capacitance parameter keyword of c=val |
 
 ### `src/spicelib/parser/inp2l.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 81 | `strcmp` | `l` | keyword | token off the folded L card; 'l' is the inductance parameter keyword of l=val |
+| [x] | 81 | `strcmp` | `l` | keyword | token off the folded L card; 'l' is the inductance parameter keyword of l=val |
 
 ### `src/spicelib/parser/inpaname.c` — 1 keyword, 1 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 55 | `strcmp` |  | keyword **fv** | parm is the @dev[param] parameter name; 'save @m1[VDS]' typed at the prompt never passes the fold |
+| [x] | 55 | `strcmp` |  | keyword **fv** | parm is the @dev[param] parameter name; 'save @m1[VDS]' typed at the prompt never passes the fold |
 
 ### `src/spicelib/parser/inpdpar.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 30 | `strcmp` |  | keyword | name is an instance-parameter token from the folded device card or from folded .model defaults |
+| [x] | 30 | `strcmp` |  | keyword | name is an instance-parameter token from the folded device card or from folded .model defaults |
 
 ### `src/spicelib/parser/inpfindl.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 26 | `strstr` | `level` | keyword | line is the folded .model card body; level is a model parameter keyword |
+| [x] | 26 | `strstr` | `level` | keyword | line is the folded .model card body; level is a model parameter keyword |
 
 ### `src/spicelib/parser/inpfindv.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 17 | `strstr` | `version` | keyword | line is the folded .model card body; version is a model parameter keyword |
+| [x] | 17 | `strstr` | `version` | keyword | line is the folded .model card body; version is a model parameter keyword |
 
 ### `src/spicelib/parser/inppas1.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 26 | `strncmp` | `.model` | keyword | thisline is the folded deck card; .model is a dot-command keyword |
+| [x] | 26 | `strncmp` | `.model` | keyword | thisline is the folded deck card; .model is a dot-command keyword |
 
 ### `src/xspice/evt/evtcheck_nodes.c` — 1 keyword, 1 fold-visible
 
@@ -1352,14 +1503,14 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 367 | `strcmp` | `family` | internal | pp[i].keyword is the cmpp-generated compile-time model parameter table; both operands are C constants |
 | n/a | 558 | `strcmp` |  | identifier | both operands are the user-chosen 'family' parameter/.param string from folded deck cards |
-| [ ] | 657 | `strncmp` | `.inc` | keyword **fv** | setup may come from an auto_bridge_* shell variable set at the prompt or via setcs; unfolded |
+| [x] | 657 | `strncmp` | `.inc` | keyword **fv** | setup may come from an auto_bridge_* shell variable set at the prompt or via setcs; unfolded |
 | n/a | 720 | `strcmp` |  | identifier | event node name versus analog node name, both user-chosen names from the folded deck |
 
 ### `src/xspice/evt/evttermi.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 270 | `strcmp` |  | keyword | type_name is the port/node type qualifier (d, real, int) from a folded A-card or ifspec default |
+| [x] | 270 | `strcmp` |  | keyword | type_name is the port/node type qualifier (d, real, int) from a folded A-card or ifspec default |
 | n/a | 304 | `strcmp` |  | identifier | event node names taken from folded A-device deck cards during parsing |
 
 ### `src/xspice/mif/mif_inp2.c` — 1 keyword, 0 fold-visible
@@ -1367,20 +1518,20 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 531 | `strcmp` |  | identifier | next_token versus the model instance name taken from the same folded A-device card |
-| [ ] | 757 | `strcmp` |  | keyword | temp is the %-stripped port qualifier from the folded deck card; allowed_type_str holds v, vd, id, vnam |
+| [x] | 757 | `strcmp` |  | keyword | temp is the %-stripped port qualifier from the folded deck card; allowed_type_str holds v, vd, id, vnam |
 
 ### `src/xspice/mif/mifgetmod.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
 | n/a | 134 | `strcmp` |  | identifier | model name from the A-card versus INPmodName from the .model card, both folded user names |
-| [ ] | 206 | `strcmp` |  | keyword | parm is a token from the folded .model card matched against the model parameter keyword table |
+| [x] | 206 | `strcmp` |  | keyword | parm is a token from the folded .model card matched against the model parameter keyword table |
 
 ### `src/xspice/mif/mifutil.c` — 1 keyword, 0 fold-visible
 
 | | line | callee | literal | class | note |
 | --- | ---: | --- | --- | --- | --- |
-| [ ] | 198 | `strcmp` | `null` | keyword | ret_str is a token from a folded A-device deck card; null is the unconnected-port language literal |
+| [x] | 198 | `strcmp` | `null` | keyword | ret_str is a token from a folded A-device deck card; null is the unconnected-port language literal |
 
 ### Files with no keyword rows
 
