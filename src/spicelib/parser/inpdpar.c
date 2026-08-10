@@ -27,7 +27,7 @@ find_instance_parameter(char *name, IFdevice *device)
     IFparm *p_end = p + *(device->numInstanceParms);
 
     for (; p < p_end; p++)
-        if (strcmp(name, p->keyword) == 0)
+        if (cieq(name, p->keyword))
             return p;
     return NULL;
 }

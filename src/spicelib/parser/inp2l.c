@@ -78,7 +78,7 @@ void INP2L(CKTcircuit *ckt, INPtables * tab, struct card *current)
     
     INPgetNetTok(&line, &model, 1);
     
-    if (*model && (strcmp(model, "l") != 0)) {
+    if (*model && (!cieq(model, "l"))) {
     /* token isn't null */
       if (INPlookMod(model)) {
           /* If this is a valid model connect it */

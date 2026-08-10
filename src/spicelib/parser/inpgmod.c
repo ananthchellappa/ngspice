@@ -49,7 +49,7 @@ find_model_parameter(const char *name, IFdevice *device)
     IFparm *p_end = p + *(device->numModelParms);
 
     for (; p < p_end; p++)
-        if (strcmp(name, p->keyword) == 0)
+        if (cieq(name, p->keyword))
             return p;
 
     return NULL;
@@ -63,7 +63,7 @@ find_instance_parameter(const char *name, IFdevice *device)
     IFparm *p_end = p + *(device->numInstanceParms);
 
     for (; p < p_end; p++)
-        if (strcmp(name, p->keyword) == 0)
+        if (cieq(name, p->keyword))
             return p;
 
     return NULL;
@@ -148,7 +148,7 @@ create_model(CKTcircuit *ckt, INPmodel *modtmp, INPtables *tab)
             error = ft_sim->setModelParm(ckt, modtmp->INPmodfast, p->id, val, NULL);
             if (error)
                 return error;
-        } else if ((strcmp(parm, "level") == 0) || (strcmp(parm, "m") == 0)) {
+        } else if ((cieq(parm, "level")) || (cieq(parm, "m"))) {
             /* no instance parameter default for level and multiplier */
             /* just grab the number and throw away */
             /* since we already have that info from pass1 */
@@ -221,7 +221,7 @@ parse_line(char *line, char *tokens[], int num_tokens, double values[], bool fou
         INPgetNetTok(&line, &token, 1);
 
         for (i = 0; i < num_tokens; i++)
-            if (strcmp(tokens[i], token) == 0)
+            if (cieq(tokens[i], token))
                 get_index = i;
 
         txfree(token);

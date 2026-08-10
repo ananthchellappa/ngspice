@@ -14,7 +14,7 @@ char *INPfindVer(char *line, char *version)
 {
     char *where;
 
-    where = strstr(line, "version");
+    where = cistrstr(line, "version");
 
     if (where != NULL) {    /* found a version keyword on the line */
 

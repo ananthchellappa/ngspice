@@ -23,7 +23,7 @@ void INPpas1(CKTcircuit *ckt, struct card *deck, INPtables * tab)
 	    thisline++;
 
 	if (*thisline == '.') {
-	    if (strncmp(thisline, ".model", 6) == 0) {
+	    if (cieqn(thisline, ".model", 6)) {
 	      /* First check to see if model is multi-line.  If so,
 		 read in all lines & stick them into tab. */
 	      

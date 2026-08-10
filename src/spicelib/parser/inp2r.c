@@ -98,7 +98,7 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, struct card *current)
        by '=' followed by two numbers. If we find it then we splice in "tc2=".
        sjb - 2005-05-09 */
 
-    for(s = line; NULL != (s = strstr(s, "tc")); ) {
+    for(s = line; NULL != (s = cistrstr(s, "tc")); ) {
 
         char *p;
         size_t left_length;
@@ -159,7 +159,7 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, struct card *current)
 
     INPgetNetTok(&line, &model, 1);
 
-    if (*model && (strcmp(model, "r") != 0)) {
+    if (*model && (!cieq(model, "r"))) {
       /* token isn't null */
       if (INPlookMod(model)) {
           /* If this is a valid model connect it */

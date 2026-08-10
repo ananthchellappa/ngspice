@@ -74,7 +74,7 @@ int lenvalgiven = 0;
             INPinsert(&model,tab);
             current->error = INPgetMod(ckt,model,&thismodel,tab);
             INPgetTok(&line,&model,1);
-            if (strcmp(model, "len") == 0) {
+            if (cieq(model, "len")) {
                lenval = INPevaluate(&line,&error1,1);
                lenvalgiven = 1;
             }
@@ -97,16 +97,16 @@ int lenvalgiven = 0;
                                     INPgetTok(&line,&buf,1);
                                     rval = INPevaluate(&buf, &error1, 1);
                             }
-                            if ((strcmp(buf,"L") == 0)  || (strcmp(buf,"l") == 0)) {
+                            if ((strcmp(buf,"L") == 0)  || (cieq(buf,"l"))) {
                                     INPgetTok(&line,&buf,1);
                                     lval = INPevaluate(&buf, &error1, 1);
                             }
-                            if ((strcmp(buf,"C") == 0)  || (strcmp(buf,"c") == 0)) {
+                            if ((strcmp(buf,"C") == 0)  || (cieq(buf,"c"))) {
                                     INPgetTok(&line,&buf,1);
                                     cval = INPevaluate(&buf, &error1, 1);
                             }
                             if (lenvalgiven == 0) {
-                                    if (strcmp(buf,"length")== 0) {
+                                    if (cieq(buf,"length")) {
                                             INPgetTok(&line,&buf,1);
                                             lenval = INPevaluate(&buf, &error1, 1);
                                     }

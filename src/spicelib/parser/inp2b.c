@@ -38,7 +38,7 @@ void INP2B(CKTcircuit *ckt, INPtables * tab, struct card *current)
     }
 
     /* if we find 'hertz' variable, set flag to actual circuit */
-    if(strstr(current->line, "hertz"))
+    if(cistrstr(current->line, "hertz"))
         ckt->CKTvarHertz = 1;
         
     line = current->line;

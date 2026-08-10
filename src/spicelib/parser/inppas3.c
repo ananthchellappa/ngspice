@@ -49,7 +49,7 @@ INPpas3(CKTcircuit *ckt, struct card *data, INPtables *tab, TSKtask *task,
         FREE(token);
         INPgetTok(&line,&token,1);
 
-        if (strcmp(token,".nodeset")==0) {
+        if (cieq(token,".nodeset")) {
             which = -1;
 
             for(prm = nodeParms; prm < nodeParms + numNodeParms; prm++) {
@@ -110,7 +110,7 @@ INPpas3(CKTcircuit *ckt, struct card *data, INPtables *tab, TSKtask *task,
                 FREE(name);
                 break;
             }
-        } else if ((strcmp(token,".ic") == 0)) {
+        } else if ((cieq(token,".ic"))) {
             /* .ic */
             which = -1;
             for(prm = nodeParms; prm < nodeParms + numNodeParms; prm++) {

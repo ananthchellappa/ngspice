@@ -43,7 +43,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     INPgetTok(&line, &type_name, 1);     /* get model type */
 
     /*  -----  Check if model is a BJT --------- */
-    if (strcmp(type_name, "npn") == 0 || strcmp(type_name, "pnp") == 0) {
+    if (cieq(type_name, "npn") || cieq(type_name, "pnp")) {
 			err = INPfindLev(line,&lev);
 			switch(lev) {
 				case 0:
@@ -80,7 +80,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     } /* end if ((strcmp(typename, "npn") == 0) || (strcmp(typename, "pnp") == 0)) */
 
     /*  --------  Check if model is a diode --------- */
-    else if (strcmp(type_name, "d") == 0) {
+    else if (cieq(type_name, "d")) {
 			type = INPtypelook("Diode");
 			if (type < 0) {
 			    err =
@@ -91,8 +91,8 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     } /*   else if (strcmp(typename, "d") == 0) {  */
 
     /*  --------  Check if model is a jfet --------- */
-    else if (strcmp(type_name, "njf") == 0  ||
-	     strcmp(type_name, "pjf") == 0) {
+    else if (cieq(type_name, "njf")  ||
+	     cieq(type_name, "pjf")) {
 			err = INPfindLev(line, &lev);
 			switch (lev) {
 			case 0:
@@ -122,10 +122,10 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }  /*   end  else if ((strcmp(typename, "njf") == 0) */
 
     /*  --------  Check if model is a MES or an HFET --------- */
-    else if (strcmp(type_name, "nmf")   == 0  ||
-	     strcmp(type_name, "pmf")   == 0  ||
-	     strcmp(type_name, "nhfet") == 0  ||
-	     strcmp(type_name, "phfet") == 0) {
+    else if (cieq(type_name, "nmf")  ||
+	     cieq(type_name, "pmf")  ||
+	     cieq(type_name, "nhfet")  ||
+	     cieq(type_name, "phfet")) {
 			  err = INPfindLev( line, &lev );
 			  switch ( lev )
 			  {
@@ -181,7 +181,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a Uniform Distrib. RC line --------- */
-    else if (strcmp(type_name, "urc") == 0) {
+    else if (cieq(type_name, "urc")) {
 			type = INPtypelook("URC");
 			if (type < 0) {
 			    err =
@@ -192,9 +192,9 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  ------  Check if model is a VDMOS FET ------- */
-    else if ((strcmp(type_name, "vdmos") == 0) ||
-             (strcmp(type_name, "vdmosn") == 0) ||
-             (strcmp(type_name, "vdmosp") == 0)) {
+    else if ((cieq(type_name, "vdmos")) ||
+             (cieq(type_name, "vdmosn")) ||
+             (cieq(type_name, "vdmosp"))) {
         type = INPtypelook("VDMOS");
         if (type < 0) {
             err =
@@ -205,10 +205,10 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a MOSFET --------- */
-    else if ((strcmp(type_name, "nmos") == 0)
-	       || (strcmp(type_name, "pmos") == 0)
-	       || (strcmp(type_name, "nsoi") == 0)
-	       || (strcmp(type_name, "psoi") == 0)) {
+    else if ((cieq(type_name, "nmos"))
+	       || (cieq(type_name, "pmos"))
+	       || (cieq(type_name, "nsoi"))
+	       || (cieq(type_name, "psoi"))) {
 			err = INPfindLev(line, &lev);
 			switch (lev) {
 			case 0:
@@ -280,7 +280,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
 			    if (prefix("3.2", ver)) { /* version string ver has to start with 3.2 */
 			      type = INPtypelook("BSIM3v32");
 			    }
-			    if ( (strstr(ver, "default")) || (prefix("3.3", ver)) ) {
+			    if ( (cistrstr(ver, "default")) || (prefix("3.3", ver)) ) {
 			      type = INPtypelook("BSIM3");
 			    }
 			    if (type < 0) {
@@ -305,7 +305,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
 			    if (prefix("4.7", ver)) {
 			      type = INPtypelook("BSIM4v7");
 			    }
-			    if ( (strstr(ver, "default")) || (prefix("4.8", ver)) ) {
+			    if ( (cistrstr(ver, "default")) || (prefix("4.8", ver)) ) {
 			      type = INPtypelook("BSIM4");
 			    }
 			    if (type < 0) {
@@ -373,7 +373,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
 			    if ((prefix("1.1", ver)) || (prefix("1.2", ver))) {
 			      type = INPtypelook("HiSIMHV1");
 			    }
-			    if ( (strstr(ver, "default")) || (prefix("2.0", ver)) || (prefix("2.1", ver)) || (prefix("2.2", ver)) ) {
+			    if ( (cistrstr(ver, "default")) || (prefix("2.0", ver)) || (prefix("2.1", ver)) || (prefix("2.2", ver)) ) {
 			      type = INPtypelook("HiSIMHV2");
 			    }
 			    if (type < 0) {
@@ -389,7 +389,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 #ifdef  NDEV
     /*  --------  Check if model is a numerical device --------- */
-    else if (strcmp(type_name, "ndev") == 0) {
+    else if (cieq(type_name, "ndev")) {
 			type = INPtypelook("NDEV");
 			if (type < 0) {
 			    err =
@@ -400,7 +400,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 #endif
     /*  --------  Check if model is a resistor --------- */
-    else if (strcmp(type_name, "r") == 0) {
+    else if (cieq(type_name, "r")) {
 			err = INPfindLev(line,&lev);
 			switch(lev) {
 				case 0:
@@ -418,7 +418,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a PSPICE resistor --------- */
-    else if (strcmp(type_name, "res") == 0) {
+    else if (cieq(type_name, "res")) {
         type = INPtypelook("Resistor");
         if (type < 0) {
             err =
@@ -429,14 +429,14 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a transmission line of some sort --------- */
-    else if(strcmp(type_name,"txl") == 0) {
+    else if(cieq(type_name,"txl")) {
       INPgetTok(&line,&val,1);
       while (*line != '\0') {
 				if (*val == 'R' || *val == 'r') {
 				  INPgetTok(&line,&val,1);
 				  rval = INPevaluate(&val, &error1, 1);
 				}
-				if ((strcmp(val,"L") == 0)  || (strcmp(val,"l") == 0)) {
+				if ((strcmp(val,"L") == 0)  || (cieq(val,"l"))) {
 				  INPgetTok(&line,&val,1);
 				  lval = INPevaluate(&val, &error1, 1);
 				}
@@ -463,7 +463,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a coupled transmission line --------- */
-    else if(strcmp(type_name,"cpl") == 0) {
+    else if(cieq(type_name,"cpl")) {
       type = INPtypelook("CplLines");
       if(type < 0) {
 				err = INPmkTemp(
@@ -474,7 +474,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a cap --------- */
-    else if (strcmp(type_name, "c") == 0) {
+    else if (cieq(type_name, "c")) {
 			type = INPtypelook("Capacitor");
 			if (type < 0) {
 			    err =
@@ -485,7 +485,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is an ind --------- */
-    else if (strcmp(type_name, "l") == 0) {
+    else if (cieq(type_name, "l")) {
 			type = INPtypelook("Inductor");
 			if (type < 0) {
 			    err =
@@ -497,7 +497,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
 
 
     /*  --------  Check if model is a switch --------- */
-    else if (strcmp(type_name, "sw") == 0) {
+    else if (cieq(type_name, "sw")) {
 			type = INPtypelook("Switch");
 			if (type < 0) {
 			    err =
@@ -508,7 +508,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a Current Controlled Switch --------- */
-    else if (strcmp(type_name, "csw") == 0) {
+    else if (cieq(type_name, "csw")) {
 			type = INPtypelook("CSwitch");
 			if (type < 0) {
 			    err =
@@ -519,7 +519,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
     /*  --------  Check if model is a Lossy TransLine --------- */
-    else if (strcmp(type_name, "ltra") == 0) {
+    else if (cieq(type_name, "ltra")) {
 			type = INPtypelook("LTRA");
 			if (type < 0) {
 			    err =
@@ -530,7 +530,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     }
 
 #ifdef CIDER
-    else if(strcmp(type_name,"numd") == 0) {
+    else if(cieq(type_name,"numd")) {
 			 err = INPfindLev(line,&lev);
 		    switch( lev ) {
 		    case 1:
@@ -552,7 +552,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
 					break;
 			}
 	    INPmakeMod(modname,type,image);
-    } else if(strcmp(type_name,"nbjt") == 0) {
+    } else if(cieq(type_name,"nbjt")) {
 			err = INPfindLev(line,&lev);
 		    switch( lev ) {
 		    case 1:
@@ -574,7 +574,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
 					break;
 		    }
 			INPmakeMod(modname,type,image);
-    } else if(strcmp(type_name,"numos") == 0) {
+    } else if(cieq(type_name,"numos")) {
 			type = INPtypelook("NUMOS");
 			if(type < 0) {
 			    err =
@@ -588,7 +588,7 @@ char *INPdomodel(CKTcircuit *ckt, struct card *image, INPtables * tab)
     /*  type poly added by SDB  . . . */
 #ifdef XSPICE
     /*  --------  Check if model is a poly (specific to xspice) --------- */
-    else if ( strcmp(type_name, "poly") == 0 ||
+    else if ( cieq(type_name, "poly") ||
 	      strcmp(type_name, "POLY") == 0 ) {
 	type = INPtypelook("POLY");
 	if (type < 0) {

@@ -1160,7 +1160,7 @@ INPparseNode *PT_mkfnode(const char *fname, INPparseNode * arg)
     buf[127] = 0;
     strtolower(buf);
 
-    if(!strcmp("ternary_fcn", buf)) {
+    if(cieq("ternary_fcn", buf)) {
 
         if(arg->type == PT_COMMA && arg->left->type == PT_COMMA) {
 
@@ -1186,7 +1186,7 @@ INPparseNode *PT_mkfnode(const char *fname, INPparseNode * arg)
 
     /* This is used only to evaluate fcn gauss(a1, a2, a3) in .model files, where 
        temper is used also. a1, a2, and a3 have to be constant double values. */
-    if (!strcmp("gauss", buf)) {
+    if (cieq("gauss", buf)) {
         if (arg->type == PT_COMMA && arg->left->type == PT_COMMA) {
 
             INPparseNode* arg1 = arg->left->left;
@@ -1210,7 +1210,7 @@ INPparseNode *PT_mkfnode(const char *fname, INPparseNode * arg)
     }
 
     for (i = 0; i < NUM_FUNCS; i++)
-        if (!strcmp(funcs[i].name, buf))
+        if (cieq(funcs[i].name, buf))
             break;
 
     if (i == NUM_FUNCS) {
@@ -1338,19 +1338,19 @@ INPparseNode *PT_mksnode(const char *string, void *ckt)
 
     p->usecnt = 0;
 
-    if(!strcmp("time", buf)) {
+    if(cieq("time", buf)) {
         p->type = PT_TIME;
         p->data = ckt;
         return p;
     }
 
-    if(!strcmp("temper", buf)) {
+    if(cieq("temper", buf)) {
         p->type = PT_TEMPERATURE;
         p->data = ckt;
         return p;
     }
 
-    if(!strcmp("hertz", buf)) {
+    if(cieq("hertz", buf)) {
         p->type = PT_FREQUENCY;
         p->data = ckt;
         return p;
@@ -1358,11 +1358,11 @@ INPparseNode *PT_mksnode(const char *string, void *ckt)
 
     /* First see if it's something special. */
     for (i = 0; i < ft_sim->numSpecSigs; i++)
-        if (!strcmp(ft_sim->specSigs[i], buf))
+        if (cieq(ft_sim->specSigs[i], buf))
             break;
     if (i < ft_sim->numSpecSigs) {
         for (j = 0; j < numvalues; j++)
-            if ((types[j] == IF_STRING) && !strcmp(buf, values[i].sValue))
+            if ((types[j] == IF_STRING) && cieq(buf, values[i].sValue))
                 break;
         if (j == numvalues) {
             if (numvalues) {
@@ -1383,7 +1383,7 @@ INPparseNode *PT_mksnode(const char *string, void *ckt)
     }
 
     for (i = 0; i < NUM_CONSTANTS; i++)
-        if (!strcmp(constants[i].name, buf))
+        if (cieq(constants[i].name, buf))
             break;
 
     if (i == NUM_CONSTANTS) {

@@ -23,7 +23,7 @@ char *INPfindLev(char *line, int *level)
      *where = line;
      */
 
-    where = strstr(line, "level");
+    where = cistrstr(line, "level");
 
     if (where != NULL) {	/* found a level keyword on the line */
 
