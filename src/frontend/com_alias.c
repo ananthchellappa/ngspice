@@ -29,8 +29,10 @@ asubst(wordlist *wlist)
         return (NULL);
     }
 
+    /* an alias name is a command name, matched case insensitively like
+       the command table in control.c */
     for (al = cp_aliases; al; al = al->al_next)
-        if (eq(word, al->al_name))
+        if (cieq(word, al->al_name))
             break;
     if (!al)
         return (NULL);
@@ -167,7 +169,7 @@ cp_unalias(char *word)
     cp_remkword(CT_ALIASES, word);
 
     for (al = cp_aliases; al; al = al->al_next)
-        if (eq(word, al->al_name))
+        if (cieq(word, al->al_name))
             break;
 
     if (al == NULL)
@@ -196,7 +198,7 @@ cp_paliases(char *word)
     struct alias *al;
 
     for (al = cp_aliases; al; al = al->al_next)
-        if ((word == NULL) || eq(al->al_name, word)) {
+        if ((word == NULL) || cieq(al->al_name, word)) {
             if (!word)
                 fprintf(cp_out, "%s\t", al->al_name);
             wl_print(al->al_text, cp_out);

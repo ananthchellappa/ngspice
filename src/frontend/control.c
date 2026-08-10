@@ -157,7 +157,7 @@ docommand(wordlist *wlist)
     pwlist(wlist, "After backquote substitution");
 
     /* Do not expand braces after command circbyline, keep them intact */
-    if (!eq(wlist->wl_word, "circbyline"))
+    if (!cieq(wlist->wl_word, "circbyline"))
         wlist = cp_doglob(wlist);
     pwlist(wlist, "After globbing");
 
@@ -190,7 +190,7 @@ docommand(wordlist *wlist)
         /* And do the redirection. */
         cp_ioreset();
         for (i = 0; noredirect[i]; i++)
-            if (eq(wlist->wl_word, noredirect[i]))
+            if (cieq(wlist->wl_word, noredirect[i]))
                 break;
         if (!noredirect[i])
             if ((wlist = cp_redirect(wlist)) == NULL) {
@@ -701,7 +701,7 @@ cp_evloop(char *string)
             ZERO(cend[stackp], struct control);
         }
 
-        if (eq(wlist->wl_word, "while")) {
+        if (cieq(wlist->wl_word, "while")) {
             cend[stackp]->co_type = CO_WHILE;
             cend[stackp]->co_cond = wl_copy(wlist->wl_next); /* va, wl_copy */
             if (!cend[stackp]->co_cond) {
@@ -709,7 +709,7 @@ cp_evloop(char *string)
                         "Error: missing while condition, 'false' will be assumed.\n");
             }
             newblock;
-        } else if (eq(wlist->wl_word, "dowhile")) {
+        } else if (cieq(wlist->wl_word, "dowhile")) {
             cend[stackp]->co_type = CO_DOWHILE;
             cend[stackp]->co_cond = wl_copy(wlist->wl_next); /* va, wl_copy */
             if (!cend[stackp]->co_cond) {
@@ -718,7 +718,7 @@ cp_evloop(char *string)
                         "Error: missing dowhile condition, '?\?\?' will be assumed.\n");
             }
             newblock;
-        } else if (eq(wlist->wl_word, "repeat")) {
+        } else if (cieq(wlist->wl_word, "repeat")) {
             cend[stackp]->co_type = CO_REPEAT;
             if (!wlist->wl_next) {
                 cend[stackp]->co_numtimes = -1;
@@ -755,7 +755,7 @@ cp_evloop(char *string)
             }
             newblock;
 
-        } else if (eq(wlist->wl_word, "if")) {
+        } else if (cieq(wlist->wl_word, "if")) {
             cend[stackp]->co_type = CO_IF;
             cend[stackp]->co_cond = wl_copy(wlist->wl_next); /* va, wl_copy */
             if (!cend[stackp]->co_cond) {
@@ -764,7 +764,7 @@ cp_evloop(char *string)
             }
             newblock;
 
-        } else if (eq(wlist->wl_word, "foreach")) {
+        } else if (cieq(wlist->wl_word, "foreach")) {
             cend[stackp]->co_type = CO_FOREACH;
             if (wlist->wl_next) {
                 wlist = wlist->wl_next;
@@ -781,7 +781,7 @@ cp_evloop(char *string)
             wlist = cp_doglob(wlist);
             cend[stackp]->co_text = wl_copy(wlist);
             newblock;
-        } else if (eq(wlist->wl_word, "label")) {
+        } else if (cieq(wlist->wl_word, "label")) {
             cend[stackp]->co_type = CO_LABEL;
             if (wlist->wl_next) {
                 cend[stackp]->co_text = wl_copy(wlist->wl_next);
@@ -794,7 +794,7 @@ cp_evloop(char *string)
                 fprintf(stderr, "Error: missing label.\n");
             }
 
-        } else if (eq(wlist->wl_word, "goto")) {
+        } else if (cieq(wlist->wl_word, "goto")) {
             /* Incidentally, this won't work if the values 1 and 2 ever get
              * to be valid character pointers -- I think it's reasonably
              * safe to assume they aren't...  */
@@ -807,7 +807,7 @@ cp_evloop(char *string)
             } else {
                 fprintf(stderr, "Error: missing label.\n");
             }
-        } else if (eq(wlist->wl_word, "continue")) {
+        } else if (cieq(wlist->wl_word, "continue")) {
             cend[stackp]->co_type = CO_CONTINUE;
             if (wlist->wl_next) {
                 cend[stackp]->co_numtimes = scannum(wlist->wl_next->wl_word);
@@ -818,7 +818,7 @@ cp_evloop(char *string)
             } else {
                 cend[stackp]->co_numtimes = 1;
             }
-        } else if (eq(wlist->wl_word, "break")) {
+        } else if (cieq(wlist->wl_word, "break")) {
             cend[stackp]->co_type = CO_BREAK;
             if (wlist->wl_next) {
                 cend[stackp]->co_numtimes = scannum(wlist->wl_next->wl_word);
@@ -829,7 +829,7 @@ cp_evloop(char *string)
             } else {
                 cend[stackp]->co_numtimes = 1;
             }
-        } else if (eq(wlist->wl_word, "end")) {
+        } else if (cieq(wlist->wl_word, "end")) {
             /* Throw away this thing if not in a block. */
             if (!cend[stackp]->co_parent) {
                 fprintf(stderr, "Error: no block to end.\n");
@@ -847,7 +847,7 @@ cp_evloop(char *string)
                 tfree(x);
                 x = NULL;
             }
-        } else if (eq(wlist->wl_word, "else")) {
+        } else if (cieq(wlist->wl_word, "else")) {
             if (!cend[stackp]->co_parent ||
                     (cend[stackp]->co_parent->co_type != CO_IF)) {
                 fprintf(stderr, "Error: misplaced else.\n");
