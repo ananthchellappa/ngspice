@@ -106,7 +106,18 @@ a checklist; it is the phase's unit of progress.
 - `src/xspice/mif/mifutil.c:198` — `null`, `t`/`true`, `f`/`false`.
 - `src/xspice/evt/evttermi.c:270` — UDN type names.
 - `src/spicelib/parser/inpgmod.c:52`, `inpdpar.c:30`, `inpdomod.c:46` — model and instance parameter keywords.
-- `src/frontend/numparam/spicenum.c:241,245,254,256,258` — the numparam line categorizer uses case-sensitive `prefix()` for `.param`, `.subckt` and friends. This contradicts the common assumption that numparam needs no work.
+- `src/frontend/numparam/spicenum.c:241,245,254,256,258` — the numparam line
+  categorizer uses case-sensitive `prefix()` for `.param`, `.subckt` and
+  friends. This contradicts the common assumption that numparam needs no work.
+  **Stale as written**: re-checked at `a1161ccdc`, every one of those five is
+  already `ciprefix()`, and the `params:` split beside them is already
+  `cistrstr()`. Nothing to do there.
+- `src/frontend/numparam/xpressn.c:640` — `keyword()` matched an identifier
+  against the built-in function list `fmathS` with a raw byte compare, so
+  `{SQRT(x)}` was not a function under `preserve`. **Done**,
+  `doc/codex/issues/0022`; the deck side now folds with `tolower_c()`,
+  ungated, and the list is untouched. The census missed it because it compares
+  against a `static const char *` list rather than an individual literal.
 - `src/frontend/inpcom.c:2400-2407` — `gnd` rewrite, converted to a delimiter-guarded case-insensitive scan.
 - `src/frontend/subckt.c:659,675,692,708` — MOS bin selection `strstr(" wmin=")`. **Done**, now `cistrstr`.
 - `src/frontend/inpcom.c:5986`, `:6039` — `search_identifier()` and

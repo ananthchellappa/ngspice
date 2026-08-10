@@ -540,6 +540,14 @@ looked up as parameters under `preserve`. Measured after 0015 landed, so no
 other gap is masking it — on `xpressn-1.cir` every diagnostic is
 `Undefined parameter [<FUNCTION NAME>]`. One ungated `keyword()` compare.
 
+**Corrected after the fix landed.** The count in this paragraph's heading is
+wrong: `doc/codex/issues/0022` explains *one* of the three, not three. The
+`keyword()` fold removed every `Undefined parameter` from all three uppercased
+decks, but only `xpressn-2.cir` reached `OK`; `xpressn-1.cir` and
+`xpressn-3.cir` stayed `DIFF` on a second mechanism that was hidden behind the
+aborts and that is not an ngspice defect. See "Re-run after
+`doc/codex/issues/0022` and `0023`" below.
+
 ### What the sweep could not see this round, again
 
 The `.func` half of `doc/codex/issues/0015` and all three of
@@ -552,3 +560,123 @@ first, because the failure mode is an abort on stderr and `check.sh` compares
 stdout only. This is the reverse of `doc/codex/issues/0009` and the same shape
 as `doc/codex/issues/0019`: for this round `make check` was the harness that
 mattered, and the sweep was the regression guard that proved nothing else moved.
+
+## Re-run after `doc/codex/issues/0022` and `0023`
+
+`doc/codex/issues/0022` folded the deck side of numparam's built-in function
+list inside `keyword()`; `doc/codex/issues/0023` deleted the dead parameter
+pair the subcircuit multiplier pass wrote into its caller's arrays, which has
+no behavioural surface. One new twin pair. The same command reports:
+
+| verdict | after 0015 + 0020 gap 1 | after 0022 + 0023 |
+| --- | ---: | ---: |
+| OK | 191 | 195 |
+| DIFF | 51 | 49 |
+| PARSE-FAIL | 0 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **245** | **247** |
+
+Both columns were measured on this tree with the same command, the left one
+immediately before this round and the right one immediately after. The baseline
+run was started before the two new decks existed, which is why its total is 245
+rather than 247; the per-deck comparison is unaffected.
+
+Compared per deck rather than on the totals — a straight `diff` of the two
+runs' non-OK lists, which is all the sweep prints — the entire delta is two
+lines:
+
+```
+< DIFF tests/regression/model/binning-1.cir
+< DIFF tests/regression/parser/xpressn-2.cir
+```
+
+plus the two new decks, neither of which appears in either non-OK list, i.e.
+both report `OK`. **No deck's verdict got worse and no deck that was `OK`
+became anything else.**
+
+Only one of those two lines belongs to this round.
+
+### `binning-1.cir` is a false `DIFF`, not a fix
+
+Its baseline detail was `preserve-UPPER: stdout +'reference value :
+0.00000e+00'`. That string is `src/frontend/outitf.c:695`, inside a block
+guarded by
+
+```c
+if ((currclock-lastclock) > (0.25*CLOCKS_PER_SEC)) {
+    fprintf(stdout, " Reference value : % 12.5e\r", ...);
+```
+
+— a progress line printed at most every quarter second of CPU time. Whether it
+appears at all depends on how loaded the machine is, so a 12-job sweep can
+produce it in one of the three runs and not in the others. It is not in the
+sweep's `NOISE` regex, so it becomes a `DIFF`.
+
+Measured rather than assumed: with both fixes stashed, the tree rebuilt at
+`a1161ccdc` and the sweep run with `--filter model/binning-1`, `binning-1.cir`
+reports `OK` twice. The deck also contains no braces, no `.param` and no
+quotes, so numparam's expression evaluator never runs on it and the
+`keyword()` fold cannot reach it.
+
+The sweep script was deliberately **not** changed this round, so the two runs
+compared above used a byte-identical tool. The fix for the next round is one
+alternation in `NOISE` in `doc/claude/scripts/case_differential_sweep.py`:
+`reference value`.
+
+### What is left on `xpressn-1.cir` and `xpressn-3.cir`
+
+Not `doc/codex/issues/0022`, and not an ngspice defect. Their remaining detail
+is `+'error: n: no such variable.'` (the sweep lower-cases both sides before
+comparing, so the real message is `Error: N: no such variable.`).
+
+Those decks drive their self-check from a control-language loop that composes a
+vector name inside a **double-quoted** string:
+
+```
+foreach n $&tests
+  set n_test = "n{$n}_t"
+```
+
+The sweep's uppercaser leaves double-quoted text alone by design — uppercasing
+a quoted path would test the filesystem — so in the `preserve-UPPER` copy the
+loop variable becomes `N` while the quoted reference still asks for `$n`. Under
+`preserve` that is *correct* case-sensitive behaviour: the deck the sweep
+produced is internally inconsistent, and ngspice is right to say the variable
+does not exist.
+
+Confirmed by uppercasing the file in full, quotes included, which is not what
+the sweep does:
+
+```
+$ tr 'a-z' 'A-Z' < tests/regression/parser/xpressn-1.cir > XP1.cir
+$ ngspice -D casemode=preserve --batch XP1.cir
+INFO: 0 OF 118 TESTS FAILED          # 0 'Undefined parameter', 0 'no such variable'
+```
+
+Five decks share that idiom and are the whole `n: no such variable` family in
+the sweep: `tests/regression/parser/xpressn-1.cir`, `xpressn-3.cir`,
+`bxpressn-1.cir`, `tests/regression/subckt-processing/global-1.cir` and
+`model-scope-5.cir`. The `tests/regression/sens/sens-*.cir` entries print the
+same message from the same shape, `foreach n i1_acmag c1 r1` with
+`set n_test = "$n"`. None of them is a fold site; they are an artefact of the
+transform, and the honest reading is that these six-plus decks are outside what
+this sweep can decide. That is a limit of the tool, not a defect list.
+
+`xpressn-2.cir` has no such loop — its checks are written out one `if` per
+line — which is why it is the one of the three that reached `OK`.
+
+### What the sweep could not see this round
+
+`doc/codex/issues/0022`'s own mechanism, again by construction: the sweep
+uppercases a whole deck, so a built-in and its arguments move together and the
+deck still parses. Only the fact that the *list* is lower case makes the
+uppercased copy fail, which is why the sweep saw it at all — and the fold-mode
+side of the change is invisible to the sweep entirely, since
+`tests/regression/case/` runs its whole suite under `-D casemode=preserve`.
+The fold-mode argument had to be made against the reader's exemption chain and
+measured by hand; it is written out in `doc/codex/issues/0022`.
+
+`doc/codex/issues/0023` is invisible to both harnesses: a leak and a latent
+one-past-the-end write, neither of which changes a number. Its evidence is
+`valgrind`, quoted in that issue.
