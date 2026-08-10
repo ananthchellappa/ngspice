@@ -59,12 +59,12 @@ void com_hardcopy(wordlist *wl)
         n++;
         tempf = TRUE;
         n_byte_fname = (strlen(fname) + 1) * sizeof *fname;
-        if (!strcmp(devtype, "svg")) {
+        if (cieq(devtype, "svg")) {
             fname = trealloc(fname, n_byte_fname + 4);
             (void)memcpy(fname + n_byte_fname - 1, ".svg", 5);
             n_byte_fname += 4;
         }
-        else if (!strcmp(devtype, "postscript")) {
+        else if (cieq(devtype, "postscript")) {
             fname = trealloc(fname, n_byte_fname + 3);
             (void)memcpy(fname + n_byte_fname - 1, ".ps", 4);
             n_byte_fname += 3;
@@ -91,7 +91,7 @@ void com_hardcopy(wordlist *wl)
             return;
         }
 
-        if (!strcmp(devtype, "svg")) {
+        if (cieq(devtype, "svg")) {
             /* change .tmp to .svg */
             psfname = strchr(fname, '.');
             if (psfname) {
@@ -210,7 +210,7 @@ void com_hardcopy(wordlist *wl)
 
     if (*device) {
 #ifdef SYSTEM_PLOT5LPR
-        if (!strcmp(devtype, "plot5") || !strcmp(devtype, "MFB")) {
+        if (cieq(devtype, "plot5") || !strcmp(devtype, "MFB")) {
             if (!cp_getvar("lprplot5", CP_STRING, format, sizeof(format)))
                 strcpy(format, SYSTEM_PLOT5LPR);
             (void) sprintf(buf, format, device, fname);
@@ -226,7 +226,7 @@ void com_hardcopy(wordlist *wl)
         }
 #endif
 #ifdef SYSTEM_PSLPR
-        if (!printed && !strcmp(devtype, "postscript")) {
+        if (!printed && cieq(devtype, "postscript")) {
             /* note: check if that was a postscript printer XXX */
             if (!cp_getvar("lprps", CP_STRING, format, sizeof(format)))
                 strcpy(format, SYSTEM_PSLPR);
@@ -245,19 +245,19 @@ void com_hardcopy(wordlist *wl)
     }
 
     if (!printed) {
-        if (!strcmp(devtype, "plot5")) {
+        if (cieq(devtype, "plot5")) {
             fprintf(cp_out,
                     "The file \"%s\" may be printed with the Unix \"plot\" command,\n",
                     fname);
             fprintf(cp_out,
                     "\tor by using the '-g' flag to the Unix lpr command.\n");
         }
-        else if (!strcmp(devtype, "postscript")) {
+        else if (cieq(devtype, "postscript")) {
             fprintf(cp_out,
                     "\nThe file \"%s\" may be printed on a postscript printer.\n",
                     fname);
         }
-        else if (!strcmp(devtype, "svg")) {
+        else if (cieq(devtype, "svg")) {
             fprintf(cp_out,
                 "\nThe file \"%s\" has the Scalable Vector Graphics format.\n",
                 fname);

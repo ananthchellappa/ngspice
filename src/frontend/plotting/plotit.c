@@ -562,28 +562,28 @@ bool plotit(wordlist *wl, const char *hcopy, const char *devname)
     if (!sameflag && !gfound) {
         char buf[BSIZE_SP];
         if (cp_getvar("gridstyle", CP_STRING, buf, sizeof(buf))) {
-            if (eq(buf, "lingrid")) {
+            if (eqc(buf, "lingrid")) {
                 gtype = GRID_LIN;
             }
-            else if (eq(buf, "loglog")) {
+            else if (eqc(buf, "loglog")) {
                 gtype = GRID_LOGLOG;
             }
-            else if (eq(buf, "xlog")) {
+            else if (eqc(buf, "xlog")) {
                 gtype = GRID_XLOG;
             }
-            else if (eq(buf, "ylog")) {
+            else if (eqc(buf, "ylog")) {
                 gtype = GRID_YLOG;
             }
-            else if (eq(buf, "smith")) {
+            else if (eqc(buf, "smith")) {
                 gtype = GRID_SMITH;
             }
-            else if (eq(buf, "smithgrid")) {
+            else if (eqc(buf, "smithgrid")) {
                 gtype = GRID_SMITHGRID;
             }
-            else if (eq(buf, "polar")) {
+            else if (eqc(buf, "polar")) {
                 gtype = GRID_POLAR;
             }
-            else if (eq(buf, "nogrid")) {
+            else if (eqc(buf, "nogrid")) {
                 gtype = GRID_NONE;
             }
             else {
@@ -659,16 +659,16 @@ bool plotit(wordlist *wl, const char *hcopy, const char *devname)
     if (!sameflag && !pfound) {
         char buf[BSIZE_SP];
         if (cp_getvar("plotstyle", CP_STRING, buf, sizeof(buf))) {
-            if (eq(buf, "linplot")) {
+            if (eqc(buf, "linplot")) {
                 ptype = PLOT_LIN;
             }
-            else if (eq(buf, "retraceplot")) {
+            else if (eqc(buf, "retraceplot")) {
                 ptype = PLOT_RETLIN;
             }
-            else if (eq(buf, "combplot")) {
+            else if (eqc(buf, "combplot")) {
                 ptype = PLOT_COMB;
             }
-            else if (eq(buf, "pointplot")) {
+            else if (eqc(buf, "pointplot")) {
                 ptype = PLOT_POINT;
             }
             else {
@@ -802,7 +802,7 @@ bool plotit(wordlist *wl, const char *hcopy, const char *devname)
 
             /* Test for a vs b construct */
             if (pn_value && (pn_value->v_length == 0) &&
-                eq(pn_value->v_name, "vs")) {
+                eqc(pn_value->v_name, "vs")) {
                 struct dvec* dv;
 
                 if (!lv) { /* e.g. "plot vs b" */
