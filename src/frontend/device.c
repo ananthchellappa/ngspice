@@ -80,11 +80,11 @@ devhelp(wordlist *wl)
 
     while (TRUE) {
         /* -type, -csv, -flags options can be passed as the initial arguments */
-        if (wlist && wlist->wl_word && eq(wlist->wl_word, "-type")) {
+        if (wlist && wlist->wl_word && eqc(wlist->wl_word, "-type")) {
             print_type = TRUE;
-        } else if (wlist && wlist->wl_word && eq(wlist->wl_word, "-flags")) {
+        } else if (wlist && wlist->wl_word && eqc(wlist->wl_word, "-flags")) {
             print_flags = TRUE;
-        } else if (wlist && wlist->wl_word && eq(wlist->wl_word, "-csv")) {
+        } else if (wlist && wlist->wl_word && eqc(wlist->wl_word, "-csv")) {
             print_csv = TRUE;
         } else
             break;
@@ -396,7 +396,7 @@ all_show(wordlist *wl, int mode)
         return;
     }
 
-    if (wl && wl->wl_word && eq(wl->wl_word, "-v")) {
+    if (wl && wl->wl_word && eqc(wl->wl_word, "-v")) {
         old_show(wl->wl_next);
         return;
     }
@@ -424,7 +424,7 @@ all_show(wordlist *wl, int mode)
                 w->wl_word = copy("all");
             }
 
-            if (eq(w->wl_word, "++") || eq(w->wl_word, "all")) {
+            if (eq(w->wl_word, "++") || eqc(w->wl_word, "all")) {
                 if (params) {
                     param_flag = DGEN_ALLPARAMS;
                     if (prev)
@@ -558,7 +558,7 @@ all_show_old(wordlist *wl, int mode)
         return;
     }
 
-    if (wl && wl->wl_word && eq(wl->wl_word, "-v")) {
+    if (wl && wl->wl_word && eqc(wl->wl_word, "-v")) {
         old_show(wl->wl_next);
         return;
     }
@@ -585,7 +585,7 @@ all_show_old(wordlist *wl, int mode)
                 w->wl_word = copy("all");
             }
 
-            if (eq(w->wl_word, "++") || eq(w->wl_word, "all")) {
+            if (eq(w->wl_word, "++") || eqc(w->wl_word, "all")) {
                 if (params) {
                     param_flag = DGEN_ALLPARAMS;
                     if (prev)
@@ -1481,7 +1481,7 @@ com_alter_common(wordlist *wl, int do_model)
 
     /* If we want alter the geometry of a MOS device
        we have to ensure that we are in the valid model bin. */
-    if ((dev[0] == 'm') && (eq(param, "w") || eq(param, "l")))
+    if ((dev[0] == 'm') && (eqc(param, "w") || eqc(param, "l")))
         if_set_binned_model(ft_curckt->ci_ckt, dev, param, dv);
 
     if_setparam(ft_curckt->ci_ckt, &dev, param, dv, do_model);
@@ -1563,7 +1563,7 @@ com_alter_mod(wordlist *wl)
         }
         filename = copy(eqword);
     } else {
-        eqword = strstr(input, "file");
+        eqword = cistrstr(input, "file");
         eqword += 4;
         while (*eqword == ' ')
             eqword++;

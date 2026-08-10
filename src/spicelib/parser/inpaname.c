@@ -52,7 +52,7 @@ INPaName(char *parm, IFvalue * val, CKTcircuit *ckt, int *dev, char *devnam,
      * parameter.
      */
     for (i = 0; i < *(sim->devices[*dev]->numInstanceParms); i++) {
-	if (strcmp(parm, sim->devices[*dev]->instanceParms[i].keyword) == 0
+	if (cieq(parm, sim->devices[*dev]->instanceParms[i].keyword)
 	    && (sim->devices[*dev]->instanceParms[i].dataType & IF_ASK)) {
 	    /* found it, so we ask the question using the device info we got
 	     * above and put the results in the IFvalue structure our caller
