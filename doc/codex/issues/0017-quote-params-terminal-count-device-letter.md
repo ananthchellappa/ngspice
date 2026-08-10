@@ -2,10 +2,7 @@
 
 ## Status
 
-Open. Found while closing `doc/codex/issues/0013`, and deliberately not fixed
-there: it is a first-character device-letter test, which is
-`doc/codex/issues/0009`'s follow-up class, and 0013's scope was the keyword
-searches.
+Fixed in `f2111b152`. All four acceptance criteria are met; see Resolution.
 
 ## Summary
 
@@ -111,8 +108,62 @@ is that table's first row.
 
 ## Resolution
 
-Not fixed. `doc/codex/issues/0013`'s scope was the keyword searches, and
-`doc/codex/issues/0009`'s follow-up table was explicitly held out of it. The
-fix is one token — `strchr("fhmouydqjzswx", elem_letter(curr_line))` — and it
-belongs with the rest of that table, which is the next item on the
-case-sensitivity critical path after 0013.
+Fixed in `f2111b152`, in one token, as predicted:
+
+```c
+/* src/frontend/inpcom.c:8737, inp_quote_params() */
+        if (strchr("fhmouydqjzswx", elem_letter(curr_line)))
+            num_terminals++;
+```
+
+### Acceptance criteria
+
+1. **Met.** `inpcom.c:8737` folds the character it tests through
+   `elem_letter()`, which copies and mutates nothing.
+2. **Met.** `tests/regression/case/quote-params-model-case.cir`, with
+   `.param nmod=7` and an upper-case `M1 2 3 0 0 nmod`, resolves the model and
+   prints `v(2) = 3.432236e+00`, byte-identical to its lower-case twin.
+3. **Met.** `tests/regression/case/quote-params-subckt-case.cir` is the `X`
+   twin, with `.param divider=7` and `X1 1 2 divider PARAMS: rtop=1k`, and
+   prints `v(2) = 3.000000e+00`.
+4. **Met.** `make check` went from 114 tests, 0 FAIL to 118 tests, 0 FAIL with
+   `casemode` unset — the four decks this issue adds. The differential sweep
+   was measured across the whole series that closes
+   `doc/codex/issues/0009`'s follow-up table rather than on this commit alone;
+   see `doc/claude/checklists/phase2-differential-sweep.md`. No deck's verdict
+   got worse.
+
+### Evidence
+
+RED at `cf3edd306`, reproduced exactly as the Impact section predicts:
+
+```
+$ ngspice --batch quote-params-model-case.cir
+  v(2) = 3.432236e+00
+$ ngspice -D casemode=preserve --batch quote-params-model-case.cir
+  M1 2 3 0 0    7.000000000000000e+00
+  could not find a valid modelname
+  Error: incomplete or empty netlist
+```
+
+The `X` deck fails with `Error: unknown subckt: X1 1 2 {divider} rtop=1k`,
+which is the cancellation `doc/codex/issues/0013` removed.
+
+Both decks were run against an empty `.out` first and both FAILED, so their
+evidence is a number rather than a diagnostic — the check
+`tests/bin/check.sh`'s filter makes necessary and which this directory keeps
+re-teaching.
+
+### Not fold-mode visible, and the argument was made rather than inherited
+
+`inp_quote_params()` reads only `curr_line[0]`; it skips `.` and `*` cards
+and everything between `.control` and `.endc`. Of the reader's fold
+exemptions, only the `.lib`/`.inc` and command-whitelist branch at
+`inpcom.c:1917` leaves a first byte unfolded, and none of its three triggers
+can deliver a device card here: `starhash` implies `buffer[0] == '*'`,
+`is_control` is the `.control` body, and `comfile` never reaches this pass at
+all, because the whole preprocessing block is inside `if (!comfile && cc)` at
+`inpcom.c:1166`. The `plot`/`gnuplot`/`hardcopy` and print-redirection arms
+fold up to their spared token, so the first byte is folded;
+`keep_case_of_cider_param()` folds everything outside one pair of double
+quotes, and a card's first byte is never inside it.

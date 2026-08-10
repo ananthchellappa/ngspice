@@ -2,10 +2,15 @@
 
 ## Status
 
-Fixed for the enumerated sites; see Resolution.  Acceptance criterion 4
-(`PARSE-FAIL` = 0 in the differential sweep) is not met and cannot be met
-within this issue: the residue is `doc/codex/issues/0010` and
-`doc/codex/issues/0013`.
+Closed.  Fixed for the enumerated sites; see Resolution.  Acceptance
+criterion 4 (`PARSE-FAIL` = 0 in the differential sweep) was not met within
+this issue and was met by `doc/codex/issues/0013`.
+
+**The follow-up table at the end of this issue is closed too.** All 29 rows
+of its three tables are fixed, each marked in place with its line number in
+`src/frontend/inpcom.c` at the fix and with the deck that witnesses it or
+the argument for why no deck exists.  See "Follow-up table: closed" below
+for what that took and what it did not reach.
 
 ## Summary
 
@@ -282,37 +287,37 @@ differential sweep today except where noted.
 
 | Line | Function | Test | Deck needed |
 | --- | --- | --- | --- |
-| 2794 | `replace_freq()` | `pt = (*line == 'e') ? 'v' : 'i';` | `#ifdef XSPICE`; an AC deck with an upper-case `E1 out 0 FREQ {v(in)} = db ...` table source against its lower-case twin, evidence `vdb(out)`. Upper case silently picks the wrong controlling quantity. |
-| 2873 | `inp_chk_for_e_source_to_xspice()` | `*line == 'e' && inp_chk_for_multi_in_vcvs(...)` | `#ifdef XSPICE`, no dialect; a multi-input VCVS, `E1 out 0 nand(2) in1 0 in2 0 (...) (...)`, evidence `v(out)`. |
-| 2875 | `inp_chk_for_e_source_to_xspice()` | `*line != 'e' && *line != 'g'` | as 2873, plus the `G`-source twin. |
-| 3121 | `is_a_modelname()` | `newcompat.lt && *line == 'r'` | `-D ngbehavior=lt -D casemode=preserve`, upper-case `R1 1 2 4k7` — an RKM value must not be mistaken for a model name. |
-| 3127 | `is_a_modelname()` | `newcompat.lt && *line == 'c'` | as 3121 with `C1 2 0 4u7`. |
-| 3133 | `is_a_modelname()` | `newcompat.lt && *line == 'l'` | as 3121 with `L1 1 3 4m7`. |
-| 3206 | `is_a_modelname()` | `(*st == 'f') \|\| (*st == 'h')` | Not a device letter — the unit suffix inside a value token. `1H` or `5pF` written upper case is not recognised as a number and is reported as a missing model. Already observable in the sweep as `warning, can't find model '1H'` on `tests/polezero/pz2.cir` and `'5pf'` on `tests/general/schmitt.cir`; warning only, no numeric effect. |
-| 5041 | `inp_fix_param_values()` | `*line == 'b'` | Ungated; upper-case `B1 out 0 i = v(in)/2k` against its lower-case twin, evidence `v(out)`. B-source expressions must be exempt from parameter quoting. |
-| 6289 | `inp_compat()` | `*curr_line == 'e'` | Ungated (needs only *not* `ngbehavior=s3`); `E1 out 0 VOL={v(in)*2}`, evidence `v(out) = 2.0`. |
-| 6569 | `inp_compat()` | `*curr_line == 'g'` | as 6289 with `G1 out 0 cur={v(in)*1m}`. |
-| 6813 | `inp_compat()` | `*curr_line == 'f'` | as 6289 with a CCCS carrying a `temper` expression and `.options temp=75`. |
-| 6860 | `inp_compat()` | `*curr_line == 'h'` | as 6289 with the CCVS form. |
-| 6911 | `inp_compat()` | `*curr_line == 'r'` | as 6289 with a behavioural resistor `R1 1 0 R = {1k/V(2)}`, evidence `i(V1)`. |
-| 6993 | `inp_compat()` | `*curr_line == 'c'` | as 6289 with a behavioural capacitor `C = {...}`. |
-| 7093 | `inp_compat()` | `*curr_line == 'l'` | as 6289 with a behavioural inductor `L={1m*(1+v(ctrl))}`, evidence a `.tran` branch current. |
-| 7152 | `inp_compat()` | `*curr_line == 'k'` | as 6289 with a three-inductor `K1 l1 l2 l3 0.5`, evidence two AC node voltages. |
-| 7509 | `inp_bsource_compat()` | `*curr_line == 'b'` | Ungated; an upper-case `B` source whose expression needs the compat rewrite, paired with its lower-case twin. |
-| 8951 | `inp_meas_current()` | `*s == 'v'` | Not a card's first character — the device letter inside `i(...)`. `i(V1)` inside a B-source expression must not be converted to a current probe. Needs a deck with `b1 out 0 v = 1k*i(V.x1.vs)`. |
+| 2794 | `replace_freq()` | `pt = (*line == 'e') ? 'v' : 'i';` | `#ifdef XSPICE`; an AC deck with an upper-case `E1 out 0 FREQ {v(in)} = db ...` table source against its lower-case twin, evidence `vdb(out)`. Upper case silently picks the wrong controlling quantity. **Fixed, `inpcom.c:2828`; tests/xspice/case/freq-e-source-case.cir and its G twin.** |
+| 2873 | `inp_chk_for_e_source_to_xspice()` | `*line == 'e' && inp_chk_for_multi_in_vcvs(...)` | `#ifdef XSPICE`, no dialect; a multi-input VCVS, `E1 out 0 nand(2) in1 0 in2 0 (...) (...)`, evidence `v(out)`. **Fixed, `inpcom.c:2907`; tests/xspice/case/freq-e-source-case.cir.** |
+| 2875 | `inp_chk_for_e_source_to_xspice()` | `*line != 'e' && *line != 'g'` | as 2873, plus the `G`-source twin. **Fixed, `inpcom.c:2909`; tests/xspice/case/freq-e-source-case.cir, freq-g-source-case.cir.** |
+| 3121 | `is_a_modelname()` | `newcompat.lt && *line == 'r'` | `-D ngbehavior=lt -D casemode=preserve`, upper-case `R1 1 2 4k7` — an RKM value must not be mistaken for a model name. **Fixed, `inpcom.c:3155`; tests/regression/case-lt/rkm-r-case.cir, a guard.** |
+| 3127 | `is_a_modelname()` | `newcompat.lt && *line == 'c'` | as 3121 with `C1 2 0 4u7`. **Fixed, `inpcom.c:3161`; tests/regression/case-lt/rkm-c-case.cir, a guard.** |
+| 3133 | `is_a_modelname()` | `newcompat.lt && *line == 'l'` | as 3121 with `L1 1 3 4m7`. **Fixed, `inpcom.c:3167`; tests/regression/case-lt/rkm-l-case.cir, a guard.** |
+| 3206 | `is_a_modelname()` | `(*st == 'f') \|\| (*st == 'h')` | Not a device letter — the unit suffix inside a value token. `1H` or `5pF` written upper case is not recognised as a number and is reported as a missing model. Already observable in the sweep as `warning, can't find model '1H'` on `tests/polezero/pz2.cir` and `'5pf'` on `tests/general/schmitt.cir`; warning only, no numeric effect. **Fixed, `inpcom.c:3240`; no deck; the whole effect is one stderr warning, see below.** |
+| 5041 | `inp_fix_param_values()` | `*line == 'b'` | Ungated; upper-case `B1 out 0 i = v(in)/2k` against its lower-case twin, evidence `v(out)`. B-source expressions must be exempt from parameter quoting. **Fixed, `inpcom.c:5075`; tests/regression/case/bsource-quote-case.cir.** |
+| 6289 | `inp_compat()` | `*curr_line == 'e'` | Ungated (needs only *not* `ngbehavior=s3`); `E1 out 0 VOL={v(in)*2}`, evidence `v(out) = 2.0`. **Fixed, `inpcom.c:6386`; tests/regression/case/compat-e-value-case.cir.** |
+| 6569 | `inp_compat()` | `*curr_line == 'g'` | as 6289 with `G1 out 0 cur={v(in)*1m}`. **Fixed, `inpcom.c:6666`; tests/regression/case/compat-g-value-case.cir.** |
+| 6813 | `inp_compat()` | `*curr_line == 'f'` | as 6289 with a CCCS carrying a `temper` expression and `.options temp=75`. **Fixed, `inpcom.c:6910`; tests/regression/case/compat-f-temper-case.cir.** |
+| 6860 | `inp_compat()` | `*curr_line == 'h'` | as 6289 with the CCVS form. **Fixed, `inpcom.c:6957`; tests/regression/case/compat-h-temper-case.cir.** |
+| 6911 | `inp_compat()` | `*curr_line == 'r'` | as 6289 with a behavioural resistor `R1 1 0 R = {1k/V(2)}`, evidence `i(V1)`. **Fixed, `inpcom.c:7008`; tests/regression/case/compat-r-behav-case.cir.** |
+| 6993 | `inp_compat()` | `*curr_line == 'c'` | as 6289 with a behavioural capacitor `C = {...}`. **Fixed, `inpcom.c:7090`; tests/regression/case/compat-c-behav-case.cir.** |
+| 7093 | `inp_compat()` | `*curr_line == 'l'` | as 6289 with a behavioural inductor `L={1m*(1+v(ctrl))}`, evidence a `.tran` branch current. **Fixed, `inpcom.c:7190`; tests/regression/case/compat-l-behav-case.cir.** |
+| 7152 | `inp_compat()` | `*curr_line == 'k'` | as 6289 with a three-inductor `K1 l1 l2 l3 0.5`, evidence two AC node voltages. **Fixed, `inpcom.c:7249`; tests/regression/case/compat-k-mutual-case.cir.** |
+| 7509 | `inp_bsource_compat()` | `*curr_line == 'b'` | Ungated; an upper-case `B` source whose expression needs the compat rewrite, paired with its lower-case twin. **Fixed, `inpcom.c:7606`; tests/regression/case/bsource-compat-case.cir.** |
+| 8951 | `inp_meas_current()` | `*s == 'v'` | Not a card's first character — the device letter inside `i(...)`. `i(V1)` inside a B-source expression must not be converted to a current probe. Needs a deck with `b1 out 0 v = 1k*i(V.x1.vs)`. **Fixed, `inpcom.c:9049`; tests/regression/case/meas-current-vsource-case.cir.** |
 
 **Not enumerated in the original scope, found while fixing this issue.** Same
 class, same file, and the anchor list missed them:
 
 | Line | Function | Test | Note |
 | --- | --- | --- | --- |
-| 8639 | `inp_quote_params()` | `strchr("fhmouydqjzswx", *curr_line)` | **Highest priority of this group.** It *adds one* to the `get_number_terminals()` result that this issue just made correct, so an upper-case `F`/`H`/`M`/`Q`/`S`/`X` card now gets a terminal count that is off by one and the brace-quoting loop starts one token early — it can wrap the model name or the controlling source name. Not observed to change a number in the sweep, which is not the same thing as safe. |
-| 4331 | `inp_fix_subckt_multiplier()` | `strchr("*vehaknopstuwy", curr_line[0])` | A third skip list of exactly the shape of the two at 3296/3373. Under `preserve` an upper-case card inside a subcircuit is no longer skipped and gets ` m={m}` appended. |
-| 4338 | `inp_fix_subckt_multiplier()` | `curr_line[0] == 'b'` | Guards the "skip a voltage-mode B source" case, so an upper-case `B1 n1 n2 V={...}` gets ` m={m}` appended to a voltage source. |
-| 8806 | `inp_vdmos_model()` | `curr_line[0] == 'm' && cistrstr(...)` | Thermal VDMOS instance detection: an upper-case `M1 d g s tj tc mymod thermal` skips both the five-node syntax check and the instance model lookup. |
-| 8943 | `inp_meas_current()` | `*v == 'a' && s[-1] == '%'` | `v` is the head of the card, so this is a first-character test. An upper-case XSPICE `A1 %i(node) ...` loses the `%i(` escape and the port is rewritten as a current probe. |
-| 9056 | `inp_meas_current()` | `(tok[0] == 'e') \|\| (tok[0] == 'h')` | `tok` is the card's first token. An upper-case linear `E1`/`H1` referenced by `i(E1)` no longer takes the undo path. |
-| 9902, 9946 | `inp_poly_2g6_compat()` | two separate `switch (*thisline)` with `'e'`, `'f'`, `'g'`, `'h'` | Structurally identical to 9704, which *is* fixed. An upper-case SPICE2 `POLY` source never gets `poly(1)` inserted. Both switches need folding: the second is unreachable today only because the first `continue`s first. |
+| 8639 | `inp_quote_params()` | `strchr("fhmouydqjzswx", *curr_line)` | **Highest priority of this group.** It *adds one* to the `get_number_terminals()` result that this issue just made correct, so an upper-case `F`/`H`/`M`/`Q`/`S`/`X` card now gets a terminal count that is off by one and the brace-quoting loop starts one token early — it can wrap the model name or the controlling source name. Not observed to change a number in the sweep, which is not the same thing as safe. **Fixed, `inpcom.c:8737`; tests/regression/case/quote-params-model-case.cir and its X twin; doc/codex/issues/0017.** |
+| 4331 | `inp_fix_subckt_multiplier()` | `strchr("*vehaknopstuwy", curr_line[0])` | A third skip list of exactly the shape of the two at 3296/3373. Under `preserve` an upper-case card inside a subcircuit is no longer skipped and gets ` m={m}` appended. **Fixed, `inpcom.c:4365`; tests/regression/case/subckt-mult-skip-case.cir.** |
+| 4338 | `inp_fix_subckt_multiplier()` | `curr_line[0] == 'b'` | Guards the "skip a voltage-mode B source" case, so an upper-case `B1 n1 n2 V={...}` gets ` m={m}` appended to a voltage source. **Fixed, `inpcom.c:4372`; no deck; a voltage-mode B source ignores the m it wrongly receives, measured.** |
+| 8806 | `inp_vdmos_model()` | `curr_line[0] == 'm' && cistrstr(...)` | Thermal VDMOS instance detection: an upper-case `M1 d g s tj tc mymod thermal` skips both the five-node syntax check and the instance model lookup. **Fixed, `inpcom.c:8904`; tests/regression/case/vdmos-thermal-nodes-case.cir.** |
+| 8943 | `inp_meas_current()` | `*v == 'a' && s[-1] == '%'` | `v` is the head of the card, so this is a first-character test. An upper-case XSPICE `A1 %i(node) ...` loses the `%i(` escape and the port is rewritten as a current probe. **Fixed, `inpcom.c:9041`; no deck; needs an XSPICE A card, which tests/bin/spinit cannot model.** |
+| 9056 | `inp_meas_current()` | `(tok[0] == 'e') \|\| (tok[0] == 'h')` | `tok` is the card's first token. An upper-case linear `E1`/`H1` referenced by `i(E1)` no longer takes the undo path. **Fixed, `inpcom.c:9154`; no deck; the undo path and the inserted ammeter give the same current, measured.** |
+| 9902, 9946 | `inp_poly_2g6_compat()` | two separate `switch (*thisline)` with `'e'`, `'f'`, `'g'`, `'h'` | Structurally identical to 9704, which *is* fixed. An upper-case SPICE2 `POLY` source never gets `poly(1)` inserted. Both switches need folding: the second is unreachable today only because the first `continue`s first. **Fixed, `inpcom.c:10000 and 10044`; tests/xspice/case/poly-2g6-case.cir.** |
 
 **Same `preserve` class, not a first-character test.** Recorded so the next
 sweep over this file does not have to rediscover them; they belong with
@@ -320,10 +325,10 @@ sweep over this file does not have to rediscover them; they belong with
 
 | Line | Function | Test |
 | --- | --- | --- |
-| 2711 | `replace_freq()` | the "is the expression a simple identifier" scan accepts `'a'..'z'` only, so `FREQ {Vin}` with an upper-case node breaks out early |
-| 4713 | `inp_do_macro_param_replace()` | `strchr("vi", p[-1])` — an upper-case `V(` is not recognised, so a node name inside `V(n1,n2)` can be substituted as a `.func` formal |
-| 5940 | `b_transformation_wanted()` | `strpbrk(p, "vith")` is a lower-case-only scan set feeding comparisons that are themselves `cieqn` |
-| 8748 | `inp_vdmos_model()` | `cut_line[5] == 'p'` tested case-sensitively right after `cieqn(cut_line, "vdmos", 5)` matched case-insensitively, so `.model m1 VDMOSP` loses its channel type |
+| 2711 | `replace_freq()` | the "is the expression a simple identifier" scan accepts `'a'..'z'` only, so `FREQ {Vin}` with an upper-case node breaks out early **Fixed, `inpcom.c:2745`; tests/xspice/case/freq-node-expr-case.cir.** |
+| 4713 | `inp_do_macro_param_replace()` | `strchr("vi", p[-1])` — an upper-case `V(` is not recognised, so a node name inside `V(n1,n2)` can be substituted as a `.func` formal **Fixed, `inpcom.c:4747`; tests/regression/case/func-vnode-case.cir.** |
+| 5940 | `b_transformation_wanted()` | `strpbrk(p, "vith")` is a lower-case-only scan set feeding comparisons that are themselves `cieqn` **Fixed, `inpcom.c:5975`; tests/regression/case/behav-r-vnode-case.cir.** |
+| 8748 | `inp_vdmos_model()` | `cut_line[5] == 'p'` tested case-sensitively right after `cieqn(cut_line, "vdmos", 5)` matched case-insensitively, so `.model m1 VDMOSP` loses its channel type **Fixed, `inpcom.c:8846`; tests/regression/case/vdmos-type-suffix-case.cir.** |
 
 Three sites in the same family are already written correctly and are listed
 here only so a future sweep does not "fix" them twice: `inpcom.c:7575`
@@ -345,3 +350,79 @@ card-first-character tests. Two claims from that pass were checked by hand
 against `e96b4cd5c` before being written down here, because the working tree
 was 15 lines longer than `HEAD` while it ran and several agents reported
 working-tree line numbers.
+
+## Follow-up table: closed
+
+All 29 rows above are fixed, in nine commits on `ver_50`, each marked in
+place with its `src/frontend/inpcom.c` line number at the fix.  Line numbers
+in the left-hand column remain against `e96b4cd5c`, as the table was written.
+
+| commit | what it folded |
+| --- | --- |
+| `f2111b152` | `inp_quote_params()`'s terminal-count adjustment — `doc/codex/issues/0017` |
+| `46f2c3274` | `is_a_modelname()`'s `f`/`h` unit suffix |
+| `a28a04e06` | all eight `inp_compat()` device arms |
+| `459336150` | both `inp_vdmos_model()` sites |
+| `eb7f2f8fd` | the two B-source exemptions |
+| `4d74bf305` | `inp_fix_subckt_multiplier()` and `inp_meas_current()` |
+| `48b72c7b2` | the three lower-case-only character scan sets |
+| `e9d938f96` | the two `src/frontend/inp.c` guards |
+| `b10fdafb4` | the dialect- and XSPICE-gated sites, with three new test directories |
+
+### What the decks cover, and what they cannot
+
+24 new twin pairs and one guard pair.  Every upper-case deck that asserts a
+number was confirmed to FAIL against an empty reference before being
+committed, which is the check `tests/bin/check.sh`'s filter makes necessary.
+
+Three of them are wrong-number witnesses rather than missing-number ones,
+which is the class this issue said the sweep could not see:
+
+- `tests/regression/case/vdmos-type-suffix-case.cir` — `.model x VDMOSP`
+  became an n-channel device, `v(3) = -6.92888e-01` against `-1.24988e-03`.
+- `tests/regression/case/func-vnode-case.cir` — a `.func` body's `V(nsel)`
+  read the wrong node, `sel = 7.000000e+00` against `2.000000e+00`.
+- `tests/xspice/case/freq-e-source-case.cir` — with the gate folded and
+  `inpcom.c:2828` left alone, an E FREQ source is emitted with a current
+  output port, `vm(2) = 1.000000e+03` against `1.000000e+00`.
+
+Five rows are folded without a deck, and the argument is per row rather than
+by reference to another row:
+
+- `3206` (`inpcom.c:3240`) — `is_a_modelname()`'s three callers only ever ADD
+  a name to a used-models list or print `warning, can't find model`, so the
+  site cannot move a number, and that warning goes to stderr, which
+  `tests/bin/check.sh` does not capture.  The differential sweep, which
+  merges stderr, is the only harness that sees it, and it does: four decks
+  moved `DIFF` to `OK` on this fix alone.
+- `4338` — a voltage-mode B source ignores the ` m={m}` it wrongly receives.
+  Measured with a deck, which printed the same number in both spellings and
+  is therefore not committed.
+- `8943` — needs an XSPICE `A` card with a `%i(` port, so it needs a code
+  model; no coverage is claimed.
+- `9056` — taking the linear E/H undo path or leaving the inserted ammeter in
+  place produces the same current.  Measured the same way.
+- `src/frontend/inp.c:2259`, from `doc/codex/issues/0013`'s list rather than
+  this table — every V/B/I/E/G/F/H card carrying a `temper` expression that
+  could witness it is rejected in *every* mode, so there is no lower-case
+  twin that runs.
+
+The three `newcompat.lt` RKM rows are guards for the same reason as `3206`:
+the difference they make is one `warning, can't find model '4u7'` line on
+stderr.  They are committed because the pair asserts that the device
+letter's spelling cannot change what an RKM value means.
+
+### One site fixed that this table did not list
+
+`inp_modify_exp()` (`inpcom.c:7804`) tests
+`((c == 'v') || (c == 'i')) && s[1] == '('` on every behavioural expression.
+It is the same defect class in the same file, it was found while writing the
+`inp_compat()` E-arm deck, and it is folded in `48b72c7b2`.  Written up as
+`doc/codex/issues/0018`, which also records that a row for it belongs here.
+
+### What a further sweep of this file found and this issue did not fix
+
+`doc/codex/issues/0019` records six more sites of the same class that neither
+this table nor its "Method note on this enumeration" reached — four of them
+outside `src/frontend/inpcom.c`, two of them wrong-number defects — plus one
+site that looks like one and is dead code.
