@@ -2256,7 +2256,7 @@ static int inp_parse_temper(struct card *card, struct pt_temper **modtlist_p,
         char *curr_line = card->line;
 
         /* exclude some elements */
-        if (strchr("*vbiegfh", curr_line[0]))
+        if (strchr("*vbiegfh", elem_letter(curr_line)))
             continue;
         /* exclude all dot commands except .model */
         if (curr_line[0] == '.' && !ciprefix(".model", curr_line))
@@ -2589,7 +2589,7 @@ eval_agauss(struct card *deck, char *fcn)
             continue;
         }
 
-        if (*curr_line != 'b')
+        if (elem_letter(curr_line) != 'b')
             continue;
 
         while ((ap = search_identifier(curr_line, fcn, curr_line)) != NULL) {

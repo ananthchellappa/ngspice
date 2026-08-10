@@ -931,7 +931,7 @@ char *find_back_assignment(const char *p, const char *start)
    character it tests.  Fold a copy and leave the card alone, the way
    src/spicelib/parser/inppas2.c:92-94 does it.  In fold mode this is the
    identity. */
-static char elem_letter(const char *line)
+char elem_letter(const char *line)
 {
     return line ? tolower_c(*line) : '\0';
 }

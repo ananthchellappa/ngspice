@@ -1,0 +1,22 @@
+* upper case B source carrying agauss(), under casemode=preserve
+* eval_agauss() (src/frontend/inp.c) resolves the agauss/gauss/aunif/unif/
+* limit statistical functions inside a B source expression.  It selects the
+* card with
+*   if (*curr_line != 'b') continue;
+* lower case only, so under preserve an upper case B card was never
+* processed, the agauss() call survived to the expression parser, and
+* nothing was printed.
+* The sigma is 0, so the draw is deterministic and the twin pair compares a
+* number rather than a sample.
+* doc/codex/issues/0009 class, src/frontend/inp.c:2592; recorded in
+* doc/codex/issues/0013's Resolution as one of the guards that block a
+* keyword site 0013 had already folded.
+.OPTIONS noacct
+V1 1 0 dc 2
+B1 2 0 V = v(1)*agauss(3,0,1)
+R1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end
