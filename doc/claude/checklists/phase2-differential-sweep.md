@@ -333,3 +333,91 @@ PARSE-FAIL tests/xspice/digital/d_state.cir                             preserve
 
 129 decks: DIFF=24, OK=20, PARSE-FAIL=82, SKIP=3
 ```
+
+## Re-run after `doc/codex/issues/0009`'s follow-up table was closed
+
+After the nine commits that fold every remaining first-character
+device-letter test and every lower-case-only character scan set in
+`src/frontend/inpcom.c`, plus the two guards in `src/frontend/inp.c` and the
+two in `src/frontend/inpcompat.c`, the same command reports:
+
+| verdict | after 0013 | after the follow-up table |
+| --- | ---: | ---: |
+| OK | 107 | 157 |
+| DIFF | 45 | 53 |
+| PARSE-FAIL | 0 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **155** | **213** |
+
+Both columns were measured with the same command on the same tree,
+immediately before and after the series. The "after 0013" column differs
+from the figures in the previous section (OK=108, DIFF=43, total=154) for the
+usual reason plus one: one timing-sensitive deck moves between consecutive
+runs, and the deck count differs by one from the figure recorded then.
+**The baseline used here is the one measured on this tree, not the one
+quoted in the previous section.**
+
+Compared per deck rather than on the totals: **no deck's verdict got worse,
+and no deck that was OK became anything else.** Exactly four pre-existing
+decks moved, all of them `DIFF` to `OK`, and all four on the single commit
+that folds `is_a_modelname()`'s `f`/`h` unit suffix:
+
+```
+tests/polezero/pz2.cir              DIFF -> OK   ("can't find model '1h'")
+tests/polezero/pzt.cir              DIFF -> OK
+tests/general/schmitt.cir           DIFF -> OK   ("'5pf'")
+tests/regression/misc/ac-zero.cir   DIFF -> OK   ("'1uh'", "'1uf'")
+```
+
+That was measured with `--filter` immediately after that commit as well as
+in the full run, because the previous section's prediction — that fixing
+`inpcom.c:3239` should move `pz{2,t}` and `schmitt` — was a prediction and
+not a measurement. It moved a fourth deck nobody had listed.
+
+The three `bsim3soi{dd,fd,pd}/ring51.cir` decks did **not** move, as
+predicted: their `1pF` warning is already gone and what remains is transient
+`reference value` timing, which differs between two consecutive *stock* runs.
+
+The 58 extra decks are the 29 twin pairs this series added: 20 under
+`tests/regression/case/`, three under the new `tests/regression/case-lt/`,
+two under the new `tests/regression/case-pspice/` and four under the new
+`tests/xspice/case/`. 46 of the 58 report OK.
+
+### The twelve new decks that report DIFF, and why
+
+None of them is a defect this series introduced, and none is a numeric
+difference in the deck as written — every one is the sweep's *uppercased*
+copy. They are written up as `doc/codex/issues/0020`.
+
+- **Eight** — `compat-c-behav-case`, `compat-l-behav-case`,
+  `compat-k-mutual-case` and `case-lt/rkm-c-case`, `rkm-l-case`, with their
+  twins — print `vm(...)`. Uppercased that becomes `PRINT VM(2)`, and under
+  `preserve` the control language does not recognise the `vm`/`vp`/`vdb`
+  vector-function prefix in upper case: `Error: no such function as VM`.
+  This is the same class as the group-2 uppercasing artifacts already
+  described above, except that it is a real `preserve` gap rather than a
+  limitation of the sweep's rule — it reproduces on a hand-written deck.
+- **Four** — `subckt-mult-skip-case` and its twin — carry `X1 1 2 divider
+  m=2`. Uppercased that is `M=2`, and under `preserve` the multiplier is not
+  recognised, so the subcircuit is instantiated once instead of twice and
+  `v(2)` reads `1.000000e+00` instead of `1.333333e+00`. That is a wrong
+  number with no diagnostic, it reproduces by hand, and it is the more
+  serious of the two. It is the parameter-name half of the pass whose
+  device-letter half this series just fixed, and it has to move with
+  `doc/codex/issues/0015`.
+
+**`NUM-DIFF` has been 0 at every measurement in this table, and `PARSE-FAIL`
+has been 0 since `doc/codex/issues/0013`.**
+
+### What the new test directories are not
+
+`tests/regression/case-lt/`, `tests/regression/case-pspice/` and
+`tests/xspice/case/` need `-D ngbehavior=lt`, `-D ngbehavior=ps` and a
+`spinit` that loads code models respectively, and the sweep passes none of
+those. Their decks therefore fail in the sweep's *stock* run too, so the
+sweep reports them OK — three failing runs that agree — rather than
+`PARSE-FAIL`. Fourteen of those eighteen decks report OK for that reason and
+not because anything was proved about them; the other four are the
+`rkm-c-case`/`rkm-l-case` pairs described above. `make check` is what covers
+those directories.
