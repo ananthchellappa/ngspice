@@ -1846,19 +1846,12 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
                     ;
             }
             if (is_control) {
-                /* lower case for variables or vectors in command 'echo'  */
-                if (ciprefix("echo", buffer)) {
-                    char* p = buffer, * tmpstr;
-                    while (p && *p != '\n' && *p != '\0') {
-                        p = nexttok(p);
-                        /* vectors or variables start with $ */
-                        if (p && *p == '$') {
-                            for (tmpstr = p; *tmpstr && !isspace_c(*tmpstr); tmpstr++)
-                                *tmpstr = tolower_c(*tmpstr);
-                            p = tmpstr;
-                        }
-                    }
-                }
+                /* $variables and $vectors on an 'echo' line are left alone.
+                   The whitelist above has already spared the rest of the
+                   line, and folding the reference makes a variable created
+                   by the equally spared 'setcs', 'strcmp' or 'strstr'
+                   unreachable. A *ng_script file has always behaved this
+                   way; a .control section now matches it. */
                 /* add Inp_Path to buffer while keeping the sourcepath variable contents */
                 if (ciprefix("set", buffer)) {
                     char* p;

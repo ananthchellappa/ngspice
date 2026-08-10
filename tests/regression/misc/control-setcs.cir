@@ -1,0 +1,14 @@
+* case preserving commands inside a control section
+.OPTIONS noacct
+V1 in 0 dc 1
+R1 in 0 1k
+.control
+op
+setcs MyVar=CASEKEPT
+echo csval: $MyVar
+strcmp CmpRes "abc" "abc"
+echo cmpres: $CmpRes
+set plainvar=FOLDED
+echo plainval: $plainvar
+.endc
+.end

@@ -2,9 +2,11 @@ variables case sensitivity in echo cmd
 .control
 set              NameList  =  ( plus125C plus25C minus55C )
 let              j         =  2
-*setcs              thisName  =  $NameList[$&j]
+* plain 'set' is folded at read time, so the variable is 'thisname'
 set              thisName  =  $NameList[3]
-echo             "thisName: $thisName"
 echo             "thisname: $thisname"
+* 'setcs' is exempt from the fold, so the variable keeps its capitals
+setcs            CsName    =  MiXeD
+echo             "CsName: $CsName"
 .endc
 .end
