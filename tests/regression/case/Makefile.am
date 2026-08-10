@@ -6,12 +6,16 @@
 ## precedent.
 
 TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
-	gnd-alias-case.cir option-card-case.cir node-case-alias.cir
+	gnd-alias-case.cir option-card-case.cir node-case-alias.cir \
+	write-roundtrip.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 
 EXTRA_DIST = \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
+
+# write-roundtrip.cir writes a rawfile into the build directory
+CLEANFILES = casewrite.raw
 
 MAINTAINERCLEANFILES = Makefile.in

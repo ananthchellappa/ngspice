@@ -1,0 +1,19 @@
+* preserved names survive the write path and come back off disk
+* 'write' is the consumer of vec_basename() that replaces v_name before
+* serialising, so it is the one that decides what a rawfile says a node is
+* called.  The deck writes every vector of the operating point, reads the
+* file back and lists it, so the asserted names have been through the
+* rawfile writer and the rawfile reader rather than being echoed back from
+* the text the user typed.
+.OPTIONS noacct
+V1 InA 0 dc 1.5
+Rser InA OutB 1k
+Rload OutB 0 1k
+.control
+op
+set filetype=ascii
+write casewrite.raw
+load casewrite.raw
+display
+.endc
+.end

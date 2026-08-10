@@ -1126,7 +1126,10 @@ vec_basename(struct dvec *v)
         (void) strcpy(buf, v->v_name);
     }
 
-    strtolower(buf);
+    /* The name is reported as the simulator stored it.  This used to be
+       lowercased here, which made 'print', 'write', 'wrs2p', 'spec', 'fft'
+       and 'psd' disagree with the batch rawfile and with the operating point
+       node dump about internally generated names such as q1#collCX. */
     s = skip_ws(buf);
     for (t = s; *t; t++)
         ;

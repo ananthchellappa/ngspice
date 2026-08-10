@@ -1,0 +1,10 @@
+ASCII raw file "casewrite.raw"
+Loading raw data file ("casewrite.raw") ...
+done.
+Title:  * preserved names survive the write path and come back off disk
+Title: * preserved names survive the write path and come back off disk
+    v(InA)              : voltage, real, 1 long [default scale]
+    v(OutB)             : voltage, real, 1 long
+Title: * preserved names survive the write path and come back off disk
+    v(InA)              : voltage, real, 1 long [default scale]
+    v(OutB)             : voltage, real, 1 long
