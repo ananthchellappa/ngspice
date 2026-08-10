@@ -1,0 +1,34 @@
+* upper case V() as a FREQ source's controlling expression, under preserve
+* replace_freq() recognises the v(node) form of a FREQ source's expression
+* with
+*     if (expr[0] == 'v' && expr[1] == '(' && expr_e[-1] == ')')
+* a lower-case-only byte test.  It is the sibling of the identifier scan at
+* inpcom.c:2745 that doc/codex/issues/0009's row 2711 already folded, so
+* under casemode=preserve an upper case V(1) matches neither branch: 'in'
+* stays NULL and the rewrite falls back to the B-source input form
+*     b_gen_1 gen_node_1 0 v= V(1)
+*     a_gen_1 gen_node_1 %vd(2 0) gen_model_1
+* instead of wiring the A device's input port straight to node 1.
+* That buffer is ideal, so no node voltage changes -- the extra vectors are
+* the witness, and 'print all' is what makes them visible.  A wrong number
+* is not reachable at this site: the interposed source reproduces the sensed
+* voltage exactly and the analog input port draws no current, checked on
+* single-node, differential, high-impedance and in-subcircuit variants.
+* Every printed name is case free on purpose.  The drive is a current source
+* because an independent voltage source would contribute a V1#branch vector
+* whose spelling differs between the twins; both nodes are numeric; and the
+* E card keeps a numeric suffix so the generated a_gen_1 / gen_model_1 names
+* come from literal lower case format strings.
+* doc/codex/issues/0019; src/frontend/inpcom.c:2755.
+I1 0 1 DC 0 AC 1
+R1 1 0 1
+E1 2 0 FREQ {V(1)} = DB
++ (1, 0, 0)
++ (1000, 0, 0)
+R2 2 0 1K
+.OPTIONS noacct
+.control
+ac lin 1 100 100
+print all
+.endc
+.end

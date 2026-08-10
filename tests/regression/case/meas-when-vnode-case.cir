@@ -1,0 +1,28 @@
+* upper case V( to the right of '=' in a .meas WHEN clause, under preserve
+* inp_fix_param_values() puts numparam braces around the token after every
+* '=' it finds on a card.  A .meas WHEN clause is exempt when that token is
+* a node voltage or a branch current, but the exemption was written
+*   if (ciprefix(".meas", line))
+*       if (((equal_ptr[1] == 'v') || (equal_ptr[1] == 'i')) &&
+* with a case-insensitive outer gate and a case-sensitive inner one.  Under
+* casemode=preserve 'when v(1)=V(2)' therefore misses the exemption, the
+* card becomes 'when v(1)={V(2)}', and numparam kills the run before any
+* measurement is made:
+*   Undefined parameter [V] ... Expression err: V(2)}
+* which goes to stderr, so what tests/bin/check.sh sees is simply nothing.
+* Only the one byte under test changes case between the twins: the device
+* letters, the analysis keyword and the result name are lower case in both,
+* because the result name keeps its case under preserve and would change the
+* printed text by itself.  This is the same shape as
+* bsource-vnode-case.cir, one card type further on.
+* v1 ramps 0 -> 1 V over 1 s and v2 sits at 0.4 V, so the crossing is at
+* 400 ms.
+* doc/codex/issues/0019; src/frontend/inpcom.c:5108.
+.OPTIONS noacct
+v1 1 0 pwl(0 0 1 1)
+v2 2 0 dc 0.4
+r1 1 0 1k
+r2 2 0 1k
+.tran 1m 1
+.meas tran tx when v(1)=V(2)
+.end

@@ -41,6 +41,7 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	behav-r-vnode-case.cir behav-r-vnode-case-lower.cir \
 	agauss-bsource-case.cir agauss-bsource-case-lower.cir \
 	savecurrents-case.cir savecurrents-case-lower.cir \
+	meas-when-vnode-case.cir meas-when-vnode-case-lower.cir \
 	alterparam-x-case.cir alterparam-x-case-lower.cir \
 	noopac-linear-case.cir noopac-linear-case-lower.cir
 

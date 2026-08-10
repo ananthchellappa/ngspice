@@ -2752,7 +2752,7 @@ static void replace_freq(struct card *c, int *line_number)
             in = expr;
         }
     }
-    if (expr[0] == 'v' && expr[1] == '(' && expr_e[-1] == ')') {
+    if (tolower_c(expr[0]) == 'v' && expr[1] == '(' && expr_e[-1] == ')') {
         in = expr + 2;
         in_e = expr_e - 1;
         cp = strchr(in, ',');
@@ -5105,7 +5105,8 @@ static void inp_fix_param_values(struct card *c)
             // WHEN out_variable2=out_variable3 no braces around
             // out_variable3. out_variable3 may be v(...) or i(...)
             if (ciprefix(".meas", line))
-                if (((equal_ptr[1] == 'v') || (equal_ptr[1] == 'i')) &&
+                if (((tolower_c(equal_ptr[1]) == 'v') ||
+                            (tolower_c(equal_ptr[1]) == 'i')) &&
                         (equal_ptr[2] == '(')) {
                     // find closing ')' and skip token v(...) or i(...)
                     while (*equal_ptr != ')' && equal_ptr[1] != '\0')

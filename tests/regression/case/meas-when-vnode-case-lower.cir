@@ -1,0 +1,9 @@
+* lower case twin of meas-when-vnode-case.cir
+.OPTIONS noacct
+v1 1 0 pwl(0 0 1 1)
+v2 2 0 dc 0.4
+r1 1 0 1k
+r2 2 0 1k
+.tran 1m 1
+.meas tran tx when v(1)=v(2)
+.end
