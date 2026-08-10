@@ -125,6 +125,10 @@ static bool has_if = FALSE; /* if we have an .if ... .endif pair */
 
 static char *readline(FILE *fd, FileEncoding encoding);
 int get_number_terminals(char *c);
+static char *search_identifier_exact(
+        char *str, const char *identifier, char *str_begin);
+static char *search_plain_identifier_exact(
+        char *str, const char *identifier);
 static void inp_stripcomments_deck(struct card *deck, bool cs);
 static void inp_stripcomments_line(char *s, bool cs, bool inc);
 static void inp_fix_for_numparam(
@@ -5634,7 +5638,8 @@ static void inp_sort_params(struct card *param_cards,
             char *param = deps[i].param_name;
             for (j = 0; j < num_params; j++)
                 if (j != i &&
-                        search_plain_identifier(deps[j].param_str, param)) {
+                        search_plain_identifier_exact(
+                                deps[j].param_str, param)) {
                     for (ind = 0; deps[j].depends_on[ind]; ind++)
                         ;
                     deps[j].depends_on[ind++] = param;
@@ -5983,10 +5988,28 @@ static bool b_transformation_wanted(const char *p)
 }
 
 
-char *search_identifier(char *str, const char *identifier, char *str_begin)
+/* Whole-token hit for the three searches below. A language keyword is the
+   same keyword whatever the deck spells it, so under a non-folding case mode
+   the hit ignores case; in fold mode the reader has already lowercased the
+   card, so strstr is retained and the default mode is provably the same
+   predicate on the same bytes. This is the gate ng_ideq() and
+   src/spicelib/parser/inpsymt.c:31 use. cistrstr() rather than strcasestr():
+   configure.ac does not check for the latter and there is no compatibility
+   implementation. The delimiter tests around the hit need nothing: they are
+   is_arith_char(), isspace_c() and identifier_char(), none of which
+   distinguishes a letter from its other case. */
+
+static char *token_hit(char *str, const char *identifier, bool ci)
+{
+    return ci ? cistrstr(str, identifier) : strstr(str, identifier);
+}
+
+
+static char *search_identifier_1(
+        char *str, const char *identifier, char *str_begin, bool ci)
 {
     if (str && identifier) {
-        while ((str = strstr(str, identifier)) != NULL) {
+        while ((str = token_hit(str, identifier, ci)) != NULL) {
             char before;
 
             if (str > str_begin)
@@ -6008,6 +6031,33 @@ char *search_identifier(char *str, const char *identifier, char *str_begin)
     return NULL;
 }
 
+
+/* 'identifier' is a language keyword: fold it. */
+
+char *search_identifier(char *str, const char *identifier, char *str_begin)
+{
+    return search_identifier_1(str, identifier, str_begin,
+            !inp_case_folding());
+}
+
+
+/* 'identifier' is a name the user chose, not a keyword, so it is matched
+   byte for byte in every mode. Under fold that is what the reader already
+   guarantees; under preserve it keeps this search in step with numparam,
+   which resolves the same symbol byte-exactly (doc/codex/issues/0015). The
+   two have to move together, and folding here alone would hand numparam a
+   spelling it cannot resolve. */
+
+static char *search_identifier_exact(
+        char *str, const char *identifier, char *str_begin)
+{
+    return search_identifier_1(str, identifier, str_begin, FALSE);
+}
+
+
+/* The single caller passes a user parameter name, so this one is an
+   identifier search and never a keyword search; see search_identifier_exact()
+   above for why it is not folded. */
 
 char *ya_search_identifier(char *str, const char *identifier, char *str_begin)
 {
@@ -6036,11 +6086,12 @@ char *ya_search_identifier(char *str, const char *identifier, char *str_begin)
 
 /* Check for 'identifier' being in string str, surrounded by chars
    not being a member of alphanumeric or '_' characters. */
-char *search_plain_identifier(char *str, const char *identifier)
+static char *search_plain_identifier_1(
+        char *str, const char *identifier, bool ci)
 {
     if (str && identifier && *identifier != '\0') {
         char *str_begin = str;
-        while ((str = strstr(str, identifier)) != NULL) {
+        while ((str = token_hit(str, identifier, ci)) != NULL) {
             char before;
 
             if (str > str_begin)
@@ -6058,6 +6109,22 @@ char *search_plain_identifier(char *str, const char *identifier)
         }
     }
     return NULL;
+}
+
+
+/* 'identifier' is a language keyword: fold it. */
+
+char *search_plain_identifier(char *str, const char *identifier)
+{
+    return search_plain_identifier_1(str, identifier, !inp_case_folding());
+}
+
+
+/* 'identifier' is a name the user chose; see search_identifier_exact(). */
+
+static char *search_plain_identifier_exact(char *str, const char *identifier)
+{
+    return search_plain_identifier_1(str, identifier, FALSE);
 }
 
 /* return a string that consists of tc1 and tc2 evaluated
@@ -8573,7 +8640,7 @@ static char *inp_functionalise_identifier(char *curr_line, char *identifier)
     else
         estr = estr2;
 
-    for (p = estr; (p = search_identifier(p, identifier, str)) != NULL;)
+    for (p = estr; (p = search_identifier_exact(p, identifier, str)) != NULL;)
         if (p[len] != '(') {
             int prefix_len = (int) (p + len - str);
             char *x = str;

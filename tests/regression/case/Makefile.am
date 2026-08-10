@@ -13,7 +13,13 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	model-name-case.cir model-name-case-lower.cir \
 	subckt-name-case.cir subckt-name-case-lower.cir \
 	global-node-case.cir global-node-case-lower.cir \
-	name-lookup-case.cir name-lookup-case-lower.cir
+	name-lookup-case.cir name-lookup-case-lower.cir \
+	ac-value-case.cir ac-value-case-lower.cir \
+	diode-off-case.cir diode-off-case-lower.cir \
+	mos-off-case.cir mos-off-case-lower.cir \
+	bjt-off-case.cir bjt-off-case-lower.cir \
+	vdmos-pchan-case.cir vdmos-pchan-case-lower.cir \
+	subckt-params-case.cir subckt-params-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 

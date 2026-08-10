@@ -1,0 +1,11 @@
+* lower case twin of diode-off-case.cir
+.OPTIONS noacct
+v1 1 0 dc 5
+r1 1 2 10k
+d1 2 0 dmod off
+.model dmod d is=1e-14
+.control
+op
+print v(2)
+.endc
+.end

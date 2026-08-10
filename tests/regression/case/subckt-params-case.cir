@@ -1,0 +1,26 @@
+* 'PARAMS:' on a subcircuit instance, under casemode=preserve
+* get_number_terminals()'s 'x' arm ends its token scan on "params:" or on a
+* token containing '=', so with 'PARAMS:' it counted one terminal too many.
+* This deck is a guard rather than a RED test, and deliberately so: no
+* consumer of that count can turn it into a wrong number today.  numnodes()
+* (src/frontend/subckt.c) resolves an x card against the .subckt definition's
+* own argument count and never reaches get_number_terminals() for a defined
+* subcircuit; get_subckts_for_subckt() and comment_out_unused_subckt_models()
+* take the x arm and call get_instance_subckt(); inp_rem_unused_models()
+* skips 'x' outright.  The one remaining consumer, inp_quote_params(), starts
+* its brace-quoting scan one token later with the wrong count, which is
+* strictly more conservative.  See doc/codex/issues/0017 for the interaction
+* that leaves behind.
+* What this deck pins is that correcting the count does not move a number.
+.OPTIONS noacct
+V1 1 0 dc 4
+X1 1 2 divider PARAMS: rtop=1k
+.subckt divider a b rtop=2k
+Ra a b {rtop}
+Rb b 0 3k
+.ends
+.control
+op
+print v(2)
+.endc
+.end

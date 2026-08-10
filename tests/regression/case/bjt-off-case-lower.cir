@@ -1,0 +1,12 @@
+* lower case twin of bjt-off-case.cir
+.OPTIONS noacct
+v1 1 0 dc 5
+r1 1 2 1meg
+r2 1 3 1k
+q1 3 2 0 qmod off
+.model qmod npn bf=100
+.control
+op
+print v(3)
+.endc
+.end

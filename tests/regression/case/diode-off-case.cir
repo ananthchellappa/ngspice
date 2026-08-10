@@ -1,0 +1,22 @@
+* 'OFF' on a diode instance, under casemode=preserve
+* get_number_terminals()'s 'd' arm ends its token scan on the first token
+* that is "off", "thermal" or contains '='.  That test was a strstr against a
+* lower-case literal, so 'OFF' did not end the scan, the card counted three
+* terminals instead of two, and get_model_name() then picked 'OFF' as the
+* model name:
+*   warning, can't find model 'OFF' from line
+*       D1 2 0 dmod OFF
+*   could not find a valid modelname
+* doc/codex/issues/0013 criterion 4.  Model names are lower case in both
+* twins because the variable under test is the keyword alone; the leading
+* device letter is doc/codex/issues/0009 and is already folded.
+.OPTIONS noacct
+V1 1 0 dc 5
+R1 1 2 10k
+D1 2 0 dmod OFF
+.model dmod d is=1e-14
+.control
+op
+print v(2)
+.endc
+.end

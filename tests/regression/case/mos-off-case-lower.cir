@@ -1,0 +1,12 @@
+* lower case twin of mos-off-case.cir
+.OPTIONS noacct
+v1 1 0 dc 5
+v2 3 0 dc 5
+r1 1 2 10k
+m1 2 3 0 0 nmod off
+.model nmod nmos level=1 vto=1 kp=2e-5
+.control
+op
+print v(2)
+.endc
+.end

@@ -1,0 +1,13 @@
+* lower case twin of subckt-params-case.cir
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 divider params: rtop=1k
+.subckt divider a b rtop=2k
+ra a b {rtop}
+rb b 0 3k
+.ends
+.control
+op
+print v(2)
+.endc
+.end

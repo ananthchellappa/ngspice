@@ -1,0 +1,32 @@
+* the keyword searches must stay byte-exact in the default fold mode
+* src/frontend/inpcom.c's whole-token searches -- search_identifier() and
+* search_plain_identifier() -- fold their literal only when
+* inp_case_folding() is false (doc/codex/issues/0013).  The gate is not
+* decoration: the reader's fold has exemptions, so a live card can still carry
+* upper-case text when these searches run, and an ungated cistrstr() would
+* change what the default mode does.
+*
+* This deck is the proof.  is_xspice_model() (inpcom.c:416) diverts any
+* .model card whose text contains 'd_state' to keep_case_of_cider_param(),
+* which preserves everything between exactly two double quotes.  So the
+* PCHAN inside mfg="..." below survives the fold, reaches
+* inp_vdmos_model()'s search_plain_identifier(cut_line, "pchan") with its
+* case intact, and is NOT matched.  The model is therefore vdmosn and the
+* operating point is -6.92888e-01.  Remove the inp_case_folding() gate and
+* the same card becomes vdmosp and prints -1.24988e-03.
+*
+* The over-match this pins -- a quoted annotation deciding a model's channel
+* type at all -- is a separate defect, and spelling PCHAN in lower case
+* triggers it today in every mode.  This deck asserts only that the case
+* policy does not move; it does not bless the over-match.
+.OPTIONS noacct
+V1 1 0 dc -5
+V2 2 0 dc -5
+R1 1 3 1k
+M1 3 2 0 pmodv
+.model pmodv vdmos (vto=-1 kp=1 mfg="d_state PCHAN")
+.control
+op
+print v(3)
+.endc
+.end

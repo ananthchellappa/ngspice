@@ -1,0 +1,21 @@
+* 'OFF' on a BJT instance, under casemode=preserve
+* get_number_terminals()'s 'q' arm counts an "off" token separately from the
+* terminals.  With 'OFF' it was counted as a terminal, the card resolved four
+* terminals instead of three, and 'OFF' was taken for the model name:
+*   warning, can't find model 'OFF' from line
+*       Q1 3 2 0 qmod OFF
+*   could not find a valid modelname
+* doc/codex/issues/0013 criterion 4.  The same arm searches "save" and
+* "print", but both are inside #ifdef CIDER and CIDER is off in this build,
+* so they are folded without being covered here.
+.OPTIONS noacct
+V1 1 0 dc 5
+R1 1 2 1meg
+R2 1 3 1k
+Q1 3 2 0 qmod OFF
+.model qmod npn bf=100
+.control
+op
+print v(3)
+.endc
+.end

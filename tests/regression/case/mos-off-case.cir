@@ -1,0 +1,22 @@
+* 'OFF' on a MOS instance, under casemode=preserve
+* get_number_terminals()'s 'm' arm ends its token scan on "off", "tnodeout",
+* "thermal" or a token containing '='.  With 'OFF' the scan ran past the end,
+* the card counted five terminals instead of four, and 'OFF' was taken for
+* the model name:
+*   warning, can't find model 'OFF' from line
+*       M1 2 3 0 0 nmod OFF
+*   could not find a valid modelname
+* doc/codex/issues/0013 criterion 4.  "tnodeout" is the same site and the
+* same literal list, but a level 1 MOSFET rejects a tnodeout instance in
+* every mode, so 'off' is the witness that has a lower-case twin at all.
+.OPTIONS noacct
+V1 1 0 dc 5
+V2 3 0 dc 5
+R1 1 2 10k
+M1 2 3 0 0 nmod OFF
+.model nmod nmos level=1 vto=1 kp=2e-5
+.control
+op
+print v(2)
+.endc
+.end

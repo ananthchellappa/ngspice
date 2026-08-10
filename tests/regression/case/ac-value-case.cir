@@ -1,0 +1,27 @@
+* 'ac' with no value, upper case, under casemode=preserve
+* inp_check_syntax() rewrites a source that names ac with no value into
+* 'ac ( 1 0 )' (src/frontend/inpcom.c, the search_plain_identifier(acline,
+* "ac") fixup).  That search hit with strstr against a lower-case literal, so
+* on 'AC' the fixup never fired, the card reached INPdevParse(), which matches
+* the ac keyword with cieq and then called INPgetValue() on an empty tail:
+*   Error on line 2 or its substitute:
+*     IIN 1 0 AC
+*   parameter value out of range or the wrong type
+* This is doc/codex/issues/0013 criterion 3, and the two PARSE-FAILs the
+* differential sweep reported for tests/polezero/pz2.cir and pzt.cir.
+*
+* The witness is a number, not a diagnostic: tests/bin/check.sh filters both
+* 'Error' and 'Warning' out of the comparison.  With the fixup the source
+* carries magnitude 1, so mag(v(2)) is 1A through 1k||2k, halved by the
+* divider = 333.33 ohm-amps.  ac-value-case-lower.cir is the lower-case twin
+* and its .out is byte identical, which is the actual assertion.
+.OPTIONS noacct
+IIN 1 0 AC
+R1 1 0 1k
+R2 1 2 1k
+R3 2 0 1k
+.control
+ac lin 1 1k 1k
+print mag(v(2))
+.endc
+.end

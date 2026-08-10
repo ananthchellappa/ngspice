@@ -1,0 +1,14 @@
+* lower case twin of ac-value-case.cir
+* Byte identical to ac-value-case.cir except that the device letter and the
+* 'ac' keyword are lower case.  Its .out is identical too, which is what pins
+* the claim that the keyword's spelling cannot change the number.
+.OPTIONS noacct
+iin 1 0 ac
+r1 1 0 1k
+r2 1 2 1k
+r3 2 0 1k
+.control
+ac lin 1 1k 1k
+print mag(v(2))
+.endc
+.end
