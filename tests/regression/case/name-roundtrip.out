@@ -9,4 +9,8 @@
           i               0.00075
           p             0.0005625
 
+Title: * name round trip under casemode=preserve
+    InA                 : voltage, real, 1 long [default scale]
+    OutB                : voltage, real, 1 long
+
 v(OutB) = 7.500000e-01

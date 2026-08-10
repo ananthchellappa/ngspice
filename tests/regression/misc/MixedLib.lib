@@ -1,0 +1,7 @@
+* Included by fold-mixed-case.cir.  Both the file name and the section name
+* are deliberately mixed case: .lib cards are exempt from the reader's fold,
+* so on a case sensitive filesystem the library is only found if that
+* exemption still holds.
+.lib TypSection
+RLib mid 0 1meg
+.endl

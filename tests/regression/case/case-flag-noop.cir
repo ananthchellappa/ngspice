@@ -1,0 +1,27 @@
+* legacy all lower case deck; casemode must not change any of it
+* This file exists twice, byte for byte, as
+* tests/regression/misc/case-flag-noop.cir and
+* tests/regression/case/case-flag-noop.cir, and both carry the same
+* expected output.  The misc copy runs with the case mode unset and the
+* case copy runs with casemode=preserve, so the pair is the proof that the
+* switch is a strict no-op on a deck that never used case in the first
+* place.  Keep the two files and the two .out files identical.
+.options noacct
+.param rl = 2k
+v1 in 0 dc 1.5 pulse(0 1 0 1n 1n 5n 10n)
+r1 in mid 1k
+x1 mid out divider
+rload out 0 {rl}
+d1 out 0 dmod
+.model dmod d(is=1e-14)
+.subckt divider a b
+ra a b 1k
+.ends
+.control
+op
+print v(mid) v(out)
+tran 0.5n 20n
+meas tran vpeak max v(out)
+print vpeak
+.endc
+.end

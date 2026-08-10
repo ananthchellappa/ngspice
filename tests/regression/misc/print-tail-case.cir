@@ -1,0 +1,18 @@
+* the tail of a print redirection keeps its case
+* inp_read() folds a print/eprint/eprvcd/asciiplot line only up to the
+* first '>', so the output path after it survives.  The deck writes to a
+* mixed case file name and reads it back through the shell, which on a case
+* sensitive filesystem only works if that exemption still holds.
+* Everything ngspice itself prints here is removed by the egrep -v filter in
+* tests/bin/check.sh, so the single expected line comes from the shell and
+* the test does not depend on how the two output streams interleave.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in mid 1k
+R2 mid 0 1k
+.control
+op
+print v(mid) > PrintTail.txt
+shell cat PrintTail.txt
+.endc
+.end

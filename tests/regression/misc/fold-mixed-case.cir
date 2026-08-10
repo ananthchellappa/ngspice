@@ -1,0 +1,30 @@
+* fold mode must keep case exactly where it always has
+* The default reader lowercases every ordinary card, so an all lower case
+* deck cannot detect a change to the places it does not lowercase: .lib
+* cards, and the command whitelist inside a .control section.  This deck
+* delivers mixed case to both of them under the default case mode.
+*
+* Evidence is numeric where it can be: RLib only reaches the circuit if the
+* mixed case .lib path and section name survived, and it changes v(mid)
+* from 0.75 to 0.7496252.  Verified non-vacuous by forcing the reader to
+* fold every line, which gives "Could not find library file mixedlib.lib".
+* An .inc card would not do: includes are resolved earlier in the same read
+* loop, before the fold, so a folded .inc line still opens the right file.
+* The echoed sentinels are upper case so that the egrep -v filter in
+* tests/bin/check.sh cannot eat them.
+.OPTIONS noacct
+.lib MixedLib.lib TypSection
+V1 in 0 dc 1.5
+R1 in mid 1k
+R2 mid 0 1k
+.control
+op
+print v(mid)
+setcs KeptVar = "MiXeD"
+echo ECHOVAL $KeptVar
+strcmp cmpres "$KeptVar" "MiXeD"
+echo STRCMPVAL $cmpres
+strstr subres "a MiXeD value" "$KeptVar"
+echo STRSTRVAL $subres
+.endc
+.end
