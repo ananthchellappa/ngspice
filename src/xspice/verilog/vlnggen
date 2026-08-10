@@ -324,6 +324,13 @@ if $bad = 0
    if $timing = 0
       set v_objs="$v_objs $objdir/verilated_timing.o"
    end
+   // Trace builds leave the VCD runtime outside of Vlng__ALL.a.
+   set vcd_obj="$objdir/verilated_vcd_c.o"
+   fopen fh "$vcd_obj"
+   if $fh >= 0
+      fclose $fh
+      set v_objs="$v_objs $vcd_obj"
+   end
    setcs tail="__ALL.a"
    setcs v_lib="$objdir/$prefix$tail"          // Like Vlng__ALL.a
 
