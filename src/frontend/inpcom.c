@@ -3236,7 +3236,7 @@ static int is_a_modelname(char *s, const char* line)
         st = st + 5;
     else if (ciprefix("henry", st))
         st = st + 5;
-    else if ((*st == 'f') || (*st == 'h'))
+    else if ((*st == 'f') || (*st == 'F') || (*st == 'h') || (*st == 'H'))
         st = st + 1;
     if (*st == '\0' || isspace_c(*st)) {
         return FALSE;
