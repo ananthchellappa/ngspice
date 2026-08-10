@@ -67,27 +67,27 @@ struct variable *cp_enqvar(const char *word, int *tbfreed)
         *tbfreed = 1;
         /* Look for the variables beginning with curplot:
          * curplot, curplotname, curplottitle, and curplotdate */
-        if (strncmp(word, "curplot", 7) == 0) { /* begins with curplot */
+        if (cieqn(word, "curplot", 7)) { /* begins with curplot */
             const char * const rest = word + 7;
             if (*rest == '\0') { /* curplot */
                 return var_alloc_string(copy(word),
                         copy(plot_cur->pl_typename), NULL);
             }
-            else if (eq(rest, "name")) { /* curplotname */
+            else if (eqc(rest, "name")) { /* curplotname */
                 return var_alloc_string(copy(word),
                         copy(plot_cur->pl_name), NULL);
             }
-            else if (eq(rest, "title")) { /* curplottitle */
+            else if (eqc(rest, "title")) { /* curplottitle */
                 return var_alloc_string(copy(word),
                         copy(plot_cur->pl_title), NULL);
             }
-            else if (eq(rest, "date")) { /* curplotname */
+            else if (eqc(rest, "date")) { /* curplotname */
                 return var_alloc_string(copy(word),
                         copy(plot_cur->pl_date), NULL);
             }
         }
 
-        if (eq(word, "plots")) { /* list of defined plots */
+        if (eqc(word, "plots")) { /* list of defined plots */
             struct variable *list = NULL;
             struct plot *pl;
             for (pl = plot_list; pl; pl = pl->pl_next)
@@ -281,7 +281,7 @@ cp_usrset(struct variable *var, bool isset)
     double dv;
     bool bv;
 
-    if (eq(var->va_name, "debug")) {
+    if (eqc(var->va_name, "debug")) {
         if (var->va_type == CP_BOOL) {
             cp_debug = ft_simdb = ft_parsedb = ft_evdb = ft_vecdb =
                 ft_grdb = ft_controldb = isset;
@@ -300,40 +300,40 @@ cp_usrset(struct variable *var, bool isset)
         fprintf(cp_err, "Warning: %s compiled without debug messages\n",
                 cp_program);
 #endif
-    } else if (eq(var->va_name, "rawfile")) {
+    } else if (eqc(var->va_name, "rawfile")) {
         ft_rawfile = copy(var->va_string);
-    } else if (eq(var->va_name, "acct")) {
+    } else if (eqc(var->va_name, "acct")) {
         ft_acctprint = isset;
-    } else if (eq(var->va_name, "noacct")) {
+    } else if (eqc(var->va_name, "noacct")) {
         ft_noacctprint = isset;
-    } else if (eq(var->va_name, "ngdebug")) {
+    } else if (eqc(var->va_name, "ngdebug")) {
         ft_ngdebug = isset;
-    } else if (eq(var->va_name, "nginfo")) {
+    } else if (eqc(var->va_name, "nginfo")) {
         ft_nginfo = isset;
-    } else if (eq(var->va_name, "noinit")) {
+    } else if (eqc(var->va_name, "noinit")) {
         ft_noinitprint = isset;
-    } else if (eq(var->va_name, "norefvalue")) {
+    } else if (eqc(var->va_name, "norefvalue")) {
         ft_norefprint = isset;
-    } else if (eq(var->va_name, "list")) {
+    } else if (eqc(var->va_name, "list")) {
         ft_listprint = isset;
-    } else if (eq(var->va_name, "nopage")) {
+    } else if (eqc(var->va_name, "nopage")) {
         ft_nopage = isset;
-    } else if (eq(var->va_name, "nomod")) {
+    } else if (eqc(var->va_name, "nomod")) {
         ft_nomod = isset;
-    } else if (eq(var->va_name, "node")) {
+    } else if (eqc(var->va_name, "node")) {
         ft_nodesprint = isset;
-    } else if (eq(var->va_name, "opts")) {
+    } else if (eqc(var->va_name, "opts")) {
         ft_optsprint = isset;
-    } else if (eq(var->va_name, "strictnumparse")) {
+    } else if (eqc(var->va_name, "strictnumparse")) {
         ft_strictnumparse = isset;
-    } else if (eq(var->va_name, "strict_errorhandling")) {
+    } else if (eqc(var->va_name, "strict_errorhandling")) {
         ft_stricterror = isset;
         if (ft_ngdebug)
             fprintf(stdout, "Note: strict_errorhandling is set\n");
         /* Immediately bail out when spinit error has occurred */
         if (ft_spiniterror)
             controlled_exit(EXIT_BAD);
-    } else if (eq(var->va_name, "rawfileprec")) {
+    } else if (eqc(var->va_name, "rawfileprec")) {
         if ((var->va_type == CP_BOOL) && (isset == FALSE))
             raw_prec = -1;
         else if (var->va_type == CP_REAL)
@@ -343,7 +343,7 @@ cp_usrset(struct variable *var, bool isset)
         else
             fprintf(cp_err, "Bad 'rawfileprec' \"%s\"\n", var->va_name);
     }
-    else if (eq(var->va_name, "measureprec")) {
+    else if (eqc(var->va_name, "measureprec")) {
         if ((var->va_type == CP_BOOL) && (isset == FALSE))
             measure_precision = -1;
         else if (var->va_type == CP_REAL)
@@ -352,7 +352,7 @@ cp_usrset(struct variable *var, bool isset)
             measure_precision = var->va_num;
         else
             fprintf(cp_err, "Bad 'measureprec' \"%s\"\n", var->va_name);
-    } else if (eq(var->va_name, "numdgt")) {
+    } else if (eqc(var->va_name, "numdgt")) {
         if ((var->va_type == CP_BOOL) && (isset == FALSE))
             cp_numdgt = -1;
         else if (var->va_type == CP_REAL)
@@ -361,7 +361,7 @@ cp_usrset(struct variable *var, bool isset)
             cp_numdgt = var->va_num;
         else
             fprintf(cp_err, "Bad 'numdgt' \"%s\"\n", var->va_name);
-    } else if (eq(var->va_name, "unixcom")) {
+    } else if (eqc(var->va_name, "unixcom")) {
         cp_dounixcom = isset;
         if (isset) {
             char *s = getenv("PATH");
@@ -370,18 +370,18 @@ cp_usrset(struct variable *var, bool isset)
             else
                 fprintf(cp_err, "Warning: no PATH in environment.\n");
         }
-    } else if (eq(var->va_name, "units") && (var->va_type == CP_STRING)) {
+    } else if (eqc(var->va_name, "units") && (var->va_type == CP_STRING)) {
         if (isset && ((*var->va_string == 'd') || (*var->va_string == 'D')))
             cx_degrees = TRUE;
         else
             cx_degrees = FALSE;
-    } else if (eq(var->va_name, "curplot")) {
+    } else if (eqc(var->va_name, "curplot")) {
         if (var->va_type == CP_STRING)
             plot_setcur(var->va_string);
         else
             fprintf(cp_err, "Error: plot name not a string\n");
         return (US_DONTRECORD);
-    } else if (eq(var->va_name, "curplotname")) {
+    } else if (eqc(var->va_name, "curplotname")) {
         if (plot_cur && (var->va_type == CP_STRING)) {
             if (!eq(plot_cur->pl_name, "constants")) /* not malloced! */
                 FREE(plot_cur->pl_name);
@@ -390,7 +390,7 @@ cp_usrset(struct variable *var, bool isset)
         else
             fprintf(cp_err, "Error: can't set plot name\n");
         return (US_DONTRECORD);
-    } else if (eq(var->va_name, "curplottitle")) {
+    } else if (eqc(var->va_name, "curplottitle")) {
         if (plot_cur && (var->va_type == CP_STRING)) {
             if (!eq(plot_cur->pl_title, "Constant values")) /* not malloced! */
                 FREE(plot_cur->pl_title);
@@ -399,7 +399,7 @@ cp_usrset(struct variable *var, bool isset)
         else
             fprintf(cp_err, "Error: can't set plot title\n");
         return (US_DONTRECORD);
-    } else if (eq(var->va_name, "curplotdate")) {
+    } else if (eqc(var->va_name, "curplotdate")) {
         if (plot_cur && (var->va_type == CP_STRING)) {
             FREE(plot_cur->pl_date);
             plot_cur->pl_date = copy(var->va_string);
@@ -407,7 +407,7 @@ cp_usrset(struct variable *var, bool isset)
         else
             fprintf(cp_err, "Error: can't set plot date\n");
         return (US_DONTRECORD);
-    } else if (eq(var->va_name, "plots")) {
+    } else if (eqc(var->va_name, "plots")) {
         return (US_READONLY);
     }
 
@@ -468,23 +468,23 @@ cp_usrset(struct variable *var, bool isset)
 static void
 setdb(char *str)
 {
-    if (eq(str, "siminterface"))
+    if (eqc(str, "siminterface"))
         ft_simdb = TRUE;
-    else if (eq(str, "cshpar"))
+    else if (eqc(str, "cshpar"))
         cp_debug = TRUE;
-    else if (eq(str, "parser"))
+    else if (eqc(str, "parser"))
         ft_parsedb = TRUE;
-    else if (eq(str, "eval"))
+    else if (eqc(str, "eval"))
         ft_evdb = TRUE;
-    else if (eq(str, "vecdb"))
+    else if (eqc(str, "vecdb"))
         ft_vecdb = TRUE;
-    else if (eq(str, "graf"))
+    else if (eqc(str, "graf"))
         ft_grdb = TRUE;
-    else if (eq(str, "control"))
+    else if (eqc(str, "control"))
         ft_controldb = TRUE;
-    else if (eq(str, "async"))
+    else if (eqc(str, "async"))
         ft_asyncdb = TRUE;
-    else if (eq(str, "shvecsearch"))
+    else if (eqc(str, "shvecsearch"))
         ft_shvecsearch = TRUE;
     else
         fprintf(cp_err, "Warning: no such debug class %s\n", str);

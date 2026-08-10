@@ -1,6 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
-TESTS = alter-1.cmd flow-keyword-case.cmd analysis-keyword-case.cmd
+TESTS = alter-1.cmd flow-keyword-case.cmd \
+	analysis-keyword-case.cmd options-keyword-case.cmd
 
 TESTS_ENVIRONMENT = \
 	SPICE_SCRIPTS=$(top_srcdir)/tests/bin \
@@ -10,5 +11,20 @@ TESTS_ENVIRONMENT = \
 EXTRA_DIST = \
 	$(TESTS) \
     alter-1.cir
+
+# The keyword-case tests assert on values they read back off disk, so they
+# write rawfiles, plot output and scratch markers into the build directory.
+CLEANFILES = \
+	rawspice.raw \
+	devkc_*.txt devkc_*.mod \
+	exprcoms-pn-*.raw \
+	ic_eg_*.raw \
+	optcase-*.raw optcase-*.tmp optcase-*.txt optcase-*.m0 optcase-*.m1 \
+	optcase-*.m2 \
+	pkc_*.svg pkc_*.txt pkc_*.raw \
+	rusage-case.tmp \
+	shkc_*.txt shkc_*.raw shkc_*.svg \
+	variable-keyword-case*.raw variable-keyword-case*.tmp \
+	filesource.txt
 
 MAINTAINERCLEANFILES = Makefile.in
