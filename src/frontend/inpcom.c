@@ -4743,7 +4743,7 @@ static char *inp_do_macro_param_replace(struct function *fcn, char *params[])
         /* go backwards from 'parameter' and find '(' */
         for (p = arg_ptr; --p > str;)
             if (*p == '(' || *p == ')') {
-                if ((*p == '(') && strchr("vi", p[-1]) &&
+                if ((*p == '(') && strchr("vi", tolower_c(p[-1])) &&
                         (p - 2 < str || is_arith_char(p[-2]) ||
                                 isspace_c(p[-2]) || strchr(",=", p[-2])))
                     is_vi = 1;
@@ -5971,7 +5971,7 @@ static bool b_transformation_wanted(const char *p)
 {
     const char *start = p;
 
-    for (p = start; (p = strpbrk(p, "vith")) != NULL; p++) {
+    for (p = start; (p = strpbrk(p, "vithVITH")) != NULL; p++) {
         if (p > start && identifier_char(p[-1]))
             continue;
         if (cieqn(p, "v(", 2) || cieqn(p, "i(", 2))
@@ -7800,7 +7800,8 @@ static char *inp_modify_exp(/* NOT CONST */ char *expr)
             char buf[512];
             int i = 0;
 
-            if (((c == 'v') || (c == 'i')) && (s[1] == '(')) {
+            if (((tolower_c(c) == 'v') || (tolower_c(c) == 'i')) &&
+                    (s[1] == '(')) {
                 while (*s != ')') {
                     buf[i++] = *s++;
                 }

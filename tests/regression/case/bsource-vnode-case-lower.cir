@@ -1,0 +1,10 @@
+* lower case twin of bsource-vnode-case.cir
+.OPTIONS noacct
+v1 1 0 dc 2
+b1 2 0 v = v(1)*2
+r1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

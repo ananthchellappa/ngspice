@@ -1,0 +1,26 @@
+* upper case V( inside a B source expression, under casemode=preserve
+* inp_modify_exp() is the tokenizer inp_bsource_compat() and
+* inp_temper_compat() hand every behavioural expression to.  It recognises a
+* node voltage with
+*   if (((c == 'v') || (c == 'i')) && (s[1] == '('))
+* lower case only.  With 'V(' the token fell into the generic branch, which
+* wraps an identifier in numparam braces, so v = V(1)*2 was handed on as
+* ({V})(...) and the operating point collapsed:
+*   Warning: singular matrix:  check node 1.0000000000e+00
+* and nothing was printed.
+* This site is NOT in doc/codex/issues/0009's follow-up table.  It was found
+* while writing the compat-e-value-case.cir deck, which had to spell its
+* controlling voltage v(1) rather than V(1) to stay on one mechanism.  It is
+* the same defect class in the same file and is folded with the rest; see
+* doc/codex/issues/0018.
+* The B card is lower case in both twins, so this pair isolates
+* inpcom.c:7802 from the two 'b' first-character sites.
+.OPTIONS noacct
+v1 1 0 dc 2
+b1 2 0 v = V(1)*2
+r1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

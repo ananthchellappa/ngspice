@@ -1,0 +1,13 @@
+* lower case twin of func-vnode-case.cir
+.OPTIONS noacct
+.func fsel(nsel) {v(nsel)}
+v1 nsel 0 dc 2
+v2 2 0 dc 7
+r1 nsel 0 1k
+r2 2 0 1k
+.control
+op
+let sel = fsel(2)
+print sel
+.endc
+.end

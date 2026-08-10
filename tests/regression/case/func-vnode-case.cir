@@ -1,0 +1,23 @@
+* upper case V( inside a .func body, under casemode=preserve
+* inp_do_macro_param_replace() expands a .func call by substituting the
+* formal parameters in the body.  A node name inside v(...) must NOT be
+* substituted, and the guard for that is
+*   if ((*p == '(') && strchr("vi", p[-1]) && ...)
+* a lower-case-only scan set.  With 'V(' the guard misses, the formal nsel
+* is substituted after all, and the body {V(nsel)} becomes V(2) instead of
+* staying v(nsel).  The two nodes carry different voltages, so this is a
+* wrong number and not a diagnostic:
+*   sel = 7.000000e+00   instead of   sel = 2.000000e+00
+* doc/codex/issues/0009 follow-up table, group D, inpcom.c:4746.
+.OPTIONS noacct
+.func fsel(nsel) {V(nsel)}
+V1 nsel 0 dc 2
+V2 2 0 dc 7
+R1 nsel 0 1k
+R2 2 0 1k
+.control
+op
+let sel = fsel(2)
+print sel
+.endc
+.end

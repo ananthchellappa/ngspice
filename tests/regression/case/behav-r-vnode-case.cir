@@ -1,0 +1,27 @@
+* upper case V( inside a behavioural resistor equation, under preserve
+* inp_compat()'s R, C and L arms are gated on b_transformation_wanted()
+* (src/frontend/inpcom.c), which decides whether an equation is behavioural
+* at all by scanning it with
+*   strpbrk(p, "vith")
+* a lower-case-only scan set feeding cieqn() comparisons that are themselves
+* case-insensitive.  With 'V(' the scan never stops on the letter, so the
+* cieqn() is never reached, the gate returns FALSE and the R card is left
+* alone - it then reaches the parser still spelled R={...} and nothing is
+* printed.
+* The device letter is lower case here on purpose: compat-r-behav-case.cir
+* covers the first-character test with a lower-case equation, and this deck
+* covers the gate with a lower-case device letter.
+* Going green also needs inpcom.c:7802 (see bsource-vnode-case.cir), because
+* the B source this arm generates carries the same upper-case V( through
+* inp_modify_exp().
+* doc/codex/issues/0009 follow-up table, group D, inpcom.c:5974.
+.OPTIONS noacct
+v1 1 0 dc 1
+vc 3 0 dc 2
+r1 1 2 r={1k*V(3)}
+r2 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end
