@@ -1,0 +1,18 @@
+* uppercase all wildcard
+.OPTIONS noacct
+V1 in 0 dc 1
+R1 in mid 1k
+R2 mid 0 1k
+.control
+op
+* seed the rawfile with a single vector, so a stale file from an earlier
+* run cannot mask a failing wildcard expansion
+write all-wildcard-case.raw v(in)
+* 'write' is exempt from the read time fold, so ALL reaches the vector
+* lookup with its case intact and must expand exactly like all
+write all-wildcard-case.raw ALL
+setplot new
+load all-wildcard-case.raw
+print v(mid)
+.endc
+.end

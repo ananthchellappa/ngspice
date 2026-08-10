@@ -1,0 +1,7 @@
+Loading raw data file ("all-wildcard-case.raw") ...
+done.
+Title:  * uppercase all wildcard
+Title: * uppercase all wildcard
+    v(in)               : voltage, real, 1 long [default scale]
+    v(mid)              : voltage, real, 1 long
+v(mid) = 5.000000e-01
