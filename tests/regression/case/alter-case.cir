@@ -1,0 +1,16 @@
+* alter an instance whose name kept its case
+* Node names are lower case on purpose: the only identifier under test is
+* the instance name Rser, and the evidence is the divider ratio before and
+* after the alter, not a diagnostic.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+Rser in out 1k
+Rload out 0 1k
+.control
+op
+print v(out)
+alter Rser resistance=3k
+op
+print v(out)
+.endc
+.end

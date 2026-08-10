@@ -1413,9 +1413,14 @@ com_alter_common(wordlist *wl, int do_model)
     }
 
     /* in case the altermod command comes from commandline or
-       over shared library we have to provide lowercase */
-    strtolower(param);
-    strtolower(dev);
+       over shared library we have to provide lowercase.
+       Under a non-folding case mode the stored instance and model names keep
+       the spelling of the deck, so folding the typed name here would make
+       every name unreachable. */
+    if (inp_case_folding()) {
+        strtolower(param);
+        strtolower(dev);
+    }
 
     words = eqword->wl_next;
     /* skip next line if words is a vector */

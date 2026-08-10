@@ -1,0 +1,16 @@
+* GND and Gnd are still aliases of node 0 when the reader does not fold
+* Ground is a reserved word, not an identifier, so it must alias in every
+* case mode.  Under fold the rewrite in inp_fix_gnd_name() only ever sees
+* lower case text; this deck is the first one that can deliver GND to it in
+* upper case, which is the case the Phase 1 census recorded as untestable.
+* If either spelling failed to reach node 0 the two ground nodes would be
+* distinct and floating and there would be no operating point at all.
+.OPTIONS noacct
+V1 in GND dc 1.5
+R1 in mid 1k
+R2 mid Gnd 1k
+.control
+op
+print v(mid)
+.endc
+.end

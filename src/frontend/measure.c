@@ -233,7 +233,8 @@ do_measure(
 #endif
 
     an_name = copy(what); /* analysis type, e.g. "tran" */
-    strtolower(an_name);
+    if (inp_case_folding())
+        strtolower(an_name);
     measure_word_list = NULL;
     measures_passed = TRUE;
 

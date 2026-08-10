@@ -1,0 +1,17 @@
+* an .OPTIONS card whose keyword and parameter kept their case
+* inp_getopts() extracts .option cards with inp_casefix(), so gating that
+* fold changes what the option parser is handed.  This deck delivers TEMP
+* to it in upper case and asserts on the resulting resistance, not on the
+* option listing, which tests/bin/check.sh filters away.
+* R1 carries tc1, so honouring TEMP=40 gives 1000*(1+0.01*13) = 1130 ohm
+* and v(mid) = 1.5*1000/2130; ignoring it would leave v(mid) at 0.75.
+.OPTIONS noacct
+.OPTIONS TEMP=40
+V1 in 0 dc 1.5
+R1 in mid 1k tc1=0.01
+R2 mid 0 1k
+.control
+op
+print v(mid)
+.endc
+.end
