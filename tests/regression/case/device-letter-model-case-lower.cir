@@ -1,0 +1,23 @@
+* lower case twin of device-letter-model-case.cir
+* Identical to device-letter-model-case.cir except that every leading device
+* letter is lower case.  Its .out is identical too, which is what pins the
+* claim that the leading letter's case cannot change a number.
+.OPTIONS noacct
+v1 1 0 dc 5
+r3 1 2 rmod l=12u w=4u
+r9 2 0 5k
+v2 3 0 dc 5
+r4 3 4 10k
+d1 4 0 dmod
+v3 5 0 dc 5
+r5 5 6 1meg
+r7 5 7 1k
+q1 7 6 0 qmod
+.model rmod r rsh=1000 narrow=1u
+.model dmod d is=1e-14
+.model qmod npn bf=100
+.control
+op
+print v(2) v(4) v(7)
+.endc
+.end

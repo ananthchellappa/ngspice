@@ -918,6 +918,21 @@ char *find_back_assignment(const char *p, const char *start)
 }
 
 
+/* Leading device letter of a card, case folded for dispatch only.
+
+   inp_read() lowercases every ordinary card, so the preprocessing passes
+   below have always been able to compare *line against a lower case
+   literal.  With 'casemode=preserve' that fold is gated off and the card
+   arrives spelled as the user wrote it, so the comparison has to fold the
+   character it tests.  Fold a copy and leave the card alone, the way
+   src/spicelib/parser/inppas2.c:92-94 does it.  In fold mode this is the
+   identity. */
+static char elem_letter(const char *line)
+{
+    return line ? tolower_c(*line) : '\0';
+}
+
+
 /* We check x lines for nf=, w= and l= and fill in their values.
    To be used when expanding subcircuits with binned model cards. 
    
@@ -958,7 +973,7 @@ void inp_get_w_l_x(struct card* card) {
             continue;
         }
         /* only subcircuit invocations */
-        if (*curr_line != 'x' || (!newcompat.hs && !newcompat.spe) || card->compmod > 0) {
+        if (elem_letter(curr_line) != 'x' || (!newcompat.hs && !newcompat.spe) || card->compmod > 0) {
             continue;
         }
 
@@ -3064,7 +3079,7 @@ static char *get_model_name(char *line, int num_terminals)
     for (i = 0; i < num_terminals; i++)
         beg_ptr = skip_token(beg_ptr); // Eat terminal.
 
-    if (*line == 'r') /* special dealing for r models */
+    if (elem_letter(line) == 'r') /* special dealing for r models */
         if ((*beg_ptr == '+') || (*beg_ptr == '-') ||
                 isdigit_c(*beg_ptr)) { /* looking for a value before model */
             beg_ptr = skip_token(beg_ptr); /* Skip the value, */
@@ -3293,7 +3308,7 @@ static void get_subckts_for_subckt(struct card *start_card, char *subckt_name,
         char *line = card->line;
 
         /* no models embedded in these lines */
-        if (strchr("*vibefghkt", *line))
+        if (strchr("*vibefghkt", elem_letter(line)))
             continue;
 
         if ((ciprefix(".ends", line) || ciprefix(".eom", line)) &&
@@ -3310,11 +3325,11 @@ static void get_subckts_for_subckt(struct card *start_card, char *subckt_name,
         }
 
         if (found_subckt) {
-            if (*line == 'x') {
+            if (elem_letter(line) == 'x') {
                 char *inst_subckt_name = get_instance_subckt(line);
                 nlist_adjoin(used_subckts, inst_subckt_name);
             }
-            else if (*line == 'a') {
+            else if (elem_letter(line) == 'a') {
                 char *model_name = get_adevice_model_name(line);
                 nlist_adjoin(used_models, model_name);
             }
@@ -3370,7 +3385,7 @@ void comment_out_unused_subckt_models(struct card *start_card)
         char *line = card->line;
 
         /* no models embedded in these lines */
-        if (strchr("*vibefghkt", *line))
+        if (strchr("*vibefghkt", elem_letter(line)))
             continue;
 
         /* there is no .subckt, .model or .param inside .control ... .endc */
@@ -3396,11 +3411,11 @@ void comment_out_unused_subckt_models(struct card *start_card)
             continue;
 
         if (!processing_subckt) {
-            if (*line == 'x') {
+            if (elem_letter(line) == 'x') {
                 char *subckt_name = get_instance_subckt(line);
                 nlist_adjoin(used_subckts, subckt_name);
             }
-            else if (*line == 'a') {
+            else if (elem_letter(line) == 'a') {
                 char *model_name = get_adevice_model_name(line);
                 nlist_adjoin(used_models, model_name);
             }
@@ -5354,7 +5369,7 @@ int get_number_terminals(char *c)
     if (!c)
         return 0;
 
-    switch (*c) {
+    switch (elem_letter(c)) {
         case 'r':
         case 'c':
         case 'l':
@@ -9701,7 +9716,7 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
             continue;
         }
 
-        switch (*curr_line) {
+        switch (elem_letter(curr_line)) {
             case '*':
             case '.':
             case 'v':
@@ -9723,9 +9738,9 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
         /* check if correct model name */
         int num_terminals = get_number_terminals(curr_line);
         /* num_terminals may be 0 for a elements */
-        if ((num_terminals != 0) || (*curr_line == 'a')) {
+        if ((num_terminals != 0) || (elem_letter(curr_line) == 'a')) {
             char *elem_model_name;
-            if (*curr_line == 'a')
+            if (elem_letter(curr_line) == 'a')
                 elem_model_name = get_adevice_model_name(curr_line);
             else
                 elem_model_name = get_model_name(curr_line, num_terminals);
@@ -9738,7 +9753,7 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
                 struct modellist *m =
                         inp_find_model(card->level, elem_model_name);
                 if (m) {
-                    if (*curr_line != m->elemb && !(*curr_line == 'n' && m->elemb == 'a'))
+                    if (elem_letter(curr_line) != m->elemb && !(elem_letter(curr_line) == 'n' && m->elemb == 'a'))
                         fprintf(stderr,
                                 "warning, model type mismatch in line\n    "
                                 "%s\n",

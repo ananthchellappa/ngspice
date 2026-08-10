@@ -1,0 +1,40 @@
+* upper case device letters in the default (fold) mode
+* Fold-mode guard for doc/codex/issues/0009.  The reader lowercases every
+* ordinary card in this mode, so the preprocessing passes that classify a
+* card by its leading letter see a lower-case letter whatever the deck says,
+* and folding the character at the point of comparison is the identity.
+* This deck therefore passes before and after that change; it is a pin, not
+* RED evidence.  The RED evidence lives in tests/regression/case/, where the
+* fold is gated off.
+*
+* What it pins is that the fold direction stays 'to lower case'.  A change
+* that folded to upper case, or that dropped the fold and started comparing
+* the raw character, would break here as well as under preserve.
+*
+* Same circuit as tests/regression/case/device-letter-case.cir, so the four
+* voltages are directly comparable across the two modes.
+.OPTIONS noacct
+V1 1 0 dc 5
+R3 1 2 rmod l=12u w=4u
+R9 2 0 5k
+V2 3 0 dc 5
+R4 3 4 10k
+D1 4 0 dmod
+V3 5 0 dc 5
+R5 5 6 1meg
+R7 5 7 1k
+Q1 7 6 0 qmod
+V4 8 0 dc 4
+X1 8 9 divider
+.model rmod r rsh=1000 narrow=1u
+.model dmod d is=1e-14
+.model qmod npn bf=100
+.subckt divider a b
+Ra a b 1k
+Rb b 0 3k
+.ends
+.control
+op
+print v(2) v(4) v(7) v(9)
+.endc
+.end

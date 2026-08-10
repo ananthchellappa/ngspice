@@ -1,0 +1,38 @@
+* upper case device letters on model-bearing cards, casemode=preserve
+* Every device letter is upper case, which is the ordinary SPICE house style.
+* Model names and node names are lower case or numeric, because model name
+* lookup is still strcmp and is a separate question (doc/codex/issues/0010),
+* so the only variable under test is the case of the leading device letter.
+*
+* Three witnesses, one per arm of get_number_terminals() that a .model card
+* can hang off:
+*   v(2)  R3 carries a semiconductor .model.  If 'R' is not recognised the
+*         card contributes no model reference, rem_unused_xxx() comments
+*         '.model rmod' out, and the deck dies with "unknown parameter (rmod)".
+*   v(4)  D1 the same, through the 'd' arm; diagnostic is
+*         "could not find a valid modelname".
+*   v(7)  Q1 the same, through the 'q' arm.
+*
+* The evidence is three node voltages, not a diagnostic: tests/bin/check.sh
+* filters "Error" and "Warning" out of both sides of the comparison.
+* device-letter-model-case-lower.cir is the all-lower-case twin and its .out
+* is identical, which is the actual assertion.
+.OPTIONS noacct
+V1 1 0 dc 5
+R3 1 2 rmod l=12u w=4u
+R9 2 0 5k
+V2 3 0 dc 5
+R4 3 4 10k
+D1 4 0 dmod
+V3 5 0 dc 5
+R5 5 6 1meg
+R7 5 7 1k
+Q1 7 6 0 qmod
+.model rmod r rsh=1000 narrow=1u
+.model dmod d is=1e-14
+.model qmod npn bf=100
+.control
+op
+print v(2) v(4) v(7)
+.endc
+.end

@@ -2,7 +2,8 @@
 
 
 TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-functions-1.cir alter-vec.cir test-noise-2.cir test-noise-3.cir ac-zero.cir asrc-tc-1.cir asrc-tc-2.cir if-elseif.cir convergence.cir script-case.cir control-setcs.cir starhash-case.cir all-wildcard-case.cir \
-	fold-mixed-case.cir print-tail-case.cir case-flag-noop.cir
+	fold-mixed-case.cir print-tail-case.cir case-flag-noop.cir \
+	device-letter-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 
