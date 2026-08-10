@@ -440,31 +440,31 @@ if_option(CKTcircuit *ckt, char *name, enum cp_types type, void *value)
     int which = -1;
     IFparm *if_parm;
 
-    if (eq(name, "acct")) {
+    if (eqc(name, "acct")) {
         ft_acctprint = TRUE;
         return 0;
-    } else if (eq(name, "noacct")) {
+    } else if (eqc(name, "noacct")) {
         ft_noacctprint = TRUE;
         return 0;
-    } else if (eq(name, "noinit")) {
+    } else if (eqc(name, "noinit")) {
         ft_noinitprint = TRUE;
         return 0;
-    } else if (eq(name, "norefvalue")) {
+    } else if (eqc(name, "norefvalue")) {
         ft_norefprint = TRUE;
         return 0;
-    } else if (eq(name, "list")) {
+    } else if (eqc(name, "list")) {
         ft_listprint = TRUE;
         return 0;
-    } else if (eq(name, "node")) {
+    } else if (eqc(name, "node")) {
         ft_nodesprint = TRUE;
         return 0;
-    } else if (eq(name, "opts")) {
+    } else if (eqc(name, "opts")) {
         ft_optsprint = TRUE;
         return 0;
-    } else if (eq(name, "nopage")) {
+    } else if (eqc(name, "nopage")) {
         ft_nopage = TRUE;
         return 0;
-    } else if (eq(name, "nomod")) {
+    } else if (eqc(name, "nomod")) {
         ft_nomod = TRUE;
         return 0;
     }
@@ -481,12 +481,12 @@ if_option(CKTcircuit *ckt, char *name, enum cp_types type, void *value)
     if (!if_parm || !(if_parm->dataType & IF_SET)) {
         /* See if this is unsupported or obsolete. */
         for (vv = unsupported; *vv; vv++)
-            if (eq(name, *vv)) {
+            if (eqc(name, *vv)) {
                 fprintf(cp_err, "Warning: option %s is currently unsupported.\n", name);
                 return 1;
             }
         for (vv = obsolete; *vv; vv++)
-            if (eq(name, *vv)) {
+            if (eqc(name, *vv)) {
                 fprintf(cp_err, "Warning: option %s is obsolete.\n", name);
                 return 1;
             }
@@ -682,7 +682,7 @@ spif_getparam_special(CKTcircuit *ckt, char **name, char *param, int ind, int do
 
     /* fprintf(cp_err, "Calling if_getparam(%s, %s)\n", *name, param); */
 
-    if (!param || (param && eq(param, "all"))) {
+    if (!param || (param && eqc(param, "all"))) {
         INPretrieve(name, ft_curckt->ci_symtab);
         typecode = finddev_special(ckt, *name, &dev, &mod, &modelo_dispositivo);
         if (typecode == -1) {
@@ -1112,7 +1112,7 @@ parmlookup(IFdevice *dev, GENinstance **inptr, char *param, int do_model, int in
         for (i = 0; i < *(dev->numModelParms); i++)
             if ((((dev->modelParms[i].dataType & IF_SET) && inout == 1) ||
                  ((dev->modelParms[i].dataType & IF_ASK) && inout == 0)) &&
-                eq(dev->modelParms[i].keyword, param))
+                eqc(dev->modelParms[i].keyword, param))
             {
                 while ((dev->modelParms[i].dataType & IF_REDUNDANT) && (i > 0))
                     i--;
@@ -1820,7 +1820,7 @@ ft_find_analysis_parm(int which, char *name)
 {
     int i;
     for (i = 0; i < ft_sim->analyses[which]->numParms; i++)
-        if (!strcmp(ft_sim->analyses[which]->analysisParms[i].keyword, name))
+        if (cieq(ft_sim->analyses[which]->analysisParms[i].keyword, name))
             return &(ft_sim->analyses[which]->analysisParms[i]);
     return NULL;
 }

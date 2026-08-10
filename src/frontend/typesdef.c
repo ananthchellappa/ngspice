@@ -300,7 +300,7 @@ ft_typenum_x(char *type)
     int i;
 
     for (i = 0; i < NUMTYPES && types[i].t_name; i++)
-        if (eq(type, types[i].t_name))
+        if (eqc(type, types[i].t_name))
             return i;
 
     return -1;
@@ -314,7 +314,7 @@ ft_typnum(char *name)
 {
     int i;
 
-    if (eq(name, "none"))
+    if (eqc(name, "none"))
         name = "notype";
 
     for (i = 0; (i < NUMTYPES) && types[i].t_name; i++)
