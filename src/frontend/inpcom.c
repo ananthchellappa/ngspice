@@ -4343,16 +4343,11 @@ static bool found_mult_param(int num_params, char *param_names[])
    the corresponding subcircuit except of some excluded in the code below
    Function is called from inp_fix_inst_calls_for_numparam() */
 
-static int inp_fix_subckt_multiplier(struct names *subckt_w_params,
-        struct card *subckt_card, int num_subckt_params,
-        char *subckt_param_names[], char *subckt_param_values[])
+static void inp_fix_subckt_multiplier(struct names *subckt_w_params,
+        struct card *subckt_card)
 {
     struct card *card;
     char *new_str, *s;
-
-    subckt_param_names[num_subckt_params] = copy("m");
-    subckt_param_values[num_subckt_params] = copy("1");
-    num_subckt_params++;
 
     s = cistrstr(subckt_card->line, "params:");
     if (!s || !isspace_c(s[-1])) {
@@ -4422,8 +4417,6 @@ static int inp_fix_subckt_multiplier(struct names *subckt_w_params,
         tfree(card->line);
         card->line = new_str;
     }
-
-    return num_subckt_params;
 }
 
 
@@ -4459,9 +4452,7 @@ static void inp_fix_inst_calls_for_numparam(
 
                     if (!found_mult_param(
                                 num_subckt_params, subckt_param_names))
-                        inp_fix_subckt_multiplier(subckt_w_params, a->line,
-                                num_subckt_params, subckt_param_names,
-                                subckt_param_values);
+                        inp_fix_subckt_multiplier(subckt_w_params, a->line);
 
                     for (i = 0; i < num_subckt_params; i++) {
                         tfree(subckt_param_names[i]);
