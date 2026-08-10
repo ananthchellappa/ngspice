@@ -202,11 +202,17 @@ extern "C" void Cosim_setup(struct co_info *pinfo)
     // Setup context, and defaults
 
     Verilated::debug(0);
-    const std::unique_ptr<VerilatedContext> contextp{new VerilatedContext};
+    std::unique_ptr<VerilatedContext> contextp{new VerilatedContext};
 
     // Construct the Verilated model, from Vtop.h generated from Verilating
 
     Vlng *topp{new Vlng{contextp.get()}};
+
+    /* The model keeps a non-owning context pointer and outlives this function.
+     * Keep the context alive for the same process lifetime as the model.
+     */
+
+    contextp.release();
 
     /* Return information to caller. */
 
