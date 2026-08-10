@@ -1,0 +1,29 @@
+* PSpice TABLE() inside an upper case E source, ngbehavior=ps
+* replace_table() (src/frontend/inpcompat.c) lifts a PSpice TABLE() call out
+* of an E or G source's VALUE expression into its own B source carrying a
+* pwl(), because the behavioural expression parser has no table() function:
+*   E1 2 0 VALUE={TABLE(v(1),0,0,1,2,2,5)}
+*     ->  btable_new_0 table_new_0 0 v=pwl(v(1),0,0,1,2,2,5)
+*         E1 2 0 VALUE={ v(table_new_0)}
+* It is entered on
+*     if (*cut_line == 'e' || *cut_line == 'g')
+* lower case only, so under casemode=preserve an upper case E card kept its
+* TABLE() call and the run died before printing anything.  The keyword
+* search inside the arm was already folded by doc/codex/issues/0013;
+* folding this guard is what makes that fold reachable.
+* The E card is in an .inc file because pspice_compat() runs on the card
+* list of an INCLUDED file (src/frontend/inpcom.c:1754), not on the deck.
+* v(1) = 1.5 sits between the pwl breakpoints (1,2) and (2,5), so the
+* interpolated value 3.5 is not a number a degenerate path could produce by
+* accident - a missing table gives 0 and a pass-through gives 1.5.
+* doc/codex/issues/0009 defect class; src/frontend/inpcompat.c:164, named in
+* doc/codex/issues/0013's Resolution.
+.OPTIONS noacct
+V1 1 0 dc 1.5
+.include pspice-table-e-case.inc
+R1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

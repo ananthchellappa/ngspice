@@ -1,0 +1,16 @@
+* RKM inductor value on an upper case device letter, ngbehavior=lt
+* The L arm of the same test, inpcom.c:3166, guarded by
+*     if (newcompat.lt && *line == 'l')
+* Same shape as rkm-c-case.cir: an upper case L card reports
+*     warning, can't find model '4m7'
+* on stderr and its twin does not, and the inductance is 4.7 mH either way.
+* doc/codex/issues/0009 follow-up table, group B, inpcom.c:3166.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+L1 2 0 4m7
+.control
+ac lin 1 100000 100000
+print vm(2)
+.endc
+.end

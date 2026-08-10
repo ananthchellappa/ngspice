@@ -1,0 +1,19 @@
+* RKM capacitor value on an upper case device letter, ngbehavior=lt
+* The C arm of the same test, inpcom.c:3160, guarded by
+*     if (newcompat.lt && *line == 'c')
+* Unlike the R arm this one is observable in the diagnostics: get_model_name()
+* has no "skip a leading numeric value" special case for C, so 4u7 lands in
+* the model-name slot and an upper case C card reports
+*     warning, can't find model '4u7'
+* while its lower case twin does not.  That is still a stderr-only
+* difference, so this pair remains a guard on the number.
+* doc/codex/issues/0009 follow-up table, group B, inpcom.c:3160.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+C1 2 0 4u7
+.control
+ac lin 1 100 100
+print vm(2)
+.endc
+.end

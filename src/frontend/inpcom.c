@@ -2741,7 +2741,8 @@ static void replace_freq(struct card *c, int *line_number)
     diff = 0;
     if (*expr < '0' || *expr > '9') {
         for (in_e = expr; in_e < expr_e; ++in_e) {
-            if ((*in_e < '0' || *in_e > '9') && (*in_e < 'a' || *in_e > 'z') &&
+            if ((*in_e < '0' || *in_e > '9') &&
+                (tolower_c(*in_e) < 'a' || tolower_c(*in_e) > 'z') &&
                 *in_e != '_')
             break;
         }
@@ -2824,7 +2825,7 @@ static void replace_freq(struct card *c, int *line_number)
 
 #define BSTR(s) (int)(s##_e - s), s
 
-    pt = (*line == 'e') ? 'v' : 'i';
+    pt = (elem_letter(line) == 'e') ? 'v' : 'i';
     *line = '*';    // Make a comment
     if (in) {
         /* Connect input nodes directly. */
@@ -2903,9 +2904,9 @@ static void inp_chk_for_e_source_to_xspice(struct card *c, int *line_number)
             continue;
         }
 
-        if (*line == 'e' && inp_chk_for_multi_in_vcvs(c, line_number))
+        if (elem_letter(line) == 'e' && inp_chk_for_multi_in_vcvs(c, line_number))
             continue;
-        if (*line != 'e' && *line != 'g')
+        if (elem_letter(line) != 'e' && elem_letter(line) != 'g')
             continue;
 
         /* Is it the FREQ form with S-parameter table? */
@@ -3151,19 +3152,19 @@ static int is_a_modelname(char *s, const char* line)
 
     /* RKM: r100 4k7 are  valid numbers for resistors,
        so not valid model names. */
-    if (newcompat.lt && *line == 'r') {
+    if (newcompat.lt && elem_letter(line) == 'r') {
         evalrc = s;
         INPevaluateRKM_R(&evalrc, &error, 0);
         if (*evalrc == '\0' && !error)
             return FALSE;
     }
-    if (newcompat.lt && *line == 'c') {
+    if (newcompat.lt && elem_letter(line) == 'c') {
         evalrc = s;
         INPevaluateRKM_C(&evalrc, &error, 0);
         if (*evalrc == '\0' && !error)
             return FALSE;
     }
-    if (newcompat.lt && *line == 'l') {
+    if (newcompat.lt && elem_letter(line) == 'l') {
         evalrc = s;
         INPevaluateRKM_L(&evalrc, &error, 0);
         if (*evalrc == '\0' && !error)
@@ -9996,7 +9997,7 @@ static int inp_poly_2g6_compat(struct card* deck) {
         }
 
 
-        switch (*thisline) {
+        switch (elem_letter(thisline)) {
         case 'h':
         case 'g':
         case 'e':
@@ -10040,7 +10041,7 @@ static int inp_poly_2g6_compat(struct card* deck) {
             continue;
         }
         /* go beyond the usual nodes and sources */
-        switch (*thisline) {
+        switch (elem_letter(thisline)) {
         case 'g':
         case 'e':
             curr_line = nexttok_noparens(curr_line);

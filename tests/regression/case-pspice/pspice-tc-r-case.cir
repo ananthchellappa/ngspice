@@ -1,0 +1,26 @@
+* PSpice TC=tc1,tc2 on an upper case R card, ngbehavior=ps
+* pspice_compat() rewrites a PSpice resistor's paired temperature
+* coefficients, 'TC=0.01,0.002', into ngspice's two separate keywords
+* 'tc1=0.01 tc2=0.002'.  INP2R's own tc fixup is whitespace driven and does
+* not fire on the comma form, so this rewrite is the only thing that makes
+* the card mean anything.
+* The loop is entered on
+*     if (*cut_line == 'r' || *cut_line == 'l' || *cut_line == 'c')
+* lower case only, so under casemode=preserve an upper case R card kept
+* TC=0.01,0.002 and the run stopped with
+*     unknown parameter (0.002)
+* The R card is in an .inc file for the reason given in
+* pspice-table-e-case.cir.  .options temp=75 is what makes the coefficients
+* change the resistance at all.
+* doc/codex/issues/0009 defect class; src/frontend/inpcompat.c:923, named in
+* doc/codex/issues/0013's Resolution.
+.OPTIONS noacct
+.options temp=75
+V1 1 0 dc 1
+.include pspice-tc-r-case.inc
+R2 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

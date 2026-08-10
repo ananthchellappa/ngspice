@@ -1,0 +1,10 @@
+* lower case twin of pspice-table-e-case.cir
+.OPTIONS noacct
+v1 1 0 dc 1.5
+.include pspice-table-e-case-lower.inc
+r1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

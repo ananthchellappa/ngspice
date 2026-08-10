@@ -1,0 +1,13 @@
+* lower case twin of freq-node-expr-case.cir
+v1 in 0 dc 0 ac 1
+r1 in 0 1k
+e1 2 0 freq {in} = db
++ (1, 0, 0)
++ (1000, 0, 0)
+r2 2 0 1k
+.OPTIONS noacct
+.control
+ac lin 1 100 100
+print vm(2)
+.endc
+.end

@@ -1468,12 +1468,16 @@ AC_CONFIG_FILES([Makefile
                  tests/regression/pipe/Makefile
                  tests/regression/pz/Makefile
                  tests/regression/case/Makefile
+                 tests/regression/case-lt/Makefile
+                 tests/regression/case-pspice/Makefile
                  tests/sensitivity/Makefile
                  tests/transient/Makefile
                  tests/transmission/Makefile
                  tests/xspice/Makefile
                  tests/xspice/digital/Makefile
                  tests/xspice/digital/spinit
+                 tests/xspice/case/Makefile
+                 tests/xspice/case/spinit
                  tests/resistance/Makefile
                  tests/vbic/Makefile])
 

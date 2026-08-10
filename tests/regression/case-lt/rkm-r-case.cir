@@ -1,0 +1,23 @@
+* RKM resistor value on an upper case device letter, ngbehavior=lt
+* is_a_modelname() (src/frontend/inpcom.c) refuses to take an RKM value such
+* as 4k7 for a model name by re-parsing it with INPevaluateRKM_R, and it
+* selects that arm with
+*     if (newcompat.lt && *line == 'r')
+* a lower-case-only test.  Under casemode=preserve an upper case R card
+* misses it and 4k7 is reported as a missing model instead.
+* This pair is a GUARD, not a RED test, and the reason is recorded rather
+* than worked around: is_a_modelname()'s three callers only ever ADD a name
+* to a used-models list or print "warning, can't find model", so the site
+* cannot move a number, and the warning goes to stderr which
+* tests/bin/check.sh does not capture.  What the pair asserts is that the
+* device letter's spelling cannot change the resistance an RKM value means.
+* doc/codex/issues/0009 follow-up table, group B, inpcom.c:3154.
+.OPTIONS noacct
+V1 1 0 dc 1
+R1 1 2 4k7
+R2 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

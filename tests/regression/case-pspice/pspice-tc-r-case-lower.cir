@@ -1,0 +1,11 @@
+* lower case twin of pspice-tc-r-case.cir
+.OPTIONS noacct
+.options temp=75
+v1 1 0 dc 1
+.include pspice-tc-r-case-lower.inc
+r2 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

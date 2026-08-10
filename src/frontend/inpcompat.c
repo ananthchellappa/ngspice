@@ -161,10 +161,10 @@ static void replace_table(struct card *startcard)
     static int numb = 0;
     for (card = startcard; card; card = card->nextcard) {
         char *cut_line = card->line;
-        if (*cut_line == 'e' || *cut_line == 'g') {
+        if (elem_letter(cut_line) == 'e' || elem_letter(cut_line) == 'g') {
             char *valp = search_plain_identifier(cut_line, "value");
             char *valp2 = search_plain_identifier(cut_line, "cur");
-            if (valp || (valp2 && *cut_line == 'g')) {
+            if (valp || (valp2 && elem_letter(cut_line) == 'g')) {
                 char *ftablebeg = cistrstr(cut_line, "table(");
                 while (ftablebeg) {
                     /* get the beginning of the line */
@@ -920,7 +920,8 @@ struct card *pspice_compat(struct card *oldcard)
             continue;
         }
 
-        if (*cut_line == 'r' || *cut_line == 'l' || *cut_line == 'c') {
+        if (elem_letter(cut_line) == 'r' || elem_letter(cut_line) == 'l' ||
+                elem_letter(cut_line) == 'c') {
             /* Skip name and two nodes */
             char *ntok = nexttok(cut_line);
             ntok = nexttok(ntok);

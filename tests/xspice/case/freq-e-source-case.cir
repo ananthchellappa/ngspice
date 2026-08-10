@@ -1,0 +1,28 @@
+* upper case E source in the FREQ table form, under casemode=preserve
+* replace_freq() (src/frontend/inpcom.c, #ifdef XSPICE) turns
+*   Exxx n1 n2 FREQ {expr} = <format> (f, mag, phase) ...
+* into an XSPICE 'xfer' A device plus its .model card.  Two lower-case-only
+* tests stand in front of it and one inside it:
+*   inpcom.c:2908  if (*line != 'e' && *line != 'g') continue;
+*   inpcom.c:2906  if (*line == 'e' && inp_chk_for_multi_in_vcvs(...))
+*   inpcom.c:2827  pt = (*line == 'e') ? 'v' : 'i';
+* The first two skip an upper case card outright, so nothing is printed.
+* The third is the interesting one: with the gate folded but :2827 left
+* alone, the deck parses and prints a NUMBER, and it is the wrong one - the
+* A device is emitted with a current output port instead of a voltage one,
+* so the table's unity gain becomes 1 A into R2 rather than 1 V across it.
+* This deck is therefore a two-stage witness and only goes green when all
+* three bytes fold.
+* doc/codex/issues/0009 follow-up table, group C.
+V1 1 0 dc 0 ac 1
+R1 1 0 1k
+E1 2 0 FREQ {v(1)} = DB
++ (1, 0, 0)
++ (1000, 0, 0)
+R2 2 0 1k
+.OPTIONS noacct
+.control
+ac lin 1 100 100
+print vm(2)
+.endc
+.end

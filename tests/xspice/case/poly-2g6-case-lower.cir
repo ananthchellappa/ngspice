@@ -1,0 +1,10 @@
+* lower case twin of poly-2g6-case.cir
+v1 1 0 dc 3
+e1 3 0 1 0 1 2
+r1 3 0 1k
+.OPTIONS noacct
+.control
+op
+print v(3)
+.endc
+.end

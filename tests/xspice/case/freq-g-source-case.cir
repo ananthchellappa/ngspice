@@ -1,0 +1,17 @@
+* upper case G source in the FREQ table form, under casemode=preserve
+* The G twin of freq-e-source-case.cir.  It is gated by the same
+* inpcom.c:2908 test and takes the current-output branch of inpcom.c:2827,
+* so it pins the other side of that ternary.
+* doc/codex/issues/0009 follow-up table, group C.
+V1 1 0 dc 0 ac 1
+R1 1 0 1k
+G1 2 0 FREQ {v(1)} = DB
++ (1, 0, 0)
++ (1000, 0, 0)
+R2 2 0 1k
+.OPTIONS noacct
+.control
+ac lin 1 100 100
+print vm(2)
+.endc
+.end

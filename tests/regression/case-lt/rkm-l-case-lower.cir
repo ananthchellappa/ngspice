@@ -1,0 +1,10 @@
+* lower case twin of rkm-l-case.cir
+.OPTIONS noacct
+v1 1 0 ac 1
+r1 1 2 1k
+l1 2 0 4m7
+.control
+ac lin 1 100000 100000
+print vm(2)
+.endc
+.end

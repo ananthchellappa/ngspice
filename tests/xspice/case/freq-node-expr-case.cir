@@ -1,0 +1,22 @@
+* upper case node name as a FREQ source's whole expression, under preserve
+* replace_freq() has a fast path for an expression that is nothing but a
+* node name, and it recognises one with a scan that accepts only
+* '0'-'9', 'a'-'z' and '_' (src/frontend/inpcom.c:2744).  An upper case node
+* name breaks the loop early, the expression is not taken for an identifier,
+* and the card falls through to the v(...) test instead.
+* The controlling node is spelled IN here and in in the twin: it is never
+* printed, so its spelling cannot leak into the compared text, and the two
+* decks are the same circuit.
+* doc/codex/issues/0009 follow-up table, group D, inpcom.c:2744.
+V1 IN 0 dc 0 ac 1
+R1 IN 0 1k
+E1 2 0 FREQ {IN} = DB
++ (1, 0, 0)
++ (1000, 0, 0)
+R2 2 0 1k
+.OPTIONS noacct
+.control
+ac lin 1 100 100
+print vm(2)
+.endc
+.end

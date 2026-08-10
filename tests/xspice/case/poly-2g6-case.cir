@@ -1,0 +1,22 @@
+* upper case SPICE2G6 POLY source with poly() omitted, under preserve
+* inp_poly_2g6_compat() (src/frontend/inpcom.c, #ifdef XSPICE) restores the
+* SPICE2G6 shorthand in which POLY(1) may be left out of a one-dimensional
+* polynomial source, by inserting 'poly(1)' before the coefficients.  It
+* classifies the card with two switch (*thisline) statements whose case
+* labels are 'e', 'f', 'g' and 'h' in lower case only, so under
+* casemode=preserve an upper case E card takes the default arm, no poly(1)
+* is inserted, and the card is rejected as a linear source with one
+* coefficient too many.
+* The second switch is unreachable today only because the first one
+* continues on its default arm; both fold.
+* v(3) = coef0 + coef1*v(1) = 1 + 2*3 = 7.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:9998 and :10042.
+V1 1 0 dc 3
+E1 3 0 1 0 1 2
+R1 3 0 1k
+.OPTIONS noacct
+.control
+op
+print v(3)
+.endc
+.end
