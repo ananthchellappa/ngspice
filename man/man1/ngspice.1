@@ -77,6 +77,13 @@ FIXME
 \fB\-o\fP \fIoutfile\fP  or  \fB\*=output=\fP\fIoutfile\fP
 All logs generated during a batch run (\fB\-b\fP) will be saved in \fIoutfile\fP.
 .TP
+\fB\-D\fP \fIvariable\fP[=\fIvalue\fP]  or  \fB\*=define=\fP\fIvariable\fP[=\fIvalue\fP]
+Define the control language variable \fIvariable\fP before any input file is
+read. Without a \fIvalue\fP the variable is set to true, otherwise to the
+string \fIvalue\fP. This is the same namespace the \fBset\fP command uses,
+so a variable set here can be overridden by a \fBset\fP in ".spiceinit",
+which is sourced after the command line has been parsed.
+.TP
 \fB\-p\fP  or  \fB\*=pipe\fP
 Allow a program (e.g., xcircuit) to act as a GUI frontend for
 ngspice through a pipe.

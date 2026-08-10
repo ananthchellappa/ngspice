@@ -19,6 +19,16 @@ Ngspice-47, June ??, 2026
     + Add sweeping dc for capacitance measurement in 
       HFET, MEASFET, VDMOS models, correct it for BJT, VBIC, HICUM.
     + Add two macros TSTEP and TSTOP to XSPICE.
+    + New variable casemode selects how identifier case is handled when
+      a netlist is read. The default, fold, is the historical behaviour:
+      every ordinary card is lower cased. With casemode=preserve, node,
+      instance, model and subcircuit names keep the spelling they were
+      first given and are reported that way by show, listing, display,
+      print, write and the rawfile, while R1 and r1 still name the same
+      device. Set it with -D casemode=preserve, with set casemode =
+      preserve in .spiceinit or spinit, or with
+      ngSpice_Command("set casemode=preserve") before loading a circuit.
+      Language keywords are case insensitive in either mode.
 
 
 Ngspice-46, March 29th, 2026

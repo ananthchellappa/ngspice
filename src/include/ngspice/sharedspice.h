@@ -56,6 +56,32 @@ receives the name of a vector (may be in the form 'vectorname' or
 <plotname>.vectorname) and returns a pointer to a vector_info struct.
 The caller may then directly assess the vector data (but probably should
 not modify them).
+The name is matched without regard to case: findvec() lowercases both the
+query and the table key. The name returned in vector_info is the one the
+simulator stored, which is not necessarily the one that was asked for.
+See the note on identifier case below.
+
+**
+Identifier case
+The two halves of this API do not agree about case, and never have.
+ngGet_Vec_Info and ngSpice_Raw_Evt accept a name in any case.
+ngGet_Evt_NodeInfo does not: it compares with strcmp, so it only accepts the
+exact string that ngSpice_AllEvtNodes returned. Callers should use the string
+ngSpice_AllEvtNodes gave them rather than one they built themselves.
+
+Which spelling the simulator stores is selected by the control variable
+'casemode', read once per netlist read. The default, fold, lowercases every
+ordinary card as it is read, so every name this API returns is lower case.
+With casemode=preserve the stored name keeps the spelling the deck first used
+and this API returns that instead; identity is unchanged, so R1 and r1 are
+still one device.
+
+libngspice has no argv, so the only way to select the mode is
+    ngSpice_Command("set casemode=preserve");
+issued before ngSpice_Circ() or before sourcing a netlist. It takes effect on
+the next netlist read and survives ngSpice_Reset(), because it is re-read
+every time. Note that control variable names are matched case sensitively, so
+the name must be sent in lower case.
 
 ***************** If XSPICE is enabled *************************************
 **
@@ -71,6 +97,9 @@ ngGet_Evt_NodeInfo(char*)
 receives the name of a event node vector (may be in the form 'vectorname' or
 <plotname>.vectorname) and returns a pointer to a evt_node_info struct.
 The caller may then directly assess the vector data.
+The name must match exactly, including case, unlike ngGet_Vec_Info. Pass a
+string obtained from ngSpice_AllEvtNodes. See the note on identifier case
+above.
 
 **
 char** ngSpice_AllEvtNodes(void);

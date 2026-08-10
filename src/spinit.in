@@ -12,6 +12,9 @@ set x11lineararcs
 ** set the number of threads in openmp
 ** default (if compiled with --enable-openmp) is: 2
 set num_threads=8
+** keep the case of node, instance, model and subcircuit names as written **
+** the default, fold, lower cases every card as it is read **
+*set casemode=preserve
 
 * comment out if central osdi management is set up
 unset osdi_enabled
