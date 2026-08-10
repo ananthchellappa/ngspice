@@ -1,0 +1,23 @@
+* consistently-spelled twin of name-lookup-case.cir
+* Byte-identical to name-lookup-case.cir except that the subcircuit name, the
+* global node name and the model name are each spelled the same way at their
+* definition and at their reference.  Its .out is identical too, which is
+* what pins the claim that none of the three spellings can change a number.
+.OPTIONS noacct
+.global vss
+v1 1 0 dc 4
+r0 0 vss 1u
+x1 1 2 divider
+v2 3 0 dc 5
+r3 3 4 rmod l=12u w=4u
+r9 4 0 5k
+.model rmod r rsh=1000 narrow=1u
+.subckt divider a b
+ra a b 1k
+rb b vss 3k
+.ends
+.control
+op
+print v(2) v(4)
+.endc
+.end

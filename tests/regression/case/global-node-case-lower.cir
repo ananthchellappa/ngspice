@@ -1,0 +1,19 @@
+* consistently-spelled twin of global-node-case.cir
+* Byte-identical to global-node-case.cir except that the subcircuit body
+* spells the global node exactly as the .global card spells it.  Its .out is
+* identical too, which is what pins the claim that the spelling of a global
+* node name cannot change a number.
+.OPTIONS noacct
+.global vss
+v1 1 0 dc 4
+r0 0 vss 1u
+x1 1 2 divider
+.subckt divider a b
+ra a b 1k
+rb b vss 3k
+.ends
+.control
+op
+print v(2)
+.endc
+.end

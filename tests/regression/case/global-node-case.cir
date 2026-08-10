@@ -1,0 +1,32 @@
+* global node name spelled two ways under casemode=preserve
+* This is the one deck in this group whose evidence is a wrong number rather
+* than a diagnostic, so it is the one check.sh can actually see: check.sh
+* filters "Error" and "Warning" out of both sides of the comparison, but not
+* a voltage.
+*
+* .global declares vss.  The subcircuit body connects its lower leg to VSS.
+* If the two spellings are one global node, VSS is left alone by
+* gettrans()/settrans() and the leg returns to the top level through r0, so
+* the divider divides: v(2) = 3 V.  If they are not, the port is scope
+* renamed to x1.VSS per instance, the return path disappears, no current
+* flows in the divider, and v(2) rises to the full supply, 4 V.  No error and
+* no warning, just a different answer.
+*
+* Device letters are lower case and the printed nodes are numeric, so the
+* only variable under test is the case of the global node name.
+* global-node-case-lower.cir is the consistently-spelled twin and its .out is
+* identical, which is the actual assertion.
+.OPTIONS noacct
+.global vss
+v1 1 0 dc 4
+r0 0 vss 1u
+x1 1 2 divider
+.subckt divider a b
+ra a b 1k
+rb b VSS 3k
+.ends
+.control
+op
+print v(2)
+.endc
+.end

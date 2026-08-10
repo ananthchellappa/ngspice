@@ -1,0 +1,35 @@
+* one model name, one subcircuit name and one global node, each two ways
+* Acceptance criterion 3 of doc/codex/issues/0010.  The per-mechanism decks
+* model-name-case.cir, subckt-name-case.cir and global-node-case.cir exist
+* because the first failure aborts the run before the later evidence is
+* reached; this deck is the combined one and only passes once all three name
+* spaces resolve.
+*
+* Witnesses:
+*   v(2)  the .subckt name, spelled Divider on the instance and divider on
+*         the definition, and the .global node, declared vss and used as VSS
+*         inside the subcircuit body.
+*   v(4)  the .model name, spelled RMod on the instance and rmod on the
+*         .model card.
+*
+* Device letters are lower case and the printed nodes are numeric, so the
+* three name spellings are the only variables.  name-lookup-case-lower.cir is
+* the consistently-spelled twin and its .out is identical.
+.OPTIONS noacct
+.global vss
+v1 1 0 dc 4
+r0 0 vss 1u
+x1 1 2 Divider
+v2 3 0 dc 5
+r3 3 4 RMod l=12u w=4u
+r9 4 0 5k
+.model rmod r rsh=1000 narrow=1u
+.subckt divider a b
+ra a b 1k
+rb b VSS 3k
+.ends
+.control
+op
+print v(2) v(4)
+.endc
+.end

@@ -137,6 +137,26 @@ struct subs {
 
 static char start[32], sbend[32], invoke[32], model[32];
 
+/* The key a global node name is stored under in glonodes, as a fresh string
+   the caller must tfree().  Under a non-folding case mode the key is folded so
+   that two spellings of one global node reach one entry; the deck's own
+   spelling is what gettrans() writes back into the netlist, and
+   src/spicelib/parser/inpsymt.c then interns the spellings to one node.  The
+   key is folded here rather than by installing a case insensitive hash
+   function, because src/misc/hash.c copies the key on insert and frees it
+   again only when hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR). */
+
+static char *glo_key(const char *name)
+{
+    char *key = copy(name);
+
+    if (!inp_case_folding())
+        strtolower(key);
+
+    return key;
+}
+
+
 static void
 collect_global_nodes(struct card *c)
 {
@@ -160,8 +180,11 @@ collect_global_nodes(struct card *c)
                 /* global node name */
                 char *gnode =  copy_substring(s, t);
                 /* insert only if not yet found in table */
-                if (gnode && *gnode != '\0' && nghash_find(glonodes, gnode) == NULL) {
-                    nghash_insert(glonodes, gnode, DUMMYDATA);
+                if (gnode && *gnode != '\0') {
+                    char *key = glo_key(gnode);
+                    if (nghash_find(glonodes, key) == NULL)
+                        nghash_insert(glonodes, key, DUMMYDATA);
+                    tfree(key);
                 }
                 tfree(gnode);
                 s = skip_ws(t);
@@ -1663,7 +1686,12 @@ gettrans(const char *name, const char *name_end, bool *isglobal)
 
     /* Added by H.Tanaka to translate global nodes */
     char* newgl = copy_substring(name, name_end);
-    if (nghash_find(glonodes, newgl)) {
+    /* newgl is the value returned to the caller on a hit, so it keeps the
+       deck's spelling; only the probe key is folded */
+    char* key = glo_key(newgl);
+    bool isglo = nghash_find(glonodes, key) != NULL;
+    tfree(key);
+    if (isglo) {
         *isglobal = TRUE;
         return newgl;
     }
