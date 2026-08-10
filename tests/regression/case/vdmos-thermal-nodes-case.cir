@@ -1,0 +1,25 @@
+* upper case thermal VDMOS instance with too few nodes, under preserve
+* inp_vdmos_model()'s second loop rejects a deck whose thermal VDMOS
+* instance does not carry all five nodes - drain, gate, source, tjunction,
+* tcase.  It found the instance with curr_line[0] == 'm', lower case only,
+* so under preserve an upper case 'M1 3 2 0 4 nmodv thermal' - four nodes -
+* skipped the check entirely and the deck went on to run:
+*   v(3) = 1.249884e-03
+* while the lower case twin, and every fold-mode run, is rejected with
+*   Error: We need exactly 5 nodes
+*   No circuit loaded!
+* The reference is therefore EMPTY on purpose: what this pair asserts is
+* that the spelling of the device letter cannot decide whether a malformed
+* thermal instance is caught.  Both twins must print nothing.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:8902.
+.OPTIONS noacct
+V1 1 0 dc 5
+V2 2 0 dc 5
+R1 1 3 1k
+M1 3 2 0 4 nmodv thermal
+.model nmodv VDMOS (vto=1 kp=1 rthjc=1)
+.control
+op
+print v(3)
+.endc
+.end

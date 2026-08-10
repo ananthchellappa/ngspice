@@ -8841,7 +8841,7 @@ static int inp_vdmos_model(struct card *deck)
                 wl_append_word(&wl, &wl, copy_substring(curr_line, cut_line));
                 wlb = wl;
                 if (search_plain_identifier(cut_line, "pchan") ||
-                    cut_line[5] == 'p') {
+                    tolower_c(cut_line[5]) == 'p') {
                     wl_append_word(NULL, &wl, copy("vdmosp ("));
                 }
                 else {
@@ -8899,7 +8899,7 @@ static int inp_vdmos_model(struct card *deck)
          */
         int i;
         char *curr_line = card->line;
-        if (curr_line[0] == 'm' && cistrstr(curr_line, "thermal")) {
+        if (elem_letter(curr_line) == 'm' && cistrstr(curr_line, "thermal")) {
             /* move to model name */
             for (i = 0; i < 6; i++)
                 curr_line = nexttok(curr_line);

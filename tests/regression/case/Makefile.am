@@ -29,7 +29,9 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	compat-r-behav-case.cir compat-r-behav-case-lower.cir \
 	compat-c-behav-case.cir compat-c-behav-case-lower.cir \
 	compat-l-behav-case.cir compat-l-behav-case-lower.cir \
-	compat-k-mutual-case.cir compat-k-mutual-case-lower.cir
+	compat-k-mutual-case.cir compat-k-mutual-case-lower.cir \
+	vdmos-type-suffix-case.cir vdmos-type-suffix-case-lower.cir \
+	vdmos-thermal-nodes-case.cir vdmos-thermal-nodes-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 
