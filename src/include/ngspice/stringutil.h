@@ -60,7 +60,7 @@ char *gettok_np(char **);
 bool has_escape_or_quote(size_t n, const char *str);
 bool is_arith_char(char c);
 bool isquote(char ch);
-int model_name_match(const char *token, const char *model_name);
+int model_name_match(const char *token, const char *model_name, bool ci);
 int prefix(const char *p, const char *s);
 int prefix_n(size_t n_char_prefix, const char *prefix,
         size_t n_char_string, const char *string);

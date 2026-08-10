@@ -131,7 +131,7 @@ char *MIFgetMod(
       printf("In MIFgetMod, checking model against stored model = %s . . .\n", modtmp->INPmodName);
 #endif
 
-        if (strcmp(modtmp->INPmodName, name) == 0) {
+        if (ng_ideq(modtmp->INPmodName, name)) {
 
 #ifdef TRACE
 	/* SDB debug statement */

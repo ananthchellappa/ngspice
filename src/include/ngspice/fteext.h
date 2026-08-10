@@ -213,6 +213,7 @@ enum {
 };
 extern int inp_case_mode(void);
 extern bool inp_case_folding(void);
+extern bool ng_ideq(const char *a, const char *b);
 
 extern struct card *line_nconc(struct card *head, struct card *rest);
 extern struct card *line_reverse(struct card *head);

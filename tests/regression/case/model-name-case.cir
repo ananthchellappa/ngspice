@@ -1,0 +1,37 @@
+* model name spelled two ways under casemode=preserve
+* Every device letter is lower case and every node name is numeric, because
+* both of those are already case-correct (doc/codex/issues/0009 folded the
+* device letter, src/spicelib/parser/inpsymt.c folds the node key).  The only
+* variable under test is the case of the .model name: each instance card
+* spells it in mixed case and each .model card spells it in lower case.
+*
+* Three witnesses, one per model-bearing device class:
+*   v(2)  r3 carries a semiconductor R model, referenced as RMod against
+*         '.model rmod r'.
+*   v(4)  d1 likewise, RMod -> DMod / '.model dmod d'.
+*   v(7)  q1 likewise, QMod / '.model qmod npn'.
+*
+* The evidence is three node voltages, not a diagnostic: tests/bin/check.sh
+* filters "Error" and "Warning" out of both sides of the comparison.
+* model-name-case-lower.cir is the consistently-spelled twin and its .out is
+* identical, which is the actual assertion: the spelling cannot change the
+* number.
+.OPTIONS noacct
+v1 1 0 dc 5
+r3 1 2 RMod l=12u w=4u
+r9 2 0 5k
+v2 3 0 dc 5
+r4 3 4 10k
+d1 4 0 DMod
+v3 5 0 dc 5
+r5 5 6 1meg
+r7 5 7 1k
+q1 7 6 0 QMod
+.model rmod r rsh=1000 narrow=1u
+.model dmod d is=1e-14
+.model qmod npn bf=100
+.control
+op
+print v(2) v(4) v(7)
+.endc
+.end

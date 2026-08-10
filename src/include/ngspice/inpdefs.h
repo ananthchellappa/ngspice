@@ -138,6 +138,7 @@ int INPinsert(char **, INPtables *);
 int INPretrieve(char **, INPtables *);
 int INPremove(char *, INPtables *);
 INPmodel *INPlookMod(const char *);
+char *INPmodKey(const char *);
 int INPmakeMod(char *, int, struct card *);
 char *INPmkTemp(char *);
 void INPpas1(CKTcircuit *, struct card *, INPtables *);

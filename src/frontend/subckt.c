@@ -1794,6 +1794,31 @@ modtranslate(struct card *c, char *subname, wordlist *new_modnames)
  *  after:    Q1 c b e U1:2N3904
  *-------------------------------------------------------------------*/
 
+/* wl_find() under the current identifier case policy.  orig_modnames holds
+   the .model names of a subcircuit body as its .model cards spelled them; a
+   device card in the same body may spell them differently, and under a
+   non-folding case mode nothing upstream has made the two agree.  A miss here
+   is not recoverable further down: the instance keeps the untranslated name
+   while the .model card is rewritten to 'subname:modelname', so the two
+   strings then differ by more than case. */
+
+static wordlist *
+wl_find_id(const char *string, const wordlist *wl)
+{
+    if (inp_case_folding())
+        return wl_find(string, wl);
+
+    if (!string)
+        return NULL;
+
+    for (; wl; wl = wl->wl_next)
+        if (ng_ideq(string, wl->wl_word))
+            break;
+
+    return (wordlist *) wl;
+}
+
+
 static void
 translate_mod_name(struct bxx_buffer *buffer, char *modname, char *subname, struct wordlist *orig_modnames)
 {
@@ -1801,7 +1826,7 @@ translate_mod_name(struct bxx_buffer *buffer, char *modname, char *subname, stru
      *  Note that we compare against orig_modnames,
      *    which is the list of untranslated names of models.
      */
-    wordlist *wlsub = wl_find(modname, orig_modnames);
+    wordlist *wlsub = wl_find_id(modname, orig_modnames);
 
     if (!wlsub)
         bxx_printf(buffer, "%s", modname);
@@ -1941,7 +1966,7 @@ devmodtranslate(struct card *s, char *subname, wordlist * const orig_modnames)
                 name = copy(""); /* allow 'tfree' */
             } else {
                 for (;;) {
-                    wlsub = wl_find(name, orig_modnames);
+                    wlsub = wl_find_id(name, orig_modnames);
                     if (wlsub) {
                         break;
                     } else {
@@ -1980,7 +2005,7 @@ devmodtranslate(struct card *s, char *subname, wordlist * const orig_modnames)
             }
             else {
                 for (;;) {
-                    wlsub = wl_find(name, orig_modnames);
+                    wlsub = wl_find_id(name, orig_modnames);
                     if (wlsub) {
                         break;
                     }
@@ -2089,7 +2114,7 @@ devmodtranslate(struct card *s, char *subname, wordlist * const orig_modnames)
             while (!found) {
                 /* Now, is this a subcircuit model? */
                 for (wlsub = orig_modnames; wlsub; wlsub = wlsub->wl_next)
-                    if (model_name_match(name, wlsub->wl_word)) {
+                    if (model_name_match(name, wlsub->wl_word, !inp_case_folding())) {
                         found = 1;
                         break;
                     }
@@ -2136,7 +2161,7 @@ devmodtranslate(struct card *s, char *subname, wordlist * const orig_modnames)
                 name = copy(""); /* allow 'tfree' */
             } else {
                 for (;;) {
-                    wlsub = wl_find(name, orig_modnames);
+                    wlsub = wl_find_id(name, orig_modnames);
                     if (wlsub) {
                         break;
                     } else {

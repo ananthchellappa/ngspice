@@ -5,6 +5,7 @@ Author: 1985 Thomas L. Quarles
 
 #include "ngspice/ngspice.h"
 #include "ngspice/inpdefs.h"
+#include "ngspice/fteext.h"
 #include <string.h>
 
 extern INPmodel *modtab;
@@ -21,7 +22,7 @@ INPlookMod(const char *name)
     INPmodel *i;
 
     for (i = modtab; i; i = i->INPnextModel)
-        if (strcmp(i->INPmodName, name) == 0)
+        if (ng_ideq(i->INPmodName, name))
             return i;
 
     return NULL;

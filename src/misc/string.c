@@ -1091,13 +1091,17 @@ int get_comma_separated_values(char *values[], char *str)
   or
   modulo a trailing model binning extension '\.[0-9]+'
   then return 2
+  ci selects a case insensitive comparison, for the identifier case modes that
+  do not lowercase the deck.  The policy itself is not read here: this file is
+  linked by programs that do not link the frontend.
 */
-int model_name_match(const char *token, const char *model_name)
+int model_name_match(const char *token, const char *model_name, bool ci)
 {
     const char *p;
     size_t token_len = strlen(token);
 
-    if (strncmp(token, model_name, token_len) != 0)
+    if (ci ? !cieqn(token, model_name, token_len)
+           : (strncmp(token, model_name, token_len) != 0))
         return 0;
 
     p = model_name + token_len;

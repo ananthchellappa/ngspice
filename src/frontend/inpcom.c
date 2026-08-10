@@ -1043,6 +1043,20 @@ bool inp_case_folding(void)
     return ng_case_mode == NG_CASE_FOLD;
 }
 
+/* Identity of two identifiers under the current case policy. Under fold the
+   reader has already lowercased both sides, so strcmp is retained to keep the
+   default byte identical for the names ngspice constructs with upper case of
+   its own, such as q1#collCX. Under a non-folding mode two spellings of one
+   identifier are still one identifier.
+   src/spicelib/parser/inpsymt.c:31 is the same test for the parser's own
+   interning tables; this one is for the name spaces that never get interned:
+   .model, .subckt and .global. */
+
+bool ng_ideq(const char *a, const char *b)
+{
+    return inp_case_folding() ? (strcmp(a, b) == 0) : (cieq(a, b) != 0);
+}
+
 /* Establish the case mode for one netlist read. Called from inp_readall()
    next to set_compat_mode(), so the last writer before the deck is read wins:
    .spiceinit is sourced after the -D getopt loop and therefore overrides it,
@@ -3251,7 +3265,7 @@ static const char *nlist_model_find(
 {
     int i;
     for (i = 0; i < nlist->num_names; i++)
-        if (model_name_match(nlist->names[i], name))
+        if (model_name_match(nlist->names[i], name, !inp_case_folding()))
             return nlist->names[i];
     return NULL;
 }
@@ -9525,7 +9539,7 @@ static struct modellist *inp_find_model_1(
 {
     struct modellist *p = scope->models;
     for (; p; p = p->next) {
-        if (model_name_match(name, p->modelname))
+        if (model_name_match(name, p->modelname, !inp_case_folding()))
             break;
     }
     return p;
@@ -9645,7 +9659,7 @@ static void mark_all_binned(struct nscope *scope, char *name)
     struct modellist *p = scope->models;
 
     for (; p; p = p->next)
-        if (model_name_match(name, p->modelname))
+        if (model_name_match(name, p->modelname, !inp_case_folding()))
             p->used = TRUE;
 }
 
