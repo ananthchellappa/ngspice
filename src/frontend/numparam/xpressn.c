@@ -13,6 +13,7 @@
 #include "ngspice/dvec.h"
 #include "../frontend/variable.h"
 #include "ngspice/compatmode.h"
+#include "ngspice/fteext.h"
 #include "ngspice/stringskip.h"
 
 
@@ -543,6 +544,13 @@ defsubckt(dico_t *dico, const struct card *card)
     if (s_end > s) {
         DS_CREATE(ustr, 200); /* temp user string */
         pscopy(&ustr, s, s_end);
+        /* nupa_define()'s symbol table is a strcmp hash, so a subcircuit name
+           is stored under a folded key when the deck is not folded; the two
+           probes, findsubckt() and spicenum.c's findsubname(), fold to match.
+           Only .subckt cards reach here (subckt.c:238), so no other kind of
+           numparam symbol changes key. */
+        if (!inp_case_folding())
+            strtolower(ds_get_buf(&ustr));
         err = nupa_define(dico, ds_get_buf(&ustr), ' ',
                 NUPA_SUBCKT, 0.0, w, NULL);
         ds_free(&ustr);
@@ -567,6 +575,9 @@ findsubckt(dico_t *dico, const char *s)
     DS_CREATE(ustr, 200); /* u= subckt name is last token in string s */
 
     pscopy(&ustr, name_b, name_e);
+    /* keyed as defsubckt() keyed the definition */
+    if (!inp_case_folding())
+        strtolower(ds_get_buf(&ustr));
     entry = entrynb(dico, ds_get_buf(&ustr));
     ds_free(&ustr);
 
@@ -1549,7 +1560,10 @@ search_isolated_identifier(char *str, const char *identifier)
 {
     char *str_begin = str;
 
-    while ((str = strstr(str, identifier)) != NULL) {
+    /* the identifier comes from the .subckt card and str from the instance
+       card, so the two spellings need not agree when the deck is not folded */
+    while ((str = inp_case_folding() ? strstr(str, identifier)
+                                     : cistrstr(str, identifier)) != NULL) {
 
         if (str <= str_begin || isspace_c(str[-1])) {
             char after = str[strlen(identifier)];

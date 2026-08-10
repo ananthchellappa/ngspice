@@ -1,0 +1,19 @@
+* consistently-spelled twin of subckt-name-case.cir
+* Byte-identical to subckt-name-case.cir except that both instance cards
+* spell the subcircuit name exactly as the .subckt card spells it.  Its .out
+* is identical too, which is what pins the claim that the spelling of a
+* subcircuit name cannot change a number.
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 divider
+v2 3 0 dc 8
+x2 3 4 divider
+.subckt divider a b
+ra a b 1k
+rb b 0 3k
+.ends
+.control
+op
+print v(2) v(4)
+.endc
+.end

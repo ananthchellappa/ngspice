@@ -601,7 +601,7 @@ doit(struct card *deck, wordlist *modnames) {
 
                 /* iterate through .subckt list and look for .subckt name invoked */
                 for (sss = subs; sss; sss = sss->su_next)
-                    if (eq(sss->su_name, s))
+                    if (ng_ideq(sss->su_name, s))
                         break;
 
 
@@ -1607,7 +1607,7 @@ settrans(char *formal, int flen, char *actual, const char *subname)
         if (table[i].t_new == NULL) {
             return -1;          /* Too few actual / too many formal */
         } else if (table[i].t_old == NULL) {
-            if (eq(table[i].t_new, subname))
+            if (ng_ideq(table[i].t_new, subname))
                 break;
             else
                 return 1;       /* Too many actual / too few formal */
@@ -1627,6 +1627,22 @@ eq_substr(const char *str, const char *end, const char *cstring)
 {
     while (str < end)
         if (*str++ != *cstring++)
+            return 0;
+    return (*cstring == '\0');
+}
+
+
+/* eq_substr() under the current identifier case policy, for the substrings
+   that are subcircuit names rather than node names. */
+
+static int
+eq_substr_id(const char *str, const char *end, const char *cstring)
+{
+    if (inp_case_folding())
+        return eq_substr(str, end, cstring);
+
+    while (str < end)
+        if (tolower_c(*str++) != tolower_c(*cstring++))
             return 0;
     return (*cstring == '\0');
 }
@@ -1684,7 +1700,7 @@ numnodes(const char* line, struct subs* subs)
             const char* xname_e = skip_back_ws(strchr(line, '\0'), line);
             const char* xname = skip_back_non_ws(xname_e, line);
             for (; subs; subs = subs->su_next)
-                if (eq_substr(xname, xname_e, subs->su_name))
+                if (eq_substr_id(xname, xname_e, subs->su_name))
                     return subs->su_numargs;
         }
     }

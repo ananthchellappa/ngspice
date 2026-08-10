@@ -3254,7 +3254,7 @@ static const char *nlist_find(const struct nlist *nlist, const char *name)
 {
     int i;
     for (i = 0; i < nlist->num_names; i++)
-        if (strcmp(nlist->names[i], name) == 0)
+        if (ng_ideq(nlist->names[i], name))
             return nlist->names[i];
     return NULL;
 }
@@ -3332,7 +3332,7 @@ static void get_subckts_for_subckt(struct card *start_card, char *subckt_name,
         if (ciprefix(".subckt", line) || ciprefix(".macro", line)) {
             char *curr_subckt_name = get_subckt_model_name(line);
 
-            if (strcmp(curr_subckt_name, subckt_name) == 0)
+            if (ng_ideq(curr_subckt_name, subckt_name))
                 found_subckt = TRUE;
 
             tfree(curr_subckt_name);
@@ -3828,7 +3828,7 @@ static char **find_name(struct names *p, char *name)
     int i;
 
     for (i = 0; i < p->num_names; i++)
-        if (strcmp(p->names[i], name) == 0)
+        if (ng_ideq(p->names[i], name))
             return &p->names[i];
 
     return NULL;
@@ -9489,7 +9489,7 @@ static struct card_assoc *find_subckt_1(
 {
     struct card_assoc *p = scope->subckts;
     for (; p; p = p->next)
-        if (eq(name, p->name))
+        if (ng_ideq(name, p->name))
             break;
     return p;
 }

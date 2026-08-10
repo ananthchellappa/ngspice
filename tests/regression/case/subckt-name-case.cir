@@ -1,0 +1,31 @@
+* subcircuit name spelled two ways under casemode=preserve
+* Device letters are lower case and node names are numeric, so the only
+* variable under test is the case of the .subckt name: the instance card
+* spells it Divider and the definition spells it divider.
+*
+* Two witnesses, because the name is matched twice on the way in:
+*   v(2)  x1 must find '.subckt divider' at src/frontend/subckt.c:604, and
+*         the trailing name token on the x card must then be recognised as the
+*         subcircuit name rather than as an extra actual at subckt.c:1610.
+*   v(4)  the same subcircuit instantiated a second time with a third
+*         spelling, so a fix that canonicalises to whichever spelling was
+*         seen first is not enough.
+*
+* The evidence is two node voltages, not a diagnostic: tests/bin/check.sh
+* filters "Error" and "Warning" out of both sides of the comparison.
+* subckt-name-case-lower.cir is the consistently-spelled twin and its .out is
+* identical, which is the actual assertion.
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 Divider
+v2 3 0 dc 8
+x2 3 4 DIVIDER
+.subckt divider a b
+ra a b 1k
+rb b 0 3k
+.ends
+.control
+op
+print v(2) v(4)
+.endc
+.end

@@ -191,6 +191,9 @@ findsubname(dico_t *dico, DSTRINGPTR dstr_p)
                     ;
             ds_clear(&name);
             pscopy(&name, p, t);
+            /* keyed as defsubckt() keyed the definition */
+            if (!inp_case_folding())
+                strtolower(ds_get_buf(&name));
             entry = entrynb(dico, ds_get_buf(&name));
             if (entry && (entry->tp == NUPA_SUBCKT)) {
                 (void) ds_set_length(dstr_p, (size_t) (p_end - s));
