@@ -100,6 +100,35 @@ None changes a number. They fall into four groups.
 4. **The sweep's own probe deck.** `harness-alive.cir` echoes `$casemode`,
    which by construction does not exist in the stock run.
 
+## Re-run after `doc/codex/issues/0009` was fixed
+
+The numbers above are the state at the head of the Phase 2 series and are kept
+as the baseline. After the two commits that fold the leading device letter in
+`src/frontend/inpcom.c` and in `src/frontend/numparam/spicenum.c`, the same
+command reports:
+
+| verdict | before | after |
+| --- | ---: | ---: |
+| OK | 20 | 67 |
+| DIFF | 24 | 39 |
+| PARSE-FAIL | 82 | 25 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **129** | **134** |
+
+Compared per deck rather than on the totals, no deck's verdict got worse. The
+five extra decks are the regression tests the fix added, and all five report OK.
+
+The 25 that remain are not this defect. 20 reference a model in one case and
+define it in another inside the deck itself (`MP10 ... p12l5` against `.MODEL
+P12L5 PMOS` in `tests/mos6/simpleinv.cir`, `m1 ... n1` against `.Model N1 NMOS`
+in `tests/bsim3soidd/nmosdd.mod`), and 3 more are the `lib-processing` decks
+where the sweep uppercases the deck but not the `.lib` file it reads — all of
+that is `doc/codex/issues/0010`. The last 2, `tests/polezero/pz{2,t}.cir`, are
+a keyword fold rather than a name lookup: `search_plain_identifier()` is
+`strstr`-based, so the `ac`-with-no-value fixup does not fire on `AC`. That is
+written up as `doc/codex/issues/0013`.
+
 ## Interpretation
 
 `preserve` does not change any number it can compute. What it cannot yet do is
