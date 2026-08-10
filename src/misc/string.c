@@ -287,6 +287,35 @@ int cieqn(const char *p, const char *s, size_t n)
 } /* end of function cineq */
 
 
+/* Case insensitive strstr( ). Returns a pointer into s at the first
+ * occurrence of p, or NULL. An empty p matches at the start of s, as
+ * strstr( ) does. strcasestr( ) is a GNU extension, configure.ac does not
+ * check for it and there is no compatibility implementation, so the search
+ * is spelled out here. */
+char *cistrstr(const char *s, const char *p)
+{
+    size_t n;
+
+    if (!s || !p) {
+        return NULL;
+    }
+
+    n = strlen(p);
+    if (n == 0) {
+        return (char *) s;
+    }
+
+    for (; *s; s++) {
+        if (cieqn(s, p, n)) {
+            return (char *) s;
+        }
+    }
+
+    return NULL;
+} /* end of function cistrstr */
+
+
+
 /* Case insensitive prefix. */
 int ciprefix(const char *p, const char *s)
 {

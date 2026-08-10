@@ -42,6 +42,7 @@ void appendc(char *s, char c);
 int cieq(const char *p, const char *s);
 int cieqn(const char *p, const char *s, size_t n);
 int ciprefix(const char *p, const char *s);
+char *cistrstr(const char *s, const char *p);
 char *dup_string(const char *str, size_t n_char);
 char *find_first_of(const char *haystack,
         unsigned int n_needle, const char *p_needle);
