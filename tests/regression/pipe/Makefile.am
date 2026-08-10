@@ -1,7 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
 TESTS = alter-1.cmd flow-keyword-case.cmd \
-	analysis-keyword-case.cmd options-keyword-case.cmd
+	analysis-keyword-case.cmd options-keyword-case.cmd \
+	resource-keyword-case.cmd
 
 TESTS_ENVIRONMENT = \
 	SPICE_SCRIPTS=$(top_srcdir)/tests/bin \

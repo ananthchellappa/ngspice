@@ -85,7 +85,7 @@ com_rusage(wordlist *wl)
     char *copyword;
     /* Fill in the SPICE accounting structure... */
 
-    if (wl && (eq(wl->wl_word, "everything") || eq(wl->wl_word, "all"))) {
+    if (wl && (eqc(wl->wl_word, "everything") || eqc(wl->wl_word, "all"))) {
         printres(NULL);
     } else if (wl) {
         for (; wl; wl = wl->wl_next) {
@@ -153,7 +153,7 @@ printres(char *name)
     PerfTime timenow;               /* actual time stamp */
     char *cpu_elapsed;
 
-    if (!name || eq(name, "totalcputime") || eq(name, "cputime")) {
+    if (!name || eqc(name, "totalcputime") || eqc(name, "cputime")) {
         int total_sec, total_msec;
 
 #if defined (USE_OMP) \
@@ -192,12 +192,12 @@ printres(char *name)
             total_sec += 1;
         }
 
-        if (!name || eq(name, "totalcputime")) {
+        if (!name || eqc(name, "totalcputime")) {
             fprintf(cp_out, "Total %s time (seconds) = %u.%03u \n",
                     cpu_elapsed, total_sec, total_msec);
         }
 
-        if (!name || eq(name, "cputime")) {
+        if (!name || eqc(name, "cputime")) {
             last_msec = 1000 + total_msec - last_msec;
             last_sec = total_sec - last_sec - 1;
             if (last_msec >= 1000) {
@@ -216,16 +216,16 @@ printres(char *name)
 
         yy = TRUE;
 #else
-        if (!name || eq(name, "totalcputime"))
+        if (!name || eqc(name, "totalcputime"))
             fprintf(cp_out, "Total CPU time: ??.??? seconds.\n");
-        if (!name || eq(name, "cputime"))
+        if (!name || eqc(name, "cputime"))
             fprintf(cp_out, "CPU time since last call: ??.??? seconds.\n");
         yy = TRUE;
 #endif
 
     }
 
-    if (!name || eq(name, "space")) {
+    if (!name || eqc(name, "space")) {
         unsigned long long mem = getMemorySize();
         fprintf(cp_out, "Total DRAM available = ");
         fprintmem(cp_out, mem);
@@ -272,7 +272,7 @@ printres(char *name)
         yy = TRUE;
     }
 
-    if (!name || eq(name, "faults")) {
+    if (!name || eqc(name, "faults")) {
 #ifdef HAVE_GETRUSAGE
         int ret;
         struct rusage ruse;
@@ -290,7 +290,7 @@ printres(char *name)
 
     /* PN Now get all the frontend resource stuff */
     if (ft_curckt) {
-        if (name && eq(name, "task"))
+        if (name && eqc(name, "task"))
             vfree = v = ft_getstat(ft_curckt, NULL);
         else
             vfree = v = ft_getstat(ft_curckt, name);
@@ -319,7 +319,7 @@ printres(char *name)
 
     /* Now get all the spice resource stuff. */
     if (ft_curckt && ft_curckt->ci_ckt) {
-        if (name && eq(name, "devtimes")) {
+        if (name && eqc(name, "devtimes")) {
             /* Per-device timings */
             for(int i=0; i<=DEVmaxnum; i++) {
                 if (ft_curckt->ci_ckt->CKTstat->devCounts[i]==0) {
@@ -337,7 +337,7 @@ printres(char *name)
 
 #ifdef CIDER
 /* begin cider integration */
-        if (!name || eq(name, "circuit") || eq(name, "task"))
+        if (!name || eqc(name, "circuit") || eqc(name, "task"))
             paramname = NULL;
         else
             paramname = name;
@@ -346,7 +346,7 @@ printres(char *name)
         if (paramname && v) {
 /* end cider integration */
 #else /* ~CIDER */
-        if (name && eq(name, "task"))
+        if (name && eqc(name, "task"))
             vfree = v = if_getstat(ft_curckt->ci_ckt, NULL);
         else
             vfree = v = if_getstat(ft_curckt->ci_ckt, name);
@@ -375,7 +375,7 @@ printres(char *name)
 #ifdef CIDER
         /* begin cider integration */
         /* Now print out interesting stuff about numerical devices. */
-        if (!name || eq(name, "devices")) {
+        if (!name || eqc(name, "devices")) {
             (void) NDEVacct(ft_curckt->ci_ckt, cp_out);
             yy = TRUE;
         }
