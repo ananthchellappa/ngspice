@@ -8,8 +8,8 @@ consulted before them.
 
 ## Summary
 
-`keyword()` (`src/frontend/numparam/xpressn.c:624`) matches an identifier
-against the built-in function list `fmathS` (`:92`) with a raw byte compare:
+`keyword()` (`src/frontend/numparam/xpressn.c:630`) matches an identifier
+against the built-in function list `fmathS` (`:92`) with a raw byte compare at `:640`:
 
 ```c
 while ((p < s_end) && (*p == *keys))
@@ -26,7 +26,7 @@ asin acos atan asinh acosh atanh tan nint vec var
 ```
 
 — so under `casemode=preserve`, where the reader no longer lowercases the card,
-`formula()` (`xpressn.c:1069`) misses the built-in, falls through to the
+`formula()` (`xpressn.c:1075`) misses the built-in, falls through to the
 parameter branch and looks the function name up as a symbol.
 
 ## Impact
@@ -91,7 +91,7 @@ not choose it — so it belongs to the class Phase 1 folded unconditionally, and
 2. The fold is unconditional, like the rest of Phase 1, since in `fold` mode
    the compared bytes are already lower case; that has to be stated with the
    argument, not assumed.
-3. `keyword()` has exactly one caller, `xpressn.c:1069`, so the fold can go
+3. `keyword()` has exactly one caller, `xpressn.c:1075`, so the fold can go
    inside `keyword()` itself; that was checked rather than assumed.
 4. `make check` unchanged with `casemode` unset.
 
