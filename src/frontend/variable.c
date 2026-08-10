@@ -262,7 +262,7 @@ static void update_option_variables(const char *sz_var_name,
         ['c' - 'a'] = 5  /* cpdebug */
     };
 
-    unsigned int index0 = (unsigned int) sz_var_name[0] - 'a';
+    unsigned int index0 = (unsigned int) tolower_c(sz_var_name[0]) - 'a';
 
     /* Check if first char of is in range of interest.
      * Note that if < 0, as unsigned, it will be very large so this
@@ -283,22 +283,22 @@ static void update_option_variables(const char *sz_var_name,
     switch (id0) {
     case 1:
         /* noglob, nonomatch, noclobber, no_histsubst */
-        if (sz_var_name[1] != 'o') {
+        if (tolower_c(sz_var_name[1]) != 'o') {
             return;
         }
         {
             bool *p_var;
             const char *sz_rest = sz_var_name + 2;
-            if (eq(sz_rest, "glob")) {
+            if (eqc(sz_rest, "glob")) {
                 p_var = &cp_noglob;
             }
-            else if (eq(sz_rest, "nomatch")) {
+            else if (eqc(sz_rest, "nomatch")) {
                 p_var = &cp_nonomatch;
             }
-            else if (eq(sz_rest, "clobber")) {
+            else if (eqc(sz_rest, "clobber")) {
                 p_var = &cp_noclobber;
             }
-            else if (eq(sz_rest, "_histsubst")) {
+            else if (eqc(sz_rest, "_histsubst")) {
                 p_var = &cp_no_histsubst;
             }
             else { /* not a variable of interest */
@@ -308,7 +308,7 @@ static void update_option_variables(const char *sz_var_name,
         }
         return;
     case 2: /* history */
-        if (eq(sz_var_name + 1, "istory")) {
+        if (eqc(sz_var_name + 1, "istory")) {
             if (f_set) {
                 int n = -1;
                 enum cp_types type = p_v->va_type;
@@ -327,19 +327,19 @@ static void update_option_variables(const char *sz_var_name,
         }
         return;
     case 3: /* echo */
-        if (eq(sz_var_name + 1, "cho")) {
+        if (eqc(sz_var_name + 1, "cho")) {
             cp_echo = f_set;
         }
         return;
     case 4: /* prompt, program */
-        if (sz_var_name[1] != 'r') {
+        if (tolower_c(sz_var_name[1]) != 'r') {
             return;
         }
-        if (sz_var_name[2] != 'o') {
+        if (tolower_c(sz_var_name[2]) != 'o') {
             return;
         }
         const char *sz_rest = sz_var_name + 3;
-        if (eq(sz_rest, "mpt")) { /* prompt */
+        if (eqc(sz_rest, "mpt")) { /* prompt */
             if (f_set && p_v->va_type == CP_STRING) {
                 cp_promptstring = p_v->va_string;
             }
@@ -350,7 +350,7 @@ static void update_option_variables(const char *sz_var_name,
             }
             return;
         }
-        if (eq(sz_rest, "gram")) { /* program */
+        if (eqc(sz_rest, "gram")) { /* program */
             if (f_set && p_v->va_type == CP_STRING) {
                 cp_program = p_v->va_string;
             }
@@ -363,7 +363,7 @@ static void update_option_variables(const char *sz_var_name,
         }
         return; /* not of interest */
     case 5:
-        if (eq(sz_var_name + 1, "pdebug")) { /* cpdebug */
+        if (eqc(sz_var_name + 1, "pdebug")) { /* cpdebug */
             cp_debug = f_set;
 #ifndef CPDEBUG
             if (cp_debug) {
@@ -1009,7 +1009,7 @@ wordlist *vareval(/* NOT const */ char *string)
         /* Treat $i for some integer i as argv[i] - positional parameters. */
 
         for (v = variables; v; v = v->va_next) {
-            if (eq(v->va_name, "argv")) {
+            if (eqc(v->va_name, "argv")) {
                 break;
             }
         }

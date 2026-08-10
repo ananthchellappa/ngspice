@@ -96,7 +96,7 @@ com_define(wordlist *wlist)
         }
 
     for (i = 0; ft_funcs[i].fu_name; i++)
-        if (eq(ft_funcs[i].fu_name, tbuf)) {
+        if (eqc(ft_funcs[i].fu_name, tbuf)) {
             fprintf(cp_err, "Error: %s is a predefined function.\n",
                     tbuf);
             return;
