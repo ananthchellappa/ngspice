@@ -261,7 +261,9 @@ transform(dico_t *dico, DSTRINGPTR dstr_p, bool incontrol)
             if (stripbraces(dstr_p) > 0)
                 category = 'B'; /* priority category ! */
         }
-    } else if (s[0] == 'x') {
+    } else if (tolower_c(s[0]) == 'x') {
+        /* fold the device letter for dispatch only, the card is not touched;
+           with 'casemode=preserve' the reader no longer folds it for us */
         /* strip actual parameters */
         findsubname(dico, dstr_p);
         category = 'X';
