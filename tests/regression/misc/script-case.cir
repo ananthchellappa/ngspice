@@ -19,4 +19,11 @@ strstr result "VL_INOUT8(&Bus,0,0);" "$inout"
 echo strstr-inout: $result
 strstr result "VL_DATA(8,Clk,0,0)" "$data"
 echo strstr-data: $result
+
+* vlnggen depends on the difference between 'set' and 'setcs' in a script
+* file: 'setcs' is exempt from the read time fold, plain 'set' is not.
+setcs CsKept="MiXeDCs"
+set PlainFolded="MiXeDPlain"
+echo setcs-value: $CsKept
+echo set-value: $plainfolded
 quit
