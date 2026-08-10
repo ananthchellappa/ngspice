@@ -69,7 +69,7 @@ com_stop(wordlist *wl)
 
         /* Figure out what the first condition is. */
         d->db_analysis = NULL;
-        if (eq(wl->wl_word, "after") && wl->wl_next) {
+        if (eqc(wl->wl_word, "after") && wl->wl_next) {
             d->db_type = DB_STOPAFTER;
             d->db_number = debugnumber;
             if (!wl->wl_next->wl_word) {
@@ -87,13 +87,13 @@ com_stop(wordlist *wl)
             }
             d->db_iteration = i;
             wl = wl->wl_next->wl_next;
-        } else if (eq(wl->wl_word, "when") && wl->wl_next) {
+        } else if (eqc(wl->wl_word, "when") && wl->wl_next) {
             /* cp_lexer(string) will not discriminate '=', so we have
                to do it here */
             if (strchr(wl->wl_next->wl_word, '=') &&
                     (!(wl->wl_next->wl_next) ||
-                    strstr(wl->wl_next->wl_next->wl_word, "when") ||
-                    strstr(wl->wl_next->wl_next->wl_word, "after"))) {
+                    cistrstr(wl->wl_next->wl_next->wl_word, "when") ||
+                    cistrstr(wl->wl_next->wl_next->wl_word, "after"))) {
                 /* we have vec=val in a single word */
                 wordlist *wln;
                 char **charr = TMALLOC(char*, 4);
@@ -128,13 +128,13 @@ com_stop(wordlist *wl)
                 wl = wl->wl_next;
 
                 /* Now get the condition */
-                if (eq(wl->wl_word, "eq") || eq(wl->wl_word, "="))
+                if (eqc(wl->wl_word, "eq") || eq(wl->wl_word, "="))
                     d->db_op = DBC_EQU;
-                else if (eq(wl->wl_word, "ne"))
+                else if (eqc(wl->wl_word, "ne"))
                     d->db_op = DBC_NEQ;
-                else if (eq(wl->wl_word, "gt") || eq(wl->wl_word, ">"))
+                else if (eqc(wl->wl_word, "gt") || eq(wl->wl_word, ">"))
                     d->db_op = DBC_GT;
-                else if (eq(wl->wl_word, "lt"))
+                else if (eqc(wl->wl_word, "lt"))
                     d->db_op = DBC_LT;
                 else if (eq(wl->wl_word, "<")) {
                     /* "<>" is parsed as two words. */
@@ -147,9 +147,9 @@ com_stop(wordlist *wl)
                     } else {
                         d->db_op = DBC_LT;
                     }
-                } else if (eq(wl->wl_word, "ge") || eq(wl->wl_word, ">="))
+                } else if (eqc(wl->wl_word, "ge") || eq(wl->wl_word, ">="))
                     d->db_op = DBC_GTE;
-                else if (eq(wl->wl_word, "le") || eq(wl->wl_word, "<="))
+                else if (eqc(wl->wl_word, "le") || eq(wl->wl_word, "<="))
                     d->db_op = DBC_LTE;
                 else
                     goto bad;
@@ -301,7 +301,7 @@ com_iplot(wordlist *wl)
         d->db_op = initial_steps;       // Field re-use
         d->db_value1 = window;          // Field re-use
 
-        if (eq(s, "all")) {
+        if (eqc(s, "all")) {
             d->db_type = DB_IPLOTALL;
         } else {
             d->db_type = DB_IPLOT;
@@ -454,7 +454,7 @@ com_delete(wordlist *wl)
     char *s, buf[64];
     struct dbcomm *d, *dt;
 
-    if (wl && eq(wl->wl_word, "all")) {
+    if (wl && eqc(wl->wl_word, "all")) {
         dbfree(dbs);
         dbs = NULL;
         if (ft_curckt)

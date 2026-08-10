@@ -65,7 +65,7 @@ settrace(wordlist *wl, int what, char *name)
         char *s = cp_unquote(wl->wl_word);
         char *db_nodename1 = NULL;
         char db_type = 0;
-        if (eq(s, "all") || eq(s, "nosub")) {
+        if (eqc(s, "all") || eqc(s, "nosub")) {
             switch (what) {
             case VF_PRINT:
                 db_type = DB_TRACEALL;
@@ -96,7 +96,7 @@ settrace(wordlist *wl, int what, char *name)
         if (db_type == DB_SAVE) {
             for (dbcheck = dbs; dbcheck; dbcheck = dbcheck->db_next) {
                 if (dbcheck->db_type == DB_SAVE && eq(dbcheck->db_nodename1, db_nodename1) &&
-                    !eq("all", db_nodename1)) {
+                    !eqc("all", db_nodename1)) {
                     tfree(db_nodename1);
                     goto loopend;
                 }
