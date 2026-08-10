@@ -5,7 +5,7 @@
 ## flags ride on that argument; tests/xspice/digital/Makefile.am is the
 ## precedent.
 
-TESTS = harness-alive.cir
+TESTS = harness-alive.cir name-roundtrip.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 

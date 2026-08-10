@@ -1009,6 +1009,54 @@ void inp_get_w_l_x(struct card* card) {
 }
 
 
+/* Identifier case policy. The historical behaviour, NG_CASE_FOLD, is to
+   lowercase every ordinary card in place while it is read, which is the only
+   reason ngspice appears case insensitive: every identifier table below the
+   reader compares with strcmp. The mode is a control variable rather than an
+   .option, because .option lines are extracted from an already read and
+   already folded deck. */
+
+static int ng_case_mode = NG_CASE_FOLD;
+
+int inp_case_mode(void)
+{
+    return ng_case_mode;
+}
+
+bool inp_case_folding(void)
+{
+    return ng_case_mode == NG_CASE_FOLD;
+}
+
+/* Establish the case mode for one netlist read. Called from inp_readall()
+   next to set_compat_mode(), so the last writer before the deck is read wins:
+   .spiceinit is sourced after the -D getopt loop and therefore overrides it,
+   and libngspice callers use ngSpice_Command("set casemode=...") because they
+   have no argv. */
+
+static void set_case_mode(void)
+{
+    char mode[64];
+
+    ng_case_mode = NG_CASE_FOLD;
+
+    if (!cp_getvar("casemode", CP_STRING, mode, sizeof(mode) - 1))
+        return;
+
+    if (cieq(mode, "fold"))
+        ng_case_mode = NG_CASE_FOLD;
+    else if (cieq(mode, "preserve"))
+        ng_case_mode = NG_CASE_PRESERVE;
+    else if (cieq(mode, "distinguish"))
+        fprintf(stderr,
+                "Warning: casemode 'distinguish' is not implemented yet, "
+                "using 'fold'\n");
+    else
+        fprintf(stderr,
+                "Warning: unknown casemode '%s', using 'fold'\n", mode);
+}
+
+
 /*-------------------------------------------------------------------------
   Read the entire input file and return  a pointer to the first line of
   the linked list of 'card' records in data.  The pointer is stored in
@@ -1055,6 +1103,8 @@ struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
     num_libraries = 0;
     /* set the members of the compatibility structure */
     set_compat_mode();
+    /* set the identifier case policy for this deck */
+    set_case_mode();
 
     /* Parsing the circuit 3.
        This is the next major step:
@@ -1718,136 +1768,146 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
                against the prefix. */
             bool starhash = (buffer[0] == '*' && buffer[1] == '#');
             char* cbuf = starhash ? skip_ws(buffer + 2) : buffer;
+            if (inp_case_folding()) {
 #ifdef CIDER
-            if (ciprefix(".model", buffer)) {
-                in_cider_model = is_cider_model(buffer);
+                if (ciprefix(".model", buffer)) {
+                    in_cider_model = is_cider_model(buffer);
 #ifdef TRACE
-                printf("Found .model Cider model is %s\n",
-                    (in_cider_model ? "ON" : "OFF"));
+                    printf("Found .model Cider model is %s\n",
+                        (in_cider_model ? "ON" : "OFF"));
+#endif
+            }
+                if (in_cider_model && turn_off_case_retention(buffer)) {
+                    in_cider_model = 0;
+#ifdef TRACE
+                    printf("Cider model is OFF\n");
 #endif
         }
-            if (in_cider_model && turn_off_case_retention(buffer)) {
-                in_cider_model = 0;
-#ifdef TRACE
-                printf("Cider model is OFF\n");
 #endif
-    }
-#endif
-            if (ciprefix("plot", buffer) || ciprefix("gnuplot", buffer) ||
-                ciprefix("hardcopy", buffer)) {
-                /* lower case excluded for tokens following title, xlabel,
-                 * ylabel. tokens may contain spaces, then they have to be
-                 * enclosed in quotes. keywords and tokens have to be
-                 * separated by spaces. */
-                int j;
-                char t = ' ';
-                for (s = buffer; *s && (*s != '\n'); s++) {
-                    *s = tolower_c(*s);
-                    if (ciprefix("title", s)) {
-                        /* jump beyond title */
-                        for (j = 0; j < 5; j++) {
-                            s++;
-                            *s = tolower_c(*s);
-                        }
-                        while (*s == ' ')
-                            s++;
-                        if (!s || (*s == '\n'))
-                            break;
-                        /* check if single quote is at start of token */
-                        else if (*s == '\'') {
-                            s++;
-                            t = '\'';
-                        }
-                        /* check if double quote is at start of token */
-                        else if (*s == '\"') {
-                            s++;
-                            t = '\"';
-                        }
-                        else
-                            t = ' ';
-                        /* jump beyond token without lower casing */
-                        while ((*s != '\n') && (*s != t))
-                            s++;
-                    }
-                    else if (ciprefix("xlabel", s) || ciprefix("ylabel", s)) {
-                        /* jump beyond xlabel, ylabel */
-                        for (j = 0; j < 6; j++) {
-                            s++;
-                            *s = tolower_c(*s);
-                        }
-                        while (*s == ' ')
-                            s++;
-                        if (!s || (*s == '\n'))
-                            break;
-                        /* check if single quote is at start of token */
-                        else if (*s == '\'') {
-                            s++;
-                            t = '\'';
-                        }
-                        /* check if double quote is at start of token */
-                        else if (*s == '\"') {
-                            s++;
-                            t = '\"';
-                        }
-                        else
-                            t = ' ';
-                        /* jump beyond token without lower casing */
-                        while ((*s != '\n') && (*s != t))
-                            s++;
-                    }
-                }
-            }
-            else if (ciprefix("print", buffer) ||
-                ciprefix("eprint", buffer) ||
-                ciprefix("eprvcd", buffer) ||
-                ciprefix("asciiplot", buffer)) {
-                /* lower case excluded for tokens following output redirection
-                 * '>' */
-                bool redir = FALSE;
-                for (s = buffer; *s && (*s != '\n'); s++) {
-                    if (*s == '>')
-                        redir = TRUE; /* do not lower, but move to end of
-                                         string */
-                    if (!redir)
+                if (ciprefix("plot", buffer) || ciprefix("gnuplot", buffer) ||
+                    ciprefix("hardcopy", buffer)) {
+                    /* lower case excluded for tokens following title, xlabel,
+                     * ylabel. tokens may contain spaces, then they have to be
+                     * enclosed in quotes. keywords and tokens have to be
+                     * separated by spaces. */
+                    int j;
+                    char t = ' ';
+                    for (s = buffer; *s && (*s != '\n'); s++) {
                         *s = tolower_c(*s);
+                        if (ciprefix("title", s)) {
+                            /* jump beyond title */
+                            for (j = 0; j < 5; j++) {
+                                s++;
+                                *s = tolower_c(*s);
+                            }
+                            while (*s == ' ')
+                                s++;
+                            if (!s || (*s == '\n'))
+                                break;
+                            /* check if single quote is at start of token */
+                            else if (*s == '\'') {
+                                s++;
+                                t = '\'';
+                            }
+                            /* check if double quote is at start of token */
+                            else if (*s == '\"') {
+                                s++;
+                                t = '\"';
+                            }
+                            else
+                                t = ' ';
+                            /* jump beyond token without lower casing */
+                            while ((*s != '\n') && (*s != t))
+                                s++;
+                        }
+                        else if (ciprefix("xlabel", s) || ciprefix("ylabel", s)) {
+                            /* jump beyond xlabel, ylabel */
+                            for (j = 0; j < 6; j++) {
+                                s++;
+                                *s = tolower_c(*s);
+                            }
+                            while (*s == ' ')
+                                s++;
+                            if (!s || (*s == '\n'))
+                                break;
+                            /* check if single quote is at start of token */
+                            else if (*s == '\'') {
+                                s++;
+                                t = '\'';
+                            }
+                            /* check if double quote is at start of token */
+                            else if (*s == '\"') {
+                                s++;
+                                t = '\"';
+                            }
+                            else
+                                t = ' ';
+                            /* jump beyond token without lower casing */
+                            while ((*s != '\n') && (*s != t))
+                                s++;
+                        }
+                    }
                 }
-            }
+                else if (ciprefix("print", buffer) ||
+                    ciprefix("eprint", buffer) ||
+                    ciprefix("eprvcd", buffer) ||
+                    ciprefix("asciiplot", buffer)) {
+                    /* lower case excluded for tokens following output redirection
+                     * '>' */
+                    bool redir = FALSE;
+                    for (s = buffer; *s && (*s != '\n'); s++) {
+                        if (*s == '>')
+                            redir = TRUE; /* do not lower, but move to end of
+                                             string */
+                        if (!redir)
+                            *s = tolower_c(*s);
+                    }
+                }
 #ifdef CIDER
-            else if (in_cider_model && !is_comment_or_blank(buffer) &&
-                (ciprefix(".model", buffer) || buffer[0] == '+')) {
-                s = keep_case_of_cider_param(buffer);
-            }
-            else if (line_contains_icfile(buffer)) {
-                s = keep_case_of_cider_param(buffer);
-            }
+                else if (in_cider_model && !is_comment_or_blank(buffer) &&
+                    (ciprefix(".model", buffer) || buffer[0] == '+')) {
+                    s = keep_case_of_cider_param(buffer);
+                }
+                else if (line_contains_icfile(buffer)) {
+                    s = keep_case_of_cider_param(buffer);
+                }
 #endif
 #ifdef XSPICE
-            /* lower case excluded for text in quotes for .model of code models
-               filesource, rable2d, table3d, d_state, d_source, d_process, d_cosim */
-            else if (is_xspice_model(buffer)) {
-                s = keep_case_of_cider_param(buffer);
-            }
+                /* lower case excluded for text in quotes for .model of code models
+                   filesource, rable2d, table3d, d_state, d_source, d_process, d_cosim */
+                else if (is_xspice_model(buffer)) {
+                    s = keep_case_of_cider_param(buffer);
+                }
 #endif
-            /* no lower case letters for lines beginning with: */
-            else if (!(ciprefix(".lib", buffer) || ciprefix(".inc", buffer) ||
-                ((comfile || is_control || starhash) && (
-                    ciprefix("write", cbuf) ||
-                    ciprefix("wrdata", cbuf) ||
-                    ciprefix("codemodel", cbuf) ||
-                    ciprefix("osdi", cbuf) ||
-                    ciprefix("pre_osdi", cbuf) ||
-                    ciprefix("echo", cbuf) || ciprefix("shell", cbuf) ||
-                    ciprefix("source", cbuf) || ciprefix("cd", cbuf) ||
-                    ciprefix("load", cbuf) || ciprefix("setcs", cbuf) ||
-                    ciprefix("strcmp", cbuf) ||
-                    ciprefix("strstr", cbuf))))) {
-                /* lower case for all other lines */
-                for (s = buffer; *s && (*s != '\n'); s++)
-                    *s = tolower_c(*s);
+                /* no lower case letters for lines beginning with: */
+                else if (!(ciprefix(".lib", buffer) || ciprefix(".inc", buffer) ||
+                    ((comfile || is_control || starhash) && (
+                        ciprefix("write", cbuf) ||
+                        ciprefix("wrdata", cbuf) ||
+                        ciprefix("codemodel", cbuf) ||
+                        ciprefix("osdi", cbuf) ||
+                        ciprefix("pre_osdi", cbuf) ||
+                        ciprefix("echo", cbuf) || ciprefix("shell", cbuf) ||
+                        ciprefix("source", cbuf) || ciprefix("cd", cbuf) ||
+                        ciprefix("load", cbuf) || ciprefix("setcs", cbuf) ||
+                        ciprefix("strcmp", cbuf) ||
+                        ciprefix("strstr", cbuf))))) {
+                    /* lower case for all other lines */
+                    for (s = buffer; *s && (*s != '\n'); s++)
+                        *s = tolower_c(*s);
+                }
+                else {
+                    /* s points to end of buffer for all cases not treated so far
+                     */
+                    for (s = buffer; *s && (*s != '\n'); s++)
+                        ;
+                }
             }
             else {
-                /* s points to end of buffer for all cases not treated so far
-                 */
+                /* Not folding. s must still point to the end of the
+                   buffer, exactly as the terminal else of the chain
+                   above leaves it, so that the newline zapping and the
+                   continuation logic below still work. */
                 for (s = buffer; *s && (*s != '\n'); s++)
                     ;
             }
@@ -3553,7 +3613,7 @@ void inp_casefix(char *string)
             }
             if (*string && !isspace_c(*string) && !isprint_c(*string))
                 *string = '_';
-            if (!in_quotes && isupper_c(*string))
+            if (inp_case_folding() && !in_quotes && isupper_c(*string))
                 *string = tolower_c(*string);
             string++;
         }

@@ -1,0 +1,12 @@
+ Resistor: Simple linear resistor
+     device                  Rser
+      model                     R
+ resistance                  1000
+         ac                  1000
+      dtemp                     0
+     bv_max                 1e+99
+      noisy                     1
+          i               0.00075
+          p             0.0005625
+
+v(outb) = 7.500000e-01

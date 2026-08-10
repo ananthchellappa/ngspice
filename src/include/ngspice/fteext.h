@@ -203,6 +203,17 @@ extern char *search_identifier(char *str, const char *identifier, char *str_begi
 extern char *find_assignment(const char *s);
 extern char *find_back_assignment(const char *s, const char *start);
 
+/* Identifier case policy, selected by the 'casemode' control variable and
+   read once per netlist read in inp_readall(). NG_CASE_FOLD is the historical
+   behaviour: the reader lowercases every ordinary card in place. */
+enum {
+    NG_CASE_FOLD = 0,     /* R1 == r1, spelling lowercased (default) */
+    NG_CASE_PRESERVE,     /* R1 == r1, spelling as first typed */
+    NG_CASE_DISTINGUISH   /* R1 != r1, spelling as typed; not implemented */
+};
+extern int inp_case_mode(void);
+extern bool inp_case_folding(void);
+
 extern struct card *line_nconc(struct card *head, struct card *rest);
 extern struct card *line_reverse(struct card *head);
 extern void inp_mc_free(void);

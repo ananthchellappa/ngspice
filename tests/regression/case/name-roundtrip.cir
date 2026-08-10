@@ -1,0 +1,20 @@
+* name round trip under casemode=preserve
+* Identifiers are mixed case; the electrical answer is a plain 2:1 divider
+* and is identical under every case mode, so the only variable under test is
+* the spelling that comes back out.  Ground is node 0 rather than GND
+* because the gnd->0 rewrite is a separate, reserved-word question.
+*
+* 'show' reads the stored instance name and is live as soon as the reader
+* stops folding.  'print' goes through vec_basename(), which lowercases
+* independently, so the print line records the folded spelling until the
+* output path is fixed; that is the recorded RED for that step.
+.OPTIONS noacct
+V1 InA 0 dc 1.5
+Rser InA OutB 1k
+Rload OutB 0 1k
+.control
+op
+show Rser
+print v(OutB)
+.endc
+.end
