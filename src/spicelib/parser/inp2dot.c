@@ -363,7 +363,7 @@ dot_tf(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     IFC(newAnalysis, (ckt, which, "Transfer Function", &foo, task));
     INPgetTok(&line, &name, 0);
     /* name is now either V or I or a serious error */
-    if (*name == 'v' && strlen(name) == 1) {
+    if (cieq(name, "v")) {
         if (*line != '(' ) {
             /* error, bad input format */
         }
@@ -384,7 +384,7 @@ dot_tf(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
             ptemp.sValue = tprintf("V(%s)", nname1);
             GCA(INPapName, (ckt, which, foo, "outname", &ptemp));
         }
-    } else if (*name == 'i' && strlen(name) == 1) {
+    } else if (cieq(name, "i")) {
         INPgetTok(&line, &name, 1);
         INPinsert(&name, tab);
         ptemp.uValue = name;
@@ -439,7 +439,7 @@ dot_tran(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     }
     if (*line) {
         INPgetTok(&line, &word, 1);	/* uic? */
-        if (strcmp(word, "uic") == 0) {
+        if (cieq(word, "uic")) {
             ptemp.iValue = 1;
             GCA(INPapName, (ckt, which, foo, "uic", &ptemp));
         } else {
@@ -486,7 +486,7 @@ dot_sens(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     /* Get the output voltage or current */
     INPgetTok(&line, &name, 0);
     /* name is now either V or I or a serious error */
-    if (*name == 'v' && strlen(name) == 1) {
+    if (cieq(name, "v")) {
         if (*line != '(') {
             LITERR("Syntax error: '(' expected after 'v'\n");
             return 0;
@@ -509,7 +509,7 @@ dot_sens(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
             ptemp.sValue = tprintf("V(%s)", nname1);
             GCA(INPapName, (ckt, which, foo, "outname", &ptemp));
         }
-    } else if (*name == 'i' && strlen(name) == 1) {
+    } else if (cieq(name, "i")) {
         INPgetTok(&line, &name, 1);
         INPinsert(&name, tab);
         ptemp.uValue = name;
@@ -545,7 +545,7 @@ dot_sens(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         strncpy(name, line, l);
         name[l] = 0;
         line = cp;
-        if (!strcmp(name, "ac") || !strcmp(name, "dc"))
+        if (cieq(name, "ac") || cieq(name, "dc"))
             break;
         if (fidx >= filters)
             Sens_filter = TREALLOC(char *, Sens_filter, filters + 8);
@@ -557,7 +557,7 @@ dot_sens(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         Sens_filter[fidx] = NULL;
     }
 
-    if (name && !strcmp(name, "ac")) {
+    if (name && cieq(name, "ac")) {
         INPgetTok(&line, &steptype, 1);	/* get DEC, OCT, or LIN */
         ptemp.iValue = 1;
         GCA(INPapName, (ckt, which, foo, steptype, &ptemp));
@@ -568,7 +568,7 @@ dot_sens(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         parm = INPgetValue(ckt, &line, IF_REAL, tab); /* fstop */
         GCA(INPapName, (ckt, which, foo, "stop", parm));
         return (0);
-    } else if (name && *name && strcmp(name, "dc")) {
+    } else if (name && *name && !cieq(name, "dc")) {
         /* Bad flag */
         LITERR("Syntax error: 'ac' or 'dc' expected.\n");
     }
@@ -692,7 +692,7 @@ dot_pss(char *line, void *ckt, INPtables *tab, struct card *current,
 
     if (*line) {
         INPgetTok(&line, &word, 1);	/* uic? */
-        if (strcmp(word, "uic") == 0) {
+        if (cieq(word, "uic")) {
             ptemp.iValue = 1;
             GCA(INPapName, (ckt, which, foo, "uic", &ptemp));
         } else {
@@ -790,7 +790,7 @@ dot_hb(char* line, void* ckt, INPtables* tab, struct card* current,
 
     if (*line) {
         INPgetTok(&line, &word, 1);	/* uic? */
-        if (strcmp(word, "uic") == 0) {
+        if (cieq(word, "uic")) {
             ptemp.iValue = 1;
             GCA(INPapName, (ckt, which, foo, "uic", &ptemp));
         }
@@ -834,117 +834,117 @@ INP2dot(CKTcircuit *ckt, INPtables *tab, struct card *current, TSKtask *task, CK
     int rtn = 0;
 
     INPgetTok(&line, &token, 1);
-    if (strcmp(token, ".model") == 0) {
+    if (cieq(token, ".model")) {
         /* don't have to do anything, since models were all done in
          * pass 1 */
         goto quit;
-    } else if (strcmp(token, ".param") == 0) {
+    } else if (cieq(token, ".param")) {
         /* don't have to do anything, since params were all done
          * elsewhere */
         goto quit;
-    } else if ((strcmp(token, ".width") == 0) ||
-               strcmp(token, ".print") == 0 || strcmp(token, ".plot") == 0) {
+    } else if ((cieq(token, ".width")) ||
+               cieq(token, ".print") || cieq(token, ".plot")) {
         /* obsolete - ignore */
         char* token2 = tprintf(" obsolete dot command '%s' - ignored \n", token);
         LITERR(token2);
         tfree(token2);
         goto quit;
-    } else if ((strcmp(token, ".temp") == 0)) {
+    } else if ((cieq(token, ".temp"))) {
         /* .temp temp1 temp2 temp3 temp4 ..... */
         /* not yet implemented - warn & ignore */
         /*
         LITERR(" Warning: .TEMP card obsolete - use .options TEMP and TNOM\n");
         */
         goto quit;
-    } else if ((strcmp(token, ".op") == 0)) {
+    } else if ((cieq(token, ".op"))) {
         rtn = dot_op(line, ckt, tab, current, task, gnode, foo);
         goto quit;
-    } else if ((strcmp(token, ".nodeset") == 0)) {
+    } else if ((cieq(token, ".nodeset"))) {
         goto quit;
-    } else if ((strcmp(token, ".disto") == 0)) {
+    } else if ((cieq(token, ".disto"))) {
         rtn = dot_disto(line, ckt, tab, current, task, gnode, foo);
         goto quit;
-    } else if ((strcmp(token, ".noise") == 0)) {
+    } else if ((cieq(token, ".noise"))) {
         rtn = dot_noise(line, ckt, tab, current, task, gnode, foo);
         goto quit;
-    } else if ((strcmp(token, ".four") == 0)
-               || (strcmp(token, ".fourier") == 0)) {
+    } else if ((cieq(token, ".four"))
+               || (cieq(token, ".fourier"))) {
         /* .four */
         /* not implemented - warn & ignore */
         LITERR("Use fourier command to obtain fourier analysis\n");
         goto quit;
-    } else if ((strcmp(token, ".ic") == 0)) {
+    } else if ((cieq(token, ".ic"))) {
         goto quit;
-    } else if ((strcmp(token, ".ac") == 0)) {
+    } else if ((cieq(token, ".ac"))) {
         rtn = dot_ac(line, ckt, tab, current, task, gnode, foo);
         goto quit;
-    } else if ((strcmp(token, ".pz") == 0)) {
+    } else if ((cieq(token, ".pz"))) {
         rtn = dot_pz(line, ckt, tab, current, task, gnode, foo);
         goto quit;
-    } else if ((strcmp(token, ".dc") == 0)) {
+    } else if ((cieq(token, ".dc"))) {
         rtn = dot_dc(line, ckt, tab, current, task, gnode, foo);
         if (rtn == 1) {
             current->error = copy("Bad syntax! ");
         }
         goto quit;
-    } else if ((strcmp(token, ".tf") == 0)) {
+    } else if ((cieq(token, ".tf"))) {
         rtn = dot_tf(line, ckt, tab, current, task, gnode, foo);
         goto quit;
-    } else if ((strcmp(token, ".tran") == 0)) {
+    } else if ((cieq(token, ".tran"))) {
         rtn = dot_tran(line, ckt, tab, current, task, gnode, foo);
         goto quit;
 #ifdef WITH_PSS
         /* SP: Steady State Analysis */
-    } else if ((strcmp(token, ".pss") == 0)) {
+    } else if ((cieq(token, ".pss"))) {
         rtn = dot_pss(line, ckt, tab, current, task, gnode, foo);
         goto quit;
         /* SP */
 #endif
 #ifdef RFSPICE
     }
-    else if ((strcmp(token, ".sp") == 0)) {
+    else if ((cieq(token, ".sp"))) {
         rtn = dot_sp(line, ckt, tab, current, task, gnode, foo);
         goto quit;
         /* SP */
 #ifdef WITH_HB
     }
-    else if ((strcmp(token, ".hb") == 0)) {
+    else if ((cieq(token, ".hb"))) {
         rtn = dot_hb(line, ckt, tab, current, task, gnode, foo);
         goto quit;
         /* SP */
 #endif
 #endif
-    } else if ((strcmp(token, ".subckt") == 0) ||
-               (strcmp(token, ".ends") == 0)) {
+    } else if ((cieq(token, ".subckt")) ||
+               (cieq(token, ".ends"))) {
         /* not yet implemented - warn & ignore */
         LITERR(" Warning: Subcircuits not yet implemented - ignored \n");
         goto quit;
-    } else if ((strcmp(token, ".end") == 0)) {
+    } else if ((cieq(token, ".end"))) {
         /* .end - end of input */
         /* not allowed to pay attention to additional input - return */
         rtn = 1;
         goto quit;
-    } else if (strcmp(token, ".sens") == 0) {
+    } else if (cieq(token, ".sens")) {
         rtn = dot_sens(line, ckt, tab, current, task, gnode, foo);
         goto quit;
     }
 #ifdef WANT_SENSE2
-    else if ((strcmp(token, ".sens2") == 0)) {
+    else if ((cieq(token, ".sens2"))) {
         rtn = dot_sens2(line, ckt, tab, current, task, gnode, foo);
         goto quit;
     }
 #endif
-    else if ((strcmp(token, ".probe") == 0)) {
+    else if ((cieq(token, ".probe"))) {
         /* Maybe generate a "probe" format file in the future. */
         goto quit;
-    } else if ((strcmp(token, ".options") == 0)||
-               (strcmp(token,".option")==0) ||
-               (strcmp(token,".opt")==0)) {
+    } else if ((cieq(token, ".options"))||
+               (cieq(token, ".option")) ||
+               (cieq(token, ".opt"))) {
         rtn = dot_options(line, ckt, tab, current, task, gnode, foo);
         goto quit;
     }
     /* Added by H.Tanaka to find .global option */
-    else if (strcmp(token, ".global") == 0) {
+    else if (cieq(token, ".global")) {
         rtn = 0;
         LITERR(" Warning: .global not yet implemented - ignored \n");
         goto quit;
@@ -952,8 +952,8 @@ INP2dot(CKTcircuit *ckt, INPtables *tab, struct card *current, TSKtask *task, CK
     /* ignore .meas statements -- these will be handled after analysis */
     /* also ignore .param statements */
     /* ignore .prot, .unprot */
-    else if (strcmp(token, ".meas") == 0 || ciprefix(".para", token) || strcmp(token, ".measure") == 0 ||
-             strcmp(token, ".prot") == 0 || strcmp(token, ".unprot") == 0) {
+    else if (cieq(token, ".meas") || ciprefix(".para", token) || cieq(token, ".measure") ||
+             cieq(token, ".prot") || cieq(token, ".unprot")) {
         rtn = 0;
         goto quit;
     }
