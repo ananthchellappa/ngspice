@@ -2,7 +2,7 @@
 
 ## Status
 
-Open. Both were found by running
+Gap 1 fixed; gap 2 still open. Both were found by running
 `doc/claude/scripts/case_differential_sweep.py` over the decks added while
 closing `doc/codex/issues/0009`'s follow-up table, and neither is that
 issue's class: one is a parameter-name lookup and one is a control-language
@@ -92,8 +92,11 @@ newly *visible* because the decks that exercise them did not exist.
 ## Root Cause
 
 Gap 1: `inp_get_params()` returns instance parameter names byte-exact, and
-`found_mult_param()` compares them against the literal `"m"`. Under `fold`
-the reader had already made those equal.
+`inp_fix_inst_line()` matched them against the subcircuit's formal names with
+`strcmp`. Under `fold` the reader had already made those equal.
+
+This paragraph originally named `found_mult_param()`, and that was wrong at
+`e5913af03` — see the Resolution.
 
 Gap 2: the control language's vector-function prefix is matched against
 lower-case literals on text the reader stopped folding. It is the same
@@ -103,23 +106,104 @@ at `src/frontend/vectors.c`.
 
 ## Acceptance Criteria
 
-1. `M=`, `m=` and `M =` on a subcircuit instance all select the multiplier,
-   and `tests/regression/case/` carries a twin pair proving the numbers
-   agree.
+1. **Met.** `M=`, `m=` and `M =` on a subcircuit instance all select the
+   multiplier, and `tests/regression/case/subckt-mult-param-case.cir` plus its
+   twin prove the numbers agree.
 2. `PRINT VM(2)`, `VDB(2)` and `VP(2)` resolve under `preserve`, with a twin
    pair in `tests/regression/case/`.
-3. The differential sweep's `DIFF` count drops by the twelve entries these
-   two gaps account for, and `NUM-DIFF` stays 0.
-4. `make check` unchanged with `casemode` unset.
+3. **Half met.** The differential sweep's `DIFF` count drops by gap 1's two
+   entries and `NUM-DIFF` stays 0; gap 2's eight remain. The count of twelve
+   is corrected in the Resolution.
+4. **Met.** `make check` unchanged with `casemode` unset.
 
 ## Resolution
 
-Not fixed.
+Gap 1 fixed, with `doc/codex/issues/0015`, in one commit. Gap 2 not fixed.
 
-Gap 1 must move with `doc/codex/issues/0015`: subcircuit parameter names and
-`.param` symbols are one name space, and folding one side of it without the
-other is what `doc/codex/issues/0013`'s Resolution argues against for its
-three exact-match call sites.
+### Gap 1 was not where this issue said it was
+
+`found_mult_param()` had **already** been folded, by commit `871f85f32` (Phase
+1 census pass A, row 150): at `e5913af03` it reads `cieq(param_names[i], "m")`,
+not `strcmp`. Folding it changed no output, which is why the sweep still
+reported `DIFF` and why this issue's §1 and Root Cause looked right.
+
+The decisive byte-exact site is one pass further on, in `inp_fix_inst_line()`:
+
+```c
+/* src/frontend/inpcom.c, before the fix */
+if (strcmp(subckt_param_names[i], inst_param_names[j]) == 0) {
+```
+
+The left operand is the literal lower-case `"m"` that
+`inp_fix_subckt_multiplier()` itself appends to the `.subckt` card; the right
+is `M` as the user typed it. The compare fails, the formal's default `1`
+survives, and `inp_fix_inst_line()` then truncates the X card at its first
+assignment and re-emits **positional** values only — so `X1 1 2 divider M=2`
+becomes `X1 1 2 divider 1` and no later reader can recover the multiplier.
+That compare is the last chance, and it is the only production site: every
+other `m` reader in the tree (`inpdpar.c:30`'s `find_instance_parameter()`,
+`eval_m()`, `eval_mvalue()`, the G-source and table rewrites, `inpgmod.c:151`)
+is already case-insensitive, and `nupa_subcktcall()` binds actual arguments
+positionally.
+
+`M = 2` needs no extra code: `inp_remove_excess_ws()` runs before this pass and
+has already made it `M=2`.
+
+### The fix, and the policy decision it carries
+
+```c
+/* src/frontend/inpcom.c */
+static bool user_ident_eq(const char *a, const char *b)
+{
+    return inp_case_folding() ? (strcmp(a, b) == 0) : cieq(a, b);
+}
+```
+
+used at that compare, at `find_function()`, and at the duplicate-`.param`
+detection in `inp_sort_params()`.
+
+The decision this issue's Acceptance Criteria left implicit, taken explicitly:
+**`m` is treated as a user parameter name here, not as a keyword.** The
+argument is that the compare is generic — it matches *every* subcircuit formal
+against *every* instance parameter, and `m` only happens to be one of them —
+so the alternative would have been to special-case the multiplier token and
+leave `PARAMS: RVAL=9k` unable to see an instance's `rval=1k`, which is the
+same silent wrong number one name away. Under `preserve` a user parameter name
+is now one name whatever the spelling, matching what `doc/codex/issues/0015`
+does for the numparam symbol it eventually becomes. The gate keeps the default
+mode byte-identical, so `found_mult_param()`'s unconditional `cieq` and this
+gated fold do not actually disagree about any reachable input: ordinary `X` and
+`.subckt` cards are lowercased wholesale by the reader, and none of the fold
+exemptions (`.lib`/`.inc`, the `.control` command whitelist, CIDER `.model`,
+`is_xspice_model()`) can produce one.
+
+### Evidence
+
+`tests/regression/case/subckt-mult-param-case.cir` and its twin, three
+instances of one subcircuit spelled `M=2`, `m=2` and `M = 2`, printing three
+node voltages so that a wrong number cannot hide behind an abort:
+
+```
+$ ngspice -D casemode=preserve --batch subckt-mult-param-case.cir
+v(2) = 1.000000e+00      <- M=2,   wrong, no diagnostic
+v(3) = 1.333333e+00      <- m=2,   right
+v(4) = 1.000000e+00      <- M = 2, wrong, no diagnostic
+```
+
+All three read `1.333333e+00` after the fix, and the lower twin was byte-equal
+throughout. The deck was also run against an empty `.out` first, where it
+fails — so its evidence is a number.
+
+### Criterion 3's accounting, corrected
+
+This issue said the sweep's `DIFF` count would drop by twelve entries. Twelve
+was the number of case-directory decks reporting `DIFF`; the two gaps account
+for ten of them, and gap 1 for exactly two — `subckt-mult-skip-case.cir` and
+its twin, whose *uppercased* copies printed `v(2) = 1.000000e+00`. The other
+two of the twelve are `harness-alive.cir` and `write-roundtrip.cir`, which
+report `DIFF` by design. Gap 1's two entries now report `OK`.
+
+### Gap 2
 
 Gap 2 is control-language surface. `doc/codex/issues/0011` already covers one
 way the preprocessor damages command text, and the `distinguish` design

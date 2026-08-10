@@ -4265,6 +4265,20 @@ static int inp_get_params(
 }
 
 
+/* Identity of two names the user chose - a subcircuit formal parameter name
+   against the instance parameter name that overrides it, a .func call against
+   its definition. Under a non-folding case mode two spellings of one such name
+   are still one name, the way numparam resolves the same symbol
+   (doc/codex/issues/0015). In fold mode the reader has already lowercased both
+   cards, so strcmp is retained and the default mode compares the same bytes as
+   before. */
+
+static bool user_ident_eq(const char *a, const char *b)
+{
+    return inp_case_folding() ? (strcmp(a, b) == 0) : cieq(a, b);
+}
+
+
 static char *inp_fix_inst_line(char *inst_line, int num_subckt_params,
         char *subckt_param_names[], char *subckt_param_values[],
         int num_inst_params, char *inst_param_names[],
@@ -4286,7 +4300,7 @@ static char *inp_fix_inst_line(char *inst_line, int num_subckt_params,
 
     for (i = 0; i < num_subckt_params; i++)
         for (j = 0; j < num_inst_params; j++)
-            if (strcmp(subckt_param_names[i], inst_param_names[j]) == 0) {
+            if (user_ident_eq(subckt_param_names[i], inst_param_names[j])) {
                 tfree(subckt_param_values[i]);
                 subckt_param_values[i] = copy(inst_param_values[j]);
             }
