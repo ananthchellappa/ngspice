@@ -1,0 +1,29 @@
+* built-in function name spelled in upper case under casemode=preserve
+* keyword() (src/frontend/numparam/xpressn.c) matches an identifier against
+* the built-in function list fmathS with a raw byte compare, and that list is
+* lower case only.  Under preserve the reader no longer lowercases the card,
+* so SQRT, MAX, NINT and TERNARY_FCN miss the built-in, fall through to the
+* parameter branch of formula() and abort with 'Undefined parameter [SQRT]'
+* on stderr.  The run then prints nothing, so what this deck asserts is the
+* four missing voltages, one per function, so that no one function can hide
+* another.  Every divider is 1k over 3k on a 4 V source, so each built-in has
+* to return exactly 1000 for the deck to print 3 V four times.
+* doc/codex/issues/0022 criterion 1.
+.OPTIONS noacct
+V1 1 0 dc 4
+R1 1 2 {SQRT(1e6)}
+R2 2 0 3k
+R3 1 3 {MAX(1k,500)}
+R4 3 0 3k
+R5 1 4 {NINT(1000.4)}
+R6 4 0 3k
+R7 1 5 {TERNARY_FCN(1,1k,2k)}
+R8 5 0 3k
+.control
+op
+print v(2)
+print v(3)
+print v(4)
+print v(5)
+.endc
+.end

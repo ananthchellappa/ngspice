@@ -637,7 +637,10 @@ keyword(const char *keys, const char *s, const char *s_end)
 
     for (;;) {
         const char *p = s;
-        while ((p < s_end) && (*p == *keys))
+        /* A built-in function name is a language keyword, not a name the user
+           chose, so the deck side folds unconditionally.  'keys' is already
+           lower case and is left alone. */
+        while ((p < s_end) && (tolower_c(*p) == *keys))
             p++, keys++;
         if ((p >= s_end) && ((unsigned char) (*keys) <= ' '))
             return j;

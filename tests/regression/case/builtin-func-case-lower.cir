@@ -1,0 +1,19 @@
+* lower case twin of builtin-func-case.cir
+.OPTIONS noacct
+V1 1 0 dc 4
+R1 1 2 {sqrt(1e6)}
+R2 2 0 3k
+R3 1 3 {max(1k,500)}
+R4 3 0 3k
+R5 1 4 {nint(1000.4)}
+R6 4 0 3k
+R7 1 5 {ternary_fcn(1,1k,2k)}
+R8 5 0 3k
+.control
+op
+print v(2)
+print v(3)
+print v(4)
+print v(5)
+.endc
+.end
