@@ -3495,6 +3495,8 @@ static char *inp_spawn_brace(char *s)
   non-printable character is the only character in a line,
   replace it by '*'. Leave quotes in .param, .subckt and x
   (subcircuit instance) cards to allow string-valued parameters.
+  Text between double quotes always keeps its case, so that a
+  string valued parameter or a file path survives verbatim.
   If there is a XSPICE code model .model line with file input,
   keep quotes and case for the file path.
   *-------------------------------------------------------------------------*/
@@ -3510,6 +3512,7 @@ void inp_casefix(char *string)
     }
     if (string) {
         bool keepquotes;
+        bool in_quotes = FALSE;
 
 #ifdef XSPICE
         char* tmpstr = NULL;
@@ -3525,7 +3528,8 @@ void inp_casefix(char *string)
         /* Allow string param in .subckt lines */
         keepquotes = keepquotes || (ciprefix(".subckt", string) && (strstr(string, "=\"")));
         /* Keep quoted strings in X lines */
-        keepquotes = keepquotes || (*string == 'x' && strchr(string, '\"'));
+        keepquotes = keepquotes ||
+                ((*string == 'x' || *string == 'X') && strchr(string, '\"'));
 
         while (*string) {
 #ifdef XSPICE
@@ -3542,18 +3546,15 @@ void inp_casefix(char *string)
             }
 #endif
             if (*string == '"') {
+                /* text between quotes keeps its case, the quotes themselves
+                   are dropped unless they delimit a string valued parameter */
+                in_quotes = !in_quotes;
                 if (!keepquotes)
-                    *string++ = ' ';
-                while (*string && *string != '"')
-                    string++;
-                if (*string == '\0')
-                    continue; /* needed if string is "something ! */
-                if (*string == '"' && !keepquotes)
                     *string = ' ';
             }
             if (*string && !isspace_c(*string) && !isprint_c(*string))
                 *string = '_';
-            if (isupper_c(*string))
+            if (!in_quotes && isupper_c(*string))
                 *string = tolower_c(*string);
             string++;
         }
