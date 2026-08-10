@@ -15,7 +15,7 @@ com_echo(wordlist *wlist)
 {   char*copyword;
     bool nl = TRUE;
 
-    if (wlist && eq(wlist->wl_word, "-n")) {
+    if (wlist && eqc(wlist->wl_word, "-n")) {
         wlist = wlist->wl_next;
         nl = FALSE;
     }

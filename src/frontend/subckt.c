@@ -374,7 +374,7 @@ inp_subcktexpand(struct card *deck) {
     for (c = deck; c; c = c->nextcard)
         /* 'param' .meas statements can have dependencies on measurement values */
         /* need to skip evaluating here and evaluate after other .meas statements */
-        if (ciprefix(".meas", c->line) && strstr(c->line, "param")) {
+        if (ciprefix(".meas", c->line) && cistrstr(c->line, "param")) {
             ;
         } else {
             nupa_eval(c);
@@ -633,7 +633,7 @@ doit(struct card *deck, wordlist *modnames) {
 
                             char* curr_line = su_deck->line;
                             float fwmin, fwmax, flmin, flmax;
-                            char *wmin = strstr(curr_line, " wmin=");
+                            char *wmin = cistrstr(curr_line, " wmin=");
                             if (wmin) {
                                 int err;
                                 wmin = wmin + 6;
@@ -649,7 +649,7 @@ doit(struct card *deck, wordlist *modnames) {
                                 su_deck = su_deck->nextcard;
                                 continue;
                             }
-                            char *wmax = strstr(curr_line, " wmax=");
+                            char *wmax = cistrstr(curr_line, " wmax=");
                             if (wmax) {
                                 int err;
                                 wmax = wmax + 6;
@@ -666,7 +666,7 @@ doit(struct card *deck, wordlist *modnames) {
                                 continue;
                             }
 
-                            char* lmin = strstr(curr_line, " lmin=");
+                            char* lmin = cistrstr(curr_line, " lmin=");
                             if (lmin) {
                                 int err;
                                 lmin = lmin + 6;
@@ -682,7 +682,7 @@ doit(struct card *deck, wordlist *modnames) {
                                 su_deck = su_deck->nextcard;
                                 continue;
                             }
-                            char* lmax = strstr(curr_line, " lmax=");
+                            char* lmax = cistrstr(curr_line, " lmax=");
                             if (lmax) {
                                 int err;
                                 lmax = lmax + 6;
@@ -1301,7 +1301,7 @@ translate(struct card *deck, char *formal, int flen, char *actual, char *scname,
                         tfree(name);
                     name = next_name;
                     /* vname requires instance translation of token following */
-                    if (eq(name, "vnam"))
+                    if (eqc(name, "vnam"))
                         got_vnam = TRUE;
                     next_name = MIFgettok(&s);
                     bxx_put_cstring(&buffer, name);
@@ -1384,7 +1384,7 @@ translate(struct card *deck, char *formal, int flen, char *actual, char *scname,
             t = s;
             next_name = gettok_noparens(&t);
             if ((strcmp(next_name, "POLY") == 0) ||
-                (strcmp(next_name, "poly") == 0)) {
+                (cieq(next_name, "poly"))) {
 
 #ifdef TRACE
                 printf("In translate, looking at e, f, g, h found poly\n");
@@ -2171,7 +2171,7 @@ devmodtranslate(struct card *s, char *subname, wordlist * const orig_modnames)
             for (;;) {
                 name = next_name;
                 next_name = gettok(&t);
-                if (!next_name || strstr(next_name, "len")) {
+                if (!next_name || cistrstr(next_name, "len")) {
                     /* if next_name is NULL or len or length, we are at the line end.
                      * name holds the model name.  Therefore, break */
                     break;

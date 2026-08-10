@@ -382,7 +382,7 @@ static int line_contains_icfile(char *buf)
     if (!s) {
         return 0;
     }
-    if (strstr(s, str)) {
+    if (cistrstr(s, str)) {
         tfree(s);
         return 1;
     } else {
@@ -403,7 +403,7 @@ static int is_cider_model(char *buf)
     }
     s = make_lower_case_copy(buf);
     if (!s) return 0;
-    if (strstr(s, "numos") || strstr(s, "numd") || strstr(s, "nbjt")) {
+    if (cistrstr(s, "numos") || cistrstr(s, "numd") || cistrstr(s, "nbjt")) {
         tfree(s);
         return 1;
     } else {
@@ -426,8 +426,8 @@ static int is_xspice_model(char* buf)
     }
     s = make_lower_case_copy(buf);
     if (!s) return 0;
-    if (strstr(s, "filesource") || strstr(s, "table2d") || strstr(s, "table3d") || 
-        strstr(s, "d_state") || strstr(s, "d_source") || strstr(s, "d_process") || strstr(s, "d_cosim")) {
+    if (cistrstr(s, "filesource") || cistrstr(s, "table2d") || cistrstr(s, "table3d") || 
+        cistrstr(s, "d_state") || cistrstr(s, "d_source") || cistrstr(s, "d_process") || cistrstr(s, "d_cosim")) {
         tfree(s);
         return 1;
     }
@@ -962,7 +962,7 @@ void inp_get_w_l_x(struct card* card) {
             continue;
         }
 
-        w = strstr(curr_line, " w=");
+        w = cistrstr(curr_line, " w=");
         if (w) {
             int err;
             w = w + 3;
@@ -977,7 +977,7 @@ void inp_get_w_l_x(struct card* card) {
             continue;
         }
 
-        l = strstr(curr_line, " l=");
+        l = cistrstr(curr_line, " l=");
         if (l) {
             int err;
             l = l + 3;
@@ -991,7 +991,7 @@ void inp_get_w_l_x(struct card* card) {
             card->w = card->l = 0;
             continue;
         }
-        nf = strstr(curr_line, " nf=");
+        nf = cistrstr(curr_line, " nf=");
         if (nf) {
             int err;
             nf = nf + 4;
@@ -1863,7 +1863,7 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
                     char* p;
 
                     p = skip_ws(buffer + 3); // Next word
-                    if (strncmp(p, "sourcepath", 10) == 0 &&
+                    if (cieqn(p, "sourcepath", 10) &&
                         skip_non_ws(p) == p + 10) {
                         p = strchr(buffer, ')');
                         if (p) {
@@ -2396,14 +2396,14 @@ static void inp_fix_gnd_name(struct card *c)
         }
 
         // if there is a subcircuit or no gnd, go to next line
-        if (found_subckt || (!strstr(gnd, "gnd") && !strstr(gnd, "/0")))
+        if (found_subckt || (!cistrstr(gnd, "gnd") && !strstr(gnd, "/0")))
             continue;
 
         // a gnd node will not occur in the first token of the line
         gnd = nexttok(gnd);
 
         // replace "?gnd?" by "? 0 ?", ? being a ' '  ','  '('  ')'.
-        while ((gnd = strstr(gnd, "gnd")) != NULL) {
+        while ((gnd = cistrstr(gnd, "gnd")) != NULL) {
             if ((isspace_c(gnd[-1]) || gnd[-1] == '(' || gnd[-1] == ',') &&
                     (isspace_c(gnd[3]) || gnd[3] == ')' || gnd[3] == ',')) {
                 memcpy(gnd, " 0 ", 3);
@@ -2417,7 +2417,7 @@ static void inp_fix_gnd_name(struct card *c)
             gnd = c->line;
             // a gnd node will not occur in the first token of the line
             gnd = nexttok(gnd);
-            while ((gnd = strstr(gnd, "/gnd")) != NULL) {
+            while ((gnd = cistrstr(gnd, "/gnd")) != NULL) {
                 if ((isspace_c(gnd[-1]) || gnd[-1] == '(' || gnd[-1] == ',') &&
                         (isspace_c(gnd[4]) || gnd[4] == ')' || gnd[4] == ',')) {
                     memcpy(gnd, "  0 ", 4);
@@ -2464,10 +2464,10 @@ static int inp_chk_for_multi_in_vcvs(struct card *c, int *line_number)
     char *fcn_b, *line;
 
     line = c->line;
-    if (((fcn_b = strstr(line, "nand(")) != NULL ||
-         (fcn_b = strstr(line, "and(")) != NULL ||
-         (fcn_b = strstr(line, "nor(")) != NULL ||
-         (fcn_b = strstr(line, "or(")) != NULL) &&
+    if (((fcn_b = cistrstr(line, "nand(")) != NULL ||
+         (fcn_b = cistrstr(line, "and(")) != NULL ||
+         (fcn_b = cistrstr(line, "nor(")) != NULL ||
+         (fcn_b = cistrstr(line, "or(")) != NULL) &&
         isspace_c(fcn_b[-1])) {
 #ifndef XSPICE
         fprintf(stderr,
@@ -2619,7 +2619,7 @@ static void replace_freq(struct card *c, int *line_number)
     e_e = skip_non_ws(e);
     n1 = skip_ws(e_e);
     n1_e = skip_non_ws(n1);
-    freq = strstr(n1_e, "freq");
+    freq = cistrstr(n1_e, "freq");
     if (!freq || !isspace_c(freq[-1]) || !isspace_c(freq[4]))
         return;
     n2 = skip_ws(n1_e);
@@ -2694,19 +2694,19 @@ static void replace_freq(struct card *c, int *line_number)
         /* Parse the format keyword, if any. */
 
         got_key = 0;
-        if (!strcmp(key, "mag")) {
+        if (cieq(key, "mag")) {
             db = 0;
             got_key = 1;
-        } else if (!strcmp(key, "db")) {
+        } else if (cieq(key, "db")) {
             db = 1;
             got_key = 1;
-        } else if (!strcmp(key, "rad")) {
+        } else if (cieq(key, "rad")) {
             rad = 1;
             got_key = 1;
-        } else if (!strcmp(key, "deg")) {
+        } else if (cieq(key, "deg")) {
             rad = 0;
             got_key = 1;
-        } else if (!strcmp(key, "r_i")) {
+        } else if (cieq(key, "r_i")) {
             ri = 1;
             got_key = 1;
         }
@@ -3519,7 +3519,7 @@ void inp_casefix(char *string)
         /* Special treatment of code model file input. */
 
         if (ciprefix(".model", string))
-            tmpstr = strstr(string, "file=\"");
+            tmpstr = cistrstr(string, "file=\"");
 
 #endif
         /* Allow string params */
@@ -3753,7 +3753,7 @@ static char *inp_fix_subckt(struct names *subckt_w_params, char *s)
 
     equal = strchr(s, '=');
     if (equal) {
-        char* paramstr = strstr(s, "params:");
+        char* paramstr = cistrstr(s, "params:");
         if (!paramstr || !isspace_c(paramstr[-1])) {
 
             /* get subckt name (ptr1 will point to name) */
@@ -3925,7 +3925,7 @@ static void inp_fix_for_numparam(
         if ((!newcompat.hs && !newcompat.s3) || c->compmod > 0)
             if (ciprefix(".subckt", c->line) || ciprefix("x", c->line)) {
                 /* remove params: */
-                char *str_ptr = strstr(c->line, "params:");
+                char *str_ptr = cistrstr(c->line, "params:");
                 if (str_ptr && isspace_c(str_ptr[-1]))
                     memcpy(str_ptr, "       ", 7);
             }
@@ -4227,7 +4227,7 @@ static bool found_mult_param(int num_params, char *param_names[])
     int i;
 
     for (i = 0; i < num_params; i++)
-        if (strcmp(param_names[i], "m") == 0)
+        if (cieq(param_names[i], "m"))
             return TRUE;
 
     return FALSE;
@@ -4250,7 +4250,7 @@ static int inp_fix_subckt_multiplier(struct names *subckt_w_params,
     subckt_param_values[num_subckt_params] = copy("1");
     num_subckt_params++;
 
-    s = strstr(subckt_card->line, "params:");
+    s = cistrstr(subckt_card->line, "params:");
     if (!s || !isspace_c(s[-1])) {
         new_str = tprintf("%s params: m=1", subckt_card->line);
         add_name(subckt_w_params, get_subckt_model_name(subckt_card->line));
@@ -4286,7 +4286,7 @@ static int inp_fix_subckt_multiplier(struct names *subckt_w_params,
         }
         if (newcompat.hs && card->compmod == 0) {
             /* if there is already an m=xx in the instance line, multiply it with the new m */
-            char* mult = strstr(curr_line, " m=");
+            char* mult = cistrstr(curr_line, " m=");
             if (mult) {
                 char* beg = copy_substring(curr_line, mult);
                 mult = mult + 3;
@@ -4995,14 +4995,14 @@ static void inp_fix_param_values(struct card *c)
 
         /* exclude CIDER models */
         if (ciprefix(".model", line) &&
-                (strstr(line, "numos") || strstr(line, "numd") ||
-                        strstr(line, "nbjt") || strstr(line, "nbjt2") ||
-                        strstr(line, "numd2"))) {
+                (cistrstr(line, "numos") || cistrstr(line, "numd") ||
+                        cistrstr(line, "nbjt") || cistrstr(line, "nbjt2") ||
+                        cistrstr(line, "numd2"))) {
             continue;
         }
 
         /* exclude CIDER devices with ic.file parameter */
-        if (strstr(line, "ic.file"))
+        if (cistrstr(line, "ic.file"))
             continue;
 
         while ((equal_ptr = find_assignment(line)) != NULL) {
@@ -5617,7 +5617,7 @@ static void inp_add_params_to_subckt(
         param_ptr = strchr(curr_line, ' ');
         param_ptr = skip_ws(param_ptr);
 
-        if (!strstr(subckt_line, "params:")) {
+        if (!cistrstr(subckt_line, "params:")) {
             new_line = tprintf("%s params: %s", subckt_line, param_ptr);
 
             subckt_name = skip_token(subckt_line);
@@ -5880,13 +5880,13 @@ static bool b_transformation_wanted(const char *p)
     for (p = start; (p = strpbrk(p, "vith")) != NULL; p++) {
         if (p > start && identifier_char(p[-1]))
             continue;
-        if (strncmp(p, "v(", 2) == 0 || strncmp(p, "i(", 2) == 0)
+        if (cieqn(p, "v(", 2) || cieqn(p, "i(", 2))
             return TRUE;
-        if (strncmp(p, "temper", 6) == 0 && !identifier_char(p[6]))
+        if (cieqn(p, "temper", 6) && !identifier_char(p[6]))
             return TRUE;
-        if (strncmp(p, "hertz", 5) == 0 && !identifier_char(p[5]))
+        if (cieqn(p, "hertz", 5) && !identifier_char(p[5]))
             return TRUE;
-        if (strncmp(p, "time", 4) == 0 && !identifier_char(p[4]))
+        if (cieqn(p, "time", 4) && !identifier_char(p[4]))
             return TRUE;
     }
 
@@ -5978,7 +5978,7 @@ static char* eval_tc(char* line, char *tline) {
     double tc1, tc2;
     char *str_ptr, *tc1_ptr, *tc2_ptr, *tc1_str = NULL, *tc2_str = NULL;
     char* cut_line = line;
-    str_ptr = strstr(cut_line, "tc1=");
+    str_ptr = cistrstr(cut_line, "tc1=");
     if (str_ptr) {
         /* We need to have 'tc1=something */
         if (str_ptr[4]) {
@@ -6010,7 +6010,7 @@ static char* eval_tc(char* line, char *tline) {
         tc1_str = copy(" ");
     }
     cut_line = line;
-    str_ptr = strstr(cut_line, "tc2=");
+    str_ptr = cistrstr(cut_line, "tc2=");
     if (str_ptr) {
         /* We need to have 'tc2=something */
         if (str_ptr[4]) {
@@ -6055,7 +6055,7 @@ static char* eval_m(char* line, char* tline) {
     double m;
     char* str_ptr, * m_ptr, * m_str = NULL;
     char* cut_line = line;
-    str_ptr = strstr(cut_line, " m=");
+    str_ptr = cistrstr(cut_line, " m=");
     if (str_ptr) {
         /* We need to have 'm=something */
         if (str_ptr[3]) {
@@ -6097,7 +6097,7 @@ static char* eval_mvalue(char* line, char* tline) {
     double m;
     char* str_ptr, * m_ptr, * m_str = NULL;
     char* cut_line = line;
-    str_ptr = strstr(cut_line, " m=");
+    str_ptr = cistrstr(cut_line, " m=");
     if (str_ptr) {
         /* We need to have 'm=something */
         if (str_ptr[3]) {
@@ -6472,7 +6472,7 @@ static void inp_compat(struct card *card)
             */
             /* search for ' vol=' or ' vol =' */
             if (((str_ptr = strchr(curr_line, '=')) != NULL) &&
-                    prefix("vol",
+                    ciprefix("vol",
                             skip_back_non_ws(skip_back_ws(str_ptr, curr_line),
                                     curr_line))) {
                 cut_line = curr_line;
@@ -6562,7 +6562,7 @@ static void inp_compat(struct card *card)
                 // or
                 // Gxxx  n1 n2 int1 0 m='expr'
                 /* find multiplier m at end of line */
-                m_ptr = strstr(cut_line, "m=");
+                m_ptr = cistrstr(cut_line, "m=");
                 if (m_ptr) {
                     m_token = copy(m_ptr + 2); // get only the expression
                     *m_ptr = '\0';
@@ -6702,7 +6702,7 @@ static void inp_compat(struct card *card)
             */
             /* search for ' cur=' or ' cur =' */
             if (((str_ptr = strchr(curr_line, '=')) != NULL) &&
-                    prefix("cur",
+                    ciprefix("cur",
                             skip_back_non_ws(skip_back_ws(str_ptr, curr_line),
                                     curr_line))) {
                 char *m_ptr, *m_token;
@@ -6719,7 +6719,7 @@ static void inp_compat(struct card *card)
                     controlled_exit(EXIT_FAILURE);
                 }
                 /* find multiplier m at end of line */
-                m_ptr = strstr(cut_line, "m=");
+                m_ptr = cistrstr(cut_line, "m=");
                 if (m_ptr) {
                     m_token = copy(m_ptr + 2); // get only the expression
                     *m_ptr = '\0';
@@ -6884,9 +6884,9 @@ static void inp_compat(struct card *card)
             /* if variable enable_noisy_r is set */
             bool rnoise = cp_getvar("enable_noisy_r", CP_BOOL, NULL, 0);
             /* if instance parameter noisy=1 (or noise=1) is set */
-            if (strstr(cut_line, "noisy=1") || strstr(cut_line, "noise=1"))
+            if (cistrstr(cut_line, "noisy=1") || cistrstr(cut_line, "noise=1"))
                 rnoise = TRUE;
-            else if (strstr(cut_line, "noisy=0") || strstr(cut_line, "noise=0"))
+            else if (cistrstr(cut_line, "noisy=0") || cistrstr(cut_line, "noise=0"))
                 rnoise = FALSE;
 
             /* tc1, tc2, and m are enabled */
@@ -6937,7 +6937,7 @@ static void inp_compat(struct card *card)
             node2 = gettok(&cut_line);
             /* check only after skipping Cname and nodes, either may contain
              * time (e.g. Ctime) - for charge formula transformation in any case */
-            if ((!strstr(curr_line, "q=")) && (!b_transformation_wanted(cut_line))) {
+            if ((!cistrstr(curr_line, "q=")) && (!b_transformation_wanted(cut_line))) {
                 tfree(title_tok);
                 tfree(node1);
                 tfree(node2);
@@ -6960,7 +6960,7 @@ static void inp_compat(struct card *card)
             /* evaluate m */
             char* mstr = eval_mvalue(cut_line, card->line);
 
-            if (strstr(curr_line, "q=")) { /* charge formulation */
+            if (cistrstr(curr_line, "q=")) { /* charge formulation */
                 // Gxxx  n1 n2 n-aux 0  1
                 ckt_array[0] = tprintf("g%s %s %s %s_int1 0 %s",
                     title_tok, node1, node2, title_tok, mstr);
@@ -7132,7 +7132,7 @@ static void inp_compat(struct card *card)
         */
         else if (*curr_line == '.') {
             // replace .probe by .save
-            if ((str_ptr = strstr(curr_line, ".probe")) != NULL)
+            if ((str_ptr = cistrstr(curr_line, ".probe")) != NULL)
                 memcpy(str_ptr, ".save ", 6);
 
             /* Various formats for measure statement:
@@ -7181,11 +7181,11 @@ static void inp_compat(struct card *card)
 
              * ------------------------------------------------------------ */
             if (ciprefix(".meas", curr_line)) {
-                if (strstr(curr_line, "par(") == NULL)
+                if (cistrstr(curr_line, "par(") == NULL)
                     continue;
                 cut_line = curr_line;
                 // search for 'par('
-                while ((str_ptr = strstr(cut_line, "par(")) != NULL) {
+                while ((str_ptr = cistrstr(cut_line, "par(")) != NULL) {
                     if (pai > 99) {
                         fprintf(stderr,
                                 "ERROR: More than 99 function calls to "
@@ -7281,11 +7281,11 @@ static void inp_compat(struct card *card)
                     (ciprefix(".four", curr_line)) ||
                     (ciprefix(".print", curr_line)) ||
                     (ciprefix(".plot", curr_line))) {
-                if (strstr(curr_line, "par(") == NULL)
+                if (cistrstr(curr_line, "par(") == NULL)
                     continue;
                 cut_line = curr_line;
                 // search for 'par('
-                while ((str_ptr = strstr(cut_line, "par(")) != NULL) {
+                while ((str_ptr = cistrstr(cut_line, "par(")) != NULL) {
                     if (pai > 99) {
                         fprintf(stderr,
                                 "ERROR: More than 99 function calls to "
@@ -7390,7 +7390,7 @@ static void replace_token(
     char *actstring = string;
 
     /* token to be replaced not in string */
-    if (strstr(string, token) == NULL)
+    if (cistrstr(string, token) == NULL)
         return;
 
     /* get total number of tokens */
@@ -7451,7 +7451,7 @@ static void inp_bsource_compat(struct card *card)
             card->line = inp_remove_ws(card->line);
             curr_line = card->line;
             /* exclude special pwl lines */
-            if (strstr(curr_line, "=pwl("))
+            if (cistrstr(curr_line, "=pwl("))
                 continue;
             /* store starting point for later parsing, beginning of
              * {expression} */
@@ -7515,10 +7515,10 @@ static bool inp_temper_compat(struct card *card)
         if (strchr("*vbiegfhVBIEGFH", curr_line[0]))
             continue;
         /* exclude all dot commands except .model */
-        if (curr_line[0] == '.' && !prefix(".model", curr_line))
+        if (curr_line[0] == '.' && !ciprefix(".model", curr_line))
             continue;
         /* exclude lines not containing 'temper' */
-        if (!strstr(curr_line, "temper"))
+        if (!cistrstr(curr_line, "temper"))
             continue;
         /* now start processing of the remaining lines containing 'temper' */
         /* remove white spaces of everything inside {}*/
@@ -7776,8 +7776,8 @@ static void inp_add_series_resistor(struct card *deck)
 
     for (card = deck; card; card = card->nextcard) {
         char *curr_line = card->line;
-        if (*curr_line != '*' && strstr(curr_line, "option")) {
-            char *t = strstr(curr_line, "rseries");
+        if (*curr_line != '*' && cistrstr(curr_line, "option")) {
+            char *t = cistrstr(curr_line, "rseries");
             if (t) {
                 tfree(rval);
 
@@ -7860,7 +7860,7 @@ static void subckt_params_to_param(struct card *card)
         char *curr_line = card->line;
         if (ciprefix(".subckt", curr_line)) {
             char *cut_line, *new_line;
-            cut_line = strstr(curr_line, "params:");
+            cut_line = cistrstr(curr_line, "params:");
             if (!cut_line)
                 continue;
             /* new_line starts with "params: " */
@@ -8224,7 +8224,7 @@ static void inp_fix_temper_in_param(struct card *deck)
             new_str = inp_remove_ws(new_str);
 
             /* if we have inserted into a .param line, convert to .func */
-            if (prefix(".para", new_str)) {
+            if (ciprefix(".para", new_str)) {
                 char *new_tmp_str = new_str;
                 new_tmp_str = nexttok(new_tmp_str);
                 funcname = gettok_char(&new_tmp_str, '=', FALSE, FALSE);
@@ -8679,7 +8679,7 @@ static int inp_vdmos_model(struct card *deck)
         if (ciprefix(".model", curr_line)) {
             cut_line = skip_token(curr_line);
             cut_line = skip_token(cut_line);
-            if (!strncmp(cut_line, "vdmos", 5)) {
+            if (cieqn(cut_line, "vdmos", 5)) {
                 /* A VDMOS model line, may be vdmosn or vdmosp if re-input. */
 
                 wl_append_word(&wl, &wl, copy_substring(curr_line, cut_line));
@@ -8743,7 +8743,7 @@ static int inp_vdmos_model(struct card *deck)
          */
         int i;
         char *curr_line = card->line;
-        if (curr_line[0] == 'm' && strstr(curr_line, "thermal")) {
+        if (curr_line[0] == 'm' && cistrstr(curr_line, "thermal")) {
             /* move to model name */
             for (i = 0; i < 6; i++)
                 curr_line = nexttok(curr_line);
@@ -8869,13 +8869,13 @@ static void inp_meas_current(struct card *deck)
                 continue;
         }
 
-        if (!strstr(curr_line, "i("))
+        if (!cistrstr(curr_line, "i("))
             continue;
 
         s = v = w = stripWhiteSpacesInsideParens(curr_line);
         while (s) {
             /* i( may occur more than once in a line */
-            s = u = strstr(s, "i(");
+            s = u = cistrstr(s, "i(");
             /* we have found it, but not (in error) at the beginning of the
              * line */
             if (s && s > v) {
@@ -8984,7 +8984,7 @@ static void inp_meas_current(struct card *deck)
                where i(xyz) has been found */
             tok = gettok(&curr_line);
             /* done when end of subcircuit is reached */
-            if (eq(".ends", tok) && rep->s_start) {
+            if (eqc(".ends", tok) && rep->s_start) {
                 tfree(tok);
                 break;
             }
@@ -9139,7 +9139,7 @@ static void inp_check_syntax(struct card *deck)
         else if (ciprefix(".subckt", cut_line)) {
             // warn if m=xx on .subckt line
             if (newcompat.hs && !mwarn) {
-                if (strstr(cut_line, " m=") || strstr(cut_line, " m =")) {
+                if (cistrstr(cut_line, " m=") || cistrstr(cut_line, " m =")) {
                     fprintf(stderr, "Warning: m=xx on .subckt line will override multiplier m hierarchy!\n\n");
                     mwarn = TRUE;
                 }
@@ -9805,7 +9805,7 @@ static void inp_repair_dc_ps(struct card* deck) {
     for (card = deck; card; card = card->nextcard) {
         char* curr_line = card->line;
         if (ciprefix(".dc", curr_line)) {
-            char* tempstr = strstr(curr_line, "(temper)");
+            char* tempstr = cistrstr(curr_line, "(temper)");
             if (tempstr) {
                 memcpy(tempstr, "temp    ", 8);
             }

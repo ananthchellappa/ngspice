@@ -101,9 +101,9 @@ com_resume(wordlist *wl)
         dofile = TRUE;
 
     if (cp_getvar("filetype", CP_STRING, buf, sizeof(buf))) {
-        if (eq(buf, "binary"))
+        if (eqc(buf, "binary"))
             ascii = FALSE;
-        else if (eq(buf, "ascii"))
+        else if (eqc(buf, "ascii"))
             ascii = TRUE;
         else
             fprintf(cp_err,

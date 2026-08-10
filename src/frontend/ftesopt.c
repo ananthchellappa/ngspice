@@ -38,7 +38,7 @@ ft_getstat(struct circ *ci, char *name)
 
     if (name) {
         for (i = 0; i < FTEOPTcount; i++)
-            if (eq(name, FTEOPTtbl[i].keyword))
+            if (eqc(name, FTEOPTtbl[i].keyword))
                 return getFTEstat(FTEOPTtbl + i, ci->FTEstats, NULL);
         return (NULL);
     } else {

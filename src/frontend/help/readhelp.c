@@ -323,7 +323,7 @@ findsubject(char *filename, char *subject)
 
     /* try it within */ /* FIXME: need a case independent version of strstr() */
     while(fread(&indexitem, sizeof (struct hlp_index), 1, fp)) {
-        if (strstr(indexitem.subject,subject)) {
+        if (cistrstr(indexitem.subject,subject)) {
             fclose(fp);
             return (indexitem.fpos);
         }

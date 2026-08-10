@@ -16,7 +16,7 @@ void com_help(wordlist *wl)
 
     /* Make empty list and "all" behave the same except for the part
      * related to "help all" */
-    if (wl && eq(wl->wl_word, "all")) {
+    if (wl && eqc(wl->wl_word, "all")) {
         allflag = TRUE;
         wl = (wordlist *) NULL;
     }
@@ -82,7 +82,7 @@ void com_help(wordlist *wl)
         while (wl != NULL) {
             struct comm *c;
             for (c = &cp_coms[0]; c->co_comname != NULL; c++) {
-                if (eq(wl->wl_word, c->co_comname)) {
+                if (eqc(wl->wl_word, c->co_comname)) {
                     out_printf("%s ", c->co_comname);
                     out_printf(c->co_help, cp_program);
                     if (c->co_spiceonly && ft_nutmeg)

@@ -86,7 +86,7 @@ cp_doalias(wordlist *wlist)
             wordlist *nwl = asubst(comm);
             if (nwl == NULL)
                 break;
-            if (eq(nwl->wl_word, comm->wl_word)) {
+            if (eqc(nwl->wl_word, comm->wl_word)) {
                 /* Just once through... */
                 wl_free(comm);
                 comm = nwl;

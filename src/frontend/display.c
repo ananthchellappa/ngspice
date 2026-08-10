@@ -150,7 +150,7 @@ FindDev(char *name)
     size_t i;
 
     for (i = 0; i < NUMELEMS(device); i++)
-        if (strcmp(name, device[i].name) == 0)
+        if (cieq(name, device[i].name))
             return (device + i);
 
     sprintf(ErrorMessage, "Can't find device %s.", name);

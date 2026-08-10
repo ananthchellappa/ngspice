@@ -531,7 +531,7 @@ com_history(wordlist *wl)
 {
     bool rev = FALSE;
 
-    if (wl && eq(wl->wl_word, "-r")) {
+    if (wl && eqc(wl->wl_word, "-r")) {
         wl = wl->wl_next;
         rev = TRUE;
     }

@@ -157,7 +157,7 @@ com_listing(wordlist *wl)
     if (ft_curckt) {  /* if there is a current circuit . . . .  */
         while (wl) {
             s = wl->wl_word;
-            if (strcmp(s, "param") == 0) {
+            if (cieq(s, "param")) {
                 do_param_listing = TRUE;
             } else {
                 switch (*s) {
@@ -436,9 +436,9 @@ eval_opt(struct card* deck)
     for (card = deck; card; card = card->nextcard) {
         char* line = card->line;
 
-        if (strstr(line, "seedinfo"))
+        if (cistrstr(line, "seedinfo"))
             setseedinfo();
-        char* begtok = strstr(line, "seed=");
+        char* begtok = cistrstr(line, "seed=");
         if (begtok)
             begtok = &begtok[5]; /*skip seed=*/
         if (begtok) {
@@ -446,7 +446,7 @@ eval_opt(struct card* deck)
                 fprintf(cp_err, "Warning: Multiple 'option seed=val|random' found!\n");
             char* token = gettok(&begtok);
             /* option seed=random [seed='random'] */
-            if (eq(token, "random") || eq(token, "{random}")) {
+            if (eqc(token, "random") || eqc(token, "{random}")) {
                 struct timeval tv;
                 gettimeofday(&tv, NULL);
                 /* get random value from current timestamp microseconds */
@@ -469,7 +469,7 @@ eval_opt(struct card* deck)
             tfree(token);
         }
 
-        begtok = strstr(line, "cshunt=");
+        begtok = cistrstr(line, "cshunt=");
         if (begtok)
             begtok = &begtok[7]; /*skip cshunt=*/
         if (begtok) {
@@ -813,21 +813,21 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
                 /* lines .op, .meas, .tf added to wl_first */
                 inp_casefix(s); /* s: first token from line */
                 /* Do not eliminate " around netnames, to allow '/' or '-' in netnames */
-                if (!eq(s, ".plot") && !eq(s, ".print"))
+                if (!eqc(s, ".plot") && !eqc(s, ".print"))
                     inp_casefix(dd->line);
-                if (eq(s, ".width") ||
+                if (eqc(s, ".width") ||
                         ciprefix(".four", s) ||
-                        eq(s, ".plot") ||
-                        eq(s, ".print") ||
+                        eqc(s, ".plot") ||
+                        eqc(s, ".print") ||
 /*                        eq(s, ".save") || add .save only after subcircuit expansion */
-                        eq(s, ".sndprint") ||
-                        eq(s, ".sndparam") ||
-                        eq(s, ".op") ||
+                        eqc(s, ".sndprint") ||
+                        eqc(s, ".sndparam") ||
+                        eqc(s, ".op") ||
                         ciprefix(".meas", s) ||
-                        eq(s, ".tf")) {
+                        eqc(s, ".tf")) {
                     wl_append_word(&wl_first, &end, copy(dd->line));
 
-                    if (!eq(s, ".op") && !eq(s, ".tf") && !ciprefix(".meas", s)) {
+                    if (!eqc(s, ".op") && !eqc(s, ".tf") && !ciprefix(".meas", s)) {
                         ld->nextcard = dd->nextcard;
                         line_free(dd, FALSE);
                     } else {
@@ -875,7 +875,7 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
                 double dscale = 1;
                 /* from options in a script */
                 for (scan = com_options; scan; scan = scan->nextcard) {
-                    char* tmpscale = strstr(scan->line, "scale=");
+                    char* tmpscale = cistrstr(scan->line, "scale=");
                     if (tmpscale) {
                         int err;
                         tmpscale = tmpscale + 6;
@@ -887,7 +887,7 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
                         else
                             fprintf(stderr, "\nError: Could not set 'scale' variable\n");
                     }
-                    tmpscale = strstr(scan->line, "scalm=");
+                    tmpscale = cistrstr(scan->line, "scalm=");
                     if (tmpscale) {
                         int err;
                         tmpscale = tmpscale + 6;
@@ -902,7 +902,7 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
                 }
                 /* from .options (will override the previous settings) */
                 for (scan = options; scan; scan = scan->nextcard) {
-                    char* tmpscale = strstr(scan->line, "scale=");
+                    char* tmpscale = cistrstr(scan->line, "scale=");
                     if (tmpscale) {
                         int err;
                         tmpscale = tmpscale + 6;
@@ -914,7 +914,7 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
                         else
                             fprintf(stderr, "\nError: Could not set 'scale' variable\n");
                     }
-                    tmpscale = strstr(scan->line, "scalm=");
+                    tmpscale = cistrstr(scan->line, "scalm=");
                     if (tmpscale) {
                         int err;
                         tmpscale = tmpscale + 6;
@@ -1140,11 +1140,11 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             /* remove the .measure cards from the deckand store them in ft_curckt->ci_meas */
             if (ciprefix(".meas", dd->line)) {
                 if (cp_getvar("autostop", CP_BOOL, NULL, 0)) {
-                    if (strstr(dd->line, " max ") ||
-                        strstr(dd->line, " min ") ||
-                        strstr(dd->line, " avg ") ||
-                        strstr(dd->line, " rms ") ||
-                        strstr(dd->line, " integ "))
+                    if (cistrstr(dd->line, " max ") ||
+                        cistrstr(dd->line, " min ") ||
+                        cistrstr(dd->line, " avg ") ||
+                        cistrstr(dd->line, " rms ") ||
+                        cistrstr(dd->line, " integ "))
                     {
                         fprintf(stderr, "Warning: .OPTION AUTOSTOP will not be effective because one of 'max|min|avg|rms|integ' is used in .meas\n");
                         fprintf(stderr, "         AUTOSTOP being disabled...\n");
@@ -1484,7 +1484,7 @@ inp_dodeck(
                     *q = '\0';
 
                 if (p == dd->error) {
-                    if (strstr(dd->line, ".model"))
+                    if (cistrstr(dd->line, ".model"))
                         if (dd->linenum_orig == 0) { /* new line, e.g. in subcircuit */
                             fprintf(stderr, "Warning: Model issue on line:\n  %.*s ...\n%s\n",
                                 72, dd->line, dd->error);
@@ -1803,7 +1803,7 @@ com_alterparam(wordlist *wl)
                 char *sname = gettok(&curr_line);
                 if (eq(sname, subcktname)) {
                     tfree(sname);
-                    curr_line = strstr(curr_line, "params:");
+                    curr_line = cistrstr(curr_line, "params:");
                     curr_line = skip_non_ws(curr_line); /* skip params: */
                     /* string to search for */
                     char *pname_eq = tprintf("%s=", pname);
@@ -2259,13 +2259,13 @@ static int inp_parse_temper(struct card *card, struct pt_temper **modtlist_p,
         if (strchr("*vbiegfh", curr_line[0]))
             continue;
         /* exclude all dot commands except .model */
-        if (curr_line[0] == '.' && !prefix(".model", curr_line))
+        if (curr_line[0] == '.' && !ciprefix(".model", curr_line))
             continue;
         /* exclude lines not containing 'temper' */
-        if (!strstr(curr_line, "temper"))
+        if (!cistrstr(curr_line, "temper"))
             continue;
 
-        bool is_model = prefix(".model", curr_line);
+        bool is_model = ciprefix(".model", curr_line);
 
         /* skip ".model" */
         if (is_model)
@@ -2419,7 +2419,7 @@ inp_savecurrents(struct card *deck, struct card *options, wordlist *wl, wordlist
 
     /* check if option 'savecurrents' is set */
     for (; options; options = options->nextcard)
-        if (strstr(options->line, "savecurrents"))
+        if (cistrstr(options->line, "savecurrents"))
             break;
 
     if (!options)
@@ -2427,13 +2427,13 @@ inp_savecurrents(struct card *deck, struct card *options, wordlist *wl, wordlist
 
     /* search for 'save' command in the .control section */
     for (p = controls; p; p = p->wl_next)
-        if(prefix("save", p->wl_word))
+        if(ciprefix("save", p->wl_word))
             break;
 
     /* search for '.save' in the 'wl' list */
     if (!p)
         for (p = wl; p; p = p->wl_next)
-            if(prefix(".save", p->wl_word))
+            if(ciprefix(".save", p->wl_word))
                 break;
 
     /* if not found, then add '.save all' */
@@ -2454,13 +2454,13 @@ inp_savecurrents(struct card *deck, struct card *options, wordlist *wl, wordlist
         switch (devline[0]) {
         case 'm':
             devname = gettok(&devline);
-            if (strstr(options->line, "savecurrents_bsim3"))
+            if (cistrstr(options->line, "savecurrents_bsim3"))
                 newline = tprintf(".save @%s[id] @%s[ibd] @%s[ibs]",
                               devname, devname, devname);
-            else if (strstr(options->line, "savecurrents_bsim4"))
+            else if (cistrstr(options->line, "savecurrents_bsim4"))
                 newline = tprintf(".save @%s[id] @%s[ibd] @%s[ibs] @%s[isub] @%s[igidl] @%s[igisl] @%s[igs] @%s[igb] @%s[igd] @%s[igcs] @%s[igcd]",
                               devname, devname, devname, devname, devname, devname, devname, devname, devname, devname, devname);
-            else if (strstr(options->line, "savecurrents_mos1"))
+            else if (cistrstr(options->line, "savecurrents_mos1"))
                 newline = tprintf(".save @%s[id] @%s[is] @%s[ig] @%s[ib] @%s[ibd] @%s[ibs]",
                               devname, devname, devname, devname, devname, devname);
             else
