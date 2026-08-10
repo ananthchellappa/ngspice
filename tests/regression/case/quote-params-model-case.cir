@@ -1,0 +1,25 @@
+* upper case M instance whose model name is also a .param name
+* inp_quote_params() (src/frontend/inpcom.c) adds one to the
+* get_number_terminals() result for the device letters whose next token is a
+* model name, a controlling source name or a subcircuit name, so the brace
+* quoting scan starts past that token.  The scan set was spelled
+* strchr("fhmouydqjzswx", *curr_line), lower case only, and under
+* casemode=preserve an upper case 'M' missed it.  The scan then started one
+* token early and rewrote the model name to {nmod}:
+*   Error on line 7 or its substitute:
+*   Error: incomplete or empty netlist
+* doc/codex/issues/0017.  The card carries no 'off'/'=' token, so its
+* terminal count is not touched by doc/codex/issues/0013 and this failure is
+* independent of that fix.
+.OPTIONS noacct
+.param nmod=7
+V1 1 0 dc 5
+V2 3 0 dc 5
+R1 1 2 10k
+M1 2 3 0 0 nmod
+.model nmod nmos level=1 vto=1 kp=2e-5
+.control
+op
+print v(2)
+.endc
+.end

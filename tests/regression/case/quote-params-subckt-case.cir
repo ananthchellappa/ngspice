@@ -1,0 +1,22 @@
+* upper case X instance whose subcircuit name is also a .param name
+* The 'x' arm of inp_quote_params()'s scan set, the twin of
+* quote-params-model-case.cir.  This one is the card doc/codex/issues/0013
+* re-aimed: before that fix search_plain_identifier(inst, "params:") missed
+* 'PARAMS:', so get_number_terminals() counted one terminal too many and the
+* extra terminal cancelled the missing +1 exactly.  With the keyword fold the
+* count is correct and the missing +1 becomes reachable:
+*   Error: unknown subckt: X1 1 2 {divider} rtop=1k
+* doc/codex/issues/0017.
+.OPTIONS noacct
+.param divider=7
+V1 1 0 dc 4
+X1 1 2 divider PARAMS: rtop=1k
+.subckt divider a b rtop=2k
+Ra a b {rtop}
+Rb b 0 3k
+.ends
+.control
+op
+print v(2)
+.endc
+.end

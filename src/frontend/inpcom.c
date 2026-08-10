@@ -8732,7 +8732,7 @@ static void inp_quote_params(struct card *c, struct card *end_c,
         /* There are devices that should not get quotes around token directly
            following the terminals. These may be model names, control voltages
            or subckt names. See bugs 384, 730 or Skywater issue 327 */
-        if (strchr("fhmouydqjzswx", *curr_line))
+        if (strchr("fhmouydqjzswx", elem_letter(curr_line)))
             num_terminals++;
 
         for (i = 0; i < num_params; i++) {
