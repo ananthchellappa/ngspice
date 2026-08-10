@@ -118,7 +118,7 @@ com_compose(wordlist *wl)
     vec_remove(resname);
     wl = wl->wl_next;
 
-    if (eq(wl->wl_word, "values")) {
+    if (eqc(wl->wl_word, "values")) {
         /* Build up the vector from the rest of the line... */
         wl = wl->wl_next;
 
@@ -226,7 +226,7 @@ com_compose(wordlist *wl)
         }
 
         length *= blocksize;
-    } else if (eq(wl->wl_word, "device") && resname[0] == '@') {
+    } else if (eqc(wl->wl_word, "device") && resname[0] == '@') {
         /* Make vector(s) from device parameters; also works with models. */
 
         result = vec_get(resname);
@@ -257,7 +257,7 @@ com_compose(wordlist *wl)
         }
         goto done;
 #ifdef XSPICE
-    } else if (eq(wl->wl_word, "xspice")) {
+    } else if (eqc(wl->wl_word, "xspice")) {
         /* Make vectors from an event node. */
 
         result = EVTfindvec(resname);

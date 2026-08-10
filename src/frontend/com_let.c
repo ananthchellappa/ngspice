@@ -90,7 +90,7 @@ void com_let(wordlist *wl)
     }
 
     /* Sanity check */
-    if (eq(vec_name, "all") || strchr(vec_name, '@') ||
+    if (eqc(vec_name, "all") || strchr(vec_name, '@') ||
         *vec_name == '\0' || isdigit_c(*vec_name)) {
         fprintf(cp_err, "Error: bad variable name \"%s\"\n", vec_name);
         goto quit;
@@ -169,7 +169,7 @@ void com_let(wordlist *wl)
     }
     /* KiCad special vectors: set "" around node name inside of vector
        v(/out1) -> v("/out1") */
-    else if (strstr(rhs, "v(/")) {
+    else if (cistrstr(rhs, "v(/")) {
         char *rhs2 = kivec(rhs);
         if (rhs2) {
             if ((names = ft_getpnames_from_string(
@@ -866,14 +866,14 @@ static char* kivec(char* rhs) {
     size_t ii = 0;
 
     /* How many "v(/" do we have in the line? */
-    while ((str1 = strstr(cont, "v(/"))) {
+    while ((str1 = cistrstr(cont, "v(/"))) {
         ii++;
         cont = str1 + 1;
     }
 
     cont = rhs;
 
-    while ((str1 = strstr(cont, "v(/"))) {
+    while ((str1 = cistrstr(cont, "v(/"))) {
         str2 = strchr(str1, ')');
         if (str2) {
             rhslen = rhslen + 2 * ii + 1;

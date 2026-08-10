@@ -234,7 +234,7 @@ com_diff(wordlist *wl)
                     v2->v_name, p2->pl_typename, p1->pl_typename);
 
     /* Throw out the ones that aren't in the arg list */
-    if (wl && !eq(wl->wl_word, "all")) {    /* Just in case */
+    if (wl && !eqc(wl->wl_word, "all")) {    /* Just in case */
         for (v1 = p1->pl_dvecs; v1; v1 = v1->v_next)
             if (v1->v_link2) {
                 for (tw = wl; tw; tw = tw->wl_next)

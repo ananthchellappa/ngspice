@@ -57,7 +57,7 @@ com_setscale(wordlist *wl)
 
     wl = wl->wl_next;
     if (wl) {
-        if (!strcmp(wl->wl_word, "none")) {
+        if (cieq(wl->wl_word, "none")) {
             d->v_scale = NULL;
             return;
         }

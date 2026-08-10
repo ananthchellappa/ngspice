@@ -102,7 +102,7 @@ struct pnode* ft_getpnames_quotes(wordlist* wl, bool check)
 {
     struct pnode* names = NULL, * tmpnode = NULL;
     char* sz = wl_flatten(wl);
-    if ((strstr(sz, "v(") || strstr(sz, "V(") || strstr(sz, "i(") || strstr(sz, "I(")) && !cp_getvar("noquotesinoutput", CP_BOOL, NULL, 0))
+    if ((cistrstr(sz, "v(") || strstr(sz, "V(") || cistrstr(sz, "i(") || strstr(sz, "I(")) && !cp_getvar("noquotesinoutput", CP_BOOL, NULL, 0))
     {
         char* tmpstr;
         char* nsz = tmpstr = stripWhiteSpacesInsideParens(sz);
@@ -211,7 +211,7 @@ struct pnode* ft_getpnames_quotes(wordlist* wl, bool check)
         tfree(nsz);
         /* restore the old node name after parsing */
         for (tmpnode = names; tmpnode; tmpnode = tmpnode->pn_next) {
-            if (strstr(tmpnode->pn_name, "v(\"") || strstr(tmpnode->pn_name, "i(\"")) {
+            if (cistrstr(tmpnode->pn_name, "v(\"") || cistrstr(tmpnode->pn_name, "i(\"")) {
                 char newstr[100];
                 char* tmp = tmpnode->pn_name;
                 int ii = 0;
@@ -249,8 +249,8 @@ checkvalid(struct pnode *pn)
     while (pn) {
         if (pn->pn_value) {
             if ((pn->pn_value->v_length == 0) &&
-                !eq(pn->pn_value->v_name, "list")) {
-                if (eq(pn->pn_value->v_name, "all"))
+                !eqc(pn->pn_value->v_name, "list")) {
+                if (eqc(pn->pn_value->v_name, "all"))
                     fprintf(cp_err,
                             "Warning from checkvalid: %s: no matching vectors.\n",
                             pn->pn_value->v_name);
@@ -476,7 +476,7 @@ struct pnode *PP_mkfnode(const char *func, struct pnode *arg)
     strtolower(buf);  /* Make sure the case is ok. */
 
     for (f = &ft_funcs[0]; f->fu_name; f++) {
-        if (eq(f->fu_name, buf)) {
+        if (eqc(f->fu_name, buf)) {
             break;
         }
     }
@@ -909,7 +909,7 @@ int PPlex(YYSTYPE *lvalp, struct PPltype *llocp, char **line)
                     }
                     break;
                 } else if ((sbuf == start || sbuf[-1] == '.') &&
-                           prefix("i(v", sbuf)) {
+                           ciprefix("i(v", sbuf)) {
                     /* Special case for current through voltage source:
                      * keep the identifier i(vss) as a single token,
                      * even as dc1.i(vss).
