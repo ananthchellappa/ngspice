@@ -63,5 +63,18 @@ if abs(sv + 1.875e-4) > 1e-8
   quit 1
 end
 
+* --- dot_sens, inp2dot.c strcmp(name, "ac") ---------------------------
+* The mode word that ends the .sens filter list and switches the analysis
+* from DC to AC. Unrecognised, it is taken for another filter name, the
+* analysis stays DC and the frequency sweep never happens, so the result
+* vector is one point long instead of three.
+sens v(out) AC dec 1 1k 100k
+let acn = 99
+let acn = length(r1)
+if acn <> 3
+  echo "ERROR: uppercase AC not accepted by sens, length(r1) = $&acn"
+  quit 1
+end
+
 echo "INFO: all uppercase analysis keyword cases passed"
 quit 0
