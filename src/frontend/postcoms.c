@@ -138,11 +138,11 @@ com_print(wordlist *wl)
     buf = TMALLOC(char, BSIZE_SP);
     buf2 = TMALLOC(char, BSIZE_SP);
 
-    if (eq(wl->wl_word, "col")) {
+    if (eqc(wl->wl_word, "col")) {
         col = TRUE;
         optgiven = TRUE;
         wl = wl->wl_next;
-    } else if (eq(wl->wl_word, "line")) {
+    } else if (eqc(wl->wl_word, "line")) {
         col = FALSE;
         optgiven = TRUE;
         wl = wl->wl_next;
@@ -346,7 +346,7 @@ com_print(wordlist *wl)
                 /* The frequency vector is complex but often with imaginary part = 0,
                  * this prevents to print two columns.
                  */
-                if (eq(v->v_name, "frequency")) {
+                if (eqc(v->v_name, "frequency")) {
                     if (imagpart(v->v_compdata[0]) == 0.0)
                         (void) sprintf(buf2, "%-16.15s", v->v_name);
                     else
@@ -387,7 +387,7 @@ com_print(wordlist *wl)
                         out_printf("%s\t", numbuf);
                     } else {
                         /* In case of a single frequency and have a real part avoids print imaginary part equals 0. */
-                        if (eq(v->v_name, "frequency") &&
+                        if (eqc(v->v_name, "frequency") &&
                             imagpart(v->v_compdata[j]) == 0.0)
                         {
                             printnum(numbuf, realpart(v->v_compdata[j]));
@@ -449,10 +449,10 @@ com_sndprint(wordlist* wl)
     SetAnalyse("Wav out", 0);
 #endif
 
-    if (eq(wl->wl_word, "col")) {
+    if (eqc(wl->wl_word, "col")) {
         wl = wl->wl_next;
     }
-    else if (eq(wl->wl_word, "line")) {
+    else if (eqc(wl->wl_word, "line")) {
         wl = wl->wl_next;
     }
 
@@ -588,9 +588,9 @@ com_write(wordlist *wl)
     }
 
     if (cp_getvar("filetype", CP_STRING, buf, sizeof(buf))) {
-        if (eq(buf, "binary"))
+        if (eqc(buf, "binary"))
             ascii = FALSE;
-        else if (eq(buf, "ascii"))
+        else if (eqc(buf, "ascii"))
             ascii = TRUE;
         else
             fprintf(cp_err, "Warning: strange file type %s\n", buf);
@@ -1027,11 +1027,11 @@ void com_destroy(wordlist *wl)
         DelPlotWindows(plot_cur);
         killplot(plot_cur);
     }
-    else if (eq(wl->wl_word, "all")) { /* "all" -> all plots deleted */
+    else if (eqc(wl->wl_word, "all")) { /* "all" -> all plots deleted */
         struct plot *pl, *npl = NULL;
         for (pl = plot_list; pl; pl = npl) {
             npl = pl->pl_next;
-            if (!eq(pl->pl_typename, "const")) {
+            if (!eqc(pl->pl_typename, "const")) {
                 DelPlotWindows(pl);
                 killplot(pl);
             }
@@ -1064,7 +1064,7 @@ void com_destroy(wordlist *wl)
 
 static void killplot(struct plot *pl)
 {
-    if (eq(pl->pl_typename, "const")) {
+    if (eqc(pl->pl_typename, "const")) {
         fprintf(cp_err, "Error: can't destroy the constant plot\n");
         return;
     }
