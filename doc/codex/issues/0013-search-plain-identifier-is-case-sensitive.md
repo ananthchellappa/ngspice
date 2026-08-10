@@ -6,6 +6,11 @@ Fixed. Five of the six acceptance criteria are met; criterion 4's `X ...
 PARAMS:` half is met as a guard rather than as a RED test, for the reason given
 in the Resolution. See Resolution.
 
+Decision 2's three exact-match call sites have since been **folded**, when
+`doc/codex/issues/0015` landed and made the condition it was waiting on true.
+The argument and the evidence are in "The three exact-match sites, resolved"
+at the end of this file.
+
 ## Summary
 
 `search_plain_identifier()` (`src/frontend/inpcom.c:6025`) finds a whole-token
@@ -468,3 +473,57 @@ already documents.
   inline (`inp_case_folding() ? strstr(...) : cistrstr(...)`). It was not
   refactored onto the new helper, because it is a different delimiter rule in a
   different subsystem.
+
+## The three exact-match sites, resolved
+
+The Resolution above left three call sites matched byte-exactly in every mode,
+on the grounds that "numparam resolves the same `.param` symbol byte-exactly
+(`doc/codex/issues/0015` is that gap) ... The two have to move together; when
+0015 lands, these three sites become the mode dispatch and not before."
+
+0015 has landed. The three sites now take the same `inp_case_folding()` gate as
+the keyword searches, and both `_exact` entry points are gone, so there is one
+policy for the whole name space rather than two:
+
+| Site | Function | Was | Now |
+| --- | --- | --- | --- |
+| `inpcom.c:5643` | `inp_sort_params()` | `search_plain_identifier_exact()` | `search_plain_identifier()` |
+| `inpcom.c:8646` | `inp_functionalise_identifier()` | `search_identifier_exact()` | `search_identifier()` |
+| `inpcom.c:8748` | `inp_quote_params()` | `ya_search_identifier()`, raw `strstr` | `ya_search_identifier()`, `token_hit(..., !inp_case_folding())` |
+
+`inp_sort_params()`'s duplicate-`.param` detection, a plain `strcmp` two loops
+above site 1 and not one of the three, was folded with them: two spellings of
+one `.param` name are one `.param`, and leaving it exact would have made the
+skip list disagree with the dependency graph built from it.
+
+### The inconsistency was reachable, and it was measured rather than argued
+
+Each of the three was given a RED twin pair before the fold, and each fails for
+its own reason with `doc/codex/issues/0015` already fixed — so the three are
+independently reachable and none of them was masked by numparam:
+
+| Deck | Site | Failure under `preserve` before the fold |
+| --- | --- | --- |
+| `param-depend-case.cir` | 1 | `Undefined parameter [aval]`: no dependency edge, so `.param depb={aval*2}` kept its place ahead of `.param AVal=500` |
+| `param-temper-func-case.cir` | 2 | `Undefined parameter [tcorr]`: `.param TCorr={temper+25}` became a `.func`, and the reference `tcorr` never got its `()` |
+| `param-quote-name-case.cir` | 3 | empty netlist: `R1 1 2 rval` was never brace-quoted against `.param RVal=1k`, so `rval` stayed a resistance token |
+
+Site 2 could not have been folded on its own even after 0015: it appends `()`
+while keeping the *haystack's* spelling, so the resulting `tcorr()` still has to
+be resolved by `find_function()`, whose `strcmp` 0015 folded. Site 3 is the
+opposite — it writes the *needle's* spelling, so it normalises the deck to the
+`.param` card's spelling and would have worked alone. Site 1 rewrites nothing at
+all; its only observable is evaluation order.
+
+### Fold mode
+
+Gated, so the default mode still runs `strstr` on the same bytes. That gate is
+doing real work at these three, which is a difference from the keyword sites:
+the "the reader already lowercased the card" argument does **not** hold here,
+because `expand_section_references()` (`inpcom.c:4185`) inserts a `.param
+SWSOA=1` card of its own after the reader's fold loop has run, so an upper-case
+*needle* exists in fold mode when `set soacheck` is on and a `.lib` section is
+referenced. Sites 2 and 3 rewrite text, so folding them unconditionally could
+have moved a number in the default mode. It was not tested with a deck — that
+would need a `.spiceinit` and a section library, and the gate makes it moot —
+but it is the reason the fold is gated rather than unconditional.

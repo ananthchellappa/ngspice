@@ -485,3 +485,70 @@ and the LTspice `noiseless` translation — so for this round `make check` was
 the harness that mattered and the sweep was the regression guard. That is the
 reverse of `doc/codex/issues/0009`, where the sweep found the defect and
 `make check` could not see it.
+
+## Re-run after `doc/codex/issues/0015` and `0020` gap 1
+
+`doc/codex/issues/0015` folded the numparam symbol key at the single probe and
+the single insert, plus the `.func` name and `.func` formal machinery in
+`src/frontend/inpcom.c` that this issue's premise had mistaken for numparam;
+`doc/codex/issues/0020` gap 1 folded `inp_fix_inst_line()`'s
+formal-versus-instance parameter-name match; and `doc/codex/issues/0013`'s three
+exact-match searches were folded with them. Eight new twin pairs. The same
+command reports:
+
+| verdict | after issue 0019 | after 0015 + 0020 gap 1 |
+| --- | ---: | ---: |
+| OK | 173 | 191 |
+| DIFF | 53 | 51 |
+| PARSE-FAIL | 0 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **229** | **245** |
+
+Both columns were measured on this tree with the same command, the left one
+immediately before this round and the right one immediately after.
+
+Compared per deck rather than on the totals — a straight `diff` of the two runs'
+non-OK lists, which is all the sweep prints — the entire delta is two lines:
+
+```
+< DIFF tests/regression/case/subckt-mult-skip-case-lower.cir
+< DIFF tests/regression/case/subckt-mult-skip-case.cir
+```
+
+plus the sixteen new decks, none of which appears in either non-OK list, i.e.
+all sixteen report OK. **No deck's verdict got
+worse, no deck that was OK became anything else, and no pre-existing deck moved
+except those two, which went from `DIFF` to `OK`.** They are gap 1: their
+uppercased copies used to print `v(2) = 1.000000e+00` instead of
+`1.333333e+00`, and that was the last enumerated silent wrong number.
+
+The three SKIPs are unchanged — `tests/mesa/mesa-12.cir`, `tests/mesa/mesa12.cir`
+and `tests/vbic/FG.cir`, whose *stock* run exceeds the 90 s timeout.
+
+### The remaining 51, and the one new issue that explains three of them
+
+The eight `PRINT VM(2)` entries are still `doc/codex/issues/0020` gap 2, which
+is out of scope for this round: it is control-language surface and wants the
+`distinguish` decision taken with `doc/codex/issues/0011`.
+
+Three more are now attributable to a single new defect. The uppercased copies of
+`tests/regression/parser/xpressn-1.cir`, `xpressn-2.cir` and `xpressn-3.cir`
+fail *entirely* on `doc/codex/issues/0022`: numparam's built-in function list is
+matched byte-exactly, so `{SQRT(x)}`, `{NINT(x)}` and the rest of `fmathS` are
+looked up as parameters under `preserve`. Measured after 0015 landed, so no
+other gap is masking it — on `xpressn-1.cir` every diagnostic is
+`Undefined parameter [<FUNCTION NAME>]`. One ungated `keyword()` compare.
+
+### What the sweep could not see this round, again
+
+The `.func` half of `doc/codex/issues/0015` and all three of
+`doc/codex/issues/0013`'s exact-match sites are invisible to the sweep by
+construction: the sweep uppercases a whole deck, so the definition and the
+reference move together and the mismatch it is looking for cannot arise. Every
+one of those four mechanisms needed a hand-written twin pair under
+`tests/regression/case/`, and each pair had to be run against an empty `.out`
+first, because the failure mode is an abort on stderr and `check.sh` compares
+stdout only. This is the reverse of `doc/codex/issues/0009` and the same shape
+as `doc/codex/issues/0019`: for this round `make check` was the harness that
+mattered, and the sweep was the regression guard that proved nothing else moved.

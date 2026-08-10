@@ -1,0 +1,22 @@
+* a .param carrying temper, referenced with a different spelling, under
+* preserve
+* inp_fix_temper_in_param() turns '.param TCorr={temper+25}' into a .func,
+* because temper must be evaluated per temperature rather than once, and then
+* appends '()' to every other occurrence of the name with
+* search_identifier_exact() - the third of the call sites
+* doc/codex/issues/0013 pinned byte-exact.  Under preserve the reference
+* 'tcorr' was not recognised, stayed bare, and numparam aborted with
+* 'Undefined parameter [tcorr]' on stderr, printing nothing.  The macro
+* expander's own find_function() had to fold with it; see
+* doc/codex/issues/0015.
+* doc/codex/issues/0013 Resolution, decision 2, site inpcom.c:8646.
+.OPTIONS noacct
+.param TCorr={temper+25}
+V1 1 0 dc 4
+R1 1 2 {tcorr*10}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

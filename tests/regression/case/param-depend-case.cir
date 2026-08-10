@@ -1,0 +1,20 @@
+* one .param referencing another, the two spellings differing, under preserve
+* inp_sort_params() orders the .param cards by dependency so that numparam,
+* which evaluates them in deck order, never sees a reference before its
+* definition.  The edge is found with search_plain_identifier_exact(), one of
+* the three call sites doc/codex/issues/0013 deliberately pinned byte-exact
+* until doc/codex/issues/0015 landed, so under preserve no edge was recorded,
+* the cards kept deck order, and numparam aborted with
+* 'Undefined parameter [aval]' on stderr, printing nothing.
+* doc/codex/issues/0013 Resolution, decision 2, site inpcom.c:5643.
+.OPTIONS noacct
+.param depb={aval*2}
+.param AVal=500
+V1 1 0 dc 4
+R1 1 2 {depb}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

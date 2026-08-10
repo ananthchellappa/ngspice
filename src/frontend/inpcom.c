@@ -125,10 +125,6 @@ static bool has_if = FALSE; /* if we have an .if ... .endif pair */
 
 static char *readline(FILE *fd, FileEncoding encoding);
 int get_number_terminals(char *c);
-static char *search_identifier_exact(
-        char *str, const char *identifier, char *str_begin);
-static char *search_plain_identifier_exact(
-        char *str, const char *identifier);
 static void inp_stripcomments_deck(struct card *deck, bool cs);
 static void inp_stripcomments_line(char *s, bool cs, bool inc);
 static void inp_fix_for_numparam(
@@ -5657,7 +5653,8 @@ static void inp_sort_params(struct card *param_cards,
     skipped = 0;
     for (i = 0; i < num_params; i++) {
         for (j = i + 1; j < num_params; j++)
-            if (strcmp(deps[i].param_name, deps[j].param_name) == 0)
+            /* two spellings of one .param name are one .param */
+            if (user_ident_eq(deps[i].param_name, deps[j].param_name))
                 break;
         if (j < num_params) {
             deps[i].skip = 1;
@@ -5670,7 +5667,7 @@ static void inp_sort_params(struct card *param_cards,
             char *param = deps[i].param_name;
             for (j = 0; j < num_params; j++)
                 if (j != i &&
-                        search_plain_identifier_exact(
+                        search_plain_identifier(
                                 deps[j].param_str, param)) {
                     for (ind = 0; deps[j].depends_on[ind]; ind++)
                         ;
@@ -6073,28 +6070,22 @@ char *search_identifier(char *str, const char *identifier, char *str_begin)
 }
 
 
-/* 'identifier' is a name the user chose, not a keyword, so it is matched
-   byte for byte in every mode. Under fold that is what the reader already
-   guarantees; under preserve it keeps this search in step with numparam,
-   which resolves the same symbol byte-exactly (doc/codex/issues/0015). The
-   two have to move together, and folding here alone would hand numparam a
-   spelling it cannot resolve. */
-
-static char *search_identifier_exact(
-        char *str, const char *identifier, char *str_begin)
-{
-    return search_identifier_1(str, identifier, str_begin, FALSE);
-}
-
-
-/* The single caller passes a user parameter name, so this one is an
-   identifier search and never a keyword search; see search_identifier_exact()
-   above for why it is not folded. */
+/* The three searches whose 'identifier' is a name the user chose rather than a
+   keyword - inp_sort_params()'s dependency edge, inp_functionalise_identifier()
+   and inp_quote_params() - were pinned byte-exact in every mode until numparam
+   resolved such a name case insensitively, because a case insensitive quoter
+   would otherwise have handed numparam a spelling numparam could not resolve.
+   doc/codex/issues/0015 closed that gap, so they now take the same
+   inp_case_folding() gate as the keyword searches: one policy for the whole
+   name space. In fold mode the reader has lowercased the card and the search is
+   the same strstr on the same bytes as before. */
 
 char *ya_search_identifier(char *str, const char *identifier, char *str_begin)
 {
+    const bool ci = !inp_case_folding();
+
     if (str && identifier) {
-        while ((str = strstr(str, identifier)) != NULL) {
+        while ((str = token_hit(str, identifier, ci)) != NULL) {
             char before;
 
             if (str > str_begin)
@@ -6151,13 +6142,6 @@ char *search_plain_identifier(char *str, const char *identifier)
     return search_plain_identifier_1(str, identifier, !inp_case_folding());
 }
 
-
-/* 'identifier' is a name the user chose; see search_identifier_exact(). */
-
-static char *search_plain_identifier_exact(char *str, const char *identifier)
-{
-    return search_plain_identifier_1(str, identifier, FALSE);
-}
 
 /* return a string that consists of tc1 and tc2 evaluated
    or having a rhs for numparam expansion {...}.
@@ -8673,7 +8657,7 @@ static char *inp_functionalise_identifier(char *curr_line, char *identifier)
     else
         estr = estr2;
 
-    for (p = estr; (p = search_identifier_exact(p, identifier, str)) != NULL;)
+    for (p = estr; (p = search_identifier(p, identifier, str)) != NULL;)
         if (p[len] != '(') {
             int prefix_len = (int) (p + len - str);
             char *x = str;

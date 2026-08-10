@@ -1,0 +1,17 @@
+* bare parameter name on an instance card, spelled unlike its .param
+* inp_quote_params() brace-quotes a bare parameter name found on an instance
+* card, writing the .param card's own spelling, so the token the deck wrote is
+* replaced rather than kept.  The search was ya_search_identifier(), byte-exact
+* in every mode, so under preserve 'rval' was left as a resistance value, the
+* card did not parse and the netlist came out empty.
+* doc/codex/issues/0013 Resolution, decision 2, site inpcom.c:8748.
+.OPTIONS noacct
+.param RVal=1k
+V1 1 0 dc 4
+R1 1 2 rval
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

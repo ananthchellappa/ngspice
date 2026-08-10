@@ -1,0 +1,12 @@
+* lower case twin of param-depend-case.cir
+.OPTIONS noacct
+.param depb={aval*2}
+.param aval=500
+V1 1 0 dc 4
+R1 1 2 {depb}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

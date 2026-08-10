@@ -1,0 +1,11 @@
+* lower case twin of param-quote-name-case.cir
+.OPTIONS noacct
+.param rval=1k
+V1 1 0 dc 4
+R1 1 2 rval
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end
