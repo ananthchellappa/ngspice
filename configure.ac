@@ -1467,6 +1467,7 @@ AC_CONFIG_FILES([Makefile
                  tests/regression/temper/Makefile
                  tests/regression/pipe/Makefile
                  tests/regression/pz/Makefile
+                 tests/regression/case/Makefile
                  tests/sensitivity/Makefile
                  tests/transient/Makefile
                  tests/transmission/Makefile
