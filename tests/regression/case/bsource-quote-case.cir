@@ -1,0 +1,23 @@
+* upper case B source, exempt from parameter value quoting
+* inp_fix_param_values() puts braces around the token after every '=' it
+* finds on a card, and exempts B sources because a B expression is not a
+* parameter assignment.  The exemption was spelled 'if (*line == 'b')', so
+* under casemode=preserve an upper case B card was not exempt and
+*   B1 2 0 V = v(1) * 3
+* became   B1 2 0 V = {v(1)} * 3 , which numparam then tried to resolve:
+*   Undefined parameter [v]
+*   Cannot compute substitute
+* and no v(2) reached stdout.
+* The expression is spelled with spaces on purpose: without them the token
+* after '=' starts with '{' and inp_fix_param_values() leaves it alone, which
+* is what bsource-compat-case.cir uses to isolate the other 'b' site.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:5074.
+.OPTIONS noacct
+V1 1 0 dc 2
+B1 2 0 V = v(1) * 3
+R1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

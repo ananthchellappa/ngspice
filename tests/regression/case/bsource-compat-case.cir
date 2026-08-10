@@ -1,0 +1,20 @@
+* upper case B source needing the numparam compatibility rewrite
+* inp_bsource_compat() hands every B card's right hand side to
+* inp_modify_exp(), which is what lets a .param name appear inside a B
+* expression at all.  It found the card with 'if (*curr_line == 'b')', so
+* under casemode=preserve an upper case B card kept its raw expression and
+* the run died before printing anything.
+* The expression is braced and unspaced so that inp_fix_param_values()
+* leaves it alone - that site has its own deck, bsource-quote-case.cir - and
+* this pair therefore isolates inpcom.c:7605.
+* doc/codex/issues/0009 follow-up table, group A, inpcom.c:7605.
+.OPTIONS noacct
+.param gain=3
+V1 1 0 dc 2
+B1 2 0 V={v(1)*gain}
+R1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end

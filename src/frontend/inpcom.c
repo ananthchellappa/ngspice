@@ -5071,7 +5071,7 @@ static void inp_fix_param_values(struct card *c)
             continue;
 
         /* no handling of params in B source lines */
-        if (*line == 'b')
+        if (elem_letter(line) == 'b')
             continue;
 
         /* for xspice .cmodel: replace .cmodel with .model and skip entire
@@ -7602,7 +7602,7 @@ static void inp_bsource_compat(struct card *card)
             continue;
         }
 
-        if (*curr_line == 'b') {
+        if (elem_letter(curr_line) == 'b') {
             /* remove white spaces of everything inside {}*/
             card->line = inp_remove_ws(card->line);
             curr_line = card->line;

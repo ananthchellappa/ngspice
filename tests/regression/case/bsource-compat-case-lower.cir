@@ -1,0 +1,11 @@
+* lower case twin of bsource-compat-case.cir
+.OPTIONS noacct
+.param gain=3
+v1 1 0 dc 2
+b1 2 0 v={v(1)*gain}
+r1 2 0 1k
+.control
+op
+print v(2)
+.endc
+.end
