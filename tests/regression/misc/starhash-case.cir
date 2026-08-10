@@ -1,0 +1,11 @@
+* commands hidden behind the star-hash prefix
+.OPTIONS noacct
+V1 in 0 dc 1
+R1 in 0 1k
+*# echo DECKLEVEL_UPPER
+.control
+op
+*# echo CONTROL_UPPER
+echo PLAIN_UPPER
+.endc
+.end

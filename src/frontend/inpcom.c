@@ -1712,6 +1712,12 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
          * double quotes are printed. */
         {
             char* s;
+            /* A control command may be hidden behind the '*#' prefix, both
+               inside a .control section and in an ordinary deck. Test the
+               command whitelist below against the command itself, not
+               against the prefix. */
+            bool starhash = (buffer[0] == '*' && buffer[1] == '#');
+            char* cbuf = starhash ? skip_ws(buffer + 2) : buffer;
 #ifdef CIDER
             if (ciprefix(".model", buffer)) {
                 in_cider_model = is_cider_model(buffer);
@@ -1824,17 +1830,17 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
 #endif
             /* no lower case letters for lines beginning with: */
             else if (!(ciprefix(".lib", buffer) || ciprefix(".inc", buffer) ||
-                ((comfile || is_control) && (
-                    ciprefix("write", buffer) ||
-                    ciprefix("wrdata", buffer) ||
-                    ciprefix("codemodel", buffer) ||
-                    ciprefix("osdi", buffer) ||
-                    ciprefix("pre_osdi", buffer) ||
-                    ciprefix("echo", buffer) || ciprefix("shell", buffer) ||
-                    ciprefix("source", buffer) || ciprefix("cd", buffer) ||
-                    ciprefix("load", buffer) || ciprefix("setcs", buffer) ||
-                    ciprefix("strcmp", buffer) ||
-                    ciprefix("strstr", buffer))))) {
+                ((comfile || is_control || starhash) && (
+                    ciprefix("write", cbuf) ||
+                    ciprefix("wrdata", cbuf) ||
+                    ciprefix("codemodel", cbuf) ||
+                    ciprefix("osdi", cbuf) ||
+                    ciprefix("pre_osdi", cbuf) ||
+                    ciprefix("echo", cbuf) || ciprefix("shell", cbuf) ||
+                    ciprefix("source", cbuf) || ciprefix("cd", cbuf) ||
+                    ciprefix("load", cbuf) || ciprefix("setcs", cbuf) ||
+                    ciprefix("strcmp", cbuf) ||
+                    ciprefix("strstr", cbuf))))) {
                 /* lower case for all other lines */
                 for (s = buffer; *s && (*s != '\n'); s++)
                     *s = tolower_c(*s);
