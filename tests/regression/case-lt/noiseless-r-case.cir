@@ -19,7 +19,10 @@
 * integrates to 9.103864e-08 V over the 1 kHz band, R1 quiet to
 * 6.437404e-08 V.
 * The result is copied into a lower case vector 'n' because check.sh's
-* filter deletes every line containing 'oise'.
+* filter deletes every line containing 'oise'.  The noise analysis leaves
+* noise2 as the current plot, so no 'setplot' is needed -- and must not be
+* used: an upper case SETPLOT NOISE2 does not resolve under preserve, which
+* would cost the deck its OK verdict in the differential sweep.
 * doc/codex/issues/0019; src/frontend/inpcompat.c:1771.
 .OPTIONS noacct
 V1 1 0 dc 0 ac 1
@@ -27,7 +30,6 @@ V1 1 0 dc 0 ac 1
 .include noiseless-r-case.inc
 .control
 noise v(2) V1 lin 2 1000 2000
-setplot noise2
 let n = onoise_total
 print n
 .endc

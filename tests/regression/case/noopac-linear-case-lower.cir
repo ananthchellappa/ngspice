@@ -6,8 +6,7 @@ r2 2 0 2k
 c1 2 0 1u
 .control
 ac lin 1 1k 1k
-print mag(v(2))
-setplot op1
+setplot previous
 print v(2)
 .endc
 .end
