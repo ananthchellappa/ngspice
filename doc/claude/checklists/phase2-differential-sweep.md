@@ -129,6 +129,39 @@ a keyword fold rather than a name lookup: `search_plain_identifier()` is
 `strstr`-based, so the `ac`-with-no-value fixup does not fire on `AC`. That is
 written up as `doc/codex/issues/0013`.
 
+## Re-run after `doc/codex/issues/0010` was fixed
+
+After the three commits that fold the lookup key for the `.model`, `.subckt`
+and `.global` name spaces, the same command reports:
+
+| verdict | after 0009 | after 0010 |
+| --- | ---: | ---: |
+| OK | 66 | 96 |
+| DIFF | 40 | 41 |
+| PARSE-FAIL | 25 | 2 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **134** | **142** |
+
+Both columns were measured with the same command on the same tree, immediately
+before and after the series; the "after 0009" column differs by one deck from
+the figures in the table above (OK=67, DIFF=39) because one timing-sensitive
+deck moves between consecutive runs.
+
+Compared per deck rather than on the totals, no deck's verdict got worse and no
+deck that was OK became anything else. 20 decks went `PARSE-FAIL` to `OK`, 2
+went `DIFF` to `OK`, and 3 — `tests/bsim3soi{dd,fd,pd}/ring51.cir` — went
+`PARSE-FAIL` to `DIFF` for a warning, not a number: their card
+`cout  buf ss 1pF` has an upper-case unit suffix, and `is_a_modelname()`'s test
+at `inpcom.c:3206` is case-sensitive, so `1pF` is reported as a missing model.
+That is on issue 0009's follow-up list. The 8 extra decks are the regression
+tests issue 0010 added, and all 8 report OK.
+
+The 2 remaining `PARSE-FAIL`s are `tests/polezero/pz{2,t}.cir`, which are
+`doc/codex/issues/0013`. The 3 `SKIP`s are unchanged stock-run timeouts.
+
+**`NUM-DIFF` has been 0 at every measurement in this table.**
+
 ## Interpretation
 
 `preserve` does not change any number it can compute. What it cannot yet do is
