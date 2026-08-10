@@ -1,0 +1,16 @@
+* one node, two spellings, under casemode=preserve
+* preserve changes what ngspice shows, not what it simulates: In and IN are
+* still the same node.  If the parser's interning tables split them, V1
+* drives one node and R1 hangs off a different, floating one, so v(mid)
+* collapses to zero instead of halving the source.
+.OPTIONS noacct
+V1 In 0 dc 1.5
+R1 IN mid 1k
+R2 mid 0 1k
+.control
+op
+print v(mid)
+print v(In)
+print v(IN)
+.endc
+.end

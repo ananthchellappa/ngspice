@@ -21,6 +21,19 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 
 static int hash(char *name, int tsize);
 
+/* Identity of an interned token and a stored entry.  Under a non-folding
+   case mode two spellings of one identifier are still one identifier, so the
+   comparison ignores case while t_ent keeps the spelling first seen.  In fold
+   mode both sides are already lower case, so strcmp is retained to keep the
+   default byte identical for the generated node names that carry upper case
+   whatever the deck says, such as q1#collCX. */
+
+static bool ent_eq(const char *token, const char *ent)
+{
+    return inp_case_folding() ? (strcmp(token, ent) == 0) : cieq(token, ent);
+}
+
+
 /* Initialize the symbol tables. */
 
 INPtables *INPtabInit(int numlines)
@@ -48,7 +61,7 @@ int INPtermInsert(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node
 
     key = hash(*token, tab->INPtermsize);
     for (t = tab->INPtermsymtab[key]; t; t = t->t_next) {
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
             FREE(*token);
             *token = t->t_ent;
             if (node)
@@ -85,7 +98,7 @@ int INPmkTerm(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node)
 
     key = hash(*token, tab->INPtermsize);
     for (t = tab->INPtermsymtab[key]; t; t = t->t_next) {
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
             FREE(*token);
             *token = t->t_ent;
             if (node)
@@ -114,7 +127,7 @@ int INPgndInsert(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node)
 
     key = hash(*token, tab->INPtermsize);
     for (t = tab->INPtermsymtab[key]; t; t = t->t_next) {
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
             FREE(*token);
             *token = t->t_ent;
             if (node)
@@ -146,7 +159,7 @@ int INPretrieve(char **token, INPtables * tab)
 
     key = hash(*token, tab->INPsize);
     for (t = tab->INPsymtab[key]; t; t = t->t_next)
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
             *token = t->t_ent;
             return (OK);
         }
@@ -163,7 +176,7 @@ int INPinsert(char **token, INPtables * tab)
 
     key = hash(*token, tab->INPsize);
     for (t = tab->INPsymtab[key]; t; t = t->t_next)
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
             FREE(*token);
             *token = t->t_ent;
             return (E_EXISTS);
@@ -189,7 +202,7 @@ int INPinsertNofree(char **token, INPtables * tab)
 
     key = hash(*token, tab->INPsize);
     for (t = tab->INPsymtab[key]; t; t = t->t_next)
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
 
             /* MW. We can't touch memory pointed by token now */
             *token = t->t_ent;
@@ -276,8 +289,15 @@ static int hash(char *name, int tsize)
     unsigned int hash = 5381;
     char c;
 
-    while ((c = *name++) != '\0')
-        hash = (hash * 33) ^ (unsigned) c;
+    if (inp_case_folding()) {
+        while ((c = *name++) != '\0')
+            hash = (hash * 33) ^ (unsigned) c;
+    } else {
+        /* fold the bucket key so that the case insensitive ent_eq() above
+           can only ever be asked about entries in the same bucket */
+        while ((c = *name++) != '\0')
+            hash = (hash * 33) ^ (unsigned) tolower_c(c);
+    }
 
     return (int) (hash % (unsigned) tsize);
 }
@@ -293,7 +313,7 @@ int INPtermSearch(CKTcircuit* ckt, char** token, INPtables* tab, CKTnode** node)
 
     key = hash(*token, tab->INPtermsize);
     for (t = tab->INPtermsymtab[key]; t; t = t->t_next) {
-        if (!strcmp(*token, t->t_ent)) {
+        if (ent_eq(*token, t->t_ent)) {
             FREE(*token);
             *token = t->t_ent;
             if (node)
