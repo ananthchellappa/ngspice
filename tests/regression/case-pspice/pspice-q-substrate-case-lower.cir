@@ -1,0 +1,13 @@
+* lower case twin of pspice-q-substrate-case.cir
+.OPTIONS noacct
+v1 1 0 dc 0.7
+v2 2 0 dc 1
+v3 4 0 dc 2
+r3 4 3 1k
+.include pspice-q-substrate-case-lower.inc
+.model qmod npn is=1e-16 bf=100 iss=1e-14
+.control
+op
+print v(3)
+.endc
+.end

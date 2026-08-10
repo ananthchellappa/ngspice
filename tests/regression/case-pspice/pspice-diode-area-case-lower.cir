@@ -1,0 +1,11 @@
+* lower case twin of pspice-diode-area-case.cir
+.OPTIONS noacct
+v1 1 0 dc 1
+.include pspice-diode-area-case-lower.inc
+r2 2 0 1k
+.model dmod d(is=1e-14 n=1)
+.control
+op
+print v(2)
+.endc
+.end

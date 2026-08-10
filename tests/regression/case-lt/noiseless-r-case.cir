@@ -1,0 +1,34 @@
+* LTspice 'noiseless' keyword on an upper case R card, ngbehavior=lt
+* ltspice_compat() rewrites LTspice's resistor keyword 'noiseless' into
+* ngspice's 'noisy=0', and picks the card with
+*     else if (*cut_line == 'r')
+* lower case only.  Under casemode=preserve an upper case R card misses it,
+* the keyword survives into the parser, and the resistor keeps its thermal
+* noise: the .noise result is wrong by the noise of R1, with no diagnostic
+* of any kind.
+* This site was a footnote in the sweep that closed doc/codex/issues/0009's
+* follow-up table and was never confirmed; it is confirmed here.
+* The R cards live in an .inc file because ltspice_compat() runs on the card
+* list inp_read() returns for an included file, not on the top-level deck --
+* the same reason the decks in tests/regression/case-pspice/ do it.
+* '.model noiseless r' gives the untranslated keyword something to bind to,
+* so the upper case deck runs to completion and the defect appears as a
+* wrong number rather than as a stderr-only parse error that
+* tests/bin/check.sh would drop.
+* R1 = R2 = 1k with the probe at the midpoint: both resistors noisy
+* integrates to 9.103864e-08 V over the 1 kHz band, R1 quiet to
+* 6.437404e-08 V.
+* The result is copied into a lower case vector 'n' because check.sh's
+* filter deletes every line containing 'oise'.
+* doc/codex/issues/0019; src/frontend/inpcompat.c:1771.
+.OPTIONS noacct
+V1 1 0 dc 0 ac 1
+.model noiseless r
+.include noiseless-r-case.inc
+.control
+noise v(2) V1 lin 2 1000 2000
+setplot noise2
+let n = onoise_total
+print n
+.endc
+.end

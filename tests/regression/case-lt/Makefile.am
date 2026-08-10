@@ -8,11 +8,16 @@
 
 TESTS = rkm-r-case.cir rkm-r-case-lower.cir \
 	rkm-c-case.cir rkm-c-case-lower.cir \
-	rkm-l-case.cir rkm-l-case-lower.cir
+	rkm-l-case.cir rkm-l-case-lower.cir \
+	noiseless-r-case.cir noiseless-r-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve -D ngbehavior=lt"
 
+## The two .inc files are matched by neither $(TESTS) nor $(TESTS:.cir=.out)
+## and have to be listed by hand.
 EXTRA_DIST = \
+	noiseless-r-case.inc \
+	noiseless-r-case-lower.inc \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
 

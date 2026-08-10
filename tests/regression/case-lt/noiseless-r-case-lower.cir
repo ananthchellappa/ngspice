@@ -1,0 +1,12 @@
+* lower case twin of noiseless-r-case.cir
+.OPTIONS noacct
+v1 1 0 dc 0 ac 1
+.model noiseless r
+.include noiseless-r-case-lower.inc
+.control
+noise v(2) v1 lin 2 1000 2000
+setplot noise2
+let n = onoise_total
+print n
+.endc
+.end

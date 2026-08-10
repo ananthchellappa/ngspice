@@ -1,0 +1,29 @@
+* PSpice diode area factor on an upper case D card, ngbehavior=ps
+* pspice_compat() turns the bare positive number PSpice puts after a diode's
+* model name into ngspice's 'area=' keyword.  The arm is entered on
+*     else if (*cut_line == 'd')
+* lower case only, so under casemode=preserve an upper case D card is left
+* alone.
+* What that costs is PRECEDENCE, not the area factor.  INP2D() already
+* applies an unlabelled trailing number to 'area' by itself, through
+* INPdevParse()'s leading-value path (src/spicelib/parser/inp2d.c:102-110),
+* and it does so AFTER the keyword loop has walked the rest of the card.  So
+* on a card that carries both spellings the positional value wins when the
+* rewrite is missed and loses when it fires.  Measured: with only the bare
+* number on the card the two spellings agree to every printed digit, which
+* is why this deck has to name the area twice to witness the site at all.
+* The D card is in an .inc file for the reason given in pspice-tc-r-case.cir:
+* pspice_compat() runs on the card list inp_read() returns for an included
+* file, not on the top-level deck.
+* v(2) = 4.095966e-01 is the area=5 answer; 3.971803e-01 is area=3.
+* doc/codex/issues/0019; src/frontend/inpcompat.c:1153.
+.OPTIONS noacct
+V1 1 0 dc 1
+.include pspice-diode-area-case.inc
+R2 2 0 1k
+.model dmod d(is=1e-14 n=1)
+.control
+op
+print v(2)
+.endc
+.end

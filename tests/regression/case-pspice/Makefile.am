@@ -10,7 +10,9 @@
 ## file (src/frontend/inpcom.c:1754), not on the top-level deck.
 
 TESTS = pspice-table-e-case.cir pspice-table-e-case-lower.cir \
-	pspice-tc-r-case.cir pspice-tc-r-case-lower.cir
+	pspice-tc-r-case.cir pspice-tc-r-case-lower.cir \
+	pspice-q-substrate-case.cir pspice-q-substrate-case-lower.cir \
+	pspice-diode-area-case.cir pspice-diode-area-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve -D ngbehavior=ps"
 
@@ -19,6 +21,10 @@ EXTRA_DIST = \
 	pspice-table-e-case-lower.inc \
 	pspice-tc-r-case.inc \
 	pspice-tc-r-case-lower.inc \
+	pspice-q-substrate-case.inc \
+	pspice-q-substrate-case-lower.inc \
+	pspice-diode-area-case.inc \
+	pspice-diode-area-case-lower.inc \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
 

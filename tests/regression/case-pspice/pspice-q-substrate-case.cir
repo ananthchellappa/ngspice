@@ -1,0 +1,32 @@
+* PSpice bracketed substrate node on an upper case Q card, ngbehavior=ps
+* pspice_compat() rewrites a PSpice BJT card: it strips the brackets PSpice
+* requires around a fourth (substrate) node that is not a plain number, and
+* it appends 'area=<n>' when the token after the model name is a bare
+* positive number.  The whole block is entered on
+*     if (*cut_line == 'q')
+* lower case only, so under casemode=preserve an upper case Q card kept its
+* brackets and the substrate terminal was tied to a node literally named
+* '[3]', leaving node 3 connected to R3 alone.
+* The area factor is NOT what this deck measures, and it is not lost:
+* INP2Q applies an unlabeled trailing number as 'area' itself
+* (src/spicelib/parser/inp2q.c:113-124), so the appended keyword is
+* redundant.  The substrate rewrite is the part with no other owner.
+* v(3) is the substrate node, driven through R3 from V3 at 2 V and pulled
+* down by the substrate junction's own current (iss, scaled by area).  With
+* the substrate left unconnected it stays at V3.
+* The Q card is in an .inc file for the reason given in
+* pspice-tc-r-case.cir: pspice_compat() runs on the card list inp_read()
+* returns for an included file, not on the top-level deck.
+* doc/codex/issues/0019; src/frontend/inpcompat.c:1101.
+.OPTIONS noacct
+V1 1 0 dc 0.7
+V2 2 0 dc 1
+V3 4 0 dc 2
+R3 4 3 1k
+.include pspice-q-substrate-case.inc
+.model qmod npn is=1e-16 bf=100 iss=1e-14
+.control
+op
+print v(3)
+.endc
+.end

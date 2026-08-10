@@ -1098,7 +1098,7 @@ struct card *pspice_compat(struct card *oldcard)
         else if (skip_control > 0) {
             continue;
         }
-        if (*cut_line == 'q') {
+        if (elem_letter(cut_line) == 'q') {
             /* According to PSPICE Reference Guide the fourth (substrate) node
             has to be put into [] if it is not just a number */
             cut_line = nexttok(cut_line); //.model
@@ -1150,7 +1150,7 @@ struct card *pspice_compat(struct card *oldcard)
                 card->line = tmpstr3;
             }
         }
-        else if (*cut_line == 'd') {
+        else if (elem_letter(cut_line) == 'd') {
             cut_line = nexttok(cut_line); //.model
             cut_line = nexttok(cut_line); // node1
             cut_line = nexttok(cut_line); // node2
@@ -1768,7 +1768,7 @@ struct card *ltspice_compat(struct card *oldcard)
         if (ciprefix(".backanno", cut_line)) {
             *cut_line = '*';
         }
-        else if (*cut_line == 'r') {
+        else if (elem_letter(cut_line) == 'r') {
             char* noi = cistrstr(cut_line, "noiseless");
             /* only if 'noiseless' is an unconnected token */
             if (noi && isspace_c(noi[-1]) && (isspace_c(noi[9]) || !isprint_c(noi[9]))) {
