@@ -74,29 +74,29 @@ void set_compat_mode(void)
     newcompat.s3 = FALSE;
     newcompat.mc = FALSE;
     if (cp_getvar("ngbehavior", CP_STRING, behaviour, sizeof(behaviour))) {
-        if (strstr(behaviour, "hs"))
+        if (cistrstr(behaviour, "hs"))
             newcompat.isset = newcompat.hs = TRUE; /*HSPICE*/
-        if (strstr(behaviour, "ps"))
+        if (cistrstr(behaviour, "ps"))
             newcompat.isset = newcompat.ps = TRUE; /*PSPICE*/
-        if (strstr(behaviour, "xs"))
+        if (cistrstr(behaviour, "xs"))
             newcompat.isset = newcompat.xs = TRUE; /*XSPICE*/
-        if (strstr(behaviour, "lt"))
+        if (cistrstr(behaviour, "lt"))
             newcompat.isset = newcompat.lt = TRUE; /*LTSPICE*/
-        if (strstr(behaviour, "ki"))
+        if (cistrstr(behaviour, "ki"))
             newcompat.isset = newcompat.ki = TRUE; /*KiCad*/
-        if (strstr(behaviour, "a"))
+        if (cistrstr(behaviour, "a"))
             newcompat.isset = newcompat.a = TRUE; /*complete netlist, used in conjuntion with other mode*/
-        if (strstr(behaviour, "ll"))
+        if (cistrstr(behaviour, "ll"))
             newcompat.isset = newcompat.ll = TRUE; /*all (currently not used)*/
-        if (strstr(behaviour, "s3"))
+        if (cistrstr(behaviour, "s3"))
             newcompat.isset = newcompat.s3 = TRUE; /*spice3 only*/
-        if (strstr(behaviour, "eg"))
+        if (cistrstr(behaviour, "eg"))
             newcompat.isset = newcompat.eg = TRUE; /*EAGLE*/
-        if (strstr(behaviour, "spe")) {
+        if (cistrstr(behaviour, "spe")) {
             newcompat.isset = newcompat.spe = TRUE; /*Spectre*/
             newcompat.ps = newcompat.lt = newcompat.ki = newcompat.eg = FALSE;
         }
-        if (strstr(behaviour, "mc")) {
+        if (cistrstr(behaviour, "mc")) {
             newcompat.isset = FALSE;
             newcompat.mc = TRUE; /*make check*/
         }
@@ -165,7 +165,7 @@ static void replace_table(struct card *startcard)
             char *valp = search_plain_identifier(cut_line, "value");
             char *valp2 = search_plain_identifier(cut_line, "cur");
             if (valp || (valp2 && *cut_line == 'g')) {
-                char *ftablebeg = strstr(cut_line, "table(");
+                char *ftablebeg = cistrstr(cut_line, "table(");
                 while (ftablebeg) {
                     /* get the beginning of the line */
                     char *begline = copy_substring(cut_line, ftablebeg);
@@ -184,7 +184,7 @@ static void replace_table(struct card *startcard)
                     card->line = cut_line = neweline;
                     insert_new_line(card, newbline, 0, card->linenum_orig, card->linesource);
                     /* read next TABLE function in cut_line */
-                    ftablebeg = strstr(cut_line, "table(");
+                    ftablebeg = cistrstr(cut_line, "table(");
                 }
                 continue;
             }
@@ -222,7 +222,7 @@ static struct card *find_model(struct card *startcard,
             origmname = gettok(&origmodline);
             origmtype = gettok_noparens(&origmodline);
             if (cieq(origmname, searchname)) {
-                if (!eq(origmtype, newmtype)) {
+                if (!eqc(origmtype, newmtype)) {
                     fprintf(stderr,
                             "Error: Original (%s) and new (%s) type for AKO "
                             "model disagree\n",
@@ -294,7 +294,7 @@ static struct card *ako_model(struct card *startcard)
         else if (ciprefix(".ends", cut_line))
             subcktcard = NULL;
         if (ciprefix(".model", cut_line)) {
-            if ((akostr = strstr(cut_line, "ako:")) != NULL &&
+            if ((akostr = cistrstr(cut_line, "ako:")) != NULL &&
                 isspace_c(akostr[-1])) {
                 akostr += 4;
                 searchname = gettok(&akostr);
@@ -532,8 +532,8 @@ static struct card *u_instances(struct card *startcard)
                     cl = subcktcard->line;
                     tmp = TMALLOC(char, strlen(cl) + 1);
                     (void) memcpy(tmp, cl, strlen(cl) + 1);
-                    pos = strstr(tmp, "optional:");
-                    posp = strstr(tmp, "params:");
+                    pos = cistrstr(tmp, "optional:");
+                    posp = cistrstr(tmp, "params:");
                     ds_clear(&ds_tmp);
                     /* If there is an optional: and a param: then posp > pos */
                     if (pos) {
@@ -734,7 +734,7 @@ struct card *pspice_compat(struct card *oldcard)
             nextcard = insert_new_line(nextcard, new_str, 1, card->linenum_orig, card->linesource);
             /* params: replace comma separator by space.
                Do nothing if you are inside of { }. */
-            char* parastr = strstr(cut_line, "params:");
+            char* parastr = cistrstr(cut_line, "params:");
             int brace = 0;
             if (parastr) {
                 parastr += 8;
@@ -776,7 +776,7 @@ struct card *pspice_compat(struct card *oldcard)
                 controlled_exit(EXIT_BAD);
             }
             if (cieq(modtype, "NMOS") || cieq(modtype, "PMOS")) {
-                char* lv = strstr(cut_line, "level=");
+                char* lv = cistrstr(cut_line, "level=");
                 if (lv) {
                     int ll;
                     lv = lv + 6;
@@ -816,7 +816,7 @@ struct card *pspice_compat(struct card *oldcard)
                 }
             }
             else if (cieq(modtype, "NPN") || cieq(modtype, "PNP")) {
-                char* lv = strstr(cut_line, "level=");
+                char* lv = cistrstr(cut_line, "level=");
                 if (lv) {
                     int ll;
                     lv = lv + 6;
@@ -861,8 +861,8 @@ struct card *pspice_compat(struct card *oldcard)
             for (i = 0; i < 3; i++)
                 cut_line = nexttok(cut_line);
             while (cut_line) {
-                if (!strncmp(cut_line, "dev=", 4) ||
-                    !strncmp(cut_line, "lot=", 4)) {
+                if (cieqn(cut_line, "dev=", 4) ||
+                    cieqn(cut_line, "lot=", 4)) {
                     while (*cut_line && !isspace_c(*cut_line)) {
                         *cut_line++ = ' ';
                     }
@@ -886,7 +886,7 @@ struct card *pspice_compat(struct card *oldcard)
     for (card = newcard; card; card = card->nextcard) {
         char* cut_line = card->line;
         if (ciprefix("x", cut_line)) {
-            char* parastr = strstr(cut_line, "params:");
+            char* parastr = cistrstr(cut_line, "params:");
             int brace = 0;
             if (parastr) {
                 parastr += 8;
@@ -1209,7 +1209,7 @@ struct card *pspice_compat(struct card *oldcard)
         if (ciprefix(".ends", cut_line))
             nesting--;
 
-        if (ciprefix(".model", card->line) && strstr(card->line, "vswitch")) {
+        if (ciprefix(".model", card->line) && cistrstr(card->line, "vswitch")) {
             char *modname;
 
             str = card->line = inp_remove_ws(card->line);
@@ -1223,28 +1223,28 @@ struct card *pspice_compat(struct card *oldcard)
             /* S_ST switch (parameters ron, roff, vt, vh)
              * we have to find 0 to 4 parameters, identified by 'vh=' etc.
              * Parameters not found have to be replaced by their default values. */
-            if (strstr(str, "vt=") || strstr(str, "vh=")) {
+            if (cistrstr(str, "vt=") || cistrstr(str, "vh=")) {
                 char* newstr;
                 char* lstr = copy(str);
-                char* partstr = strstr(lstr, "ron=");
+                char* partstr = cistrstr(lstr, "ron=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "ron=1.0", lstr);  //default value
                     tfree(lstr);
                     lstr = newstr;
                 }
-                partstr = strstr(lstr, "roff=");
+                partstr = cistrstr(lstr, "roff=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "roff=1.0e12", lstr);  //default value
                     tfree(lstr);
                     lstr = newstr;
                 }
-                partstr = strstr(lstr, "vt=");
+                partstr = cistrstr(lstr, "vt=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "vt=0", lstr);  //default value
                     tfree(lstr);
                     lstr = newstr;
                 }
-                partstr = strstr(lstr, "vh=");
+                partstr = cistrstr(lstr, "vh=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "vh=0", lstr);  //default value
                     tfree(lstr);
@@ -1263,11 +1263,11 @@ struct card *pspice_compat(struct card *oldcard)
              * replace them by the pswitch code model parameters
              * replace VON by cntl_on, VOFF by cntl_off, RON by r_on, and ROFF by r_off.
              * Parameters not found have to be replaced by their default values. */
-            else if (strstr(str, "von=") || strstr(str, "voff=")) {
+            else if (cistrstr(str, "von=") || cistrstr(str, "voff=")) {
                 char* newstr, *begstr;
                 char* lstr = copy(str);
                 /* ron */
-                char* partstr = strstr(lstr, "ron=");
+                char* partstr = cistrstr(lstr, "ron=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "r_on=1.0", lstr);  //default value
                 }
@@ -1279,7 +1279,7 @@ struct card *pspice_compat(struct card *oldcard)
                 tfree(lstr);
                 lstr = newstr;
                 /* roff */
-                partstr = strstr(lstr, "roff=");
+                partstr = cistrstr(lstr, "roff=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "r_off=1.0e6", lstr);  //default value
                 }
@@ -1291,7 +1291,7 @@ struct card *pspice_compat(struct card *oldcard)
                 tfree(lstr);
                 lstr = newstr;
                 /* von */
-                partstr = strstr(lstr, "von=");
+                partstr = cistrstr(lstr, "von=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "cntl_on=1", lstr);  //default value
                     tfree(lstr);
@@ -1305,7 +1305,7 @@ struct card *pspice_compat(struct card *oldcard)
                 tfree(lstr);
                 lstr = newstr;
                 /* voff */
-                partstr = strstr(lstr, "voff=");
+                partstr = cistrstr(lstr, "voff=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "cntl_off=0", lstr);  //default value
                     tfree(lstr);
@@ -1456,7 +1456,7 @@ iswi:;
         if (ciprefix(".ends", cut_line))
             nesting--;
 
-        if (ciprefix(".model", card->line) && strstr(card->line, "iswitch")) {
+        if (ciprefix(".model", card->line) && cistrstr(card->line, "iswitch")) {
             char* modname;
 
             card->line = str = inp_remove_ws(card->line);
@@ -1470,28 +1470,28 @@ iswi:;
             /* S_ST switch (parameters ron, roff, it, ih)
              * we have to find 0 to 4 parameters, identified by 'ih=' etc.
              * Parameters not found have to be replaced by their default values. */
-            if (strstr(str, "it=") || strstr(str, "ih=")) {
+            if (cistrstr(str, "it=") || cistrstr(str, "ih=")) {
                 char* newstr;
                 char* lstr = copy(str);
-                char* partstr = strstr(lstr, "ron=");
+                char* partstr = cistrstr(lstr, "ron=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "ron=1.0", lstr);  //default value
                     tfree(lstr);
                     lstr = newstr;
                 }
-                partstr = strstr(lstr, "roff=");
+                partstr = cistrstr(lstr, "roff=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "roff=1.0e12", lstr);  //default value
                     tfree(lstr);
                     lstr = newstr;
                 }
-                partstr = strstr(lstr, "it=");
+                partstr = cistrstr(lstr, "it=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "it=0", lstr);  //default value
                     tfree(lstr);
                     lstr = newstr;
                 }
-                partstr = strstr(lstr, "ih=");
+                partstr = cistrstr(lstr, "ih=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "ih=0", lstr);  //default value
                     tfree(lstr);
@@ -1510,11 +1510,11 @@ iswi:;
              * replace them by the pswitch code model parameters
              * replace VON by cntl_on, VOFF by cntl_off, RON by r_on, and ROFF by r_off.
              * Parameters not found have to be replaced by their default values. */
-            else if (strstr(str, "ion=") || strstr(str, "ioff=")) {
+            else if (cistrstr(str, "ion=") || cistrstr(str, "ioff=")) {
                 char* newstr, * begstr;
                 char* lstr = copy(str);
                 /* ron */
-                char* partstr = strstr(lstr, "ron=");
+                char* partstr = cistrstr(lstr, "ron=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "r_on=1.0", lstr);  //default value
                 }
@@ -1525,7 +1525,7 @@ iswi:;
                 tfree(lstr);
                 lstr = newstr;
                 /* roff */
-                partstr = strstr(lstr, "roff=");
+                partstr = cistrstr(lstr, "roff=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "r_off=1.0e6", lstr);  //default value
                 }
@@ -1536,7 +1536,7 @@ iswi:;
                 tfree(lstr);
                 lstr = newstr;
                 /* von */
-                partstr = strstr(lstr, "ion=");
+                partstr = cistrstr(lstr, "ion=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "cntl_on=1", lstr);  //default value
                     tfree(lstr);
@@ -1549,7 +1549,7 @@ iswi:;
                 tfree(lstr);
                 lstr = newstr;
                 /* voff */
-                partstr = strstr(lstr, "ioff=");
+                partstr = cistrstr(lstr, "ioff=");
                 if (!partstr) {
                     newstr = tprintf("%s %s", "cntl_off=0", lstr);  //default value
                     tfree(lstr);
@@ -1768,7 +1768,7 @@ struct card *ltspice_compat(struct card *oldcard)
             *cut_line = '*';
         }
         else if (*cut_line == 'r') {
-            char* noi = strstr(cut_line, "noiseless");
+            char* noi = cistrstr(cut_line, "noiseless");
             /* only if 'noiseless' is an unconnected token */
             if (noi && isspace_c(noi[-1]) && (isspace_c(noi[9]) || !isprint_c(noi[9]))) {
                 memcpy(noi, "noisy=0  ", 9);
