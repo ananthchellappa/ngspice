@@ -100,7 +100,7 @@ a checklist; it is the phase's unit of progress.
 ### 1.1 Known members
 
 - `src/spicelib/parser/inp2dot.c:442,695,793` — `strcmp(word,"uic")`; `.TRAN 1n 10n UIC` silently drops UIC and simulates a different circuit.
-- `src/spicelib/parser/inp2dot.c:489,366,387` — `.SENS`/`.TF` accept only lowercase `v`/`i`.
+- `src/spicelib/parser/inp2dot.c:366,387,489,512` — `.SENS`/`.TF` accept only lowercase `v`/`i`. **Done**, now `cieq`.
 - `src/xspice/mif/mif_inp2.c:757` — `%`-qualifier table.
 - `src/xspice/mif/mifgetmod.c:206` — code-model parameter keywords.
 - `src/xspice/mif/mifutil.c:198` — `null`, `t`/`true`, `f`/`false`.
@@ -108,7 +108,14 @@ a checklist; it is the phase's unit of progress.
 - `src/spicelib/parser/inpgmod.c:52`, `inpdpar.c:30`, `inpdomod.c:46` — model and instance parameter keywords.
 - `src/frontend/numparam/spicenum.c:241,245,254,256,258` — the numparam line categorizer uses case-sensitive `prefix()` for `.param`, `.subckt` and friends. This contradicts the common assumption that numparam needs no work.
 - `src/frontend/inpcom.c:2400-2407` — `gnd` rewrite, converted to a delimiter-guarded case-insensitive scan.
-- `src/frontend/subckt.c:636,652,669,685` — MOS bin selection `strstr(" wmin=")`.
+- `src/frontend/subckt.c:659,675,692,708` — MOS bin selection `strstr(" wmin=")`. **Done**, now `cistrstr`.
+- `src/frontend/inpcom.c:5986`, `:6039` — `search_identifier()` and
+  `search_plain_identifier()`, the two whole-token searches the Phase 1 census
+  left `unclear` because their `strstr` hides behind a helper. **Done**,
+  `doc/codex/issues/0013`; they now fold the literal unless
+  `inp_case_folding()`. `ya_search_identifier()` (`:6012`) is the third helper
+  and is deliberately *not* folded: its single caller passes a user parameter
+  name, not a keyword.
 - `src/frontend/spiceif.c:1115` — model parameters use `eq` where instance parameters at `:1101` use `cieq`.
 
 ### 1.2 The no-op argument, and its limit
@@ -203,19 +210,20 @@ key while `t_ent` keeps the first-seen spelling
   path.
 - `src/frontend/measure.c:236` — `.measure` analysis name.
 
-### 2.5 The output path
+### 2.5 The output path — **done, commit `47c52c7dd`**
 
-Not optional. Remove `strtolower` from `vec_basename`
-(`src/frontend/vectors.c:1129`) so `print` (`postcoms.c:203`), `write`
-(`postcoms.c:661`, which *replaces* `v_name`), `write_sparam` (`:826`), `spec`
-(`spec.c:213`) and `fft`/`psd` (`com_fft.c:165`, `:398`) carry the preserved
-name. Without it, `preserve` delivers case on `listing`/`show`/batch-`-r` and
-discards it on five other surfaces.
+Not optional. The `strtolower` was removed from `vec_basename`
+(`src/frontend/vectors.c:1129`, now the comment recording the removal) so
+`print` (`postcoms.c:207`), `write` (`postcoms.c:661`, which *replaces*
+`v_name`), `write_sparam` (`:826`), `spec` (`spec.c:213`) and `fft`/`psd`
+(`com_fft.c:165`, `:398`) carry the preserved name. Without it, `preserve`
+delivered case on `listing`/`show`/batch-`-r` and discarded it on five other
+surfaces.
 
-This changes `fold`-mode output for generated internal node names such as
-`q1#collCX` (`src/spicelib/devices/bjt/bjtsetup.c:433`) and may churn committed
-`.out` files. Decide deliberately — correction or bug-compatibility — and record
-the decision in the commit message.
+This changed `fold`-mode output for generated internal node names such as
+`q1#collCX` (`src/spicelib/devices/bjt/bjtsetup.c:433`) and churned committed
+`.out` files. It was taken as the correction rather than as
+bug-compatibility, and the decision is recorded in that commit message.
 
 ### 2.6 RED tests
 
@@ -270,8 +278,8 @@ with no diagnostic.
    key and query means two case-variant nets alias and `print` returns whichever
    hashed first. Until this is exact, `distinguish` can create two nets that the
    user cannot address independently — the feature would be unobservable.
-4. `src/frontend/measure.c:236`, `src/frontend/outitf.c:391`,
-   `src/frontend/subckt.c:636`.
+4. `src/frontend/measure.c:236` (done), `src/frontend/outitf.c:391`
+   (open, `doc/codex/issues/0016`), `src/frontend/subckt.c:659` (done).
 5. A source lint that fails the build on a new `strcmp` against a lowercase
    literal in the affected directories, so the sweep does not decay.
 
@@ -281,8 +289,8 @@ with no diagnostic.
 both interpretations solvable:
 
 RED today prints one value for both `v(Out)` and `v(OUT)`; GREEN prints two
-different voltages. Assert on **values only**, not labels, unless 2.5 has
-landed.
+different voltages. 2.5 has landed, so the labels are safe to assert on as
+well as the values.
 
 `tests/regression/case/instance-case-split.cir` — `Rab` and `RAB` coexisting,
 each independently addressable via `@name[resistance]` and `alter`. Today the
@@ -365,7 +373,7 @@ If the feature is declined:
 Open these before writing code:
 
 - A scope entry for `src/frontend/vectors.c:1129` plus
-  `postcoms.c:203,661,826`, `com_fft.c:165,398`, `spec.c:213`.
+  `postcoms.c:207,661,826`, `com_fft.c:165,398`, `spec.c:213`. **Done**, 2.5.
 - A `visualc/*.vcxproj` (×3) checklist item.
 - `man/man1/ngspice.1` documentation for `-D`, plus a `NEWS` bullet and an
   out-of-tree manual plan.

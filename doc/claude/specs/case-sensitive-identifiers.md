@@ -149,31 +149,37 @@ from a `distinguish` top level is out of scope — see Open Decisions.
 
 ## The output path is part of the deliverable
 
+**Done, in commit `47c52c7dd`.** The reasoning below is kept as written; the
+line numbers and the tense are corrected.
+
 `preserve` does not deliver preservation by fixing the reader alone.
-`vec_basename()` calls `strtolower(buf)` at `src/frontend/vectors.c:1129`, and it
-sits on the output path of:
+`vec_basename()` used to call `strtolower(buf)` at
+`src/frontend/vectors.c:1129`; that line is now the comment recording its
+removal. It sits on the output path of:
 
 | Consumer | Site |
 | --- | --- |
-| `print` | `src/frontend/postcoms.c:203` |
+| `print` | `src/frontend/postcoms.c:207` |
 | `write` | `src/frontend/postcoms.c:661` — *replaces* `v_name` before writing the rawfile |
 | `write_sparam` | `src/frontend/postcoms.c:826` |
 | `spec` | `src/frontend/spec.c:213` |
 | `fft`, `psd` | `src/frontend/com_fft.c:165`, `:398` |
 
-Without this in scope, `print v(OutB)` still prints `v(outb)` and `write
-foo.raw` still writes `outb`, while batch `-r` (`src/frontend/outitf.c:532`) and
-`listing`/`show` preserve. Case would land on two surfaces and be discarded on
-five.
+Without this in scope, `print v(OutB)` would still print `v(outb)` and `write
+foo.raw` would still write `outb`, while batch `-r`
+(`src/frontend/outitf.c:532`) and `listing`/`show` preserve. Case would land on
+two surfaces and be discarded on five. With it in scope all seven agree, and
+`tests/regression/case/name-roundtrip.cir` asserts on `print` as well as on
+`show`.
 
-Removing that `strtolower` is **not a no-op in `fold` mode**, and the spec must
+Removing that `strtolower` was **not a no-op in `fold` mode**, and the spec must
 say so. `CKTmkVolt(ckt, &tmp, here->BJTname, "collCX")`
 (`src/spicelib/devices/bjt/bjtsetup.c:433`) generates node names containing
-uppercase regardless of any deck fold, so today `ngspice -r` emits `q1#collCX`
-while interactive `write` emits `q1#collcx`. Correcting `vec_basename` changes
-existing `write`/`print`/`fft` output and may churn committed `.out` files. That
-is a deliberate, documented correction, and it is the one place where "the
-default is provably byte-identical" does not hold.
+uppercase regardless of any deck fold, so before the change `ngspice -r` emitted
+`q1#collCX` while interactive `write` emitted `q1#collcx`. Correcting
+`vec_basename` changed existing `write`/`print`/`fft` output and churned
+committed `.out` files. That is a deliberate, documented correction, and it is
+the one place where "the default is provably byte-identical" does not hold.
 
 ## Compatibility contract
 
@@ -212,10 +218,10 @@ because the fix is specified.
 | --- | --- |
 | `src/spicelib/parser/inpptree.c:1256` | `mkvnode` uses `INPtermInsert`, which **creates on miss**. `B1 out 0 V={V(IN)*2}` against net `in` manufactures a floating node at 0 V and runs to completion. |
 | `src/xspice/evt/evtcheck_nodes.c:720` | Auto-bridge insertion is `strcmp(event_node->name, analog_node->name)`. Digital `A` and analog `a` stop being the same mixed-type node; no bridge is inserted, both nets float, no diagnostic fires. |
-| `src/frontend/measure.c:236` | `strtolower(an_name)` feeding `strcmp` at `:350`/`:445`. A case-mixed `.MEAS TRAN` is silently skipped with no output line. |
-| `src/frontend/subckt.c:636,652,669,685` | MOS bin selection by `strstr(curr_line, " wmin=")`. A card written `WMIN=` selects the wrong bin, silently. |
-| `src/frontend/outitf.c:391` | `tmpname[1] == 'd'` classifies internal nodes for `.save alli`; a diode named `D1` loses its terminal current. |
-| `src/spicelib/parser/inp2dot.c:489`, `:366`, `:387` | `.SENS`/`.TF` accept only lowercase `v`/`i` while `.NOISE` accepts both. |
+| `src/frontend/measure.c:236` | **Done.** `strtolower(an_name)` at `:237` is now gated on `inp_case_folding()` at `:236` and its consumers at `:351` and `:446` compare with `cieq`. A case-mixed `.MEAS TRAN` used to be silently skipped with no output line. |
+| `src/frontend/subckt.c:659`, `:675`, `:692`, `:708` | **Done.** MOS bin selection now uses `cistrstr(curr_line, " wmin=")` and the `wmax`/`lmin`/`lmax` siblings. A card written `WMIN=` used to select the wrong bin, silently. |
+| `src/frontend/outitf.c:391` | `tmpname[1] == 'd'` classifies internal nodes for `.save alli`; a diode named `D1` loses its terminal current. Still open; `doc/codex/issues/0016`. |
+| `src/spicelib/parser/inp2dot.c:366`, `:387`, `:489`, `:512` | **Done.** `.SENS`/`.TF` now match `v`/`i` with `cieq`, as `.NOISE` already did. |
 
 ## Fold sites outside the reader
 

@@ -60,7 +60,7 @@ the one recorded here.
 | identifier | 98 | leave |
 | internal | 184 | leave |
 | filename | 6 | leave |
-| unclear | 2 | resolve before converting |
+| unclear | 2 | **resolved** — `doc/codex/issues/0013` |
 
 **Phase 1 converts 713 sites across 66 files.**
 The three prior estimates were 642, ~304 and ~120; the first was closest.
@@ -130,8 +130,18 @@ dot card.
 
 ## Status — Phase 1 complete
 
-All 713 keyword sites are converted. The identifier, filename, internal and
-unclear rows are deliberately untouched.
+All 713 keyword sites are converted. The identifier, filename and internal rows
+are deliberately untouched.
+
+The two `unclear` rows are resolved by `doc/codex/issues/0013`. Both are the
+`strstr` inside a shared whole-token helper, so the class depends on the
+caller, which is why a scan for string literals could not settle them. Every
+caller of `search_identifier()` (row 5900) and `search_plain_identifier()`
+(row 5954) passes a language keyword except one each, so both helpers fold
+their literal unless `inp_case_folding()`, and the two identifier callers got
+their own exact-match entry point. Row 5926, `ya_search_identifier()`, was already
+classified `identifier` and stays byte-exact — that classification was
+confirmed rather than revised.
 
 | commit | area | keyword | fold-visible | test |
 | --- | --- | ---: | ---: | --- |
