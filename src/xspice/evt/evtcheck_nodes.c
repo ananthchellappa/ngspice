@@ -654,7 +654,7 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
 
     /* If the setup is not a .include card, format it with vcc. */
 
-    if (strncmp(setup, ".inc", 4)) {
+    if (!cieqn(setup, ".inc", 4)) {
         snprintf(buff, sizeof buff, setup, vcc, vcc, vcc, vcc, vcc);
         tfree(setup);
         setup = copy(buff);

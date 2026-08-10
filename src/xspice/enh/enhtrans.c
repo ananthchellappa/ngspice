@@ -313,7 +313,7 @@ static char *two2three_translate(
 
     /* There may be a multiplier m=val 
        Remove it here, add it later */
-    multibeg = strstr(orig_card, " m=");
+    multibeg = cistrstr(orig_card, " m=");
     if (multibeg) {
         multiend = multibeg + 3;
         while (*multiend == ' ')
@@ -554,8 +554,7 @@ static int get_poly_dimension(
     /* Check the next token to see if it is "poly" */
     /* If not, return  0                           */
     local_tok = MIFgettok(&card);
-    if( strcmp(local_tok, "poly") &&
-            strcmp(local_tok, "POLY") ) { /* check that local_tok is *not* poly */
+    if( !cieq(local_tok, "poly") ) { /* check that local_tok is *not* poly */
         FREE(local_tok);
         local_tok = NULL;
         return(0);

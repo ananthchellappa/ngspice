@@ -203,7 +203,7 @@ char *MIFgetMod(
                         break;
                     }
                     for (j = 0; j < num_pars; j++) {
-                        if (strcmp(parm, device->modelParms[j].keyword) == 0) {
+                        if (cieq(parm, device->modelParms[j].keyword)) {
                             err1 = NULL;
                             val = MIFgetValue(ckt, &line,
                                     device->modelParms[j].dataType,

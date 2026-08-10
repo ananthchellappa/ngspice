@@ -283,9 +283,9 @@ static int MIFget_boolean(char *token, char **err)
     int i;
     *err = NULL;
 
-    if((strcmp(token, "t") == 0) || (strcmp(token, "true") == 0))
+    if((cieq(token, "t")) || (cieq(token, "true")))
         return(1);
-    if((strcmp(token, "f") == 0) || (strcmp(token, "false") == 0))
+    if((cieq(token, "f")) || (cieq(token, "false")))
         return(0);
 
     i = MIFget_integer(token, err); // Try integer

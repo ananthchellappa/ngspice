@@ -195,7 +195,7 @@ char  *MIFget_token(
         break;
 
     default:
-        if(strcmp(ret_str, "null") == 0)
+        if(cieq(ret_str, "null"))
             *type = MIF_NULL_TOK;
         else
             *type = MIF_STRING_TOK;

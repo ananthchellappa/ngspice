@@ -210,7 +210,7 @@ static void idn_digital_plot_val(void *evt_struct, char *member, double *val)
 
 
     /* Output a value for the requested member of the digital struct */
-    if (member && strcmp(member,"strength") == 0) {
+    if (member && cieq(member,"strength")) {
 
         /* Choose values that will not make plots lie on state plots */
         switch(dig_struct->strength) {
@@ -270,7 +270,7 @@ static void idn_digital_print_val(void *evt_struct, char *member, char **val)
 
     /* Output a value for the requested member of the digital struct */
 
-    if(strcmp(member,"state") == 0) {
+    if(cieq(member,"state")) {
 
         /* Pick reasonable values */
         switch(dig_struct->state) {
@@ -292,7 +292,7 @@ static void idn_digital_print_val(void *evt_struct, char *member, char **val)
             return;
         }
     }
-    else if(strcmp(member,"strength") == 0) {
+    else if(cieq(member,"strength")) {
 
         /* Choose values that will not make plots lie on state plots */
         switch(dig_struct->strength) {

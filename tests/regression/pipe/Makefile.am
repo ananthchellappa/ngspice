@@ -6,7 +6,8 @@ TESTS = alter-1.cmd flow-keyword-case.cmd \
 	inpcompat-keyword-case.cmd plot-keyword-case.cmd \
 	breakp-keyword-case.cmd postcoms-keyword-case.cmd \
 	variable-keyword-case.cmd spec-keyword-case.cmd \
-	device-keyword-case.cmd exprcoms-keyword-case.cmd
+	device-keyword-case.cmd exprcoms-keyword-case.cmd \
+	xspice-keyword-case.cmd
 
 TESTS_ENVIRONMENT = \
 	SPICE_SCRIPTS=$(top_srcdir)/tests/bin \

@@ -754,7 +754,7 @@ MIFget_port_type(
     found_type = MIF_FALSE;
 
     for(i = 0; i < conn_info->num_allowed_types; i++) {
-        if(strcmp(temp, conn_info->allowed_type_str[i]) == 0) {
+        if(cieq(temp, conn_info->allowed_type_str[i])) {
             found_type = MIF_TRUE;
             *port_type = conn_info->allowed_type[i];
             *port_type_str = temp;

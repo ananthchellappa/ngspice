@@ -267,7 +267,7 @@ static void EVTnode_insert(
     /* Scan the list of user-defined node types and get the index */
     found = MIF_FALSE;
     for(i = 0; i < g_evt_num_udn_types; i++) {
-        if(strcmp(type_name, g_evt_udn_info[i]->name) == 0) {
+        if(cieq(type_name, g_evt_udn_info[i]->name)) {
             udn_index = i;
             found = MIF_TRUE;
             break;

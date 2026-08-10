@@ -995,10 +995,10 @@ EVTsave(wordlist *wl)
     /* Deal with "all" and "none". */
 
     if (wl->wl_next == NULL) {
-        if (!strcmp("none", wl->wl_word)) {
+        if (cieq("none", wl->wl_word)) {
             set_all(ckt, MIF_FALSE);
             return;
-        } else if (!strcmp("all", wl->wl_word)) {
+        } else if (cieq("all", wl->wl_word)) {
             set_all(ckt, MIF_TRUE);
             return;
         }
