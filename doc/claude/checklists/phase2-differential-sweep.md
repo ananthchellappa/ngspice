@@ -160,21 +160,63 @@ tests issue 0010 added, and all 8 report OK.
 The 2 remaining `PARSE-FAIL`s are `tests/polezero/pz{2,t}.cir`, which are
 `doc/codex/issues/0013`. The 3 `SKIP`s are unchanged stock-run timeouts.
 
+## Re-run after `doc/codex/issues/0013` was fixed
+
+After the commit that folds the keyword literal inside `search_identifier()`
+and `search_plain_identifier()`, the same command reports:
+
+| verdict | after 0010 | after 0013 |
+| --- | ---: | ---: |
+| OK | 95 | 108 |
+| DIFF | 42 | 43 |
+| PARSE-FAIL | 2 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **142** | **154** |
+
+Both columns were measured with the same command on the same tree, immediately
+before and after the commit. The "after 0010" column differs by one deck from
+the figures above (OK=96, DIFF=41) for the usual reason: one timing-sensitive
+deck moves between consecutive runs.
+
+Compared per deck rather than on the totals, exactly three decks moved and none
+of them got worse. `tests/polezero/pz{2,t}.cir` went `PARSE-FAIL` to `DIFF`,
+and `tests/regression/model/binning-1.cir` went `DIFF` to `OK`. The 12 extra
+decks are the six twin pairs the fix added under `tests/regression/case/`, and
+all 12 report OK. **`PARSE-FAIL` is now 0**, which is the first time acceptance
+criterion 4 of `doc/codex/issues/0009` has been met.
+
+The two `polezero` decks land in `DIFF` rather than `OK` for a warning, not a
+number: their `l1 1 0 1H` cards carry an upper-case unit suffix, and
+`is_a_modelname()`'s test at `inpcom.c:3239` is case-sensitive, so under
+`preserve` `1H` is reported as `warning, can't find model '1h'`. That is on
+issue 0009's follow-up list. The 3 `SKIP`s are unchanged stock-run timeouts.
+
 **`NUM-DIFF` has been 0 at every measurement in this table.**
 
 ## Interpretation
 
-`preserve` does not change any number it can compute. What it cannot yet do is
-parse a deck written in the ordinary SPICE house style, because upper-case
-device letters break card classification in the preprocessor. That is one
-defect with four or five sites, it is mechanical to fix, and it is Phase 1's
-enumeration gap rather than Phase 2's plumbing — the Phase 1 census wrote down
-that it does not count character-literal comparisons.
+`preserve` does not change any number it can compute. That was true at the head
+of Phase 2 and it has stayed true at every measurement since.
 
-Two further gaps are recorded rather than fixed: model, subcircuit and
-global-node names still match with `strcmp`
-(`doc/codex/issues/0010`), and the `gnd` rewrite runs over command text it
-should not touch (`doc/codex/issues/0011`).
+What `preserve` could not do at the head of Phase 2 was parse a deck written in
+the ordinary SPICE house style, because upper-case device letters broke card
+classification in the preprocessor. That was one defect with four or five
+sites, mechanical to fix, and it was Phase 1's enumeration gap rather than
+Phase 2's plumbing — the Phase 1 census wrote down that it does not count
+character-literal comparisons. It is `doc/codex/issues/0009`, and its two
+residues — name lookup by `strcmp` (`doc/codex/issues/0010`) and the keyword
+searches hidden behind a helper (`doc/codex/issues/0013`) — are also closed.
+Every deck under `tests/` whose stock run parses now parses under `preserve`
+and under `preserve` on a mechanically uppercased copy.
+
+Gaps recorded rather than fixed: the `gnd` rewrite runs over command text it
+should not touch (`doc/codex/issues/0011`), `numnodes()` dispatches on a
+lower-case device letter (`0014`), numparam symbol names are byte-exact
+(`0015`), instance-name matchers outside `DEVnameHash` (`0016`), and
+`inp_quote_params()` adjusts the terminal count on a lower-case device letter
+(`0017`). The 43 `DIFF` decks remain the four groups described above plus
+issue 0009's follow-up table.
 
 ## Full output
 
