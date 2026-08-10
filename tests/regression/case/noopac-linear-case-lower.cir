@@ -1,0 +1,13 @@
+* lower case twin of noopac-linear-case.cir
+.OPTIONS noacct noopac keepopinfo
+v1 1 0 dc 1 ac 1
+r1 1 2 1k
+r2 2 0 2k
+c1 2 0 1u
+.control
+ac lin 1 1k 1k
+print mag(v(2))
+setplot op1
+print v(2)
+.endc
+.end

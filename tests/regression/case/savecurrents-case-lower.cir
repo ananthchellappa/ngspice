@@ -1,0 +1,19 @@
+* lower case twin of savecurrents-case.cir
+.OPTIONS noacct
+.options savecurrents
+v1 1 0 dc 0
+r1 1 2 1k
+r2 2 0 4k
+r3 1 4 1k
+d1 4 0 dmod
+.model dmod d is=1e-14
+.control
+dc v1 0 5 1
+let rlen = length(@r1[i])
+let rmin = minimum(@r1[i])
+let dlen = length(@d1[id])
+print rlen
+print rmin
+print dlen
+.endc
+.end

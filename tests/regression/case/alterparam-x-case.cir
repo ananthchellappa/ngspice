@@ -1,0 +1,35 @@
+* alterparam on an upper case subcircuit instance, under casemode=preserve
+* com_alterparam()'s three-argument form, 'alterparam subcktname pname=val',
+* first finds the parameter on the .subckt card and counts its position,
+* then walks ft_curckt->ci_mcdeck for the X card that calls that subcircuit
+* and overwrites the positional value there.  The X card is picked with
+*     if (*xline == 'x')
+* lower case only, so under preserve an upper case X1 is never found and the
+* command is a silent no-op: 'found' has already been set TRUE on the
+* .subckt card, so nothing is printed either.
+* mc_source re-sources ci_mcdeck; without it the altered deck is never
+* parsed and the deck would assert nothing in any mode.
+* The subcircuit name 'divider' and the parameter name 'rtop' are lower case
+* in both twins: com_alterparam() matches those with eq() and strstr()
+* against the command line, which is a separate name space.  The only
+* variable under test is the case of the X card's leading letter.
+* Evidence is the divider ratio: 4 V across rtop=1k over R2=3k gives 3 V,
+* and rtop=3k gives 2 V.
+* doc/codex/issues/0019; src/frontend/inp.c:1828.
+.OPTIONS noacct
+V1 1 0 dc 4
+X1 1 2 divider
+R2 2 0 3k
+.subckt divider a b
+.param rtop=1k
+Ra a b {rtop}
+.ends
+.control
+op
+print v(2)
+alterparam divider rtop=3k
+mc_source
+op
+print v(2)
+.endc
+.end

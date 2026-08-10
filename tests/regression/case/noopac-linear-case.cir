@@ -1,0 +1,31 @@
+* upper case R/C/V deck misclassified as non-linear, under casemode=preserve
+* cktislinear() switches on a card's first byte against lower case letters
+* only:
+*     firstchar = *dd->line;
+*     switch (firstchar) { case 'r': case 'l': case 'c': ...
+* so under preserve an upper case R, L, C, I or V card takes the default arm
+* and clears ckt->CKTisLinear on the very first device card.  cktdojob.c:109
+* then computes CKTnoopac = TSKnoopac && CKTisLinear, so '.options noopac'
+* silently stops working and acan.c:133 runs CKTop() after all.
+* The flag has exactly one consumer, and the line acan.c:146 prints when it
+* fires — " Linear circuit, option noopac given: no OP analysis" — contains
+* "nalysis" and is deleted by tests/bin/check.sh's filter.  'keepopinfo' is
+* what turns the flag into a number: acan.c dumps the AC operating point
+* plot whether or not CKTop ran, so a skipped OP leaves it at the zeroed
+* CKTrhsOld while a computed one carries the real divider voltage
+* 1 V * 2k/3k = 6.666667e-01.
+* mag(v(2)) is the control: it is the same in all four runs, which is what
+* makes the second line the only thing the device-letter case can move.
+* doc/codex/issues/0019; src/frontend/inp.c:2030.
+.OPTIONS noacct noopac keepopinfo
+V1 1 0 dc 1 ac 1
+R1 1 2 1k
+R2 2 0 2k
+C1 2 0 1u
+.control
+ac lin 1 1k 1k
+print mag(v(2))
+setplot op1
+print v(2)
+.endc
+.end

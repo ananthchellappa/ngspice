@@ -1,0 +1,18 @@
+* lower case twin of alterparam-x-case.cir
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 divider
+r2 2 0 3k
+.subckt divider a b
+.param rtop=1k
+ra a b {rtop}
+.ends
+.control
+op
+print v(2)
+alterparam divider rtop=3k
+mc_source
+op
+print v(2)
+.endc
+.end

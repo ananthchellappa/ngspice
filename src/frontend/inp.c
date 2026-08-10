@@ -1825,7 +1825,7 @@ com_alterparam(wordlist *wl)
                         char *bsubb = tprintf(" %s ", subcktname);
                         for (xx = ft_curckt->ci_mcdeck->nextcard; xx; xx = xx->nextcard) {
                             char *xline = xx->line;
-                            if (*xline == 'x') {
+                            if (elem_letter(xline) == 'x') {
                                 xline = strstr(xline, bsubb);
                                 if (xline) {
                                     xline = nexttok(xline); /* skip subcktname */
@@ -2027,7 +2027,7 @@ static void cktislinear(CKTcircuit *ckt, struct card *deck)
 
     if (deck->nextcard)
         for (dd = deck->nextcard; dd; dd = dd->nextcard) {
-            firstchar = *dd->line;
+            firstchar = elem_letter(dd->line);
             switch (firstchar) {
                 case 'r':
                 case 'l':
@@ -2451,7 +2451,7 @@ inp_savecurrents(struct card *deck, struct card *options, wordlist *wl, wordlist
     for (deck = deck->nextcard; deck; deck = deck->nextcard) {
         char *newline, *devname, *devline = deck->line;
 
-        switch (devline[0]) {
+        switch (elem_letter(devline)) {
         case 'm':
             devname = gettok(&devline);
             if (cistrstr(options->line, "savecurrents_bsim3"))

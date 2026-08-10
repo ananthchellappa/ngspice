@@ -1,0 +1,36 @@
+* .options savecurrents with upper case device letters, under preserve
+* inp_savecurrents() walks the expanded deck and emits a '.save @dev[...]'
+* card for every device it recognises, dispatching with
+*     switch (devline[0])
+* against thirteen lower case case labels.  Under casemode=preserve an upper
+* case R or D misses all of them, falls into 'default: continue', and no
+* .save card is emitted at all, so the terminal current vectors are simply
+* absent from the saved plot.  Nothing is printed.
+* The evidence has to separate "the vector is in the plot" from "the name
+* was answered by an instance-parameter query": 'print @R1[i]' returns the
+* live device state even when nothing was saved, so an op-only deck shows no
+* difference at all.  A dc sweep does: a saved vector has the sweep's six
+* points and starts at zero, the fallback is a single scalar holding the
+* last swept value.
+* The results are assigned to lower case 'let' vectors so that this deck and
+* its twin print byte-identical labels; the vector names themselves keep the
+* device's spelling and could not be printed directly.
+* doc/codex/issues/0019; src/frontend/inp.c:2454.
+.OPTIONS noacct
+.options savecurrents
+V1 1 0 dc 0
+R1 1 2 1k
+R2 2 0 4k
+R3 1 4 1k
+D1 4 0 dmod
+.model dmod d is=1e-14
+.control
+dc V1 0 5 1
+let rlen = length(@R1[i])
+let rmin = minimum(@R1[i])
+let dlen = length(@D1[id])
+print rlen
+print rmin
+print dlen
+.endc
+.end
