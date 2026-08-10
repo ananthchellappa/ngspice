@@ -1,0 +1,11 @@
+* lower case twin of func-name-case.cir
+.OPTIONS noacct
+.func dbl(x) {2*x}
+V1 1 0 dc 4
+R1 1 2 {dbl(500)}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

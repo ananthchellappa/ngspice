@@ -369,6 +369,39 @@ donedico(dico_t *dico)
 }
 
 
+/* The key a numparam symbol is stored and found under. Every symbol table
+   here is an nghash_init() table, so the comparator is strcmp and the table
+   owns a copy of the key: src/misc/hash.c:548 copies the key only for
+   NGHASH_FUNC_STR and the frees at :110, :182, :393, :471 and :866 are gated
+   the same way, so installing a case insensitive hash_func would silently
+   flip every one of these tables from owning its keys to borrowing them.
+   Identity is therefore folded here instead, at the single probe entrynb()
+   and the single insert attrib(), while entry->symbol keeps the spelling the
+   deck used first for reporting. Under fold mode the reader has already
+   lowercased the card, so the key is passed through untouched and the default
+   mode hashes and compares exactly the bytes it did before. */
+
+static char *symbol_key(DSTRINGPTR key_p, char *s)
+{
+    if (inp_case_folding())
+        return s;
+
+    ds_clear(key_p);
+    if (ds_cat_str(key_p, s) != DS_E_OK) {
+        fprintf(stderr, "Error: DS could not add string %s\n", s);
+        controlled_exit(-1);
+    }
+    /* strtolower() rather than ds_cat_str_case(ds_case_lower): the latter folds
+       with tolower() on a plain char, this with tolower_c()'s unsigned char
+       cast, and only the second is defined for the high-bit bytes alfa()
+       admits in an identifier. It is also byte for byte what the .subckt key
+       of doc/codex/issues/0010 was folded with. */
+    strtolower(ds_get_buf(key_p));
+
+    return ds_get_buf(key_p);
+}
+
+
 /* -----------------------------------------------------------------
  * Now entryb works on the given hash table hierarchy.   First
  * look thru the stack of local symbols and then look at the global
@@ -378,20 +411,24 @@ entry_t *
 entrynb(dico_t *dico, char *s)
 {
     int depth;                  /* stack depth */
-    entry_t *entry;             /* search hash table */
+    entry_t *entry = NULL;      /* search hash table */
     NGHASHPTR htable_p;         /* hash table */
+    DS_CREATE(key, 100);        /* folded lookup key, if any */
+    char *s_key = symbol_key(&key, s);
 
     /* look at the current scope and then backup the stack */
     for (depth = dico->stack_depth; depth >= 0; depth--) {
         htable_p = dico->symbols[depth];
         if (htable_p) {
-            entry = (entry_t *) nghash_find(htable_p, s);
+            entry = (entry_t *) nghash_find(htable_p, s_key);
             if (entry)
-                return (entry);
+                break;
         }
     }
 
-    return NULL;
+    ds_free(&key);
+
+    return entry;
 }
 
 
@@ -417,8 +454,10 @@ attrib(dico_t *dico, NGHASHPTR htable_p, char *t, char op)
        Option  op='N' : force a new entry, if tos>level and old is  valid.
     */
     entry_t *entry;             /* symbol table entry */
+    DS_CREATE(key, 100);        /* folded table key, if any */
+    char *t_key = symbol_key(&key, t);
 
-    entry = (entry_t *) nghash_find(htable_p, t);
+    entry = (entry_t *) nghash_find(htable_p, t_key);
     if (entry && (op == 'N') &&
         (entry->level < dico->stack_depth) && (entry->tp != NUPA_UNKNOWN))
     {
@@ -427,11 +466,14 @@ attrib(dico_t *dico, NGHASHPTR htable_p, char *t, char op)
 
     if (!entry) {
         entry = TMALLOC(entry_t, 1);
+        /* the key is folded, the stored spelling is the one first seen */
         entry->symbol = copy(t);
         entry->tp = NUPA_UNKNOWN;      /* signal Unknown */
         entry->level = dico->stack_depth;
-        nghash_insert(htable_p, t, entry);
+        nghash_insert(htable_p, t_key, entry);
     }
+
+    ds_free(&key);
 
     return entry;
 }
@@ -544,13 +586,8 @@ defsubckt(dico_t *dico, const struct card *card)
     if (s_end > s) {
         DS_CREATE(ustr, 200); /* temp user string */
         pscopy(&ustr, s, s_end);
-        /* nupa_define()'s symbol table is a strcmp hash, so a subcircuit name
-           is stored under a folded key when the deck is not folded; the two
-           probes, findsubckt() and spicenum.c's findsubname(), fold to match.
-           Only .subckt cards reach here (subckt.c:238), so no other kind of
-           numparam symbol changes key. */
-        if (!inp_case_folding())
-            strtolower(ds_get_buf(&ustr));
+        /* the key this lands under is folded by attrib() when the deck is not
+           folded, the way every other numparam symbol is */
         err = nupa_define(dico, ds_get_buf(&ustr), ' ',
                 NUPA_SUBCKT, 0.0, w, NULL);
         ds_free(&ustr);
@@ -575,9 +612,6 @@ findsubckt(dico_t *dico, const char *s)
     DS_CREATE(ustr, 200); /* u= subckt name is last token in string s */
 
     pscopy(&ustr, name_b, name_e);
-    /* keyed as defsubckt() keyed the definition */
-    if (!inp_case_folding())
-        strtolower(ds_get_buf(&ustr));
     entry = entrynb(dico, ds_get_buf(&ustr));
     ds_free(&ustr);
 

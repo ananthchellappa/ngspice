@@ -221,6 +221,15 @@ The numparam half is folded at the `NUPA_SUBCKT` call sites only, not inside
 `entrynb()` would silently extend this change to the `.param`/`.func` name
 space; that gap is `doc/codex/issues/0015`.
 
+**Superseded.** `doc/codex/issues/0015` has since folded the key inside
+`entrynb()` and `attrib()` for every kind of numparam symbol, and its criterion
+4 required these three `strtolower` calls — `defsubckt()`, `findsubckt()`,
+`findsubname()` — to be **deleted** once that landed, so that one policy governs
+the tables rather than two. They are gone; `search_isolated_identifier()`'s
+gated `cistrstr`, which is not a table key, stays. A subcircuit name is still
+matched case-insensitively under `preserve`, now for the same reason every other
+numparam symbol is.
+
 `.global` name space — commit "fold the key for .global node lookup":
 `src/frontend/subckt.c` gains `glo_key()`, used by `collect_global_nodes()`'s
 probe and insert and by `gettrans()`'s probe. `gettrans()` probes with a

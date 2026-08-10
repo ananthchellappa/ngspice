@@ -1,0 +1,19 @@
+* .param name spelled one way at the definition and another at the reference
+* numparam keeps every symbol in a per-scope nghash table created with
+* nghash_init(), i.e. keyed by strcmp, and neither the single insert
+* (attrib(), src/frontend/numparam/xpressn.c) nor the single probe (entrynb())
+* folded the key.  Under preserve the reader no longer lowercases the card, so
+* the definition went in as 'RVal' and the reference asked for 'rval'.
+* The run aborts with 'Undefined parameter [rval]' on stderr and prints
+* nothing, so what this deck asserts is the missing voltage.
+* doc/codex/issues/0015 criterion 1, the .param half.
+.OPTIONS noacct
+.param RVal=1k
+V1 1 0 dc 4
+R1 1 2 {rval}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

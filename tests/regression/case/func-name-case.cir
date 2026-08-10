@@ -1,0 +1,19 @@
+* .func name spelled one way at the definition and another at the call
+* .func is not a numparam symbol: inp_expand_macros_in_deck() expands the
+* macro in src/frontend/inpcom.c before numparam sees the deck, and the macro
+* name space is the 'struct function' list matched by find_function() with a
+* bare strcmp.  Under preserve the call 'dbl(500)' therefore did not find the
+* definition 'Dbl', the call text survived into the expression, and numparam
+* aborted with 'Undefined parameter [dbl]' on stderr, printing nothing.
+* doc/codex/issues/0015 criterion 1, the .func name half; the issue's Summary
+* attributes this one to numparam, which is wrong - see its Resolution.
+.OPTIONS noacct
+.func Dbl(x) {2*x}
+V1 1 0 dc 4
+R1 1 2 {dbl(500)}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

@@ -44,7 +44,11 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	meas-when-vnode-case.cir meas-when-vnode-case-lower.cir \
 	alterparam-x-case.cir alterparam-x-case-lower.cir \
 	noopac-linear-case.cir noopac-linear-case-lower.cir \
-	subckt-mult-param-case.cir subckt-mult-param-case-lower.cir
+	subckt-mult-param-case.cir subckt-mult-param-case-lower.cir \
+	param-name-case.cir param-name-case-lower.cir \
+	subckt-formal-name-case.cir subckt-formal-name-case-lower.cir \
+	func-name-case.cir func-name-case-lower.cir \
+	func-formal-case.cir func-formal-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 

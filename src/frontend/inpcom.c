@@ -4551,7 +4551,7 @@ static struct function *find_function(struct function_env *env, char *name)
 
     for (; env; env = env->up)
         for (f = env->functions; f; f = f->next)
-            if (strcmp(f->name, name) == 0)
+            if (user_ident_eq(f->name, name))
                 return f;
 
     return NULL;
@@ -4657,10 +4657,22 @@ static void inp_get_func_from_line(struct function_env *env, char *line)
     if (inp_strip_braces(function->body)) {
         int i;
 
-        char *accept = TMALLOC(char, function->num_parameters + 1);
-        for (i = 0; i < function->num_parameters; i++)
-            accept[i] = function->params[i][0];
-        accept[i] = '\0';
+        /* search_func_arg() uses this as the candidate filter for a formal
+           parameter in the body. A formal is a name the user chose, so under a
+           non-folding case mode the body may spell its first character the
+           other way and both cases have to be admitted; in fold mode the
+           reader has already lowercased both, and the filter keeps exactly the
+           characters it kept before. */
+        char *accept = TMALLOC(char, 2 * function->num_parameters + 1);
+        int n_accept = 0;
+        for (i = 0; i < function->num_parameters; i++) {
+            char c = function->params[i][0];
+            accept[n_accept++] = c;
+            if (!inp_case_folding() && isalpha_c(c))
+                accept[n_accept++] =
+                        islower_c(c) ? toupper_c(c) : tolower_c(c);
+        }
+        accept[n_accept] = '\0';
 
         function->accept = accept;
         return;
@@ -4723,7 +4735,11 @@ static char *search_func_arg(
             int i;
             for (i = 0; i < fcn->num_parameters; i++) {
                 size_t len = strlen(fcn->params[i]);
-                if (strncmp(str, fcn->params[i], len) == 0) {
+                /* the formal is a name the user chose: same identity rule as
+                   user_ident_eq(), on a fixed length */
+                if (inp_case_folding()
+                                ? strncmp(str, fcn->params[i], len) == 0
+                                : cieqn(str, fcn->params[i], len)) {
                     char after = str[len];
                     if (is_arith_char(after) || isspace_c(after) ||
                             strchr(",=", after)) {

@@ -1,0 +1,20 @@
+* subcircuit formal parameter name spelled two ways, under casemode=preserve
+* nupa_subcktcall() enters the formal parameters of a .subckt card into the
+* scope numparam pushes for the instance, through the same attrib() that every
+* other numparam symbol goes through, so the formal was keyed byte-exactly.
+* Under preserve a body reference spelled differently from the formal is not
+* found and the run aborts with 'Undefined parameter [rtop]' on stderr,
+* printing nothing.
+* doc/codex/issues/0015 criterion 1, the subcircuit formal half.
+.OPTIONS noacct
+V1 1 0 dc 4
+X1 1 2 divider
+R2 2 0 3k
+.subckt divider a b params: RTop=1k
+Ra a b {rtop}
+.ends
+.control
+op
+print v(2)
+.endc
+.end

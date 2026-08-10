@@ -1,0 +1,20 @@
+* .func formal parameter spelled one way in the argument list and another in
+* the body, under casemode=preserve
+* inp_do_macro_param_replace() substitutes the actual arguments by searching
+* the macro body for the formal names, with search_func_arg()'s strpbrk() over
+* the formals' first characters plus a strncmp of the whole formal.  Both were
+* byte-exact, so under preserve the body kept the formal 'xx' instead of the
+* actual, and numparam aborted with 'Undefined parameter [xx]' on stderr,
+* printing nothing.
+* doc/codex/issues/0015 criterion 1, the .func formal half; like the .func
+* name, this lives in src/frontend/inpcom.c and not in numparam.
+.OPTIONS noacct
+.func dbl(Xx) {2*xx}
+V1 1 0 dc 4
+R1 1 2 {dbl(500)}
+R2 2 0 3k
+.control
+op
+print v(2)
+.endc
+.end

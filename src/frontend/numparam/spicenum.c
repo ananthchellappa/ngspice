@@ -191,9 +191,6 @@ findsubname(dico_t *dico, DSTRINGPTR dstr_p)
                     ;
             ds_clear(&name);
             pscopy(&name, p, t);
-            /* keyed as defsubckt() keyed the definition */
-            if (!inp_case_folding())
-                strtolower(ds_get_buf(&name));
             entry = entrynb(dico, ds_get_buf(&name));
             if (entry && (entry->tp == NUPA_SUBCKT)) {
                 (void) ds_set_length(dstr_p, (size_t) (p_end - s));
@@ -472,20 +469,10 @@ nupa_list_params(FILE *fp)
  * ----------------------------------------------------------------- */
 static entry_t *nupa_get_entry(const char *param_name)
 {
-    dico_t *dico = dicoS;       /* local copy for speed */
-    int depth;                  /* nested subcircit depth */
-
-    for (depth = dico->stack_depth; depth >= 0; depth--) {
-        NGHASHPTR htable_p = dico->symbols[depth];
-        if (htable_p) {
-            entry_t *entry;
-
-            entry = (entry_t *)nghash_find(htable_p, (void *)param_name);
-            if (entry)
-                return entry;
-        }
-    }
-    return NULL;
+    /* entrynb() is that same walk, and it keys the probe the way attrib()
+       keyed the insert; hand the work to it rather than keep a second copy
+       that would have to be folded separately */
+    return entrynb(dicoS, (char *) param_name);
 }
 
 double
