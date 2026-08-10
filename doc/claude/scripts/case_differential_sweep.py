@@ -63,7 +63,7 @@ NOISE = re.compile(
     r"(cpu time|elapsed time|total elapsed|memory|ngspice program size|"
     r"shared ngspice pages|stack =|dram|date|circuit:|"
     r"\b(mon|tue|wed|thu|fri|sat|sun)\b|"
-    r"analysis time|raw file \"|shell cwd was reset|"
+    r"analysis time|raw file \"|shell cwd was reset|reference value|"
     r"pages =| mb\.|warning: can't find|"
     r"warning: can't find the initialization file)")
 
