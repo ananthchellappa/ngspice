@@ -1,0 +1,37 @@
+* .param VCC=5 must reach the auto-bridge under casemode=distinguish
+* doc/codex/issues/0029 defect (a).  find_bridge() resolves the bridge supply
+* voltage out of the numparam symbol table under a name it builds itself:
+*   src/xspice/evt/evtcheck_nodes.c:482, at 4caf2ff35
+*     vcc_parm = "vcc";
+* That literal reaches symbol_key() (src/frontend/numparam/xpressn.c:386),
+* which folds the key only under 'preserve'.  Under 'fold' the reader has
+* already lower cased the deck and the probe hits; under 'preserve' the key is
+* folded and the probe hits; under 'distinguish' the table keeps VCC, the
+* probe asks for vcc, misses, and evtcheck_nodes.c:521 falls back to
+* vcc = 3.3 with no diagnostic at all.
+* This is Class C of doc/claude/decisions/0001-distinguish.md pointing the
+* other way: the query is the constructed name and the table holds deck text,
+* so "distinguish must be exact about names the deck chose and case
+* insensitive about names ngspice constructs" makes the probe the tolerant
+* side.  symbol_key() is right and stays exact; the tolerance is in
+* entrynb_constructed(), which the caller now asks for.
+* RED evidence at 4caf2ff35, this deck under -D casemode=distinguish:
+*   v(outn) = 3.300000e+00
+* while auto-bridge-vcc-param-case-lower.cir, the same circuit with the
+* parameter spelled vcc, printed 5.000000e+00, and this deck printed
+* 5.000000e+00 under both 'fold' and 'preserve'.  A silent wrong number in
+* exactly one mode, which is why set_case_mode() named it.
+.param VCC=5
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

@@ -430,9 +430,23 @@ Enumerated so they are not read as oversights:
    `distinguish`, in which `strcmp` was already the right answer.
    `set_case_mode()` no longer names them. It still says `distinguish` is
    experimental, because closing the gate list did not exhaust the silent
-   failures: `doc/codex/issues/0029` is a silent wrong bridge voltage under
-   `distinguish` and `doc/codex/issues/0030` is the near-miss diagnostic these
-   two gates did not implement.
+   failures. `doc/codex/issues/0029`, the silent wrong bridge voltage under
+   `distinguish`, has since closed as well, and with it that clause of the
+   warning; what remains named there is `doc/codex/issues/0027`, `unlet`
+   matching a vector name case insensitively, and `doc/codex/issues/0030`, the
+   near-miss diagnostic these two gates did not implement.
+
+   `0029`'s (a) is worth reading beside decision 3, though it is not an
+   identifier comparison and so is not in its table. It is Class C's rule
+   applied to a *probe*: the query was a lower-case literal ngspice built and
+   the table held deck text, so under `distinguish` the tolerance had to go on
+   the query side. It went into a separate numparam entry point,
+   `entrynb_constructed()`, which retries an exact miss case insensitively on
+   the final dot-separated component only — `symbol_key()` stays exact, so
+   nothing of Phase 2 is undone, and the deck's own subcircuit instance path
+   before the last `.` still matches exactly. The split inside one string is
+   the same one `vec_wrapped_name_eq()` makes for the `V` of `V(1)` and
+   `Evt_Parse_Node()` makes for the member of `node(member)`.
 2. **Whether `distinguish` should be refused in combination with
    `ngbehavior=hs*`.** The spec's Open decision 4. A PDK-consuming deck under
    `distinguish` is the hazard in decision 5 with a vendor library attached.

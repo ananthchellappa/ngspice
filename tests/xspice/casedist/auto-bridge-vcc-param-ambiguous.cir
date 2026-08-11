@@ -1,0 +1,35 @@
+* two case-variant .params and no exact one: the auto-bridge must not guess
+* The boundary of doc/codex/issues/0029 defect (a).  entrynb_constructed()
+* tolerates the deck's case only for the component ngspice itself spelled,
+* which makes 'VCC' and 'Vcc' equally good answers to a probe for 'vcc'.
+* Under 'distinguish' those are two different parameters with two different
+* values, ngspice has no way to know which the deck meant, and the hash order
+* that would decide it is not something a deck can see or rely on.  So
+* neither is used, the fallback vcc = 3.3 applies, and the reason is said out
+* loud on stderr:
+*   Warning: parameter 'vcc' is a name ngspice built; 'VCC' and 'Vcc' both
+*   differ from it only in case, so neither is used (casemode=distinguish)
+* That line is verified by hand and quoted in the commit rather than asserted
+* here: tests/bin/check.sh captures stdout only and its egrep -v filter drops
+* any line containing 'Warning' from both sides, so no deck in this harness
+* can assert on it.  What this deck asserts is the number that goes with it -
+* 3.300000e+00, the documented fallback, rather than 5 or 7.
+* Under 'fold' and 'preserve' the same deck prints 7.000000e+00: there the
+* two .params are one parameter and the second assignment wins, so there is
+* nothing ambiguous to report.  This deck is 'distinguish'-only for that
+* reason.
+.param VCC=5
+.param Vcc=7
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

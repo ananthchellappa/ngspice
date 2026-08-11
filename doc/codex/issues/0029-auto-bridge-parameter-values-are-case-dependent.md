@@ -2,7 +2,8 @@
 
 ## Status
 
-Open. Found while closing Phase 3 gates 2 and 4, by an independent sweep of
+Fixed on branch `ver_50`, all four defects, one commit per mechanism. Found
+while closing Phase 3 gates 2 and 4, by an independent sweep of
 `src/xspice/` for case dependencies that are not identifier comparisons. Four
 defects, three of them in `src/xspice/evt/evtcheck_nodes.c` and one in a code
 model. None is on any gate list; none is fixed by the gate commits, which
@@ -154,20 +155,71 @@ must be tolerant, which under an exact `symbol_key()` it cannot be.
 
 ## Resolution
 
-Not fixed. Recorded here rather than folded into the Phase 3 gate commits
-because none of these is an identifier comparison, so none of them is what
-those commits are about, and (b) and (d) are `preserve` regressions that need
-their own evidence in the mode that has shipped decks.
+Fixed, four commits, in the order (d), (c), (b), (a) — cheapest evidence
+first, and the one needing a decision last. Recorded here rather than in
+decision 3 of `doc/claude/decisions/0001-distinguish.md`, whose table is for
+identifier comparisons: none of these four is one.
 
-Suggested shapes, none of them decided:
+- **(d)** `fix: compare multi_input_pwl's gate-model keyword without regard to
+  case`. The comparison is the C library's `strcasecmp`/`_stricmp`, not
+  ngspice's `cieq`, and that is not a style choice: a code model is dlopened
+  as a `.cm` and reaches the simulator only through the `coreInfo_t` function
+  table of `src/xspice/icm/dlmain.c`. `cieq` is not in
+  `src/include/ngspice/dllitf.h` and the binary exports no dynamic symbol for
+  it, so a `cfunc.mod` cannot call it.
+  `src/xspice/icm/digital/d_cosim/cfunc.mod` already carries the same pair.
+  RED: `model="OR"` under `preserve` produced no stdout and exit 255.
+  Decks: `tests/xspice/case/multi-input-pwl-model-case{,-lower}.cir`.
 
-- (a) fold the *probe*, not the table: give numparam a lookup that asks for a
-  constructed name case insensitively, or have the auto-bridge try the deck's
-  own spelling first. The narrow fix is that `symbol_key()` is right and the
-  caller is wrong to hand it a literal.
-- (b) resolve the filename case insensitively, or fold `family` once where it
-  is read out of the model parameter at `evtcheck_nodes.c:369-372` — the spec's
-  "Fold sites outside the reader" section already lists `family` as a fold-once
-  candidate (`doc/claude/specs/case-sensitive-identifiers.md:279-281`).
-- (c) the two one-line corrections quoted above.
-- (d) `cieq` for the four keywords.
+- **(c)** `fix: repair the auto-bridge's dead empty-family guard and its NULL
+  strcmp`. The two one-line corrections. Both are mode independent and both
+  move a number, which the issue did not claim: `family=""` selected the
+  default bridge (3.3 V) where an absent `family` selected the `.param`
+  family's bridge (1.65 V), and the NULL `strcmp` was a SIGSEGV, not a
+  latent guard. Decks are in `tests/xspice/digital/`, which runs in the
+  default mode, rather than in a case directory.
+  Running the NULL deck with its two nodes in the other order exposed a third
+  defect, filed as `doc/codex/issues/0031` and deliberately not fixed here.
+
+- **(b)** `fix: fold the auto-bridge's family value once, where it becomes a
+  file name`. Folded unconditionally at the convergence of `family`'s three
+  sources, after `evtcheck_nodes.c:530`, rather than at the `examine_device()`
+  capture the spec names — the two `.param` sources do not pass through that
+  function. The folded string is now owned by the `struct bridge` and released
+  by `free_bridges()`; it used to be a borrowed pointer that was never freed.
+  RED: `family="74HCT"` printed 3.3 under `preserve` and `distinguish` against
+  2.64 under `fold`; all six cells of that matrix are now 2.64.
+  Decks: `tests/xspice/case/auto-bridge-family-file-case{,-lower}.cir` with
+  the support file `tests/xspice/case/bridge_74hct_d_out.subcir`.
+
+- **(a)** `fix: let the auto-bridge find a .param whose case it did not
+  choose`. The tolerance is at the caller, not the table: `symbol_key()` stays
+  exact, and a new `entrynb_constructed()`
+  (`src/frontend/numparam/xpressn.c`) retries an exact miss with a scan that
+  compares **only the final dot-separated component** without regard to case.
+  Everything before the last `.` is a subcircuit instance path the deck wrote
+  and is still matched exactly — the same split `vec_wrapped_name_eq()` makes
+  for the `V` of `V(1)`. The scan runs only under `distinguish` and only after
+  a miss, so the two shipped modes do exactly the work they did before.
+  Two case-variant candidates and no exact one is a genuine ambiguity: it is
+  reported on stderr and neither is used.
+  `auto_bridge_parm_<type>`'s value is **not** given the tolerant probe: that
+  name was typed by the user at the control language, so decision 5 of
+  `0001-distinguish.md` makes it exact.
+  A second half of (a), found by testing rather than by reading: the scoped
+  probe is built from the MIF instance name, which keeps the deck's spelling,
+  while numparam stores a scoped parameter under a path whose device letter
+  has been forced lower case (`spicenum.c:721`) — probe `X1.vcc` against key
+  `x1.VCC`. `fold_path_device_letters()` folds that one character per
+  component, which is compatibility contract point 2 and not an identity
+  loosening. This is the case that matters in practice, since
+  `examples/digital/auto_bridge/vcc.cir` is built on a per-subcircuit `vcc`.
+  Decks: `tests/xspice/casedist/auto-bridge-vcc-param-case{,-lower}.cir`,
+  `auto-bridge-family-param-case{,-lower}.cir`,
+  `auto-bridge-vcc-subckt-case{,-lower}.cir` and
+  `auto-bridge-vcc-param-ambiguous.cir`.
+
+With (a) closed, `set_case_mode()` no longer names the auto-bridge. The word
+"experimental" stays for `doc/codex/issues/0027` (`unlet` still removes a
+vector whose name differs only in case) and `doc/codex/issues/0030` (an XSPICE
+event node that misses by case is still not diagnosed).

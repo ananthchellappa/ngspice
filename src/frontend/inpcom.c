@@ -1098,21 +1098,20 @@ static void set_case_mode(void)
     else if (cieq(mode, "distinguish")) {
         ng_case_mode = NG_CASE_DISTINGUISH;
         /* The Phase 3 gate list is closed, so the clause about XSPICE event
-           nodes is gone: they are now interned, bridged and looked up by the
-           same rules as every other name. The word 'experimental' stays,
-           because the silent failures it warns about are not exhausted -
-           doc/codex/issues/0027 and doc/codex/issues/0029 are the two known
-           ones and each is named here rather than in a release note, because
-           both are silent. doc/claude/decisions/0001-distinguish.md
-           decision 6. */
+           nodes being interned and bridged is gone, and doc/codex/issues/0029
+           is closed, so the clause about the auto-bridge looking its vcc and
+           family parameters up under a lower-case name is gone with it. The
+           word 'experimental' stays, because the silent failures it warns
+           about are not exhausted - doc/codex/issues/0027 and
+           doc/codex/issues/0030 are the two known ones and each is named here
+           rather than in a release note, because both are silent.
+           doc/claude/decisions/0001-distinguish.md decision 6. */
         fprintf(stderr,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
                 "identity is case sensitive, and a vector or B source V() "
-                "reference that misses by case is reported, but the XSPICE "
-                "auto-bridge still looks up its vcc and family parameters "
-                "under a lower-case name, so a .param spelled otherwise is "
-                "ignored, and 'unlet' still removes a vector whose name "
-                "differs only in case.\n");
+                "reference that misses by case is reported, but an XSPICE "
+                "event node that misses by case is not, and 'unlet' still "
+                "removes a vector whose name differs only in case.\n");
     }
     else
         fprintf(stderr,

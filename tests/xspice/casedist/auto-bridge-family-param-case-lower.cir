@@ -1,0 +1,25 @@
+* .param family in lower case, under casemode=distinguish
+* The control for auto-bridge-family-param-case.cir: the same circuit with
+* the parameter spelled the way ngspice's own probe spells it.  It printed
+* 1.650000e+00 before the doc/codex/issues/0029 defect (a) change and after
+* it, in all three modes, and it is what pins that deck's expected number to
+* a measurement.
+.control
+pre_set auto_bridge_74hct_d_out =
++ ( ".model auto_da dac_bridge(out_high='%g/2' out_low=0)"
++   "auto_bridge%d [ %s ] [ %s ] auto_da" 1000 )
+.endc
+.param family="74hct"
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

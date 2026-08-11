@@ -20,6 +20,11 @@ extern void   nupa_scan(const struct card *card);
 extern void   nupa_list_params(FILE *cp_out);
 extern double nupa_get_param(const char *param_name, int *found);
 extern const char *nupa_get_string_param(const char *param_name);
+/* For a name ngspice constructed rather than read from a card: under
+   casemode=distinguish its final dot-separated component is matched without
+   regard to case.  See entrynb_constructed() in numparam/xpressn.c. */
+extern double nupa_get_constructed_param(const char *param_name, int *found);
+extern const char *nupa_get_constructed_string_param(const char *param_name);
 extern void   nupa_add_param(char *param_name, double value);
 extern void   nupa_copy_inst_dico(void);
 extern void   nupa_del_dicoS(void);

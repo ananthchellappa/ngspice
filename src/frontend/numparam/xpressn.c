@@ -434,6 +434,89 @@ entrynb(dico_t *dico, char *s)
 }
 
 
+/* The same walk, for a name ngspice built rather than read from a card.
+
+   Class C of doc/claude/decisions/0001-distinguish.md states the rule this
+   implements: distinguish must be exact about names the deck chose and case
+   insensitive about names ngspice constructs.  A probe such as the auto
+   bridge's "vcc" or "x1.family" is entirely ngspice's own spelling while the
+   table holds the deck's, so under distinguish an exact probe asks the wrong
+   question and misses a .param VCC=5 that fold and preserve both find - fold
+   because the reader lowercased the card, preserve because symbol_key() folds
+   both sides.  The tolerance therefore belongs at the caller's end, here:
+   symbol_key() stays exact, so two .params differing only in case remain two
+   symbols and nothing of Phase 2 is undone.
+
+   Only the final dot-separated component is compared without regard to case.
+   Anything before the last '.' is a subcircuit instance path the deck wrote
+   and must still match exactly.  That is the split vec_wrapped_name_eq()
+   makes for the 'V' of V(1) and Evt_Parse_Node() makes for the member of
+   node(member), applied inside one string.
+
+   The scan runs only under distinguish and only after an exact miss: in the
+   other two modes entrynb() has already folded one side or the other, so a
+   case variant that this could find cannot exist, and the default mode does
+   exactly the work it did before.  Two spellings that both differ from the
+   probe only in case are a genuine ambiguity - the deck wrote two parameters
+   and ngspice has no way to know which it meant - so that is reported and
+   neither is used, rather than silently taking whichever the hash yielded
+   first. */
+
+entry_t *
+entrynb_constructed(dico_t *dico, char *s)
+{
+    entry_t *entry;             /* search hash table */
+    const char *dot;            /* end of the deck's part of the name */
+    size_t head_len;            /* its length, including the '.' */
+    int depth;                  /* stack depth */
+
+    entry = entrynb(dico, s);
+    if (entry || inp_case_mode() != NG_CASE_DISTINGUISH)
+        return entry;
+
+    dot = strrchr(s, '.');
+    head_len = dot ? (size_t) (dot - s) + 1 : 0;
+
+    /* look at the current scope and then backup the stack */
+    for (depth = dico->stack_depth; depth >= 0; depth--) {
+        NGHASHPTR htable_p = dico->symbols[depth];
+        entry_t *found = NULL, *scan;
+        NGHASHITER iter;
+        void *key;
+
+        if (!htable_p)
+            continue;
+
+        NGHASH_FIRST(&iter);
+        for (scan = (entry_t *) nghash_enumeratekRE(htable_p, &key, &iter);
+             scan;
+             scan = (entry_t *) nghash_enumeratekRE(htable_p, &key, &iter))
+        {
+            const char *table_key = (const char *) key;
+
+            if (strncmp(table_key, s, head_len) != 0)
+                continue;
+            if (!cieq(table_key + head_len, s + head_len))
+                continue;
+            if (found) {
+                fprintf(stderr,
+                        "Warning: parameter '%s' is a name ngspice built; "
+                        "'%s' and '%s' both differ from it only in case, "
+                        "so neither is used (casemode=distinguish)\n",
+                        s, found->symbol, scan->symbol);
+                return NULL;
+            }
+            found = scan;
+        }
+
+        if (found)
+            return found;
+    }
+
+    return NULL;
+}
+
+
 static double
 fetchnumentry(dico_t *dico, char *s, bool *perr)
 {

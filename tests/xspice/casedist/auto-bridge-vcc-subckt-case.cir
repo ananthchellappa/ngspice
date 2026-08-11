@@ -1,0 +1,40 @@
+* an X card spelled X1 must still reach its subcircuit's vcc, under distinguish
+* doc/codex/issues/0029 defect (a), second half, found by testing rather than
+* by reading.  The auto-bridge's scoped probe is built from the MIF instance
+* name, which keeps whatever the deck wrote, while numparam stores a scoped
+* parameter under an instance path whose device letter has been forced to
+* lower case at src/frontend/numparam/spicenum.c:721 - correctly, because a
+* device letter is a keyword and is case insensitive in every mode.
+* The two spellings are therefore inverted:
+*   probe 'X1.vcc'  against  table key 'x1.VCC'
+* and under 'distinguish', where neither side is folded on the way in, they
+* never meet.  Under 'fold' the reader lower cased the card and under
+* 'preserve' symbol_key() folds both sides, so the mismatch is invisible in
+* the two shipped modes.
+* RED evidence at 4caf2ff35, with defect (a)'s tail fix already in place,
+* this deck under -D casemode=distinguish:
+*   v(outn) = 3.300000e+00
+* while it printed 6.000000e+00 under 'fold' and 'preserve'.  Spelling the
+* instance x1 rather than X1 printed 6.000000e+00 in all three modes even
+* before the change, which is auto-bridge-vcc-subckt-case-lower.cir and is
+* what identifies the device letter as the whole of the difference: the
+* formal's own case, VCC or vcc, does not matter either way.
+* This is the deck that matters most in practice - examples/digital/
+* auto_bridge/vcc.cir is built on a per-subcircuit vcc, so the scoped probe
+* is the auto-bridge's normal path, not an edge case.
+.subckt buf1 din aout VCC=6
+A2 din aout dbuf
+.model dbuf d_buffer
+.ends
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+X1 dig outn buf1
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

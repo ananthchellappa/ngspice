@@ -1,0 +1,34 @@
+* .param FAMILY must reach the auto-bridge under casemode=distinguish
+* doc/codex/issues/0029 defect (a), the string half.  The same constructed
+* literal problem as auto-bridge-vcc-param-case.cir at the other probe:
+*   src/xspice/evt/evtcheck_nodes.c:528, at 4caf2ff35
+*     family = nupa_get_string_param("family");
+* RED evidence at 4caf2ff35, this deck under -D casemode=distinguish:
+*   v(outn) = 3.300000e+00
+* - the built-in default dac_bridge, because .param FAMILY was invisible to a
+* probe asking for "family".  auto-bridge-family-param-case-lower.cir, the
+* same circuit with the parameter spelled family, printed 1.650000e+00, and
+* this deck printed 1.650000e+00 under both 'fold' and 'preserve'.
+* 1.65 is vcc/2 from the bridge that pre_set defines for the "74hct" family;
+* the family route is taken through a variable rather than a
+* bridge_74hct_d_out.subcir file so that this directory needs no support
+* file of its own.
+.control
+pre_set auto_bridge_74hct_d_out =
++ ( ".model auto_da dac_bridge(out_high='%g/2' out_low=0)"
++   "auto_bridge%d [ %s ] [ %s ] auto_da" 1000 )
+.endc
+.param FAMILY="74hct"
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

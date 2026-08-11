@@ -14,7 +14,12 @@
 ## extra flag rides on that argument.
 
 TESTS = harness-alive.cir event-node-lookup-case-split.cir \
-	auto-bridge-node-case-split.cir
+	auto-bridge-node-case-split.cir \
+	auto-bridge-vcc-param-case.cir auto-bridge-vcc-param-case-lower.cir \
+	auto-bridge-family-param-case.cir \
+	auto-bridge-family-param-case-lower.cir \
+	auto-bridge-vcc-subckt-case.cir auto-bridge-vcc-subckt-case-lower.cir \
+	auto-bridge-vcc-param-ambiguous.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 

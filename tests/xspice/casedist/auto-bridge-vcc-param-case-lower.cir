@@ -1,0 +1,20 @@
+* .param vcc=5 in lower case, under casemode=distinguish
+* The control for auto-bridge-vcc-param-case.cir: the same circuit with the
+* parameter spelled the way ngspice's own probe spells it.  It printed
+* 5.000000e+00 before the doc/codex/issues/0029 defect (a) change and after
+* it, in all three modes, and it is what pins that deck's expected number to
+* a measurement.
+.param vcc=5
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

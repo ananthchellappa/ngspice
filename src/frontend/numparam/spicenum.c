@@ -497,6 +497,40 @@ nupa_get_string_param(const char *param_name)
 }
 
 
+/* The same two lookups for a parameter name ngspice constructed rather than
+ * read from a card, such as the XSPICE auto-bridge's "vcc" and "x1.family".
+ * Under casemode=distinguish the deck's spelling of the final component is
+ * matched without regard to case; the other two modes are unchanged, and the
+ * whole of the rule is in entrynb_constructed().
+ */
+
+static entry_t *nupa_get_constructed_entry(const char *param_name)
+{
+    return entrynb_constructed(dicoS, (char *) param_name);
+}
+
+double
+nupa_get_constructed_param(const char *param_name, int *found)
+{
+    entry_t *entry = nupa_get_constructed_entry(param_name);
+    if (entry && entry->tp == NUPA_REAL) {
+        *found = 1;
+        return entry->vl;
+    }
+    *found = 0;
+    return 0;
+}
+
+const char *
+nupa_get_constructed_string_param(const char *param_name)
+{
+    entry_t *entry = nupa_get_constructed_entry(param_name);
+    if (entry && entry->tp == NUPA_STRING)
+        return entry->sbbase;
+    return NULL;
+}
+
+
 static void
 nupa_copy_entry(entry_t *proto)
 {

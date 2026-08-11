@@ -446,6 +446,34 @@ static const char *scan_devices(Evt_Node_Info_t   *event_node,
     return best_inst ? best_inst->MIFname + 2 : NULL;
 }
 
+/* Fold the device letter of every component of a subcircuit instance path.
+ *
+ * The path a scoped parameter is stored under has each instance name's device
+ * letter forced to lower case when the X card is evaluated
+ * (src/frontend/numparam/spicenum.c:721), because a device letter is a
+ * keyword and is case insensitive in every mode.  The path find_bridge()
+ * probes with is built from the MIF instance name, which keeps whatever the
+ * deck wrote, so a deck writing "X1" asked numparam for "X1.vcc" while the
+ * table held "x1.VCC".  Fold the same one character per component here.
+ *
+ * Under fold the reader had lower cased the card and under preserve
+ * symbol_key() folds both sides, so the two spellings met anyway; this only
+ * moves distinguish.
+ */
+
+static void fold_path_device_letters(char *path)
+{
+    char *cp;
+
+    if (*path)
+        *path = tolower_c(*path);
+    for (cp = path; (cp = strchr(cp, '.')) != NULL; ) {
+        ++cp;
+        if (*cp)
+            *cp = tolower_c(*cp);
+    }
+}
+
 /* Can a bridge element be inserted? */
 
 static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
@@ -461,6 +489,7 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
     char                       *vcc_parm, *dot;
     double                      vcc = 0.0;
     int                         max = 0, ok = 0;
+    bool                        our_vcc_parm;
     struct variable            *cvar = NULL;
     char                        buff[256];
 
@@ -476,14 +505,25 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
 
     /* Find the vcc parameter for this node. */
 
+    /* our_vcc_parm records which of the two the name is.  "vcc" is ngspice's
+     * own spelling and is looked up tolerantly below; a name that came out of
+     * the auto_bridge_parm_<type> variable was typed by the user, so under
+     * distinguish it must match the .param exactly, the way every other name
+     * typed at the control language now does (decision 5 of
+     * doc/claude/decisions/0001-distinguish.md).
+     */
+
     type_name = g_evt_udn_info[event_node->udn_index]->name;
     snprintf(buff, sizeof buff, "auto_bridge_parm_%s", type_name);
-    if (cp_getvar(buff, CP_STRING, buff, sizeof buff))
+    our_vcc_parm = MIF_FALSE;
+    if (cp_getvar(buff, CP_STRING, buff, sizeof buff)) {
         vcc_parm = buff;
-    else if (event_node->udn_index == 0)
+    } else if (event_node->udn_index == 0) {
         vcc_parm = "vcc";
-    else
+        our_vcc_parm = MIF_TRUE;
+    } else {
         vcc_parm = NULL;
+    }
 
     /* Scan attached XSPICE devices for the deepest nested one and
      * a device with a "family" parameter.
@@ -497,15 +537,17 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
      */
 
     snprintf(buff, sizeof buff, "%s", deep);
+    fold_path_device_letters(buff);
     dot = strrchr(buff, '.');
     while (dot) {
         if (!ok) {
             snprintf(dot + 1, sizeof buff - (size_t)(dot - buff), "%s", vcc_parm);
-            vcc = nupa_get_param(buff, &ok);
+            vcc = our_vcc_parm ? nupa_get_constructed_param(buff, &ok)
+                               : nupa_get_param(buff, &ok);
         }
         if (!family) {
             snprintf(dot + 1, sizeof buff - (size_t)(dot - buff), "family");
-            family = nupa_get_string_param(buff);
+            family = nupa_get_constructed_string_param(buff);
         }
         if (ok && family)
             break;
@@ -515,7 +557,8 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
 
     if (!ok) {
         if (vcc_parm)
-            vcc = nupa_get_param(vcc_parm, &ok);
+            vcc = our_vcc_parm ? nupa_get_constructed_param(vcc_parm, &ok)
+                               : nupa_get_param(vcc_parm, &ok);
         if (!ok) {
             if (event_node->udn_index == 0)
                 vcc = 3.3; // Fallback default for digital.
@@ -525,7 +568,7 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
     }
 
     if (!family)
-        family = nupa_get_string_param("family");
+        family = nupa_get_constructed_string_param("family");
     if (family && cp_getvar("no_auto_bridge_family", CP_BOOL, NULL, 0))
         family = NULL;
 
