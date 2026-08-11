@@ -708,6 +708,14 @@ bool Evtcheck_nodes(
 
     /* Try to create joining device if any analog node name matches
      * an event node. Failure is fatal.
+     *
+     * Both names were written by the deck - the event side is an A card's
+     * port token, the analog side the interned spelling of a device card's
+     * node - so the match is an identity test and takes ng_ideq(): under
+     * 'preserve' two spellings are one identifier, so digital A and analog a
+     * are one mixed-type net and must be bridged, while 'fold' and
+     * 'distinguish' keep the byte-exact comparison.
+     * doc/claude/decisions/0001-distinguish.md decision 3, Class A.
      */
 
     for (event_node = ckt->evt->info.node_list;
@@ -717,7 +725,7 @@ bool Evtcheck_nodes(
              analog_node;
              analog_node = analog_node->next) {
              int nl;
-             if (strcmp(event_node->name, analog_node->name) == 0) {
+             if (ng_ideq(event_node->name, analog_node->name)) {
                  if (show == AB_OFF) {
                      FREE(errMsg);
                      errMsg = tprintf("Auto bridging is switched off "

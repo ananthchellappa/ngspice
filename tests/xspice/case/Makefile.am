@@ -16,6 +16,7 @@ TESTS = freq-e-source-case.cir freq-e-source-case-lower.cir \
 	freq-node-expr-case.cir freq-node-expr-case-lower.cir \
 	freq-v-expr-case.cir freq-v-expr-case-lower.cir \
 	poly-2g6-case.cir poly-2g6-case-lower.cir \
+	auto-bridge-node-case.cir auto-bridge-node-case-lower.cir \
 	event-node-case.cir event-node-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"

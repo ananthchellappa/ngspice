@@ -1,0 +1,20 @@
+* all-lower-case control for auto-bridge-node-case.cir
+* Same circuit, both spellings of the mixed-type node lower case, so
+* src/xspice/evt/evtcheck_nodes.c:720's strcmp matches and the auto-bridge
+* inserts its dac_bridge in every mode.  This deck passes before and after the
+* gate 2 change; it is here so the pair isolates the case question from the
+* bridging question - if this one ever moves, the defect is in the auto-bridge
+* itself and not in the comparison.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig a dbuf
+.model dbuf d_buffer
+R1 a 0 1k
+.OPTIONS noacct
+.control
+op
+print v(a)
+.endc
+.end
