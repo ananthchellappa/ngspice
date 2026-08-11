@@ -185,6 +185,13 @@ is wrong is that a warning appears beside them. Naming it in this sentence
 would tell a user their output may be wrong at the one moment it is right, and
 would train them to discount the sentence.
 
+(`0034` is **closed since**, by
+`doc/claude/decisions/0009-let-definition-report.md`, so this rejection is now
+moot on the facts as well as on the reasoning. The reasoning is the part worth
+keeping: `doc/codex/issues/0044` and `0045`, which `0034`'s audit filed, are
+false positives of the same kind and are rejected as subjects of this clause
+for the same reason.)
+
 Rejected: **empty the clause and stop at "is experimental"**. `0004` decision 6
 argues the word survives an empty clause, and it does. But it does not argue
 that the clause *should* be empty, and the sentence is the one thing every

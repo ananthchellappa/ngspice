@@ -117,7 +117,8 @@ Where it applies, and its state:
 | `vec_remove()` from `com_unlet()`, `src/frontend/vectors.c:622` | resolution | **implemented** with `doc/codex/issues/0027`, behind `vec_remove()`'s `report_case_miss`, reusing `vec_warn_case_near_miss()` so the wording is `findvec()`'s. See `doc/claude/decisions/0004-unlet-vector-identity.md` |
 | `vec_remove()` from `com_compose()` and `com_cross()` | definition — each passes the name it is about to allocate | silent, deliberately, via the same flag |
 | a rawfile variable's `scale=` reference, `src/frontend/rawfile.c` | resolution | **reports the miss but not the twin**, with `doc/codex/issues/0032`. The predicate is now `vec_name_eq()`, so under `distinguish` a `scale=` naming a variable the file spells differently reaches the reader's own `Error: no such vector %s` instead of binding to the case variant. That is the resolution failure, loud, but it does not name the near miss. Upgrading it to `vec_warn_case_near_miss()` is not taken: that helper wants the plot's lookup table, and a loaded plot has none — `vectors.c:614` leaves `keywords[CT_VECTOR]` NULL — so the wording would have to be duplicated rather than reused |
-| `vec_get()` on `com_let()`'s left-hand side, `src/frontend/com_let.c:101` | definition | **reports, and should not.** It reaches `findvec()`, so `let TIME = time * 2` warns and then correctly succeeds. This is the rejected option arriving by accident; `doc/codex/issues/0034` |
+| `vec_get()` on `com_let()`'s left-hand side, `src/frontend/com_let.c:101` | definition | **silent** with `doc/codex/issues/0034`, through `vec_get_quiet()`, a sibling of `vec_get()` that passes `report_case_miss` false down to `findvec()`; `vec_get()` and its other forty callers are unchanged. `let TIME = time * 2` and `let VAA = 2` beside a `Vaa` no longer warn, and neither does `.meas` or `.csparam`, which run `com_let()` too. The **indexed** form `let x[0] = 1` still reports, because it cannot create `x` and so is resolving a name that must already exist. **Guarded** by `tests/regression/casedist/vector-let-report.cir`, three silences and four reports. See `doc/claude/decisions/0009-let-definition-report.md` |
+| `vec_get()` as a **probe** — `com_pyplot()`'s first word, `src/frontend/com_pyplot.c:53`, and `PP_mksnode()` for `ft_getpnames()`'s three `check == FALSE` callers, `src/frontend/parse.c:575` | neither: the caller is asking *whether* a name exists in order to decide what kind of token it is | **reports, and the rule does not yet say whether it should.** `pyplot out v(Out)` warns and then correctly writes `out.py`; `define f(x) x*2` on a deck with a node `X` warns and then correctly defines the function; `plot a vs b` on a deck with a node `VS` warns and then correctly plots. Found by `0034`'s audit of all forty-one `vec_get()` call sites. A third row of this decision is owed: `doc/codex/issues/0044` and `doc/codex/issues/0045` |
 | `INPtermInsert()` from a device card | definition | silent, deliberately |
 | `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately |
 
@@ -567,8 +568,12 @@ Enumerated so they are not read as oversights:
    It reached further than `unlet`: `com_compose()` and `com_cross()` call
    `vec_remove()` to clear a name before defining it and were destroying case
    variants too. Three things `0027` did not decide came out of it —
-   `doc/codex/issues/0032`, `0033` and `0034` — and `0034` is this record's
-   decision 2 being violated in the tree today, by `let`.
+   `doc/codex/issues/0032`, `0033` and `0034` — and `0034` was this record's
+   decision 2 being violated in the tree, by `let`. **`0034` is closed** by
+   `doc/claude/decisions/0009-let-definition-report.md`; its audit of all
+   forty-one `vec_get()` call sites found no other definition-shaped caller
+   and one category this record does not name, the **probe**, which is
+   `doc/codex/issues/0044` and `0045`.
 5. **The build-enforced lint** that would stop a new `strcmp` against a
    lower-case literal from re-entering the tree. Still wanted, still needs no
    decision.

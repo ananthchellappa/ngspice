@@ -2,9 +2,10 @@
 
 ## Status
 
-Open. Found while closing `doc/codex/issues/0027`. Predates that work: the
-warning arrived with Phase 3 gate 3 and `com_let()` has always resolved its
-left-hand side through `vec_get()`.
+Closed on `ver_50` by `doc/claude/decisions/0009-let-definition-report.md`.
+Found while closing `doc/codex/issues/0027`. Predates that work: the warning
+arrived with Phase 3 gate 3 and `com_let()` has always resolved its left-hand
+side through `vec_get()`.
 
 ## Summary
 
@@ -84,8 +85,44 @@ one layer up.
 
 ## Resolution
 
-Not fixed. Recorded in `doc/claude/decisions/0004-unlet-vector-identity.md`
-under what that decision does not decide. It is a false positive rather than a
-wrong number, which is why `0027`'s fix did not wait for it, but it is the
-loudest remaining case-mode defect in the frontend and it fires on the deck the
-mode exists to support.
+Fixed on `ver_50`; `doc/claude/decisions/0009-let-definition-report.md` is the
+record. `vec_get()` keeps its name and its behaviour for its other forty
+callers and gains a silent sibling, `vec_get_quiet()`, which threads
+`report_case_miss` through `vec_fromplot()` into `findvec()`. `com_let()` calls
+it for its left-hand side. Criterion by criterion:
+
+1. **Met, with one boundary the criterion did not anticipate.** The *indexed*
+   form keeps `vec_get()`: `let x[0] = 1` cannot create `x` — `com_let()`
+   refuses it with *"When creating a new vector, it cannot be indexed"* — so
+   that lookup resolves a name that must already exist and its miss is the
+   reported error. Blanket suppression made that error unexplainable, and an
+   adversarial review of the first version of the fix is what found it.
+   `0009` decision 2.
+2. **Met.** The split is at the call site, `findvec()` decides nothing.
+   `0009` decision 1 also says why the answer differs in shape from
+   `vec_remove()`'s flag: that function has three callers split 1 : 2, this one
+   has forty-one split 40 : 1, so a flag would write `TRUE` at forty
+   uninformative sites.
+3. **Met, and the answer is that there are none.** All forty-one call sites are
+   classified in `0009` decision 3 — the issue's count of "45 in 19 files" is
+   wrong; it is **41 in 17**. `com_let()`'s left-hand side is the only one that
+   creates the name it looks up. `com_setscale.c:19` is a resolution, as this
+   issue guessed, and the `@dev[param]` paths are resolutions whose near miss
+   cannot be reached, because `vec_get()` allocates its `@` vectors without
+   `VF_PERMANENT`. The audit did find a *third* category the rule does not
+   name — a **probe**, a lookup asking whether a name exists in order to decide
+   what kind of token it is — at `com_pyplot.c:53` and, for three of its
+   callers, `parse.c:575`. Those are `doc/codex/issues/0044` and `0045`.
+4. **Met and exceeded.** `tests/regression/casedist/vector-let-report.cir`
+   asserts both values, and the criterion's premise that a deck "cannot assert
+   on the absence of the warning" is out of date since
+   `doc/claude/decisions/0006-diagnostic-deck-coverage.md`: the deck asserts
+   four diagnostics as well, each silence beside something in the same capture
+   that must be reported. It needs a sourced sub-deck to do it, because `let`
+   is on `noredirect[]` (`src/frontend/control.c:62`) and cannot take a `>&`
+   of its own — `let a = b > c` needs `>` as an operator.
+
+Two additions to this issue's Impact, measured while closing it: the warning
+fires in a session with **no user vectors at all**, because `vec_get()` retries
+the const plot and `let PI = 3` near-misses the predefined `pi`; and it reaches
+`.meas` and `.csparam`, which run `com_let()` on names the deck wrote.

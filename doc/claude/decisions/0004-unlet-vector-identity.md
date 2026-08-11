@@ -271,6 +271,22 @@ needs writing down rather than assuming:
    *definition* when it is reached through `com_let()`'s left-hand side. That
    is decision 2's rejected option arriving by accident, and it is noise on
    the legitimate deck rather than a wrong number. It predates this work.
+
+   **Closed since**, on `ver_50`, by
+   `doc/claude/decisions/0009-let-definition-report.md`. Decision 3 above is
+   the precedent it applies and the one it deliberately does **not** copy:
+   `vec_remove()` took the flag because three callers split 1 : 2 make every
+   `TRUE` and `FALSE` informative, and `vec_get()`'s forty-one split 40 : 1 do
+   not, so `0009` decision 1 adds the second entry point this decision
+   rejected — `vec_get_quiet()` — and states the classification in a comment
+   at the one call site instead. The two answers differ because the ratio
+   does, which is worth keeping: "a flag, not a second entry point" is not a
+   rule this series holds independent of how many callers there are.
+
+   `0009` decision 2 is the part decision 3's reasoning would not have
+   reached. `com_let()`'s left-hand side is a definition *except* in the
+   indexed form, which cannot create the vector and therefore resolves it, so
+   the split is not per call site but per branch within one.
 4. **`doc/codex/issues/0035`**, three latent defects found in the same
    functions and unrelated to case: `vec_basename()`'s read past the
    terminator, `findvec_ally()`'s unguarded `pl_scale`, and
