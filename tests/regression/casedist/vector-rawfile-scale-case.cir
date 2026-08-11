@@ -1,0 +1,78 @@
+* a rawfile's scale= reference names one variable, not its case twin
+* doc/codex/issues/0032, acceptance criterion 2.  src/frontend/rawfile.c binds
+* each loaded variable's scale= parameter to a variable of the same file by
+* name, and the compare was an unconditional cieq(), so under distinguish a
+* reference to a name the file does not define was silently satisfied by a
+* variable differing from it only in case.
+*
+* ngspice's own raw writer never emits scale=; only the reader understands it
+* (rawfile.c, the ciprefix("scale=", t) branch), so the only way to reach that
+* line is a hand-written rawfile.  This deck writes one with echo and its
+* redirect rather than shipping it as a support file, which keeps the file
+* format that is being tested visible in the deck and needs no EXTRA_DIST
+* entry.  The capture is cleaned by the CLEANFILES vsr_* pattern.
+*
+* The file defines Tvec and sig and says sig's scale is TVEC, which it does
+* not define.  Under distinguish that is a dangling reference: before the fix
+* it bound to Tvec and 'display' reported 'scale = Tvec'; after it, the
+* reader's own else branch says 'Error: no such vector TVEC' on cp_err and
+* leaves the vector with no scale, so the display line ends at the length.
+* Under fold and preserve the predicate is still cieq() and the binding is
+* unchanged, which is the whole of the behaviour change: it is confined to the
+* experimental mode.
+*
+* The scale is not called 'time' because tests/bin/check.sh filters every line
+* containing that word, which would eat the display line that is the evidence.
+* 'Here are the vectors currently active' is filtered too, on 'urrent', and
+* the plot's Name: line on 'nalysis'.  Tvec's own display line is filtered as
+* well, on the 'time' of its type column, which is why the reference shows
+* only sig.
+*
+* The capture is scanned with a while loop rather than a fixed number of
+* fread calls because 'load' writes several lines of its own before the error
+* can appear.  fread returns the line length in its third argument and -1 at
+* EOF, so the loop terminates on the file; a fresh seed each pass means an
+* unread line cannot carry the previous line's text.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in 0 1k
+.control
+echo "Title: hand built" > vsr_hand.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> vsr_hand.raw
+echo "Plotname: Transient Analysis" >> vsr_hand.raw
+echo "Flags: real" >> vsr_hand.raw
+echo "No. Variables: 2" >> vsr_hand.raw
+echo "No. Points: 3" >> vsr_hand.raw
+echo "Variables:" >> vsr_hand.raw
+echo " 0 Tvec time" >> vsr_hand.raw
+echo " 1 sig voltage scale=TVEC" >> vsr_hand.raw
+echo "Values:" >> vsr_hand.raw
+echo " 0 0.0" >> vsr_hand.raw
+echo " 1.0" >> vsr_hand.raw
+echo " 1 1.0e-3" >> vsr_hand.raw
+echo " 2.0" >> vsr_hand.raw
+echo " 2 2.0e-3" >> vsr_hand.raw
+echo " 3.0" >> vsr_hand.raw
+load vsr_hand.raw >& vsr_load.txt
+set found = 0
+set n1 = 1
+fopen f1 vsr_load.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no such vector"
+  if $p1 >= 0
+    set found = 1
+  end
+end
+fclose $f1
+if $found > 0
+  echo RAW-SCALE-REFUSED
+else
+  echo RAW-SCALE-BOUND
+end
+echo DISPLAY-BEGIN
+display
+echo DISPLAY-END
+.endc
+.end

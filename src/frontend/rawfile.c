@@ -603,12 +603,19 @@ raw_read(char *name) {
                 curpl->pl_dvecs = v;
             }
 
-            /* And fix the scale pointers. */
+            /* And fix the scale pointers.  v_scale still holds the name the
+             * file's scale= parameter gave, so this is a name lookup and
+             * takes the frontend's vector-name predicate: cieq() under fold
+             * and preserve, exact under distinguish, where a file naming both
+             * Time and TIME defines two variables and a reference to one of
+             * them must not bind to the other.  Where the reference then
+             * matches nothing, the else branch below is already the right
+             * answer and says so out loud.  doc/codex/issues/0032. */
             for (v = curpl->pl_dvecs; v; v = v->v_next) {
                 if (v->v_scale) {
                     for (nv = curpl->pl_dvecs; nv; nv = nv->v_next)
                         // This cast is bad, but...
-                        if (cieq((char *) v->v_scale, nv->v_name)) {
+                        if (vec_name_eq(nv->v_name, (char *) v->v_scale)) {
                             v->v_scale = nv;
                             break;
                         }
