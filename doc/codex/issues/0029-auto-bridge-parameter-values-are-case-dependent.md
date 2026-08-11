@@ -259,4 +259,5 @@ With (a) closed, `set_case_mode()` no longer names the auto-bridge. The word
 "experimental" stayed for `doc/codex/issues/0027` (`unlet` still removes a
 vector whose name differs only in case) and `doc/codex/issues/0030` (an XSPICE
 event node that misses by case is still not diagnosed). `0030` has since
-closed too, so `0027` is the only issue that clause still names.
+closed too, and so has `0027`; the clause now names `doc/codex/issues/0032`,
+the vector name matchers outside `findvec()`.

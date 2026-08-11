@@ -114,6 +114,9 @@ Where it applies, and its state:
 | `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference |
 | auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **implemented** with `doc/codex/issues/0030`, in `report_bridge_case_miss()`, once an event node's scan of `CKTnodes` has finished without an exact match |
 | `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator. The near-miss warning is **implemented** with `doc/codex/issues/0030`, deferred to `EVTnode_case_check()` and narrowed there from the issue's wording to an event node that nothing drives; see `doc/claude/decisions/0003-event-node-near-miss.md` |
+| `vec_remove()` from `com_unlet()`, `src/frontend/vectors.c:613` | resolution | **implemented** with `doc/codex/issues/0027`, behind `vec_remove()`'s `report_case_miss`, reusing `vec_warn_case_near_miss()` so the wording is `findvec()`'s. See `doc/claude/decisions/0004-unlet-vector-identity.md` |
+| `vec_remove()` from `com_compose()` and `com_cross()` | definition — each passes the name it is about to allocate | silent, deliberately, via the same flag |
+| `vec_get()` on `com_let()`'s left-hand side, `src/frontend/com_let.c:101` | definition | **reports, and should not.** It reaches `findvec()`, so `let TIME = time * 2` warns and then correctly succeeds. This is the rejected option arriving by accident; `doc/codex/issues/0034` |
 | `INPtermInsert()` from a device card | definition | silent, deliberately |
 | `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately |
 
@@ -232,6 +235,18 @@ two deck tokens. In `fold` mode the query still arrives with upper case in it
 such as `q1#collCX` — and `findvec()` has always matched it without regard to
 case. Giving this site the Class A predicate would make the default mode
 exact and break every one of those callers. Only `distinguish` makes it exact.
+
+`vec_remove()` (`:613`) is the same class and was missed by this decision,
+because it predates the lookup table and walks `pl_dvecs` directly rather than
+querying the table. It took the same `vec_name_eq()` predicate with
+`doc/codex/issues/0027`; `doc/claude/decisions/0004-unlet-vector-identity.md`
+decision 1 argues why it is Class C and not Class A, and the argument is this
+section's verbatim — its query is a control-language word, which the reader
+folds only when the word arrived through `inp_readall()`. The name matchers
+*outside* `findvec()` that this decision also did not reach —
+`is_scale_vec_of_current_plot()`, `findvec_ally()`, `vec_eq()` and its six
+callers, `rawfile.c:611`, `diff.c:89` — are `doc/codex/issues/0032` and are
+what `set_case_mode()`'s experimental warning now names.
 
 The mechanism keeps the plan's rule intact. The fold at `:71` and `:184` and
 the `nghash_unique(pl_lookup_table, FALSE)` at `:61` are all unchanged; what
@@ -437,9 +452,17 @@ Enumerated so they are not read as oversights:
    half of that warning's sentence to the reported half — see
    `doc/claude/decisions/0003-event-node-near-miss.md`, which also records why
    the interner reports a node nothing drives rather than the near-miss
-   definition `0030`'s acceptance criterion asked for. What remains named
-   there is `doc/codex/issues/0027`, `unlet` matching a vector name case
-   insensitively.
+   definition `0030`'s acceptance criterion asked for. `doc/codex/issues/0027`,
+   `unlet` matching a vector name case insensitively, has closed too — see item
+   4 below — so what the warning names now is `doc/codex/issues/0032`, the
+   vector name matchers outside `findvec()`, whose scale-vector rows confuse a
+   case variant of the current plot's scale with the scale itself. The word
+   `experimental` stays for the reasons in
+   `doc/claude/decisions/0004-unlet-vector-identity.md` decision 6, of which
+   the strongest is not an open issue at all: decision 5's migration hazard is
+   inherent to what `distinguish` means, because a deck that spells one net two
+   ways becomes two nets through two *definitions*, and this record's decision
+   2 deliberately does not warn on a definition.
 
    `0029`'s (a) is worth reading beside decision 3, though it is not an
    identifier comparison and so is not in its table. It is Class C's rule
@@ -457,12 +480,20 @@ Enumerated so they are not read as oversights:
    `distinguish` is the hazard in decision 5 with a vendor library attached.
 3. **The OSDI duplicate-parameter diagnostic** (decision 4). A load-time
    collision check in `src/osdi/osdiinit.c`, mode-independent.
-4. **`vec_remove()`, `src/frontend/vectors.c:505`,** which finds the vector to
-   `unlet` with `cieq` unconditionally. Under `distinguish` `unlet Out` can
-   remove `OUT`. Not on any gate list; filed as `doc/codex/issues/0027`. It is
-   the same shape as `evtaccept.c:342` and `evtplot.c:110`, which gates 2 and 4
+4. **`vec_remove()`, `src/frontend/vectors.c:613`,** which found the vector to
+   `unlet` with `cieq` unconditionally. Under `distinguish` `unlet Out` removed
+   `OUT`. Not on any gate list; filed as `doc/codex/issues/0027`. It is the
+   same shape as `evtaccept.c:342` and `evtplot.c:110`, which gates 2 and 4
    fixed with `Evt_Node_Name_Eq()`; `0027` takes the same predicate and was
-   deliberately not folded in.
+   deliberately not folded in. **Closed** at `756112c46` with
+   `doc/claude/decisions/0004-unlet-vector-identity.md`, which took
+   `vec_name_eq()` rather than `Evt_Node_Name_Eq()` — the two are the same rule
+   on opposite sides of the mixed-signal boundary, and this is the analog side.
+   It reached further than `unlet`: `com_compose()` and `com_cross()` call
+   `vec_remove()` to clear a name before defining it and were destroying case
+   variants too. Three things `0027` did not decide came out of it —
+   `doc/codex/issues/0032`, `0033` and `0034` — and `0034` is this record's
+   decision 2 being violated in the tree today, by `let`.
 5. **The build-enforced lint** that would stop a new `strcmp` against a
    lower-case literal from re-entering the tree. Still wanted, still needs no
    decision.

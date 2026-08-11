@@ -239,9 +239,14 @@ tell which is which without reading the source.
 1. **The generic undefined-node diagnostic**, `doc/codex/issues/0028` — a
    reference that misses with **no** case variant present, on either side of
    the boundary. Unchanged and still open.
-2. **`doc/codex/issues/0027`**, `vec_remove()`'s unconditional `cieq`. It is
-   what `set_case_mode()`'s experimental-mode warning still names, and is now
-   the only thing it names.
+2. **`doc/codex/issues/0027`**, `vec_remove()`'s unconditional `cieq`. It was
+   what `set_case_mode()`'s experimental-mode warning still named, and was the
+   only thing it named. **Closed since**, at `756112c46`, with
+   `doc/claude/decisions/0004-unlet-vector-identity.md`; the warning's clause
+   now names `doc/codex/issues/0032` instead. `0004` decision 3 reaches the same
+   conclusion this record's decision 1 did, at a different site and by the same
+   argument: `unlet` resolves a name and is reported, while `compose` and
+   `cross` define one and are silent.
 3. **`doc/codex/issues/0031`**, a family-less node reusing whatever family
    bridge was created first. Mode independent, so no diagnostic here touches
    it.

@@ -408,9 +408,12 @@ fold. It is not repeated here.
   `-D casemode=preserve` and the new `tests/xspice/casedist/` under
   `-D casemode=distinguish`; both carry their own `spinit` because
   `tests/bin/spinit` loads no code models. `set_case_mode()` still calls the
-  mode experimental, but no longer names these sites: what it names now is
-  `doc/codex/issues/0029` and `doc/codex/issues/0027`, neither of which is a
-  gate.
+  mode experimental, but no longer names these sites: `doc/codex/issues/0029`
+  and `doc/codex/issues/0027` have both closed since, and what the clause names
+  now is `doc/codex/issues/0032`, the vector name matchers outside `findvec()`.
+  None of the three is a gate. `doc/claude/decisions/0004-unlet-vector-identity.md`
+  decision 6 records why the word stays with the clause this narrow, and why it
+  would stay even if the clause emptied.
 - The frontend vector table no longer aliases case-variant names. **Done**,
   Phase 3 gate 3.
 - A B source `V()` reference that misses by case is diagnosed rather than
