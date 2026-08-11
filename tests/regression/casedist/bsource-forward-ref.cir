@@ -6,7 +6,7 @@
 * card is being parsed, which is before the V1 and R1 cards that define 'Mid'
 * have been seen.  The reference works only because INPtermInsert() creates
 * the node and the later cards then find it.  Replace that call with
-* INPtermSearch() (src/spicelib/parser/inpsymt.c:310), which is the obvious
+* INPtermSearch() (src/spicelib/parser/inpsymt.c:385), which is the obvious
 * non-creating probe, and this deck stops solving: every forward reference in
 * the tree breaks at once.  That is why the near-miss diagnostic is deferred
 * to the end of the parse instead of being raised at the reference.

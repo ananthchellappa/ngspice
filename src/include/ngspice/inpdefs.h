@@ -9,6 +9,7 @@ Modified: 2000 AlansFixes
 
 /* structure declarations used by either/both input package */
 
+#include "ngspice/bool.h"
 #include "ngspice/gendefs.h"
 #include "ngspice/ifsim.h"
 #include "ngspice/inpptree.h"
@@ -25,6 +26,11 @@ struct INPnTab {
     char *t_ent;
     CKTnode *t_node;
     struct INPnTab *t_next;
+    /* set when only a reference inside an expression ever named this node,
+       so that INPtermCaseCheck() can tell a node no card defines from an
+       ordinary one; cleared by the first INPtermInsert() that claims it.
+       doc/claude/decisions/0002-deferred-node-resolution-check.md */
+    bool t_unclaimed;
 };
 
 struct INPtables {
@@ -148,6 +154,8 @@ void INPpas3(
 void INPpas4(CKTcircuit *, INPtables *);
 int INPpName(char *, IFvalue *, CKTcircuit *, int, GENinstance *);
 int INPtermInsert(CKTcircuit *, char **, INPtables *, CKTnode **);
+int INPtermInsertRef(CKTcircuit *, char **, INPtables *, CKTnode **);
+void INPtermCaseCheck(INPtables *);
 int INPtermSearch(CKTcircuit*, char**, INPtables*, CKTnode**);
 int INPmkTerm(CKTcircuit *, char **, INPtables *, CKTnode **);
 int INPtypelook(char *);

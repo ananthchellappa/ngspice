@@ -111,7 +111,7 @@ Where it applies, and its state:
 | Site | Rule | State |
 | --- | --- | --- |
 | `findvec()`, `src/frontend/vectors.c:152` | resolution | **implemented** with this decision |
-| `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss is invisible today | Phase 3 gate 1, open |
+| `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference |
 | auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, open |
 | `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, open |
 | `INPtermInsert()` from a device card | definition | silent, deliberately |
@@ -349,7 +349,12 @@ Enumerated so they are not read as oversights:
    auto-bridge `strcmp`, and `src/xspice/evt/evttermi.c:304`. This record fixes
    the rule they must implement (decision 2); it does not implement it. Until
    they close, `distinguish` is experimental and `set_case_mode()` says so on
-   `stderr`.
+   `stderr`. Gate 1 has since closed —
+   `doc/claude/decisions/0002-deferred-node-resolution-check.md`, which is
+   decision 2 applied at the parser and answers the questions this record left
+   open there: where the "created by a reference, never defined" bit lives, in
+   which modes the check reports, and why it is a warning and not an error.
+   Gates 2 and 4 remain, and the experimental warning still names them.
 2. **Whether `distinguish` should be refused in combination with
    `ngbehavior=hs*`.** The spec's Open decision 4. A PDK-consuming deck under
    `distinguish` is the hazard in decision 5 with a vendor library attached.

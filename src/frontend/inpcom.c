@@ -1102,9 +1102,10 @@ static void set_case_mode(void)
            doc/claude/decisions/0001-distinguish.md decision 6. */
         fprintf(stderr,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
-                "identity is case sensitive, but a B source V() reference to "
-                "a name that does not exist still creates a node, and XSPICE "
-                "event nodes are still bridged case insensitively.\n");
+                "identity is case sensitive, and a B source V() reference to "
+                "a name that differs only in case from a real net is now "
+                "reported, but XSPICE event nodes are still bridged case "
+                "insensitively.\n");
     }
     else
         fprintf(stderr,

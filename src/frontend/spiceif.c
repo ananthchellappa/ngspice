@@ -197,6 +197,14 @@ if_inpdeck(struct card *deck, INPtables **tab)
             *tab, ft_curckt->ci_defTask, ft_sim->nodeParms,
             ft_sim->numNodeParms);
 
+    /* Every card that can define a node has now been seen, so a node that
+     * only a V() reference ever created is a node no card defines.  Under
+     * casemode=distinguish, one whose name differs only in case from a node
+     * that is defined is a resolution miss and is reported here rather than
+     * at the reference, where it could not be told from a forward reference.
+     * doc/claude/decisions/0002-deferred-node-resolution-check.md */
+    INPtermCaseCheck(*tab);
+
 #ifdef XSPICE
     /* gtri - begin - wbk - 6/6/91 - Finish initialization of event driven structures */
     err = EVTinit(ckt);

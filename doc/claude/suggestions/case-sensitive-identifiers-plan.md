@@ -282,8 +282,15 @@ Do not schedule until every item below is closed. Each produces wrong numbers
 with no diagnostic.
 
 1. `src/spicelib/parser/inpptree.c:1249`, whose `INPtermInsert` call is at
-   `:1256` — `mkvnode` creates on miss; a case-mismatched `V(IN)` in a B-source
-   manufactures a floating node.
+   `:1256` — **done**. `mkvnode` created on miss, so a case-mismatched `V(IN)`
+   in a B-source manufactured a node no card defines. It still creates, because
+   that is what makes a forward reference to a node defined by a later card
+   work; the call is `INPtermInsertRef` and `INPtermCaseCheck()` reports the
+   near-miss after the parse, when a miss can finally be told from a forward
+   reference. `doc/claude/decisions/0002-deferred-node-resolution-check.md`;
+   `tests/regression/casedist/bsource-node-case.cir` is the deck and
+   `bsource-forward-ref.cir` plus the `tests/regression/case` twins are the
+   guard.
 2. `src/xspice/evt/evtcheck_nodes.c:720` — auto-bridge `strcmp`; mixed-signal
    decks silently lose their bridges.
 3. `src/frontend/vectors.c:61,71,184` — **done**. `nghash_unique(..., FALSE)`

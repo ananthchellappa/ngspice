@@ -1253,7 +1253,10 @@ static INPparseNode *mkvnode(char *name)
     int i;
     CKTnode *temp;
 
-    INPtermInsert(circuit, &name, tables, &temp);
+    /* a V() reference resolves a name, it does not define one, so the node
+       this creates on a miss is marked unclaimed until a card defines it;
+       INPtermCaseCheck() reports the ones no card ever does */
+    INPtermInsertRef(circuit, &name, tables, &temp);
     for (i = 0; i < numvalues; i++)
         if ((types[i] == IF_NODE) && (values[i].nValue == temp))
             break;

@@ -227,7 +227,7 @@ because the fix is specified.
 
 | Site | Failure |
 | --- | --- |
-| `src/spicelib/parser/inpptree.c:1249`, call at `:1256` | `mkvnode` uses `INPtermInsert`, which **creates on miss**, so a `V()` reference that misses by case manufactures a node no card defines. The manufactured node has **two shapes**, not one. *(a)* With a DC path to it — an `rshunt`, or any other card that reaches it — the deck runs to completion and prints a wrong number: `B1 out 0 V={V(in)*2}` against net `In` gives `v(out) = 0.000000e+00` where `preserve` gives `3.000000e+00`, with no diagnostic. *(b)* Without one it is genuinely isolated, because an expression reference contributes no conductance to the referenced node's own row; the matrix is singular and the run aborts with `Warning: singular matrix:  check node in`, naming a node **the deck never wrote**. Both shapes are the same defect and take the same fix. Note that create-on-miss cannot simply be refused: a B source is parsed before the cards below it, so `V(mid)` on the first card of a deck is a legal forward reference that only works because the node is created. |
+| `src/spicelib/parser/inpptree.c:1249`, call at `:1256` | `mkvnode` uses `INPtermInsert`, which **creates on miss**, so a `V()` reference that misses by case manufactures a node no card defines. The manufactured node has **two shapes**, not one. *(a)* With a DC path to it — an `rshunt`, or any other card that reaches it — the deck runs to completion and prints a wrong number: `B1 out 0 V={V(in)*2}` against net `In` gives `v(out) = 0.000000e+00` where `preserve` gives `3.000000e+00`, with no diagnostic. *(b)* Without one it is genuinely isolated, because an expression reference contributes no conductance to the referenced node's own row; the matrix is singular and the run aborts with `Warning: singular matrix:  check node in`, naming a node **the deck never wrote**. Both shapes are the same defect and take the same fix. Note that create-on-miss cannot simply be refused: a B source is parsed before the cards below it, so `V(mid)` on the first card of a deck is a legal forward reference that only works because the node is created. **Done**, Phase 3 gate 1: the call is now `INPtermInsertRef`, which marks the created node unclaimed, and `INPtermCaseCheck()` reports the near-miss at the end of the parse. The node is still created and the numbers are unchanged — `doc/claude/decisions/0002-deferred-node-resolution-check.md` — so what closed the gate is that the failure became audible, not that it became correct. |
 | `src/xspice/evt/evtcheck_nodes.c:720` | Auto-bridge insertion is `strcmp(event_node->name, analog_node->name)`. Digital `A` and analog `a` stop being the same mixed-type node; no bridge is inserted, both nets float, no diagnostic fires. |
 | `src/frontend/measure.c:236` | **Done.** `strtolower(an_name)` at `:237` is now gated on `inp_case_folding()` at `:236` and its consumers at `:351` and `:446` compare with `cieq`. A case-mixed `.MEAS TRAN` used to be silently skipped with no output line. |
 | `src/frontend/subckt.c:659`, `:675`, `:692`, `:708` | **Done.** MOS bin selection now uses `cistrstr(curr_line, " wmin=")` and the `wmax`/`lmin`/`lmax` siblings. A card written `WMIN=` used to select the wrong bin, silently. |
@@ -352,9 +352,21 @@ fold. It is not repeated here.
   by `model-case-split.cir` and `param-case-split.cir`. Subcircuit formal pins
   and the rawfile are untested.
 - Every site in "Silent-failure sites that gate `distinguish`" either diagnoses
-  or behaves correctly. **Open**: gates 1, 2 and 4 —
-  `src/spicelib/parser/inpptree.c:1249`, `src/xspice/evt/evtcheck_nodes.c:720`
-  and `src/xspice/evt/evttermi.c:304`. `set_case_mode()` warns on `stderr` that
-  the mode is experimental and names them.
+  or behaves correctly. **Open**: gates 2 and 4 —
+  `src/xspice/evt/evtcheck_nodes.c:720` and `src/xspice/evt/evttermi.c:304`.
+  Both are XSPICE and both need an event harness with its own `spinit` that
+  does not exist yet. `set_case_mode()` warns on `stderr` that the mode is
+  experimental and names them.
 - The frontend vector table no longer aliases case-variant names. **Done**,
   Phase 3 gate 3.
+- A B source `V()` reference that misses by case is diagnosed rather than
+  silently manufacturing a node. **Done**, Phase 3 gate 1,
+  `doc/claude/decisions/0002-deferred-node-resolution-check.md`. The node is
+  still created, because create-on-miss is what makes forward references work;
+  what changed is that a node no card defines, whose name differs only in case
+  from one that is defined, is reported on `stderr` at the end of the parse,
+  asserted by `tests/regression/casedist/bsource-node-case.cir` for the number
+  and verified by hand for the text. A reference that misses with **no** case
+  variant present — a plain typo — is still silent in every mode, as are the
+  `.NOISE`/`.SENS`/`.TF`/`.PSS` node references, which have the same
+  create-on-miss shape; `doc/codex/issues/0028`.

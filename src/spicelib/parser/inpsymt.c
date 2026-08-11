@@ -55,7 +55,18 @@ INPtables *INPtabInit(int numlines)
 /* insert 'token' into the terminal symbol table */
 /* create a NEW NODE and return a pointer to it in *node */
 
-int INPtermInsert(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node)
+/* 'unclaimed' says the caller is a reference and not a definition: it names a
+   node it expects to already exist, rather than putting one on the netlist.
+   Only mkvnode() does that, and it has to keep creating on a miss because a
+   B source is parsed before the cards below it, so V(mid) on the first card
+   of a deck is a legal forward reference to a node no card has defined yet.
+   The bit is therefore not a refusal; it records which nodes were born from a
+   reference, so that INPtermCaseCheck() can ask at the end of the parse which
+   of them no card ever defined.  A definition clears it, whichever order the
+   two arrive in. */
+
+static int term_insert(CKTcircuit *ckt, char **token, INPtables * tab,
+                       CKTnode **node, bool unclaimed)
 {
     int key;
     int error;
@@ -66,6 +77,8 @@ int INPtermInsert(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node
         if (ent_eq(*token, t->t_ent)) {
             FREE(*token);
             *token = t->t_ent;
+            if (!unclaimed)
+                t->t_unclaimed = FALSE;
             if (node)
                 *node = t->t_node;
             return (E_EXISTS);
@@ -81,9 +94,71 @@ int INPtermInsert(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node
     if (node)
         *node = t->t_node;
     t->t_ent = *token;
+    t->t_unclaimed = unclaimed;
     t->t_next = tab->INPtermsymtab[key];
     tab->INPtermsymtab[key] = t;
     return (OK);
+}
+
+
+int INPtermInsert(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node)
+{
+    return term_insert(ckt, token, tab, node, FALSE);
+}
+
+
+/* as INPtermInsert(), but the caller is resolving a name rather than defining
+   one; see term_insert() above */
+
+int INPtermInsertRef(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **node)
+{
+    return term_insert(ckt, token, tab, node, TRUE);
+}
+
+
+/* Report every node that a reference created and that no card ever defined,
+   when a name differing from it only in case is defined.  That is decision 2
+   of doc/claude/decisions/0001-distinguish.md applied to the parser: silence
+   when a name is being defined, a warning when a name is being resolved, the
+   resolution fails, and a name differing only in case exists.
+
+   It has to run after the whole netlist is parsed rather than at the
+   reference, because at the reference a miss is indistinguishable from a
+   forward reference to a card further down the deck.
+
+   Only distinguish can produce the condition from a spelling the deck chose.
+   Under preserve ent_eq() is case insensitive, so two entries differing only
+   in case cannot both be in the table and the sibling scan below can never
+   find anything.  Under fold the reader has lowercased every card, so the
+   only entries carrying upper case are the ones ngspice constructs for
+   itself, such as q1#collCX; warning about those would fire in the default
+   mode on a name the user never wrote, which is the wrong side of decision
+   3's rule that distinguish is exact about names the deck chose and case
+   insensitive about names ngspice constructs. */
+
+void INPtermCaseCheck(INPtables *tab)
+{
+    int i;
+    struct INPnTab *t, *u;
+
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return;
+
+    for (i = 0; i < tab->INPtermsize; i++)
+        for (t = tab->INPtermsymtab[i]; t; t = t->t_next) {
+            if (!t->t_unclaimed)
+                continue;
+            /* hash() folds the bucket key whenever the reader is not folding,
+               so a name differing from t only in case is necessarily in this
+               same bucket and the scan does not have to walk the table */
+            for (u = tab->INPtermsymtab[i]; u; u = u->t_next)
+                if (u != t && !u->t_unclaimed && cieq(t->t_ent, u->t_ent)) {
+                    fprintf(stderr,
+                            "Warning: no node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
+                            t->t_ent, u->t_ent);
+                    break;
+                }
+        }
 }
 
 
