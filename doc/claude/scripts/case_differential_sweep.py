@@ -76,6 +76,11 @@ PARSE_FAIL = re.compile(
 # Absolute paths differ between the three scratch directories.
 PATHS = re.compile(r"/tmp/casesweep-[a-z0-9_]+\S*")
 
+# The one problem that makes a verdict NUM-DIFF rather than DIFF.  It is a
+# constant so that the classification tests for the marker rather than for a
+# word a deck's own output might contain.
+RAWFILE_DIFFERS = "rawfile payload differs"
+
 
 def upper_deck(text):
     """Mechanically uppercase a deck without touching file names."""
@@ -268,12 +273,17 @@ def sweep_one(ngspice, spinit, cir, timeout):
                 problems.append("%s: %s" % (tag, rc))
                 continue
             if not masked_equal(a_raw, raw, noise):
-                problems.append("%s: rawfile payload differs" % tag)
+                problems.append("%s: %s" % (tag, RAWFILE_DIFFERS))
             na, nb = normalise(a_out), normalise(out)
             if na != nb:
                 problems.append("%s: stdout %s" % (tag, describe(na, nb)))
         if problems:
-            numeric = [p for p in problems if "rawfile" in p]
+            # Match the marker, not the word.  A stdout problem quotes the
+            # deck's own output, and a deck whose output contains the word
+            # rawfile -- 'OP information in rawfile.', src/frontend/dotcards.c:228
+            # -- was reported as a numeric difference when its numbers were
+            # identical and only its stdout had moved.
+            numeric = [p for p in problems if RAWFILE_DIFFERS in p]
             return rel, "NUM-DIFF" if numeric else "DIFF", "; ".join(problems)
         return rel, "OK", a_rc
     finally:
