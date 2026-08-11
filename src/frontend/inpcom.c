@@ -1097,21 +1097,30 @@ static void set_case_mode(void)
         ng_case_mode = NG_CASE_PRESERVE;
     else if (cieq(mode, "distinguish")) {
         ng_case_mode = NG_CASE_DISTINGUISH;
-        /* doc/codex/issues/0030 is closed, so the XSPICE event node has
-           crossed from the silent half of this sentence to the reported half:
-           the auto-bridge reports an event node that matched no analog node
-           except by case, and the interner reports an event node that nothing
-           drives when a driven node differs from it only in case. The word
-           'experimental' stays, because the silent failures are not
-           exhausted - doc/codex/issues/0027 is the one that remains and is
-           named here rather than in a release note, because it is silent.
-           doc/claude/decisions/0001-distinguish.md decision 6. */
+        /* doc/codex/issues/0027 is closed, so 'unlet' has left the silent half
+           of this sentence: it removes the vector the deck named, and reports
+           a name that missed only by case. What replaces it in that half is
+           doc/codex/issues/0032, the vector name comparators outside
+           findvec() - the current plot's scale is still identified with
+           cieq(), so a vector whose name differs from the scale's only in case
+           is taken for the scale by 'print', dropped from 'ally', and refused
+           by 'unlet'. That is the same shape of silent wrong output this
+           clause has always named, so the clause stays and only its subject
+           changes. The word 'experimental' stays with it, and would stay even
+           if the clause emptied: doc/codex/issues/0028 is open, a name ngspice
+           constructs with upper case of its own such as q1#collCX must be
+           typed as the simulator spells it, and decision 5's migration hazard
+           - a deck that spells one net two ways becomes two nets, silently,
+           because both spellings are definitions - is inherent to the mode
+           rather than a defect in it. doc/claude/decisions/0001-distinguish.md
+           decision 6, doc/claude/decisions/0004-unlet-vector-identity.md. */
         fprintf(stderr,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
                 "identity is case sensitive, and a vector, a B source V() "
                 "reference or an XSPICE node whose resolution misses by case "
-                "is reported, but 'unlet' still removes a vector whose name "
-                "differs only in case.\n");
+                "is reported, but a vector whose name differs only in case "
+                "from the current plot's scale vector is still confused with "
+                "it.\n");
     }
     else
         fprintf(stderr,
