@@ -19,7 +19,7 @@ v(out) = 5.000000e-01
 Note: No compatibility mode selected!
 
 DOTCARD-FWD-SILENT
-DOTCARD-FWD-CAPTURE-READ
+DOTCARD-FWD-OTHER-REPORTED
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
@@ -29,9 +29,25 @@ v(out) = 5.000000e-01
 
 Note: No compatibility mode selected!
 
-NOISE-MISS-REPORTED
-TF-MISS-REPORTED
-SENS-MISS-REPORTED
+NOISE-OUT-MISS-REPORTED
+NOISE-REF-MISS-REPORTED
+TF-POS-MISS-REPORTED
+TF-NEG-MISS-REPORTED
+SENS-POS-MISS-REPORTED
+SENS-NEG-MISS-REPORTED
 PZ-FIRST-MISS-REPORTED
 PZ-THIRD-MISS-REPORTED
+DOTCARD-MISS-NOT-NEARMISS
+
+Note: No compatibility mode selected!
+
+
+Circuit: * end a circuit with no analysis in it
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+v(tail) = 1.000000e+00
 Note: Simulation executed from .control section 

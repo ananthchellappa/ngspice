@@ -30,22 +30,32 @@
 * reader lower cases a control line unless its first word is on a fixed exempt
 * list - 'echo' and 'source' are on it, 'fopen' is not - doc/codex/issues/0038.
 *
-* Each silence case also echoes a CAPTURE-READ token, set by finding the
-* sub-deck's own 'Circuit:' line in the capture, so that an assertion about an
-* absence cannot pass on a capture that was never read.  Every token is upper
-* case because tests/bin/check.sh drops any line containing 'Warning'.
+* Every case that asserts a SILENCE also asserts something POSITIVE about the
+* same capture, so that the silence cannot pass on a capture that was never
+* read, on a sub-deck that was never written, or on the wrong file: the FLOAT
+* and FWDREF sub-decks each carry a second, genuinely undefined node whose
+* report must appear, so a silence that passes proves the check ran over that
+* capture and that the capture is the right one.  Every token is upper case
+* because tests/bin/check.sh drops any line containing 'Warning'.
 *
-*   TYPO     v(mdi) against a net 'mid'   -> reported, and v(miss) = 0 is the
-*                                            wrong number the report explains
+*   TYPO     v(mdi) against a net 'mid'   -> reported
 *   FLOAT    a net named by exactly one card, which is a legal floating node
 *            in SPICE                     -> silent.  This is the case that
 *            decides the rule: the bit is set by a REFERENCE, so a node a card
 *            names is not a candidate however few cards name it
 *   FWDREF   v(mid) referenced before the cards that define it -> silent
+*
+* One silence this diagnostic owes is NOT here, because this harness cannot
+* hold it: when INP2dot() returns 1 - a .dc whose syntax is bad - INPpas2()
+* abandons the deck with the cards below that line unparsed, and the nodes
+* they define must not be reported.  A sub-deck that does it kills the
+* control block that sourced it, so the scan below it never runs.  The
+* silence is checked by hand instead and the command is in
+* doc/claude/decisions/0008-undefined-node-diagnostic.md decision 7.
 .OPTIONS noacct
 .control
 * --- TYPO: a reference no card ever claims, with no case variant in sight
-echo "* a V() reference that names a node no card defines" > bun_typo.cir
+echo "* TYPO a V() reference that names a node no card defines" > bun_typo.cir
 echo ".OPTIONS noacct rshunt=1e9" >> bun_typo.cir
 echo "v1 mid 0 dc 1.5" >> bun_typo.cir
 echo "r1 mid 0 1k" >> bun_typo.cir
@@ -73,81 +83,88 @@ end
 op
 print v(mid)
 print v(miss)
-* --- FLOAT: one card names 'dangle' and nothing else does, which is legal
-echo "* a legal floating node, named by exactly one card" > bun_float.cir
-echo ".OPTIONS noacct" >> bun_float.cir
+* --- FLOAT: one card names 'dangle' and nothing else does, which is legal.
+* --- 'never' in the same sub-deck must be reported, so the silence about
+* --- 'dangle' is a silence this run really produced
+echo "* FLOAT a legal floating node, named by exactly one card" > bun_float.cir
+echo ".OPTIONS noacct rshunt=1e9" >> bun_float.cir
 echo "v1 in 0 dc 1.5" >> bun_float.cir
 echo "r1 in 0 1k" >> bun_float.cir
 echo "r2 in dangle 1k" >> bun_float.cir
 echo "b1 out 0 V={V(in)*2}" >> bun_float.cir
 echo "r3 out 0 1k" >> bun_float.cir
+echo "b3 nope 0 V={V(never)*2}" >> bun_float.cir
+echo "r4 nope 0 1k" >> bun_float.cir
 echo ".end" >> bun_float.cir
 source bun_float.cir >& bun_float.txt
-set found2 = 0
-set read2 = 0
+set float2 = 0
+set other2 = 0
 set n2 = 1
 fopen f2 bun_float.txt r
 while $n2 >= 0
   set capline = "no_line_read"
   fread capline $f2 n2
-  strstr p2 "_$capline" "no node named"
+  strstr p2 "_$capline" "no node named 'dangle'"
   if $p2 >= 0
-    set found2 = 1
+    set float2 = 1
   end
-  strstr r2 "_$capline" "Circuit:"
-  if $r2 >= 0
-    set read2 = 1
+  strstr q2 "_$capline" "no node named 'never'; it is referenced"
+  if $q2 >= 0
+    set other2 = 1
   end
 end
 fclose $f2
-if $found2 > 0
+if $float2 > 0
   echo UNDEF-FLOAT-REPORTED
 else
   echo UNDEF-FLOAT-SILENT
 end
-if $read2 > 0
-  echo UNDEF-FLOAT-CAPTURE-READ
+if $other2 > 0
+  echo UNDEF-FLOAT-OTHER-REPORTED
 else
-  echo UNDEF-FLOAT-CAPTURE-EMPTY
+  echo UNDEF-FLOAT-OTHER-SILENT
 end
 op
 print v(dangle)
 print v(out)
-* --- FWDREF: the reference creates the node and a later card claims it
-echo "* a forward reference claimed by a later card" > bun_fwdref.cir
-echo ".OPTIONS noacct" >> bun_fwdref.cir
+* --- FWDREF: the reference creates the node, a later card claims it, and
+* --- 'never' again proves the check ran over this sub-deck
+echo "* FWDREF a forward reference claimed by a later card" > bun_fwdref.cir
+echo ".OPTIONS noacct rshunt=1e9" >> bun_fwdref.cir
 echo "b1 out 0 V={V(mid)*2}" >> bun_fwdref.cir
 echo "r2 out 0 1k" >> bun_fwdref.cir
+echo "b3 nope 0 V={V(never)*2}" >> bun_fwdref.cir
+echo "r4 nope 0 1k" >> bun_fwdref.cir
 echo "v1 mid 0 dc 1.5" >> bun_fwdref.cir
 echo "r1 mid 0 1k" >> bun_fwdref.cir
 echo ".end" >> bun_fwdref.cir
 source bun_fwdref.cir >& bun_fwdref.txt
-set found3 = 0
-set read3 = 0
+set fwd3 = 0
+set other3 = 0
 set n3 = 1
 fopen f3 bun_fwdref.txt r
 while $n3 >= 0
   set capline = "no_line_read"
   fread capline $f3 n3
-  strstr p3 "_$capline" "no node named"
+  strstr p3 "_$capline" "no node named 'mid'"
   if $p3 >= 0
-    set found3 = 1
+    set fwd3 = 1
   end
-  strstr r3 "_$capline" "Circuit:"
-  if $r3 >= 0
-    set read3 = 1
+  strstr q3 "_$capline" "no node named 'never'; it is referenced"
+  if $q3 >= 0
+    set other3 = 1
   end
 end
 fclose $f3
-if $found3 > 0
+if $fwd3 > 0
   echo UNDEF-FWDREF-REPORTED
 else
   echo UNDEF-FWDREF-SILENT
 end
-if $read3 > 0
-  echo UNDEF-FWDREF-CAPTURE-READ
+if $other3 > 0
+  echo UNDEF-FWDREF-OTHER-REPORTED
 else
-  echo UNDEF-FWDREF-CAPTURE-EMPTY
+  echo UNDEF-FWDREF-OTHER-SILENT
 end
 op
 print v(out)

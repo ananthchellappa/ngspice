@@ -8,29 +8,37 @@
 * doc/claude/decisions/0002-deferred-node-resolution-check.md was suppressed
 * by the very card that repeated the mistake.  That is what this deck pins.
 *
-* SENSMISS is the false-negative case and is RED against the binary before
-* gap 2.  SENSOK is the guard on the other side: a .sens naming a node the
-* deck really defines must stay silent, in this mode too, so that the fix is
-* not "report whatever a dot card names".
+* SENSMISS is that false negative and is RED against the binary before gap 2.
+* SENSONLY is the same defect with the B source taken away, so that the .sens
+* card is the only thing that can have named the node: it says that the fix
+* is at the .sens site and not merely visible through it.  SENSOK is the
+* guard on the other side - a .sens naming a node the deck really defines
+* must stay silent, in this mode too - so that the fix is not "report
+* whatever a dot card names".
 *
 * The shape is bsource-node-case-report.cir's, for the reason given there and
 * in doc/claude/decisions/0006-diagnostic-deck-coverage.md decision 2: the
 * diagnostic is written during the parse, so only a redirect in force across a
 * 'source' can capture it.  The phrase scanned is "no node named", the
-* parser's own noun, never the shared tail "differs only in case"; the
-* SENSMISS case scans for the pair of spellings, because decision 2 of
+* parser's own noun, never the shared tail "differs only in case"; the two
+* reporting cases scan for the pair of spellings, because decision 2 of
 * doc/claude/decisions/0001-distinguish.md makes naming both spellings part of
-* the contract.  Tokens are upper case because tests/bin/check.sh drops any
-* line containing 'Warning', and the snr_* names are lower case for
+* the contract, and they also assert that the plain undefined-node text does
+* NOT appear, because these nodes have a case variant and the two reports are
+* exclusive.  Tokens are upper case because tests/bin/check.sh drops any line
+* containing 'Warning', and the snr_* names are lower case for
 * doc/codex/issues/0038's reason.
 *
 *   SENSMISS  B source says V(in), .sens says v(in), only 'In' is defined
 *             -> the near miss is reported and names 'in' and 'In'
+*   SENSONLY  no B source at all, .sens says v(in), only 'In' is defined
+*             -> the near miss is reported, so the .sens card is what
+*                resolved the name and what marked it unclaimed
 *   SENSOK    .sens names a node cards define -> silent
 .OPTIONS noacct
 .control
 * --- SENSMISS: the dot card repeats the misspelling and must not hide it
-echo "* a .sens naming the node a V() reference manufactured" > snr_miss.cir
+echo "* SENSMISS a .sens naming the node a V() reference manufactured" > snr_miss.cir
 echo ".OPTIONS noacct rshunt=1e9" >> snr_miss.cir
 echo "V1 In 0 dc 1.5" >> snr_miss.cir
 echo "R1 In 0 1k" >> snr_miss.cir
@@ -40,6 +48,7 @@ echo ".sens v(in)" >> snr_miss.cir
 echo ".end" >> snr_miss.cir
 source snr_miss.cir >& snr_miss.txt
 set found1 = 0
+set plain1 = 0
 set n1 = 1
 fopen f1 snr_miss.txt r
 while $n1 >= 0
@@ -49,6 +58,10 @@ while $n1 >= 0
   if $p1 >= 0
     set found1 = 1
   end
+  strstr q1 "_$capline" "it is referenced but no card defines it"
+  if $q1 >= 0
+    set plain1 = 1
+  end
 end
 fclose $f1
 if $found1 > 0
@@ -56,11 +69,44 @@ if $found1 > 0
 else
   echo SENS-NEARMISS-SILENT
 end
+if $plain1 > 0
+  echo SENS-NEARMISS-PLAIN-TOO
+else
+  echo SENS-NEARMISS-NOT-PLAIN
+end
 op
 print v(In)
 print v(miss)
-* --- SENSOK: a .sens on a node the deck defines stays silent
-echo "* a .sens naming a node the deck defines" > snr_ok.cir
+* --- SENSONLY: no B source, so only the .sens card can have named 'in'
+echo "* SENSONLY a .sens is the only card that names the misspelling" > snr_only.cir
+echo ".OPTIONS noacct rshunt=1e9" >> snr_only.cir
+echo "V1 In 0 dc 1.5" >> snr_only.cir
+echo "R1 In 0 1k" >> snr_only.cir
+echo ".sens v(in)" >> snr_only.cir
+echo ".end" >> snr_only.cir
+source snr_only.cir >& snr_only.txt
+set found2 = 0
+set n2 = 1
+fopen f2 snr_only.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no node named 'in'; 'In'"
+  if $p2 >= 0
+    set found2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo SENS-ONLY-NEARMISS-REPORTED
+else
+  echo SENS-ONLY-NEARMISS-SILENT
+end
+op
+print v(In)
+* --- SENSOK: a .sens on a node the deck defines stays silent.  The title
+* --- match is what says this capture is this sub-deck's
+echo "* SENSOK a .sens naming a node the deck defines" > snr_ok.cir
 echo ".OPTIONS noacct" >> snr_ok.cir
 echo "V1 In 0 dc 1.5" >> snr_ok.cir
 echo "R1 In Out 1k" >> snr_ok.cir
@@ -68,34 +114,52 @@ echo "R2 Out 0 1k" >> snr_ok.cir
 echo ".sens v(Out)" >> snr_ok.cir
 echo ".end" >> snr_ok.cir
 source snr_ok.cir >& snr_ok.txt
-set found2 = 0
-set read2 = 0
-set n2 = 1
-fopen f2 snr_ok.txt r
-while $n2 >= 0
+set found3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 snr_ok.txt r
+while $n3 >= 0
   set capline = "no_line_read"
-  fread capline $f2 n2
-  strstr p2 "_$capline" "no node named"
-  if $p2 >= 0
-    set found2 = 1
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no node named"
+  if $p3 >= 0
+    set found3 = 1
   end
-  strstr r2 "_$capline" "Circuit:"
-  if $r2 >= 0
-    set read2 = 1
+  strstr r3 "_$capline" "SENSOK a .sens naming a node the deck defines"
+  if $r3 >= 0
+    set read3 = 1
   end
 end
-fclose $f2
-if $found2 > 0
+fclose $f3
+if $found3 > 0
   echo SENS-OK-REPORTED
 else
   echo SENS-OK-SILENT
 end
-if $read2 > 0
+if $read3 > 0
   echo SENS-OK-CAPTURE-READ
 else
   echo SENS-OK-CAPTURE-EMPTY
 end
 op
 print v(Out)
+* The sourced circuit is still current when this block ends, so batch mode
+* would run ITS .sens and write the rawfile
+* doc/claude/scripts/case_differential_sweep.py asks for from the plot that
+* produces.  The uppercased copy that sweep also runs cannot get that far - it
+* sources a name its own echo line uppercased - and a rawfile on one side only
+* is the sweep's NUM-DIFF verdict, which exists to mean a number moved.  So
+* the last thing sourced is a circuit with no analysis in it and the plots are
+* destroyed after it; the op and print below are what say that source worked,
+* since without it the .sens circuit would still be current here.
+echo "* END a circuit with no analysis in it" > snr_end.cir
+echo ".OPTIONS noacct" >> snr_end.cir
+echo "V9 Tail 0 dc 1" >> snr_end.cir
+echo "R9 Tail 0 1k" >> snr_end.cir
+echo ".end" >> snr_end.cir
+source snr_end.cir
+op
+print v(Tail)
+destroy all
 .endc
 .end

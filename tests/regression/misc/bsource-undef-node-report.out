@@ -19,19 +19,19 @@ v(miss) = 0.000000e+00
 Note: No compatibility mode selected!
 
 UNDEF-FLOAT-SILENT
-UNDEF-FLOAT-CAPTURE-READ
+UNDEF-FLOAT-OTHER-REPORTED
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
 
 No. of Data Rows : 1
-v(dangle) = 1.500000e+00
+v(dangle) = 1.499999e+00
 v(out) = 3.000000e+00
 
 Note: No compatibility mode selected!
 
 UNDEF-FWDREF-SILENT
-UNDEF-FWDREF-CAPTURE-READ
+UNDEF-FWDREF-OTHER-REPORTED
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
