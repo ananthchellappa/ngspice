@@ -615,10 +615,18 @@ plot_add(struct plot *pl)
  * most recently created case variant and not the name the caller asked for.
  * 'unlet Out' beside an OUT therefore removed OUT.  vec_name_eq() is cieq()
  * in both other modes, where two spellings are one vector and the first hit
- * is the only hit, so nothing moves there.  doc/codex/issues/0027. */
+ * is the only hit, so nothing moves there.  doc/codex/issues/0027.
+ *
+ * report_case_miss splits the callers by decision 2 of
+ * doc/claude/decisions/0001-distinguish.md.  'unlet' *resolves* a name, so a
+ * miss that a case variant would have matched is reported: without that, the
+ * exact compare above turns a silent wrong removal into a silent no-op, which
+ * is a smaller mistake but just as invisible.  'compose' and 'cross' *define*
+ * the name they pass, so they are silent -- warning there would fire on the
+ * legitimate deck, which is the option decision 2 rejected. */
 
 void
-vec_remove(const char *name)
+vec_remove(const char *name, bool report_case_miss)
 {
     struct dvec *ov;
 
@@ -626,8 +634,14 @@ vec_remove(const char *name)
         if (vec_name_eq(ov->v_name, name) && (ov->v_flags & VF_PERMANENT))
             break;
 
-    if (!ov)
+    if (!ov) {
+        if (report_case_miss && inp_case_mode() == NG_CASE_DISTINGUISH) {
+            if (!plot_cur->pl_lookup_valid)
+                vec_rebuild_lookup_table(plot_cur);
+            vec_warn_case_near_miss(plot_cur->pl_lookup_table, name);
+        }
         return;
+    }
 
     ov->v_flags &= ~VF_PERMANENT;
 

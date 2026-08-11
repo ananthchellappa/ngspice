@@ -115,7 +115,8 @@ com_compose(wordlist *wl)
 
     char *resname = cp_unquote(wl->wl_word);
 
-    vec_remove(resname);
+    /* 'compose' defines resname, so a name it does not find is not a miss */
+    vec_remove(resname, FALSE);
     wl = wl->wl_next;
 
     if (eqc(wl->wl_word, "values")) {

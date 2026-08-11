@@ -68,7 +68,8 @@ com_unlet(wordlist *wl)
                     plot_cur->pl_scale->v_name, vector_name);
         }
         else {
-            vec_remove(vector_name);
+            /* 'unlet' resolves the name, so a miss by case is reported */
+            vec_remove(vector_name, TRUE);
         }
     } /* end of loop over vectors to delete */
 } /* end of function com_unlet */
@@ -987,7 +988,8 @@ com_cross(wordlist *wl)
         i++;
     }
 
-    vec_remove(newvec);
+    /* 'cross' defines newvec, so a name it does not find is not a miss */
+    vec_remove(newvec, FALSE);
     v = dvec_alloc(copy(newvec),
             (int) (vecs ? vecs->v_type : SV_NOTYPE),
             comp ? (VF_COMPLEX | VF_PERMANENT) : (VF_REAL | VF_PERMANENT),
