@@ -22,7 +22,7 @@ Decision 2 of `0001-distinguish.md` said, of the near-miss warning:
 
 The first clause is true and the conclusion does not follow. The control
 language redirects `cp_err` along with `cp_out` when a redirect carries `&`
-(`src/frontend/streams.c:112-156`, `cp_err = fp` at `:153`), so a diagnostic
+(`src/frontend/streams.c:112-158`, `cp_err = fp` at `:156`), so a diagnostic
 can be captured to a file and read back with `fopen`/`fread`/`strstr` and
 reduced to a token the filter keeps. `tests/regression/pipe/shell-keyword-case.cmd:79`
 was already using that shape for `history` output it had to take off disk.

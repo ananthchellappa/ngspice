@@ -292,9 +292,15 @@ longer belongs in this record anyway.
 **`src/frontend/streams.c:153` is a blank line.** Four places cite it for the
 fact that `>&` redirects `cp_err` as well as `cp_out` — `0001` decision 2's
 correction, `0004` decision 3, `vector-unlet-report.cir` and, copied from them,
-`vector-scale-case.cir`. The assignment is `cp_err = fp` at `:156`, and all
-four now say so. Not caused by this work; found by checking a citation before
+`vector-scale-case.cir`. The assignment is `cp_err = fp` at `:156`, and they
+now say so. Not caused by this work; found by checking a citation before
 reusing it, which is the same habit stated above from the other end.
+
+`360608023`'s message says "four places" and there are **five**: `0036`'s
+Summary spells the number as a bare `` `:153` `` after a range, which the
+`streams.c:153` grep could not see. Corrected. The lesson is the grep, not the
+count — a citation written as a bare offset from a preceding file name is
+invisible to every search that looks for the file name.
 
 The 65 citations the other four files' comments *did* move were rewritten by
 the exact shift each edit introduced, which is the one transform that cannot
