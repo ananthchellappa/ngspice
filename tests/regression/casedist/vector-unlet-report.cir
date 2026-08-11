@@ -1,0 +1,83 @@
+* the near-miss report for an 'unlet' that misses a vector only by case
+* doc/codex/issues/0027, second half.  Making vec_remove() exact turned a
+* silent wrong removal into a silent no-op, so 'unlet' now reports a miss that
+* a case variant would have matched, and 'compose' and 'cross' -- which define
+* the name they pass rather than resolving it -- stay silent.  Decision 2 of
+* doc/claude/decisions/0001-distinguish.md is the rule, and the definition
+* half of it is the one a diagnostic gets wrong: a warning there would fire on
+* the legitimate deck, because two spellings being two vectors is the feature.
+*
+* The diagnostic goes to cp_err, which tests/bin/check.sh does not capture, so
+* this deck redirects it.  '>&' sets cp_err as well as cp_out to the named file
+* (src/frontend/streams.c:153), and the capture is read back with
+* fopen/fread/strstr and reduced to one token on stdout, which is the shape
+* tests/regression/pipe/shell-keyword-case.cmd:79 already uses to assert on
+* output it has to read off disk.  Each variable is preseeded, so a capture
+* that is empty -- the silent cases -- leaves the seed in place and cannot be
+* mistaken for a read line.  Every token is upper case because check.sh's
+* filter drops any line containing 'Warning' or 'Error'.
+*
+* Out and OUT are two nets, 1.5 * 1k / (1k + 1k) = 7.500000e-01 and
+* 1.5 * 3k / (1k + 3k) = 1.125000e+00, and both must survive all four
+* commands: the two prints at the end are what says so.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+R3 in OUT 1k
+R4 OUT 0 3k
+.control
+op
+set cap1 = "no_line_read"
+set cap2 = "no_line_read"
+set cap3 = "no_line_read"
+set cap4 = "no_line_read"
+* a resolution that misses only by case: reported
+unlet oUt >& vuc_unlet_miss.txt
+fopen f1 vuc_unlet_miss.txt r
+fread cap1 $f1 n1
+fclose $f1
+strstr p1 "_$cap1" "differs only in case"
+if $p1 < 0
+  echo UNLET-MISS-SILENT
+else
+  echo UNLET-MISS-REPORTED
+end
+* a resolution that misses with no case variant present: silent, and it is
+* doc/codex/issues/0028's class rather than this one
+unlet nosuchvector >& vuc_unlet_notwin.txt
+fopen f2 vuc_unlet_notwin.txt r
+fread cap2 $f2 n2
+fclose $f2
+strstr p2 "_$cap2" "differs only in case"
+if $p2 < 0
+  echo NO-TWIN-SILENT
+else
+  echo NO-TWIN-REPORTED
+end
+* a definition, not a resolution: silent
+compose oUt values 2 >& vuc_compose.txt
+fopen f3 vuc_compose.txt r
+fread cap3 $f3 n3
+fclose $f3
+strstr p3 "_$cap3" "differs only in case"
+if $p3 < 0
+  echo COMPOSE-SILENT
+else
+  echo COMPOSE-REPORTED
+end
+* also a definition
+cross OuT 0 in >& vuc_cross.txt
+fopen f4 vuc_cross.txt r
+fread cap4 $f4 n4
+fclose $f4
+strstr p4 "_$cap4" "differs only in case"
+if $p4 < 0
+  echo CROSS-SILENT
+else
+  echo CROSS-REPORTED
+end
+print v(Out)
+print v(OUT)
+.endc
+.end

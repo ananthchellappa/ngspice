@@ -124,6 +124,27 @@ fold, preserve        nothing on stderr for any of the five
 `doc/codex/issues/0028`'s class — a reference that misses with nothing near it
 — and not this one.
 
+All four of those lines are asserted by a deck, not only measured by hand.
+`756112c46` claimed they could not be — "no `.out` changes and none can" — on
+the strength of decision 2's own paragraph saying no deck in this harness can
+assert on a warning. Both were wrong, and an adversarial review of that commit
+is what found it. `>&` redirects `cp_err` as well as `cp_out`
+(`src/frontend/streams.c:153`), so the warning can be captured to a file and
+read back with `fopen`/`fread`/`strstr`, exactly as
+`tests/regression/pipe/shell-keyword-case.cmd:79` already does for output it
+has to take off disk, and reduced to one upper-case token that the filter
+keeps. `tests/regression/casedist/vector-unlet-report.cir` does that four
+times: reported for the `unlet` miss, silent for the miss with no twin, silent
+for `compose`, silent for `cross`. Its RED, measured with the `if (!ov)` block
+reverted and the binary rebuilt, is one line — `-UNLET-MISS-REPORTED`,
+`+UNLET-MISS-SILENT` — with the three silence assertions passing either way,
+so the deck fails on precisely the behaviour this decision adds.
+
+The silence assertions are the valuable half. A future change that made
+`compose` report would be a regression against decision 2 and is otherwise
+invisible: it writes to a stream no deck compares, on a deck that still
+produces every correct number.
+
 ## Decision 4 — exactness in `compose` and `cross` is a fix, not a behaviour change
 
 The `vec_remove()` call in each is the guard for one invariant: the plot must

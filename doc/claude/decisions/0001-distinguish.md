@@ -122,9 +122,27 @@ Where it applies, and its state:
 
 The warning goes to `stderr`. That is not a preference: `tests/bin/check.sh:29`
 captures stdout only and its `egrep -v` filter drops any line containing
-`Warning` from both sides anyway, so no deck in this harness can assert on it
-either way. Diagnostics under this decision are therefore verified by hand and
-quoted in the commit that adds them, and the deck asserts the number.
+`Warning` from both sides anyway.
+
+**Corrected 2026-08-11:** this paragraph used to continue "so no deck in this
+harness can assert on it either way", and that was wrong. A deck *can* assert
+on a diagnostic, and `doc/codex/issues/0027`'s
+`tests/regression/casedist/vector-unlet-report.cir` does. The control language
+redirects `cp_err` as well as `cp_out` with `>&`
+(`src/frontend/streams.c:153`), so `unlet oUt >& capture.txt` puts the warning
+in a file; `fopen`/`fread`/`strstr` then reduce it to one upper-case token on
+stdout, which the filter keeps because it contains neither `Warning` nor
+`Error`. `tests/regression/pipe/shell-keyword-case.cmd:79` was already using
+that read-it-back shape for output it had to take off disk. Preseeding the
+variable makes the *silent* cases assertable too, which matters more than the
+warning: silence on a definition is the half of this decision a diagnostic gets
+wrong.
+
+So a diagnostic under this decision should be verified by hand, quoted in the
+commit that adds it, **and** guarded by a deck. The three diagnostics that
+shipped before this was noticed — `0002`'s parser check and `0003`'s two
+XSPICE event checks — are quoted but unguarded; that is
+`doc/codex/issues/0036`.
 
 ## Decision 3 — `ng_ideq()`'s third arm, and the twenty-eight call sites
 
