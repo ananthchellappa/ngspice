@@ -90,9 +90,9 @@ canonical_name(const char *name, DSTRINGPTR dbuf_p,
  * The key is folded and the comparator is left alone, which is section 2.3 of
  * doc/claude/suggestions/case-sensitive-identifiers-plan.md: hash.c:549 copies
  * the key on insert only when hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR),
- * and the frees at :108, :182 and :393 are gated the same way, so installing a
- * case-insensitive hash function would silently flip this table from owning
- * its keys to borrowing them.  The fold is unconditional and the duplicate
+ * and every free of a key is gated on the same test (:110, :182, :393, :471,
+ * :787, :866), so installing a case-insensitive hash function would silently
+ * flip this table from owning its keys to borrowing them.  The fold is unconditional and the duplicate
  * chain nghash_unique(..., FALSE) already permits is filtered with
  * vec_name_eq() instead, exactly as the frontend vector lookup table does
  * (src/frontend/vectors.c:74 and :423). */
