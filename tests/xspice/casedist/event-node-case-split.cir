@@ -1,0 +1,35 @@
+* two event-node spellings stay two event nodes under distinguish
+* The distinguish twin of tests/xspice/case/event-node-case.cir.  There, under
+* 'preserve', the event node 'Dig' written by the adc_bridge and the event node
+* 'dig' read by the d_buffer are ONE node and v(aout) is 5.0.  Here they are
+* two: 'Dig' is driven and read by nothing, 'dig' is read and driven by
+* nothing, the d_buffer sees the digital type's default for the whole run and
+* v(aout) = 0.0.  That is the correct answer for this mode, not a failure.
+* The miss used to be silent, which is doc/codex/issues/0030.  Under
+* casemode=distinguish the run now also prints, on stderr,
+*   Warning: no event node named 'dig'; 'Dig' differs only in case (casemode=distinguish)
+* from EVTnode_case_check() (src/xspice/evt/evttermi.c), called from
+* src/frontend/spiceif.c once the auto-bridge has run.  tests/bin/check.sh
+* captures stdout only and its egrep -v filter drops every line containing
+* 'Warning' from both sides, so no deck in this harness can assert that line;
+* it is quoted in the commit and this deck asserts the number, which the
+* diagnostic must not move.
+* The digital and analog names are deliberately disjoint - 'dig', 'Dig' and
+* 'outq' are only ever event nodes, 'aout' only ever an analog node - so no
+* auto-bridge is generated and this deck exercises the interner alone,
+* independently of src/xspice/evt/evtcheck_nodes.c.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [Dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outq dbuf
+.model dbuf d_buffer
+A3 [outq] [aout] dac1
+.model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)
+R1 aout 0 1k
+.OPTIONS noacct
+.control
+op
+print v(aout)
+.endc
+.end

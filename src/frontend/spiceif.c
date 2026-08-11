@@ -206,6 +206,14 @@ if_inpdeck(struct card *deck, INPtables **tab)
     INPtermCaseCheck(*tab);
 
 #ifdef XSPICE
+    /* The event node list is complete and the auto-bridge has run, so an event
+     * node that nothing drives is one no A card and no bridge ever drove.
+     * Under casemode=distinguish, one whose name differs only in case from a
+     * driven event node is a resolution miss and is reported here rather than
+     * at the A card, where it could not be told from a deliberate second node.
+     * doc/claude/decisions/0001-distinguish.md decision 2. */
+    EVTnode_case_check(ckt);
+
     /* gtri - begin - wbk - 6/6/91 - Finish initialization of event driven structures */
     err = EVTinit(ckt);
     if (err) {

@@ -1,0 +1,32 @@
+* a dangling event node with no case variant is not diagnosed
+* The false-positive guard for EVTnode_case_check()
+* (src/xspice/evt/evttermi.c).  'undriven' is an event node that nothing
+* drives, which is the same state the reader half of
+* event-node-case-split.cir ends in, and 'dig' is an event node that nothing
+* reads.  Neither has a name differing only in case from another event node,
+* so neither is a resolution miss: an event node mentioned once is a legal
+* dangling node exactly as a node mentioned once is a legal floating node in
+* the analog world, and decision 2 of
+* doc/claude/decisions/0001-distinguish.md diagnoses only the failed lookup
+* that has a case variant behind it.  Verified by hand under
+* casemode=distinguish: stderr carries the experimental-mode warning and
+* nothing else.
+* check.sh's filter drops every 'Warning' line, so that absence cannot be
+* asserted here; what this deck pins is that the number for a dangling event
+* node is the same 0.0 as in event-node-case-split.cir, so the split deck's
+* value is evidence about the case of the name and not about danglingness.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 undriven outq dbuf
+.model dbuf d_buffer
+A3 [outq] [aout] dac1
+.model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)
+R1 aout 0 1k
+.OPTIONS noacct
+.control
+op
+print v(aout)
+.endc
+.end

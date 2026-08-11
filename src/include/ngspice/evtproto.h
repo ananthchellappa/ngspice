@@ -135,6 +135,12 @@ bool Evtcheck_nodes(
     CKTcircuit         *ckt,             /* The circuit structure */
     struct INPtables   *stab);           /* Symbol table. */
 
+/* Deferred near-miss diagnostic for the event-node interner; must run after
+ * Evtcheck_nodes(), which supplies the driver of an auto-bridged node. */
+
+void EVTnode_case_check(
+    CKTcircuit         *ckt);            /* The circuit structure */
+
 struct dvec *EVTfindvec(char *node);
 
 /* Set and remove call-backs on new node values. */

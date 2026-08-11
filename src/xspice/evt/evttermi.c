@@ -167,6 +167,85 @@ void EVTtermInsert(
 }
 
 
+/*
+EVTnode_case_check
+
+Report every event node that nothing drives, when the node list holds a
+driven node whose name differs from it only in case.  That is decision 2 of
+doc/claude/decisions/0001-distinguish.md applied to the event-node interner
+below: silence when a name is being defined, a warning when a name is being
+resolved, the resolution fails, and a name differing only in case exists.
+
+The acceptance criterion of doc/codex/issues/0030 asks for the warning
+whenever an A card names an event node differing only in case from an
+existing one.  That is deliberately not what is implemented, because it is a
+test on a definition: under distinguish, 'Out' and 'OUT' as two event nodes
+is the feature, and decision 2 rejects warning on a definition by name.
+
+What is diagnosable is the event analogue of the t_unclaimed bit that
+doc/claude/decisions/0002-deferred-node-resolution-check.md put on the
+parser's term table.  There is no reference/definition split to record here -
+every mention of an event node is a port on an A card - so the bit is not
+maintained during parsing but read off the finished node: num_outputs == 0
+means nothing ever posts a value to the node, so every reader of it sees the
+node type's default for the whole run.  That is a node a mention created and
+that no driver ever claimed, and it is the one state in which the node cannot
+carry an event.
+
+num_ports cannot answer the question, because one port is legal both ways
+round: an output nothing reads and an input nothing drives are both
+single-port nodes, and only the second is a failed resolution.  inst_list
+answers the opposite question, since it lists the instances that take the
+node as an input, so it is non-empty exactly for the reader that missed.
+
+The case variant is only named when it is itself driven, which is
+INPtermCaseCheck()'s !u->t_unclaimed (src/spicelib/parser/inpsymt.c): if
+nothing in the circuit drives either spelling, the deck's mistake is not the
+case of the name and naming the sibling would mislead.
+
+This has to run after Evtcheck_nodes(), not at the A card: an event node
+whose value comes from the analog side is driven by the adc_bridge the
+auto-bridge inserts, which does not exist until then - find_bridge() picks
+MIF_IN for exactly num_outputs == 0 - so running earlier would report every
+auto-bridged input.
+
+Only distinguish can reach the condition from a spelling the deck chose.
+Under preserve ng_ideq() is case insensitive in EVTnode_insert() below, so
+two event nodes differing only in case cannot both be in the list; under fold
+the reader has lowercased every card, and the only other spellings that reach
+the list are the ones the auto-bridge generates, which it copies from analog
+node names the reader lowercased too.  The guard is therefore on the mode and
+not on the spelling.
+*/
+
+
+void EVTnode_case_check(
+    CKTcircuit      *ckt)         /* The circuit structure */
+{
+
+    Evt_Node_Info_t *node;
+    Evt_Node_Info_t *other;
+
+
+    if(inp_case_mode() != NG_CASE_DISTINGUISH)
+        return;
+
+    for(node = ckt->evt->info.node_list; node; node = node->next) {
+        if(node->num_outputs > 0)
+            continue;
+        for(other = ckt->evt->info.node_list; other; other = other->next) {
+            if(other != node && other->num_outputs > 0 &&
+               cieq(node->name, other->name)) {
+                fprintf(stderr,
+                        "Warning: no event node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
+                        node->name, other->name);
+                break;
+            }
+        }
+    }
+}
+
+
 
 
 /*
