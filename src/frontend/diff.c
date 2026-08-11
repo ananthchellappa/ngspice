@@ -22,6 +22,7 @@ Patched: 2010/2012 by Bill Swartz (hash table for vectors)
 static bool nameeq(const char *n1, const char *n2);
 static char *canonical_name(const char *name, DSTRINGPTR dbuf_p,
         bool make_i_name_lower);
+static char *canonical_key(const char *canonical, DSTRINGPTR dbuf_p);
 
 
 
@@ -78,6 +79,37 @@ canonical_name(const char *name, DSTRINGPTR dbuf_p,
 
 
 
+/* The cross-reference hash key of a canonical name: the same name folded.
+ *
+ * com_diff() pairs a vector of one plot with its twin in the other through a
+ * string-keyed nghash, and every lookup path of that table compares with
+ * strcmp (src/misc/hash.c:260, :310), so the pairing was byte exact in all
+ * three modes -- too strict under fold and preserve, where two spellings are
+ * one name.  doc/codex/issues/0037.
+ *
+ * The key is folded and the comparator is left alone, which is section 2.3 of
+ * doc/claude/suggestions/case-sensitive-identifiers-plan.md: hash.c:549 copies
+ * the key on insert only when hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR),
+ * and the frees at :108, :182 and :393 are gated the same way, so installing a
+ * case-insensitive hash function would silently flip this table from owning
+ * its keys to borrowing them.  The fold is unconditional and the duplicate
+ * chain nghash_unique(..., FALSE) already permits is filtered with
+ * vec_name_eq() instead, exactly as the frontend vector lookup table does
+ * (src/frontend/vectors.c:74 and :423). */
+
+static char *
+canonical_key(const char *canonical, DSTRINGPTR dbuf_p)
+{
+    ds_clear(dbuf_p); /* Reset dynamic buffer */
+    if (ds_cat_str_case(dbuf_p, canonical, ds_case_lower) != DS_E_OK) {
+        fprintf(stderr, "Error: DS could not convert %s\n", canonical);
+        controlled_exit(-1);
+    }
+    return ds_get_buf(dbuf_p);
+} /* end of function canonical_key */
+
+
+
 /* Determine if two vectors have the 'same' name. Note that this compare can
  * be performed by using the "canonical" forms returned by
  * canonical_name().
@@ -124,6 +156,7 @@ com_diff(wordlist *wl)
     int i, j;
     char *v1_name;          /* canonical v1 name */
     char *v2_name;          /* canonical v2 name */
+    char *key;              /* folded canonical name, the hash key */
     NGHASHPTR crossref_p;   /* cross reference hash table */
     wordlist *tw;
     char numbuf[BSIZE_SP], numbuf2[BSIZE_SP], numbuf3[BSIZE_SP], numbuf4[BSIZE_SP]; /* For printnum */
@@ -195,22 +228,33 @@ com_diff(wordlist *wl)
         v1->v_link2 = NULL;
 
     DS_CREATE(ibuf, 100); /* used to build canonical name */
+    DS_CREATE(kbuf, 100); /* used to fold a canonical name into a hash key */
+    DS_CREATE(jbuf, 100); /* canonical name of a candidate on the chain */
     crossref_p = nghash_init(NGHASH_MIN_SIZE);
     nghash_unique(crossref_p, FALSE);
 
     for (v2 = p2->pl_dvecs; v2; v2 = v2->v_next) {
         v2->v_link2 = NULL;
         v2_name = canonical_name(v2->v_name, &ibuf, TRUE);
-        nghash_insert(crossref_p, v2_name, v2);
+        nghash_insert(crossref_p, canonical_key(v2_name, &kbuf), v2);
     }
 
+    /* The key is folded, so the chain a lookup walks can hold Out and OUT at
+     * once and the spellings are separated here instead.  vec_name_eq() is
+     * cieq() under fold and preserve, where two spellings are one vector and
+     * every candidate on a folded-key chain satisfies it by construction, and
+     * exact under distinguish, where two spellings are two vectors and the
+     * pairing must stay byte exact.  doc/codex/issues/0037. */
     for (v1 = p1->pl_dvecs; v1; v1 = v1->v_next) {
         v1_name = canonical_name(v1->v_name, &ibuf, TRUE);
-        for (v2 = nghash_find(crossref_p, v1_name);
+        key = canonical_key(v1_name, &kbuf);
+        for (v2 = nghash_find(crossref_p, key);
              v2;
-             v2 = nghash_find_again(crossref_p, v1_name))
+             v2 = nghash_find_again(crossref_p, key))
         {
             if (!v2->v_link2 &&
+                vec_name_eq(canonical_name(v2->v_name, &jbuf, TRUE),
+                        v1_name) &&
                 ((v1->v_flags & (VF_REAL | VF_COMPLEX)) ==
                  (v2->v_flags & (VF_REAL | VF_COMPLEX))) &&
                 (v1->v_type == v2->v_type))
@@ -222,6 +266,8 @@ com_diff(wordlist *wl)
         }
     }
 
+    ds_free(&jbuf);
+    ds_free(&kbuf);
     ds_free(&ibuf);
     nghash_free(crossref_p, NULL, NULL);
 

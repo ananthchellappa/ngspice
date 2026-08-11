@@ -1,0 +1,55 @@
+* diff pairs on the identifier, not on a v() wrapper's letter
+* doc/codex/issues/0037, acceptance criterion 4 and the one thing the fix
+* moves under this mode.  com_diff() cross references the two plots through a
+* hash whose key is now folded (src/frontend/diff.c) and whose duplicate
+* chain is filtered with vec_name_eq(), so the pairing follows the frontend's
+* one answer to 'are these two vector names the same name?': cieq() under
+* fold and preserve, exact under distinguish.
+*
+* Two rows in one diff, which is why the plots hold both names:
+*
+*   OUT   must not pair with the deck's Out.  Under this mode they are two
+*         nets -- the circuit is the Out/OUT split of node-case-split.cir --
+*         and the pairing has to stay byte exact.  Nothing may be reported
+*         for it, and the reported v(1) line above proves the block ran, so
+*         the silence cannot pass vacuously.
+*   v(1)  must pair with the simulator's V(1).  src/frontend/outitf.c:1164
+*         writes a node name that begins with a digit as V(<name>) with that
+*         upper case V in every mode, so a rawfile spelling it v(1) named the
+*         same vector and diff never paired the two.  That is
+*         vec_wrapped_name_eq() (src/frontend/vectors.c:355), which folds the
+*         wrapper letter and compares every other byte exactly, and it is the
+*         same rule that lets 'print v(1)' work under this mode.
+*
+* The second plot is a rawfile the deck writes with echo, so no support file
+* and no EXTRA_DIST entry are needed; echo and load are on the reader's fold
+* exemption list (src/frontend/inpcom.c:1954-1968), which matters for the
+* other two modes rather than for this one, where nothing is folded at all.
+* load's own output is captured so the reference holds diff's answer alone.
+* The captures are cleaned by the CLEANFILES vdp_* pattern.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in 1 1k
+R2 1 0 1k
+R3 in Out 1k
+R4 Out 0 1k
+.control
+echo "Title: hand built" > vdp_hand.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> vdp_hand.raw
+echo "Plotname: Operating Point" >> vdp_hand.raw
+echo "Flags: real" >> vdp_hand.raw
+echo "No. Variables: 2" >> vdp_hand.raw
+echo "No. Points: 1" >> vdp_hand.raw
+echo "Variables:" >> vdp_hand.raw
+echo " 0 v(1) voltage" >> vdp_hand.raw
+echo " 1 OUT voltage" >> vdp_hand.raw
+echo "Values:" >> vdp_hand.raw
+echo " 0 9.0" >> vdp_hand.raw
+echo " 8.0" >> vdp_hand.raw
+load vdp_hand.raw >& vdp_load.txt
+op
+echo DIFF-BEGIN
+diff op1 op2 all
+echo DIFF-END
+.endc
+.end

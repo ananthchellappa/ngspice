@@ -1,0 +1,68 @@
+* diff pairs a loaded vector with its case twin in the live plot
+* doc/codex/issues/0037.  com_diff() cross references the two plots through a
+* hash table (src/frontend/diff.c:198-215) whose comparator is nghash's
+* strcmp (src/misc/hash.c:260), so the pairing was byte exact in all three
+* modes.  Under the default mode the reader folds this deck's node Out to
+* out while a rawfile written by any other tool keeps Out, so the two plots
+* hold one vector between them and diff paired neither: its answer, the list
+* of differing values, was empty, and an empty answer reads as 'the two plots
+* agree'.
+*
+* This deck is here rather than in tests/regression/casedist because the row
+* it asserts is the fold row, which is the default mode and needs no casemode
+* flag; casedist forces -D casemode=distinguish on every deck it holds.
+*
+* The evidence is a presence, not an absence.  Each loaded Out differs from
+* the live out by volts, so a correct pairing must print a value line and the
+* broken pairing prints nothing between the sentinels.  The >>> unpaired
+* reports go to cp_err, which tests/bin/check.sh does not capture, so stdout
+* carries diff's answer alone.
+*
+* Two rawfiles rather than one: op1 spells the name the way this deck spells
+* it before the reader folds it, op2 spells it in upper case, and under fold
+* both are the same name as the live out.  op1 is the sharper row -- a file
+* an older ngspice or another tool wrote from this same deck -- and op2 is
+* the row that is also wrong under preserve.
+*
+* echo and load are on the reader's fold exemption list
+* (src/frontend/inpcom.c:1954-1968), so the case inside the quoted rawfile
+* lines survives to the file.  fopen is not on that list, which is
+* doc/codex/issues/0038, so the file names are lower case regardless.
+*
+* The captures are cleaned by the CLEANFILES dpc_* pattern.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+.control
+echo "Title: hand built" > dpc_mixed.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> dpc_mixed.raw
+echo "Plotname: Operating Point" >> dpc_mixed.raw
+echo "Flags: real" >> dpc_mixed.raw
+echo "No. Variables: 1" >> dpc_mixed.raw
+echo "No. Points: 1" >> dpc_mixed.raw
+echo "Variables:" >> dpc_mixed.raw
+echo " 0 Out voltage" >> dpc_mixed.raw
+echo "Values:" >> dpc_mixed.raw
+echo " 0 9.0" >> dpc_mixed.raw
+echo "Title: hand built" > dpc_upper.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> dpc_upper.raw
+echo "Plotname: Operating Point" >> dpc_upper.raw
+echo "Flags: real" >> dpc_upper.raw
+echo "No. Variables: 1" >> dpc_upper.raw
+echo "No. Points: 1" >> dpc_upper.raw
+echo "Variables:" >> dpc_upper.raw
+echo " 0 OUT voltage" >> dpc_upper.raw
+echo "Values:" >> dpc_upper.raw
+echo " 0 8.0" >> dpc_upper.raw
+load dpc_mixed.raw >& dpc_load.txt
+load dpc_upper.raw >& dpc_load.txt
+op
+echo DIFF-MIXED-BEGIN
+diff op1 op3 all
+echo DIFF-MIXED-END
+echo DIFF-UPPER-BEGIN
+diff op2 op3 all
+echo DIFF-UPPER-END
+.endc
+.end
