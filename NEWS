@@ -29,9 +29,10 @@ Ngspice-47, June ??, 2026
       preserve in .spiceinit or spinit, or with
       ngSpice_Command("set casemode=preserve") before loading a circuit.
       A third value, casemode=distinguish, is experimental: R1 and r1 are
-      then two devices and Out and OUT two nets. It prints a warning
-      naming what it does not yet distinguish, and a deck using it must
-      be case consistent with everything it includes.
+      then two devices and Out and OUT two nets, including XSPICE
+      event-driven nodes. It prints a warning naming what it does not yet
+      distinguish, and a deck using it must be case consistent with
+      everything it includes.
       Language keywords are case insensitive in every mode.
 
 

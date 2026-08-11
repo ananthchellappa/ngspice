@@ -228,7 +228,8 @@ because the fix is specified.
 | Site | Failure |
 | --- | --- |
 | `src/spicelib/parser/inpptree.c:1249`, call at `:1256` | `mkvnode` uses `INPtermInsert`, which **creates on miss**, so a `V()` reference that misses by case manufactures a node no card defines. The manufactured node has **two shapes**, not one. *(a)* With a DC path to it — an `rshunt`, or any other card that reaches it — the deck runs to completion and prints a wrong number: `B1 out 0 V={V(in)*2}` against net `In` gives `v(out) = 0.000000e+00` where `preserve` gives `3.000000e+00`, with no diagnostic. *(b)* Without one it is genuinely isolated, because an expression reference contributes no conductance to the referenced node's own row; the matrix is singular and the run aborts with `Warning: singular matrix:  check node in`, naming a node **the deck never wrote**. Both shapes are the same defect and take the same fix. Note that create-on-miss cannot simply be refused: a B source is parsed before the cards below it, so `V(mid)` on the first card of a deck is a legal forward reference that only works because the node is created. **Done**, Phase 3 gate 1: the call is now `INPtermInsertRef`, which marks the created node unclaimed, and `INPtermCaseCheck()` reports the near-miss at the end of the parse. The node is still created and the numbers are unchanged — `doc/claude/decisions/0002-deferred-node-resolution-check.md` — so what closed the gate is that the failure became audible, not that it became correct. |
-| `src/xspice/evt/evtcheck_nodes.c:720` | Auto-bridge insertion is `strcmp(event_node->name, analog_node->name)`. Digital `A` and analog `a` stop being the same mixed-type node; no bridge is inserted, both nets float, no diagnostic fires. |
+| `src/xspice/evt/evtcheck_nodes.c:720` | **Done**, Phase 3 gate 2, and the row was misfiled: this is a **`preserve`** failure, not a `distinguish` one. Auto-bridge insertion was `strcmp(event_node->name, analog_node->name)`, so under `preserve` — where two spellings are one identifier — digital `A` and analog `a` were not recognised as the same mixed-type node, no bridge was inserted, the analog net was driven by nothing and no diagnostic fired. Under `distinguish` the `strcmp` was already the correct answer. The comparator is now `ng_ideq()`; `tests/xspice/case/auto-bridge-node-case.cir` moved `v(a)` from `0.000000e+00` to `3.300000e+00`. What is still missing is `distinguish`'s near-miss warning, `doc/codex/issues/0030`. |
+| `src/xspice/evt/evttermi.c:304` | **Done**, Phase 3 gate 4, and misfiled in the same way. `EVTnode_insert()`'s find-or-create was `strcmp(node_name, node->name)`, so under `preserve` two spellings of one event node became two event nodes and silently split a net — the interning site, and the reason gate 4 had to land before gate 2. Now `ng_ideq()`; `tests/xspice/case/event-node-case.cir` moved `v(aout)` from `0.000000e+00` to `5.000000e+00`. Same open diagnostic, `doc/codex/issues/0030`. |
 | `src/frontend/measure.c:236` | **Done.** `strtolower(an_name)` at `:237` is now gated on `inp_case_folding()` at `:236` and its consumers at `:351` and `:446` compare with `cieq`. A case-mixed `.MEAS TRAN` used to be silently skipped with no output line. |
 | `src/frontend/subckt.c:659`, `:675`, `:692`, `:708` | **Done.** MOS bin selection now uses `cistrstr(curr_line, " wmin=")` and the `wmax`/`lmin`/`lmax` siblings. A card written `WMIN=` used to select the wrong bin, silently. |
 | `src/frontend/outitf.c:391` | **Done**, commit `f38570c43`. The internal-node classifier is now `tolower_c(tmpname[1]) == 'd'`. A diode named `D1` used to lose its terminal current under `.save alli`; `doc/codex/issues/0016` class (a). |
@@ -352,11 +353,16 @@ fold. It is not repeated here.
   by `model-case-split.cir` and `param-case-split.cir`. Subcircuit formal pins
   and the rawfile are untested.
 - Every site in "Silent-failure sites that gate `distinguish`" either diagnoses
-  or behaves correctly. **Open**: gates 2 and 4 —
-  `src/xspice/evt/evtcheck_nodes.c:720` and `src/xspice/evt/evttermi.c:304`.
-  Both are XSPICE and both need an event harness with its own `spinit` that
-  does not exist yet. `set_case_mode()` warns on `stderr` that the mode is
-  experimental and names them.
+  or behaves correctly. **Done**: gates 2 and 4 closed the last two,
+  `src/xspice/evt/evtcheck_nodes.c:720` and `src/xspice/evt/evttermi.c:304`,
+  both with `ng_ideq()`, and the four event-node *lookups* around them with
+  `Evt_Node_Name_Eq()`. The harness is `tests/xspice/case/` under
+  `-D casemode=preserve` and the new `tests/xspice/casedist/` under
+  `-D casemode=distinguish`; both carry their own `spinit` because
+  `tests/bin/spinit` loads no code models. `set_case_mode()` still calls the
+  mode experimental, but no longer names these sites: what it names now is
+  `doc/codex/issues/0029` and `doc/codex/issues/0027`, neither of which is a
+  gate.
 - The frontend vector table no longer aliases case-variant names. **Done**,
   Phase 3 gate 3.
 - A B source `V()` reference that misses by case is diagnosed rather than

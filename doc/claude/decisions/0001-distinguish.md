@@ -112,8 +112,8 @@ Where it applies, and its state:
 | --- | --- | --- |
 | `findvec()`, `src/frontend/vectors.c:152` | resolution | **implemented** with this decision |
 | `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference |
-| auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, open |
-| `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, open |
+| auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **not** implemented there and is `doc/codex/issues/0030` |
+| `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator and the same open diagnostic |
 | `INPtermInsert()` from a device card | definition | silent, deliberately |
 | `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately |
 
@@ -182,6 +182,42 @@ because the reader lowercased both sides, distinguish because two spellings
 are two names. The default mode compares exactly the bytes it always did, and
 every Class A edit is provably a no-op under `fold` and under `preserve`.
 
+Two further Class A sites were added with Phase 3 gates 2 and 4. They call
+`ng_ideq()` itself rather than swapping a single token, because unlike the
+rows above they were **bare `strcmp`** and had no `inp_case_folding()` to
+replace:
+
+| Site | Today | Before |
+| --- | --- | --- |
+| `src/xspice/evt/evttermi.c:304` `EVTnode_insert()` — the event-node find/create, i.e. the interning site | `ng_ideq(node_name, node->name)` | `strcmp` — wrong under **preserve**: two spellings of one node became two event nodes and silently split a net |
+| `src/xspice/evt/evtcheck_nodes.c:720` `Evtcheck_nodes()` — auto-bridge insertion | `ng_ideq(event_node->name, analog_node->name)` | `strcmp` — wrong under **preserve**: digital `A` and analog `a` are one mixed-type net there, and no bridge was inserted |
+
+Both operands are names the deck wrote on a card, which is what makes them
+Class A: the event side is an A card's port token (`src/xspice/mif/mif_inp2.c:943`
+hands it to `EVTtermInsert` **without** interning it, so it keeps the card's
+spelling), and the analog side is the interned first spelling of a device
+card's node. No ngspice-constructed name can reach either — `Evtcheck_nodes`
+runs at `src/frontend/spiceif.c:185`, before `CKTsetup`, so no `q1#collCX` is
+on `CKTnodes` yet.
+
+These two are the exception to "every Class A edit is a no-op under
+`preserve`": that claim holds for the rows *above*, which were already
+`ng_ideq`-shaped. These two were `strcmp`, so `preserve` is the only mode they
+move, and moving it is the point — they are `preserve` defects filed under an
+unshipped mode. `fold` and `distinguish` are byte identical by the reduction
+of `ng_ideq()`, with no argument about what the reader lowercased needed.
+
+The generated bridge card keeps `analog_node->name` on both port lists
+(`evtcheck_nodes.c:777`; `flush_card()` at `:254` feeds one buffer into both
+`%s` slots, so a per-side spelling was never available). That is correct once
+both gates are closed: the card's analog slot re-resolves through `ent_eq()`
+and its digital slot through `ng_ideq()`, both `cieq` under `preserve`, so
+either spelling lands on the same pair of objects; under `fold` and
+`distinguish` a match at `:720` implies the two spellings are byte identical.
+It is **not** correct with only gate 2 closed — the digital slot then re-enters
+an unfixed `strcmp` and mints a third event node — which is why the two gates
+land in that order.
+
 ### Class C — the frontend vector lookup, which is neither
 
 `src/frontend/vectors.c:61`, `:71`, `:184` — duplicates permitted, key and
@@ -224,6 +260,40 @@ next one, and it is not handled: its upper case is inside the constructed
 part, so a user must type it as the simulator spells it. That is a documented
 limitation and not a silent wrong answer — the lookup fails and decision 2's
 warning fires.
+
+#### The four XSPICE event-node lookups, added with gates 2 and 4
+
+The event node list is read by four lookups that are **not** identity tests
+between two deck tokens, and they were failing in two opposite directions —
+two too strict, two too loose. All four now share one predicate,
+`Evt_Node_Name_Eq()` (`src/xspice/evt/evtplot.c`, declared in
+`src/include/ngspice/evtproto.h`), which is `findvec()`'s rule verbatim:
+exact only under `inp_case_mode() == NG_CASE_DISTINGUISH`.
+
+| Site | Before | Wrong under |
+| --- | --- | --- |
+| `src/xspice/evt/evtshared.c:253` `get_index()` — `ngGet_Evt_NodeInfo()` | `strcmp` | `fold` and `preserve`: the query is the host program's, and the analog half of the same API accepted any case |
+| `src/xspice/evt/evtprint.c:341` `get_index()` — `eprint`, `esave`, `eprvcd` | `strcmp` | `fold` and `preserve`: the query is a word typed at the control language, which the reader never folded |
+| `src/xspice/evt/evtplot.c:110` `Evt_Parse_Node()` — `print`/`plot` via `findvec()` | `cieq`, over a query force-lowercased at `:83` | `distinguish`: an event node answered to a spelling no card wrote |
+| `src/xspice/evt/evtaccept.c:342` `EVTcancel_value_call()` | `cieq` | `distinguish`, and it must move with `evtplot.c:110` or a callback registered case-insensitively becomes uncancellable |
+
+`Evt_Parse_Node()`'s `strtolower()` is narrowed rather than deleted: it now
+folds only the `member` qualifier of `node(member)`. The member is a keyword
+named by the user-defined node type — `state`, `strength` — and keywords are
+case insensitive in **all** modes by compatibility contract point 2. This is
+the same distinction as `vec_wrapped_name_eq()`'s `V(...)` wrapper above,
+applied inside a single string, and it is load-bearing rather than cosmetic:
+`EVTnew_value_call()` **stores** the member (`evtaccept.c:313`) and replays it
+for the life of an `iplot`, so unfolding it would change a persisted string.
+
+Two of these four are visible under `fold`, which the Class A rows are not.
+Both are strict loosenings on the query side only — under `fold` the reader
+lower cased every A card, so no two event nodes can differ only in case and no
+query that resolves today can resolve differently. What changes is that a
+query which failed now succeeds: `eprint OUTQ` at the prompt against a node
+interned as `outq` answered `ERROR - Node OUTQ is not an event node.` and now
+prints the table, which is what `print v(...)` has always done on the analog
+side.
 
 Sites that reach identity only through `ng_ideq()` and therefore need no edit of
 their own: `subckt.c:628`, `:1634`, `:1860`, `inpcom.c:3318`, `:3396`, `:3892`,
@@ -347,14 +417,22 @@ Enumerated so they are not read as oversights:
 
 1. **Phase 3 gates 1, 2 and 4.** `mkvnode` create-on-miss, the XSPICE
    auto-bridge `strcmp`, and `src/xspice/evt/evttermi.c:304`. This record fixes
-   the rule they must implement (decision 2); it does not implement it. Until
-   they close, `distinguish` is experimental and `set_case_mode()` says so on
-   `stderr`. Gate 1 has since closed —
-   `doc/claude/decisions/0002-deferred-node-resolution-check.md`, which is
-   decision 2 applied at the parser and answers the questions this record left
-   open there: where the "created by a reference, never defined" bit lives, in
-   which modes the check reports, and why it is a warning and not an error.
-   Gates 2 and 4 remain, and the experimental warning still names them.
+   the rule they must implement (decision 2); it does not implement it. Gate 1
+   closed with `doc/claude/decisions/0002-deferred-node-resolution-check.md`,
+   which is decision 2 applied at the parser and answers the questions this
+   record left open there: where the "created by a reference, never defined"
+   bit lives, in which modes the check reports, and why it is a warning and not
+   an error. **Gates 2 and 4 have since closed too**, and with them the Phase 3
+   gate list. Both turned out to be `preserve` defects rather than `distinguish`
+   ones — under `preserve` two spellings are one identifier, so `strcmp`
+   refused to bridge and refused to intern a net that was one net — so what
+   they moved is the mode that has shipped, and neither delivered anything to
+   `distinguish`, in which `strcmp` was already the right answer.
+   `set_case_mode()` no longer names them. It still says `distinguish` is
+   experimental, because closing the gate list did not exhaust the silent
+   failures: `doc/codex/issues/0029` is a silent wrong bridge voltage under
+   `distinguish` and `doc/codex/issues/0030` is the near-miss diagnostic these
+   two gates did not implement.
 2. **Whether `distinguish` should be refused in combination with
    `ngbehavior=hs*`.** The spec's Open decision 4. A PDK-consuming deck under
    `distinguish` is the hazard in decision 5 with a vendor library attached.
@@ -362,7 +440,10 @@ Enumerated so they are not read as oversights:
    collision check in `src/osdi/osdiinit.c`, mode-independent.
 4. **`vec_remove()`, `src/frontend/vectors.c:505`,** which finds the vector to
    `unlet` with `cieq` unconditionally. Under `distinguish` `unlet Out` can
-   remove `OUT`. Not on any gate list; filed as `doc/codex/issues/0027`.
+   remove `OUT`. Not on any gate list; filed as `doc/codex/issues/0027`. It is
+   the same shape as `evtaccept.c:342` and `evtplot.c:110`, which gates 2 and 4
+   fixed with `Evt_Node_Name_Eq()`; `0027` takes the same predicate and was
+   deliberately not folded in.
 5. **The build-enforced lint** that would stop a new `strcmp` against a
    lower-case literal from re-entering the tree. Still wanted, still needs no
    decision.

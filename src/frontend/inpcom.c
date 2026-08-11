@@ -1097,15 +1097,22 @@ static void set_case_mode(void)
         ng_case_mode = NG_CASE_PRESERVE;
     else if (cieq(mode, "distinguish")) {
         ng_case_mode = NG_CASE_DISTINGUISH;
-        /* Experimental until the remaining Phase 3 gates close. Named here
-           rather than in a release note because the failure modes are silent:
-           doc/claude/decisions/0001-distinguish.md decision 6. */
+        /* The Phase 3 gate list is closed, so the clause about XSPICE event
+           nodes is gone: they are now interned, bridged and looked up by the
+           same rules as every other name. The word 'experimental' stays,
+           because the silent failures it warns about are not exhausted -
+           doc/codex/issues/0027 and doc/codex/issues/0029 are the two known
+           ones and each is named here rather than in a release note, because
+           both are silent. doc/claude/decisions/0001-distinguish.md
+           decision 6. */
         fprintf(stderr,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
-                "identity is case sensitive, and a B source V() reference to "
-                "a name that differs only in case from a real net is now "
-                "reported, but XSPICE event nodes are still bridged case "
-                "insensitively.\n");
+                "identity is case sensitive, and a vector or B source V() "
+                "reference that misses by case is reported, but the XSPICE "
+                "auto-bridge still looks up its vcc and family parameters "
+                "under a lower-case name, so a .param spelled otherwise is "
+                "ignored, and 'unlet' still removes a vector whose name "
+                "differs only in case.\n");
     }
     else
         fprintf(stderr,
