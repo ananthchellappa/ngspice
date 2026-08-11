@@ -11,9 +11,12 @@
 * from EVTnode_case_check() (src/xspice/evt/evttermi.c), called from
 * src/frontend/spiceif.c once the auto-bridge has run.  tests/bin/check.sh
 * captures stdout only and its egrep -v filter drops every line containing
-* 'Warning' from both sides, so no deck in this harness can assert that line;
-* it is quoted in the commit and this deck asserts the number, which the
-* diagnostic must not move.
+* 'Warning' from both sides, so that line is not asserted here; this deck
+* asserts the number, which the diagnostic must not move.  The line itself,
+* and the silences EVTnode_case_check() owes, are asserted by
+* event-node-case-report.cir beside this file, which sources this same
+* circuit from inside a .control block so that a '>&' redirect can reach the
+* parse.  doc/codex/issues/0036.
 * The digital and analog names are deliberately disjoint - 'dig', 'Dig' and
 * 'outq' are only ever event nodes, 'aout' only ever an analog node - so no
 * auto-bridge is generated and this deck exercises the interner alone,

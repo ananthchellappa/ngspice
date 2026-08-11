@@ -1,0 +1,158 @@
+* the event interner's near-miss report, and the two silences it owes
+* doc/codex/issues/0036, acceptance criteria 1 and 2, for the event interner.
+* EVTnode_case_check() (src/xspice/evt/evttermi.c) reports an event node that
+* nothing drives when another event node that IS driven differs from it only
+* in case.  Decision 1 and decision 3 of
+* doc/claude/decisions/0003-event-node-near-miss.md are the rule.  The
+* silences are the half that matters: every mention of an event node is an A
+* card port, so a test on the definition would fire on every deck, and a
+* check run before the auto-bridge would fire on every auto-bridged input
+* node - which is the BRIDGED case below, and is why decision 3 puts the call
+* after Evtcheck_nodes().
+*
+* The check runs from src/frontend/spiceif.c at the end of the parse, before
+* the first line of any .control block, so there is no command to attach a
+* redirect to.  This deck writes each circuit out with echo and sources it
+* from inside its own control block: 'source' re-enters inp_spsource() and
+* if_inpdeck(), so the check runs again with the wrapper's redirect in force.
+* '>&' sets cp_err as well as cp_out (src/frontend/streams.c:156), and the
+* sourced circuit stays current, which is why each op and print below is
+* about the sub-deck.  The enr_* files are cleaned by CLEANFILES.  Their
+* names are lower case because in the default mode the reader lower cases a
+* control line unless its first word is on a fixed exempt list - 'echo' and
+* 'source' are on it, 'fopen' is not - so an upper-case name would be written
+* as typed and then looked for folded; that asymmetry is
+* doc/codex/issues/0038.  The cost is that the uppercased copy
+* doc/claude/scripts/case_differential_sweep.py makes of this deck does not
+* run, which is the collateral
+* tests/regression/casedist/vector-rawfile-scale-case.cir already has.
+*
+* The phrase asserted is "no event node named", never the shared tail
+* "differs only in case": the parser says "no node named" and the auto-bridge
+* "no analog node named", so a deck asserting the tail would pass on the
+* wrong warning.  The MISS case asserts both that its own phrase is there and
+* that the auto-bridge's is not, which is what makes the noun load bearing.
+* Every token is upper case because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error'.
+*
+*   MISS     'Dig' is driven, 'dig' is read and driven by nothing -> reported,
+*            v(aout) = 0
+*   NOTWIN   'undriven' has no case variant at all -> silent, v(aout) = 0,
+*            doc/codex/issues/0028's class rather than this one
+*   BRIDGED  'in' is an input the auto-bridge drives, beside a driven event
+*            node 'IN' -> silent, v(aout) = 5, and it is only silent because
+*            the check runs after the bridge
+.OPTIONS noacct
+.control
+* --- MISS: the adc_bridge drives 'Dig', the d_buffer reads 'dig'
+echo "* two event node spellings, one driven and one read" > enr_miss.cir
+echo ".OPTIONS noacct" >> enr_miss.cir
+echo "V1 in 0 dc 1" >> enr_miss.cir
+echo "R0 in 0 1meg" >> enr_miss.cir
+echo "A1 [in] [Dig] adc1" >> enr_miss.cir
+echo ".model adc1 adc_bridge(in_low=0.4 in_high=0.6)" >> enr_miss.cir
+echo "A2 dig outq dbuf" >> enr_miss.cir
+echo ".model dbuf d_buffer" >> enr_miss.cir
+echo "A3 [outq] [aout] dac1" >> enr_miss.cir
+echo ".model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)" >> enr_miss.cir
+echo "R1 aout 0 1k" >> enr_miss.cir
+echo ".end" >> enr_miss.cir
+source enr_miss.cir >& enr_miss.txt
+set found1 = 0
+set other1 = 0
+set n1 = 1
+fopen f1 enr_miss.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no event node named 'dig'; 'Dig'"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr q1 "_$capline" "no analog node named"
+  if $q1 >= 0
+    set other1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo EVENT-MISS-REPORTED
+else
+  echo EVENT-MISS-SILENT
+end
+if $other1 > 0
+  echo EVENT-MISS-ANALOGTOO
+else
+  echo EVENT-MISS-NOANALOG
+end
+op
+print v(aout)
+* --- NOTWIN: a dangling event node with no case variant anywhere
+echo "* a dangling event node with no case variant present" > enr_notwin.cir
+echo ".OPTIONS noacct" >> enr_notwin.cir
+echo "V1 in 0 dc 1" >> enr_notwin.cir
+echo "R0 in 0 1meg" >> enr_notwin.cir
+echo "A1 [in] [dig] adc1" >> enr_notwin.cir
+echo ".model adc1 adc_bridge(in_low=0.4 in_high=0.6)" >> enr_notwin.cir
+echo "A2 undriven outq dbuf" >> enr_notwin.cir
+echo ".model dbuf d_buffer" >> enr_notwin.cir
+echo "A3 [outq] [aout] dac1" >> enr_notwin.cir
+echo ".model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)" >> enr_notwin.cir
+echo "R1 aout 0 1k" >> enr_notwin.cir
+echo ".end" >> enr_notwin.cir
+source enr_notwin.cir >& enr_notwin.txt
+set found2 = 0
+set n2 = 1
+fopen f2 enr_notwin.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no event node named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo EVENT-NOTWIN-REPORTED
+else
+  echo EVENT-NOTWIN-SILENT
+end
+op
+print v(aout)
+* --- BRIDGED: 'in' is driven by the adc_bridge the auto-bridge inserts, and
+* --- 'IN' is a driven event node, so the pair exists but is not a miss
+echo "* an auto-bridged input event node beside a driven case variant" > enr_bridged.cir
+echo ".OPTIONS noacct" >> enr_bridged.cir
+echo "V1 in 0 dc 5" >> enr_bridged.cir
+echo "R0 in 0 1meg" >> enr_bridged.cir
+echo "A1 [in] [IN] adc1" >> enr_bridged.cir
+echo ".model adc1 adc_bridge(in_low=0.4 in_high=0.6)" >> enr_bridged.cir
+echo "A2 in dout dbuf" >> enr_bridged.cir
+echo ".model dbuf d_buffer" >> enr_bridged.cir
+echo "A3 [dout] [aout] dac1" >> enr_bridged.cir
+echo ".model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)" >> enr_bridged.cir
+echo "R1 aout 0 1k" >> enr_bridged.cir
+echo ".end" >> enr_bridged.cir
+source enr_bridged.cir >& enr_bridged.txt
+set found3 = 0
+set n3 = 1
+fopen f3 enr_bridged.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no event node named"
+  if $p3 >= 0
+    set found3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo EVENT-BRIDGED-REPORTED
+else
+  echo EVENT-BRIDGED-SILENT
+end
+op
+print v(aout)
+.endc
+.end

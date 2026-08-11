@@ -11,8 +11,11 @@
 * that has a case variant behind it.  Verified by hand under
 * casemode=distinguish: stderr carries the experimental-mode warning and
 * nothing else.
-* check.sh's filter drops every 'Warning' line, so that absence cannot be
-* asserted here; what this deck pins is that the number for a dangling event
+* check.sh's filter drops every 'Warning' line, so that absence is not
+* asserted here - it is asserted by event-node-case-report.cir's NOTWIN case,
+* which sources this same circuit under a '>&' redirect and reads the capture
+* back (doc/codex/issues/0036).
+* What this deck pins is that the number for a dangling event
 * node is the same 0.0 as in event-node-case-split.cir, so the split deck's
 * value is evidence about the case of the name and not about danglingness.
 V1 in 0 dc 1

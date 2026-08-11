@@ -236,7 +236,7 @@ void EVTnode_case_check(
         for(other = ckt->evt->info.node_list; other; other = other->next) {
             if(other != node && other->num_outputs > 0 &&
                cieq(node->name, other->name)) {
-                fprintf(stderr,
+                fprintf(cp_err,
                         "Warning: no event node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
                         node->name, other->name);
                 break;
