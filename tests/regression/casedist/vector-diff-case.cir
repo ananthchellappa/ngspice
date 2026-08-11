@@ -8,10 +8,13 @@
 *
 * nameeq() is the only case decision in diff that this issue reaches.  The
 * pairing of a vector in one plot with its twin in the other is a hash lookup
-* on canonical names (diff.c:198-215) whose comparator is nghash's strcmp
-* (src/misc/hash.c:260), so it is byte exact in all three modes already; that
-* it is too strict under preserve is a different defect and is filed
-* separately.
+* on canonical names (diff.c:233-270) whose comparator is nghash's strcmp
+* (src/misc/hash.c:260), so it was byte exact in all three modes; that it was
+* too strict under fold and preserve is a different defect, filed as
+* doc/codex/issues/0037 and since fixed by folding the key and filtering the
+* chain with vec_name_eq().  This deck's assertion is unaffected: under
+* distinguish the pairing is still exact, which is what keeps OUT paired with
+* OUT and Out with Out here.
 *
 * Out and OUT are two nets under distinguish, the same circuit
 * node-case-split.cir and vector-unlet-case.cir use.  The two plots are an op

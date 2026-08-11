@@ -246,7 +246,7 @@ needs writing down rather than assuming:
 
 1. **`doc/codex/issues/0032`**, the vector name comparators outside
    `findvec()` — `is_scale_vec_of_current_plot()`, `findvec_ally()`,
-   `vec_eq()` and its six callers, `rawfile.c:618`, `diff.c:95`. All Class C
+   `vec_eq()` and its six callers, `rawfile.c:618`, `diff.c:127`. All Class C
    sites by decision 3's rule, none fixed here. It is what the experimental
    warning now names.
 

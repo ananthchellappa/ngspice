@@ -278,6 +278,8 @@ Both commits add comments above the lines they cite, so `postcoms.c:301`,
 `:676`, `:701`, `:841`, `:866` and `:659-679`, and `diff.c:192-215`, are each
 short by the comment they introduced. The current numbers are `306`, `681`,
 `706`, `846`, `871`, `664-684` and `198-215`, and they are what the docs cite.
+(`diff.c:198-215` moved again to `:233-270` with
+`doc/claude/decisions/0007-diff-cross-plot-pairing.md`, by the same route.)
 This is the hazard `ca7d2bc07` fixed for `0032` and `0035` one commit before
 this work started, arriving again by the same route; re-grepping *after* the
 edit rather than before is the habit that prevents it.

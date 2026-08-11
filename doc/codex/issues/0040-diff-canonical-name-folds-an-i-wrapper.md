@@ -8,7 +8,7 @@ pairing predicate actually compares once the hash key is folded.
 
 ## Summary
 
-`canonical_name()` (`src/frontend/diff.c:29`) rewrites `i(some_name)` as
+`canonical_name()` (`src/frontend/diff.c:30`) rewrites `i(some_name)` as
 `some_name#branch` so that the two spellings of one current pair with each
 other, and its `make_i_name_lower` argument additionally lower cases the name
 inside the wrapper. `com_diff()` passed `TRUE`; `nameeq()` has always passed

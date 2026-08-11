@@ -10,7 +10,8 @@ the shape `doc/codex/issues/0016`, gate 2 and gate 4 also turned out to have.
 
 ## Summary
 
-`com_diff()` (`src/frontend/diff.c:198-215`) pairs each vector of the first plot with
+`com_diff()` (`src/frontend/diff.c:198-215` at `28d36a7c4`, `:233-270` after
+the fix) pairs each vector of the first plot with
 its twin in the second through a hash table:
 
 ```

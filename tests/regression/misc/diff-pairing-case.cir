@@ -1,6 +1,6 @@
 * diff pairs a loaded vector with its case twin in the live plot
 * doc/codex/issues/0037.  com_diff() cross references the two plots through a
-* hash table (src/frontend/diff.c:198-215) whose comparator is nghash's
+* hash table (src/frontend/diff.c:233-270) whose comparator is nghash's
 * strcmp (src/misc/hash.c:260), so the pairing was byte exact in all three
 * modes.  Under the default mode the reader folds this deck's node Out to
 * out while a rawfile written by any other tool keeps Out, so the two plots

@@ -26,18 +26,20 @@ already uses.
 | `src/frontend/vectors.c:284` `findvec_ally()` | `!cieq(d->v_name, pl->pl_scale->v_name)` | too loose: `ally` silently omits a case variant of the scale |
 | `src/frontend/vectors.c:1244` `vec_eq()` | `cieq(s1, s2)` over `vec_basename()` | too loose: a case variant of the scale is taken *for* the scale. Six callers — `postcoms.c:306` (`print`'s scale column), `:681` and `:706` (`write`), `:846` and `:871` (`write_sparam`), `src/frontend/plotting/agraf.c:62` |
 | `src/frontend/rawfile.c:618` | `cieq((char *) v->v_scale, nv->v_name)` | too loose: a rawfile naming both `time` and `TIME` binds a variable's scale to whichever comes first |
-| `src/frontend/diff.c:95`, `:104` | `cieq(n1, n2)` | too loose: `diff`'s argument list selects the case twin as well, so `diff p1 p2 OUT` also reports `Out` |
+| `src/frontend/diff.c:127`, `:136` | `cieq(n1, n2)` | too loose: `diff`'s argument list selects the case twin as well, so `diff p1 p2 OUT` also reports `Out` |
 
 **Corrected while closing.** The `diff.c` row originally read "`diff` reports
 two spellings as one vector, so a real difference between `Out` and `OUT`
 across two plots is invisible". That describes the *pairing* of a vector in
 one plot with its twin in the other, which `nameeq()` does not do: the pairing
-is a hash lookup on canonical names (`diff.c:198-215`) whose comparator is
+is a hash lookup on canonical names (`diff.c:233-270`) whose comparator was
 `nghash`'s `strcmp` (`src/misc/hash.c:260`), byte exact in all three modes.
 `nameeq()` is the filter that throws out the vectors *not* named in `diff`'s
 argument list, and that is what the row should have said. The pairing has a
 defect of its own, in the opposite direction and in both shipped modes; it is
-`doc/codex/issues/0037`.
+`doc/codex/issues/0037`, and it is now **fixed** — the key is folded and the
+chain is filtered with `vec_name_eq()`, so the two sites of this function
+answer the same question the same way. `doc/claude/decisions/0007-diff-cross-plot-pairing.md`.
 
 The scale-vector rows are one bug wearing three hats, which is why the warning
 names it as one: whether the user asks `print`, `ally` or `unlet`, a vector

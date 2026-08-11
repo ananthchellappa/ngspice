@@ -205,7 +205,7 @@ and no test can reach it in this configuration.
 | `src/frontend/com_hardcopy.c:62` | plot | Only reached by bare 'hardcopy' (no args), which then blocks on the X click-to-select prompt (hangs) or, headless, aborts and dumps core. |
 | `src/frontend/com_hardcopy.c:67` | plot | Same bare-'hardcopy' branch; the .ps/.svg suffix goes onto a $HOME temp name that is only ever reported in a message, never turned into a readable file. |
 | `src/frontend/define.c:99` | variable | parse.c strtolowers a call name before matching ft_funcs, so a colliding user function is always shadowed; accepting or rejecting the define changes only the me |
-| `src/frontend/diff.c:243` | exprcoms | com_diff only prints text; its sole state change is the internal v_link2 cross-link, which print/let/display never expose |
+| `src/frontend/diff.c:293` | exprcoms | com_diff only prints text; its sole state change is the internal v_link2 cross-link, which print/let/display never expose |
 | `src/frontend/help/readhelp.c:326` | shell | configure defines NOINTHELP, so com_ghelp calls com_help and never reaches hlp_main/findsubject; no ngspice.idx help index is built or shipped either. |
 | `src/frontend/inpcom.c:2399` | shell | inp_read folds every node position; uppercase reaches this loop only on .lib/.inc paths and whitelisted control text, where matching corrupts rather than fixes. |
 | `src/frontend/inpcom.c:2406` | shell | Same loop, same reason: no card position that means the gnd keyword survives the fold, so a case-insensitive match can only newly hit case-preserved non-node te |
