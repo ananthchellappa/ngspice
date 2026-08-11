@@ -149,6 +149,16 @@ differential sweep behind it. It is filed as `doc/codex/issues/0028` rather
 than folded in here. This was the only chance in the feature to catch a plain
 typo cheaply, and it is deliberately not taken in this commit.
 
+**Taken since 2026-08-11**, `doc/codex/issues/0028` gap 1,
+`doc/claude/decisions/0008-undefined-node-diagnostic.md`. This function is now
+one scan with two reports and the generic one is mode independent. The
+worry above turned out to be answered by the bit this decision built rather
+than by narrowing the rule: `t_unclaimed` is set by a reference and cleared by
+any definition, so the candidate set is not "nodes mentioned once" but "nodes
+no card ever mentioned", and a legal floating node is named by a card. Every
+`.cir` under `tests/` was run in each of the three modes and none of them
+trips the new report.
+
 Measured consequence: the differential sweep runs stock, `preserve` and
 `preserve`-UPPER only — it never runs `distinguish` — so this change cannot
 move a sweep verdict by construction, and did not.
@@ -232,6 +242,8 @@ nothing, substitutes nothing, and mutates nothing.
    the collect-then-diagnose structure; it needs an XSPICE event harness with
    its own `spinit` first.
 2. **The generic undefined-node diagnostic**, `doc/codex/issues/0028`.
+   **Closed** at `17e429993`; see the paragraph added to decision 2 above and
+   `doc/claude/decisions/0008-undefined-node-diagnostic.md`.
 3. **The other create-on-miss reference sites**, also `0028`:
    `inp2dot.c:53`/`:59` (`.NOISE` output), `:371`/`:376` (`.SENS`),
    `:495`/`:501` (`.TF`), `:677`/`:775` (`.PSS` oscnode) and `inpgval.c:90` all
@@ -240,6 +252,13 @@ nothing, substitutes nothing, and mutates nothing.
    makes them a false-negative source — a `.SENS v(in)` on the manufactured
    node suppresses this warning. Not fixed here because each needs its own deck
    and none is on the gate list.
+
+   **Closed** at `7b18264c4`, all nine. Two of the labels above are this
+   record's copy of `0028`'s and both are wrong: `:371`/`:376` is `.TF` and
+   `:495`/`:501` is `.SENS`, and `:775` is `.hb` rather than a second `.PSS`.
+   `inpgval.c:90` is reached only from `.pz`. The false negative is guarded by
+   `tests/regression/casedist/sens-node-case-report.cir`, which is `0028`
+   criterion 4 and was RED before the change.
 4. **`I()` references**, `mkinode()` (`inpptree.c:1279`). It interns an
    instance name into `INPsymtab` with `INPinsert()`, a different table with no
    node behind it, and instance resolution fails loudly elsewhere. Out of the
