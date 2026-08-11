@@ -1,0 +1,3 @@
+Reducing trtol to 1 for xspice 'A' devices
+v(aout) = 5.000000e+00
+CASEMODE-IS distinguish

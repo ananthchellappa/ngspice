@@ -1479,6 +1479,8 @@ AC_CONFIG_FILES([Makefile
                  tests/xspice/digital/spinit
                  tests/xspice/case/Makefile
                  tests/xspice/case/spinit
+                 tests/xspice/casedist/Makefile
+                 tests/xspice/casedist/spinit
                  tests/resistance/Makefile
                  tests/vbic/Makefile])
 

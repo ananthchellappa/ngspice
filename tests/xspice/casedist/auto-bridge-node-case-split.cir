@@ -1,0 +1,29 @@
+* digital A and analog a stay two nets under distinguish
+* The distinguish half of tests/xspice/case/auto-bridge-node-case.cir, and it
+* is a GUARD rather than a RED: this deck prints the same number before and
+* after the Phase 3 gate 2 change, because ng_ideq() reduces to exactly the
+* strcmp that was there under 'distinguish' as well as under 'fold'.  It is
+* here to pin that down, since gate 2's whole behavioural delta is meant to
+* be confined to 'preserve'.
+* Under 'distinguish' the digital node 'A' and the analog net 'a' are two
+* names, so no bridge is inserted and 'a' is driven by nothing but R1 to
+* ground.  v(a) = 0 is the correct answer, not a failure - it is the same
+* stdout the same deck produces under 'preserve' before gate 2 and a
+* different meaning.
+* The miss is still silent: decision 2 of doc/claude/decisions/0001-distinguish.md
+* asks for a near-miss warning at a failed resolution, and this site does not
+* have one yet.  It is out of scope here and is recorded in
+* doc/codex/issues/0029.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [Dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 Dig A dbuf
+.model dbuf d_buffer
+R1 a 0 1k
+.OPTIONS noacct
+.control
+op
+print v(a)
+.endc
+.end

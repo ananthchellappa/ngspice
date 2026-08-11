@@ -1,0 +1,25 @@
+* xspice casedist harness liveness probe
+* All identifiers are lower case, so the electrical answer is the same in
+* every case mode.  Two things are proved here and nowhere else in this
+* directory: that the -D casemode=distinguish flag really reached the binary,
+* echoed in upper case so that the egrep -v filter in tests/bin/check.sh
+* cannot eat it, and that this directory's own spinit loaded digital.cm - if
+* it did not, the A device below would not parse and the deck would fail with
+* no number at all rather than with a wrong one.
+* tests/regression/casedist/harness-alive.cir is the precedent; this is its
+* XSPICE twin, and it stays after the directory has real decks because it is
+* the one that fails loudly if either half of the harness stops working.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 [dig] [aout] dac1
+.model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)
+R1 aout 0 1k
+.OPTIONS noacct
+.control
+op
+print v(aout)
+echo CASEMODE-IS $casemode
+.endc
+.end

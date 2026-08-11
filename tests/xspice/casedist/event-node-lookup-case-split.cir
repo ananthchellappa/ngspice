@@ -1,0 +1,30 @@
+* an event node does not answer to a spelling no card wrote, under distinguish
+* Under 'distinguish' two spellings are two names, so the only vector the A
+* card created is 'outq'.  'print OUTQ' must find nothing.
+*   src/xspice/evt/evtplot.c:110, inside Evt_Parse_Node(), matched the query
+*   against the event node list with an unconditional cieq, and :83 lower
+*   cased the query first, so the event lookup was case insensitive in ALL
+*   three modes - the opposite failure from the two Phase 3 gates, and the
+*   same shape decision 3 of doc/claude/decisions/0001-distinguish.md fixed
+*   at the analog vector table for Phase 3 gate 3.
+* RED evidence at feff44746: this deck printed the value table TWICE, once
+* for 'print OUTQ' and once for 'print outq'.  GREEN is one table - 'print
+* OUTQ' now reports 'Warning from checkvalid: vector OUTQ is not available',
+* which goes to stderr and which check.sh's filter drops from stdout, so the
+* assertion is the disappearance of the first table.
+* The member qualifier keeps its fold: 'outq(state)' is a keyword named by
+* the user-defined node type, and keywords are case insensitive in every mode
+* by the spec's compatibility contract point 2.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outq dbuf
+.model dbuf d_buffer
+.OPTIONS noacct
+.control
+op
+print OUTQ
+print outq
+.endc
+.end
