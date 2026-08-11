@@ -257,7 +257,7 @@ dgen_next(dgen **dgx)
                     /*printf("No device.\n");*/
                     need |= DGEN_MODEL;
                     continue;
-                } else if (type != *dev_name) {
+                } else if (tolower_c(type) != tolower_c(*dev_name)) {
                     done = 0;
                     /*printf("Wrong type.\n");*/
                     /* Bleh ... plan breaks down here */

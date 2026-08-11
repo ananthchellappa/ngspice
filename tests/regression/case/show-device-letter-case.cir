@@ -1,0 +1,32 @@
+* show's device-letter filter must not depend on the letter's case
+* gens.c's walker takes the first character of the typed pattern as the
+* device type and compares it byte-exactly against the first character of
+* the stored instance name (src/frontend/gens.c:260,
+* "} else if (type != *dev_name) {").  Under casemode=preserve the stored
+* name carries the deck's spelling and the typed name carries the user's,
+* so "show r" against a deck that declared RSer matches nothing while
+* "show R" against the same deck matches everything.
+*
+* Only the device-letter pre-filter is under test here.  The instance and
+* model name compares at gens.c:289 and :295 are still byte exact by
+* design: they are identity questions and belong to the distinguish
+* decision, so this deck deliberately passes no instance name.  Folding the
+* pre-filter can only widen the candidate set those two compares see, and
+* any instance that then fails them is rejected exactly as before.
+*
+* The evidence is the resistance row of the show table, printed twice and
+* identical both times.  check.sh's egrep -v filter removes "Error" and
+* "Warning" but leaves this row alone.  Today the first show prints
+* "No matching instances or models" instead, so the two halves differ.
+*
+* doc/codex/issues/0016
+.OPTIONS noacct
+V1 1 0 dc 4
+RSer 1 2 1k
+RLoad 2 0 3k
+.control
+op
+show r
+show R
+.endc
+.end

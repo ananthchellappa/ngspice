@@ -1486,7 +1486,7 @@ com_alter_common(wordlist *wl, int do_model)
 
     /* If we want alter the geometry of a MOS device
        we have to ensure that we are in the valid model bin. */
-    if ((dev[0] == 'm') && (eqc(param, "w") || eqc(param, "l")))
+    if ((tolower_c(dev[0]) == 'm') && (eqc(param, "w") || eqc(param, "l")))
         if_set_binned_model(ft_curckt->ci_ckt, dev, param, dv);
 
     if_setparam(ft_curckt->ci_ckt, &dev, param, dv, do_model);

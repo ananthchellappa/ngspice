@@ -1,0 +1,21 @@
+* lower case twin of alter-rebin-case.cir
+* Byte identical to alter-rebin-case.cir except that the MOS device letter,
+* and the name typed at the alter command, are lower case.  Its .out is
+* identical too.
+*
+* doc/codex/issues/0016
+.OPTIONS noacct
+vd 1 0 dc 1.5
+vg 2 0 dc 1.5
+rd 1 3 10k
+m1 3 2 0 0 nch w=1u l=1u
+.model nch.1 nmos level=49 version=3.3.0 lmin=0.1u lmax=2u wmin=0.5u wmax=1.5u vth0=0.4 u0=300
+.model nch.2 nmos level=49 version=3.3.0 lmin=0.1u lmax=2u wmin=1.5u wmax=5u vth0=0.9 u0=300
+.control
+op
+print v(3)
+alter m1 w=2u
+op
+print v(3)
+.endc
+.end

@@ -1,0 +1,39 @@
+* save alli with an upper case diode
+* outitf.c's "save alli" pass rewrites a generated internal node name such
+* as D1#internal into the terminal current @D1[id].  It picks the branch
+* with "tmpname[1] == 'd'" (src/frontend/outitf.c:391), a lower case
+* literal tested against the second character of the generated name, which
+* under casemode=preserve carries the deck's spelling.  With an upper case
+* D the test fails, the name falls through to the "Debug: could output
+* current for %s" arm and is dropped.
+*
+* With "save alli" as the only save, dropping it leaves the run with no
+* data descriptors at all, so the operating point is never solved:
+*
+*   Error: no data saved for D.C. Operating point analysis; analysis not run
+*
+* That diagnostic is on stderr, which tests/bin/check.sh does not capture,
+* so the evidence has to be a number.  zprobe reads the diode current back
+* out of the circuit after the analysis; if the analysis did not run it is
+* 0, and if it did it is the diode's operating point current.  The name
+* zprobe is fixed, so the printed label does not carry the deck's spelling
+* and the twin .out files stay byte identical.
+*
+* rs on the model is load bearing: without a series resistance the diode
+* has no internal node and there is nothing for "save alli" to convert.
+*
+* save-alli-case-lower.cir is the all-lower-case twin.
+*
+* doc/codex/issues/0016
+.OPTIONS noacct
+V1 1 0 dc 4
+R1 1 2 1k
+D1 2 0 dmod
+.model dmod d is=1e-14 rs=10
+.control
+save alli
+op
+let zprobe = @D1[id]
+print zprobe
+.endc
+.end

@@ -1,0 +1,18 @@
+* lower case twin of save-alli-case.cir
+* Byte identical to save-alli-case.cir except that the diode's device
+* letter, and the reference to it in the @d1[id] query, are lower case.
+* Its .out is identical too.
+*
+* doc/codex/issues/0016
+.OPTIONS noacct
+v1 1 0 dc 4
+r1 1 2 1k
+d1 2 0 dmod
+.model dmod d is=1e-14 rs=10
+.control
+save alli
+op
+let zprobe = @d1[id]
+print zprobe
+.endc
+.end

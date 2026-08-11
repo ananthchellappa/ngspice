@@ -388,7 +388,7 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
                         if (parseSpecial(tmpname, namebuf, parambuf, depbuf))
                             addSpecialDesc(run, tmpname, namebuf, parambuf, depind, initmem);
                         strcpy(ch, "[ib]");
-                    } else if (strstr(ch, "#internal") && (tmpname[1] == 'd')) {
+                    } else if (strstr(ch, "#internal") && (tolower_c(tmpname[1]) == 'd')) {
                         strcpy(ch, "[id]");
                     } else {
                         fprintf(cp_err,
