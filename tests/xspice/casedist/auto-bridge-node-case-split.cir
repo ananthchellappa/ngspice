@@ -17,9 +17,12 @@
 *   Warning: no analog node named 'A'; 'a' differs only in case (casemode=distinguish)
 * from report_bridge_case_miss() (src/xspice/evt/evtcheck_nodes.c).
 * check.sh captures stdout only and its egrep -v filter drops every line
-* containing 'Warning' from both sides, so that line cannot be asserted here;
-* it is quoted in the commit and this deck asserts the number, which the
-* diagnostic must not move - and did not.
+* containing 'Warning' from both sides, so that line is not asserted here;
+* this deck asserts the number, which the diagnostic must not move - and did
+* not.  The line itself, and the silence report_bridge_case_miss() owes the
+* hand-written bridge, are asserted by auto-bridge-node-case-report.cir
+* beside this file, which sources this same circuit from inside a .control
+* block so that a '>&' redirect can reach the parse.  doc/codex/issues/0036.
 V1 in 0 dc 1
 R0 in 0 1meg
 A1 [in] [Dig] adc1

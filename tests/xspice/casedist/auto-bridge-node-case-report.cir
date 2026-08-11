@@ -1,0 +1,147 @@
+* the auto-bridge's near-miss report, and the two silences it owes
+* doc/codex/issues/0036, acceptance criteria 1 and 2, for the auto-bridge.
+* report_bridge_case_miss() (src/xspice/evt/evtcheck_nodes.c) fires once an
+* event node's scan of ckt->CKTnodes has ended with no exact match and an
+* analog node differing from it only in case exists.  Decision 2 and decision
+* 2a of doc/claude/decisions/0003-event-node-near-miss.md are the rule, and
+* the silence is the half that matters: the FIRST version of this diagnostic
+* warned on the hand-written bridge below, which is a correct deck, and only
+* a hand review caught it.  A deck watching only the warning would have
+* passed that version.
+*
+* Evtcheck_nodes() runs from src/frontend/spiceif.c before the first line of
+* any .control block, so there is no command to attach a redirect to.  This
+* deck writes each circuit out with echo and sources it from inside its own
+* control block: 'source' re-enters inp_spsource() and if_inpdeck(), so the
+* auto-bridge runs again with the wrapper's redirect in force.  '>&' sets
+* cp_err as well as cp_out (src/frontend/streams.c:156), and the sourced
+* circuit stays current, which is why each op and print below is about the
+* sub-deck.  The abr_* files are cleaned by CLEANFILES.  Their names are
+* lower case because in the default mode the reader lower cases a control
+* line unless its first word is on a fixed exempt list - 'echo' and 'source'
+* are on it, 'fopen' is not - so an upper-case name would be written as typed
+* and then looked for folded; that asymmetry is doc/codex/issues/0038.  The
+* cost is that the uppercased copy doc/claude/scripts/case_differential_sweep.py
+* makes of this deck does not run, which is the collateral
+* tests/regression/casedist/vector-rawfile-scale-case.cir already has.
+*
+* The phrase asserted is "no analog node named", never the shared tail
+* "differs only in case": the parser says "no node named" and the event
+* interner "no event node named", so a deck asserting the tail would pass on
+* the wrong warning.  The MISS case asserts both that its own phrase is there
+* and that the interner's is not, which is what makes the noun load bearing.
+* Every token is upper case because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error'.
+*
+*   MISS   digital 'A', analog 'a', nothing joins them -> reported, v(a) = 0
+*   HAND   A3 bridges 'DOUT' to 'dout' by hand         -> silent, v(dout) = 5
+*   EXACT  event 'dout' matches analog 'dout' exactly  -> silent, v(dout) = 3.3
+.OPTIONS noacct
+.control
+* --- MISS: no instance joins event node A to analog net a, and none was made
+echo "* digital A and analog a, with nothing joining them" > abr_miss.cir
+echo ".OPTIONS noacct" >> abr_miss.cir
+echo "V1 in 0 dc 1" >> abr_miss.cir
+echo "R0 in 0 1meg" >> abr_miss.cir
+echo "A1 [in] [Dig] adc1" >> abr_miss.cir
+echo ".model adc1 adc_bridge(in_low=0.4 in_high=0.6)" >> abr_miss.cir
+echo "A2 Dig A dbuf" >> abr_miss.cir
+echo ".model dbuf d_buffer" >> abr_miss.cir
+echo "R1 a 0 1k" >> abr_miss.cir
+echo ".end" >> abr_miss.cir
+source abr_miss.cir >& abr_miss.txt
+set found1 = 0
+set other1 = 0
+set n1 = 1
+fopen f1 abr_miss.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no analog node named 'A'; 'a'"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr q1 "_$capline" "no event node named"
+  if $q1 >= 0
+    set other1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo BRIDGE-MISS-REPORTED
+else
+  echo BRIDGE-MISS-SILENT
+end
+if $other1 > 0
+  echo BRIDGE-MISS-EVENTTOO
+else
+  echo BRIDGE-MISS-NOEVENT
+end
+op
+print v(a)
+* --- HAND: A3 already joins DOUT to dout, so there is no failed resolution
+echo "* a bridge the deck wrote by hand, its two sides one name in two cases" > abr_hand.cir
+echo ".OPTIONS noacct" >> abr_hand.cir
+echo "V1 in 0 dc 1" >> abr_hand.cir
+echo "R0 in 0 1meg" >> abr_hand.cir
+echo "A1 [in] [Dig] adc1" >> abr_hand.cir
+echo ".model adc1 adc_bridge(in_low=0.4 in_high=0.6)" >> abr_hand.cir
+echo "A2 Dig DOUT dbuf" >> abr_hand.cir
+echo ".model dbuf d_buffer" >> abr_hand.cir
+echo "A3 [DOUT] [dout] dac1" >> abr_hand.cir
+echo ".model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)" >> abr_hand.cir
+echo "R1 dout 0 1k" >> abr_hand.cir
+echo ".end" >> abr_hand.cir
+source abr_hand.cir >& abr_hand.txt
+set found2 = 0
+set n2 = 1
+fopen f2 abr_hand.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no analog node named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo BRIDGE-HAND-REPORTED
+else
+  echo BRIDGE-HAND-SILENT
+end
+op
+print v(dout)
+* --- EXACT: the ordinary bridged deck, where the two sides are one spelling
+echo "* an event node matching an analog node exactly, so a bridge is made" > abr_exact.cir
+echo ".OPTIONS noacct" >> abr_exact.cir
+echo "V1 in 0 dc 1" >> abr_exact.cir
+echo "R0 in 0 1meg" >> abr_exact.cir
+echo "A1 [in] [dig] adc1" >> abr_exact.cir
+echo ".model adc1 adc_bridge(in_low=0.4 in_high=0.6)" >> abr_exact.cir
+echo "A2 dig dout dbuf" >> abr_exact.cir
+echo ".model dbuf d_buffer" >> abr_exact.cir
+echo "R1 dout 0 1k" >> abr_exact.cir
+echo ".end" >> abr_exact.cir
+source abr_exact.cir >& abr_exact.txt
+set found3 = 0
+set n3 = 1
+fopen f3 abr_exact.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no analog node named"
+  if $p3 >= 0
+    set found3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo BRIDGE-EXACT-REPORTED
+else
+  echo BRIDGE-EXACT-SILENT
+end
+op
+print v(dout)
+.endc
+.end

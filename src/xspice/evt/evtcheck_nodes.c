@@ -931,7 +931,7 @@ static void report_bridge_case_miss(
         if (cieq(event_node->name, analog_node->name)) {
             if (already_joined(ckt, node_index, analog_node->number))
                 return;
-            fprintf(stderr,
+            fprintf(cp_err,
                     "Warning: no analog node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
                     event_node->name, analog_node->name);
             return;

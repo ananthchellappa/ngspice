@@ -22,9 +22,16 @@ TESTS = harness-alive.cir event-node-lookup-case-split.cir \
 	auto-bridge-vcc-subckt-case.cir auto-bridge-vcc-subckt-case-lower.cir \
 	auto-bridge-vcc-param-ambiguous.cir \
 	auto-bridge-vcc-nested-subckt-case.cir \
-	auto-bridge-vcc-param-subckt-name.cir
+	auto-bridge-vcc-param-subckt-name.cir \
+	auto-bridge-node-case-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
+
+# auto-bridge-node-case-report.cir asserts on a diagnostic that is written
+# during the parse, before any .control block runs, so it writes the circuits
+# it is about with echo and sources them with '>&' to capture cp_err.  The
+# sub-decks and the captures land in the build directory.
+CLEANFILES = abr_*.txt abr_*.cir
 
 EXTRA_DIST = \
 	$(TESTS) \

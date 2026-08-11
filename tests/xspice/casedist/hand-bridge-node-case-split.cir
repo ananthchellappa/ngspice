@@ -14,7 +14,10 @@
 * legitimate deck trains users to ignore the warning that matters.
 * Verified by hand under casemode=distinguish: stderr carries the
 * experimental-mode warning and nothing else.  check.sh's filter drops every
-* 'Warning' line, so that absence cannot be asserted here; what this deck pins
+* 'Warning' line, so that absence is not asserted here - it is asserted by
+* auto-bridge-node-case-report.cir's HAND case, which sources this same
+* circuit under a '>&' redirect and reads the capture back
+* (doc/codex/issues/0036).  What this deck pins
 * is that the hand-written bridge still conducts, which is the 5.0 below, and
 * that it differs from tests/xspice/casedist/auto-bridge-node-case-split.cir -
 * same case split, no hand-written bridge, 0.0 and a warning - in the deck and
