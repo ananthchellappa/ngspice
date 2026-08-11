@@ -112,8 +112,8 @@ Where it applies, and its state:
 | --- | --- | --- |
 | `findvec()`, `src/frontend/vectors.c:152` | resolution | **implemented** with this decision |
 | `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference |
-| auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **not** implemented there and is `doc/codex/issues/0030` |
-| `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator and the same open diagnostic |
+| auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **implemented** with `doc/codex/issues/0030`, in `report_bridge_case_miss()`, once an event node's scan of `CKTnodes` has finished without an exact match |
+| `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator. The near-miss warning is **implemented** with `doc/codex/issues/0030`, deferred to `EVTnode_case_check()` and narrowed there from the issue's wording to an event node that nothing drives; see `doc/claude/decisions/0003-event-node-near-miss.md` |
 | `INPtermInsert()` from a device card | definition | silent, deliberately |
 | `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately |
 
@@ -432,9 +432,14 @@ Enumerated so they are not read as oversights:
    experimental, because closing the gate list did not exhaust the silent
    failures. `doc/codex/issues/0029`, the silent wrong bridge voltage under
    `distinguish`, has since closed as well, and with it that clause of the
-   warning; what remains named there is `doc/codex/issues/0027`, `unlet`
-   matching a vector name case insensitively, and `doc/codex/issues/0030`, the
-   near-miss diagnostic these two gates did not implement.
+   warning; so has `doc/codex/issues/0030`, the near-miss diagnostic these two
+   gates did not implement, which moved the XSPICE event node from the silent
+   half of that warning's sentence to the reported half — see
+   `doc/claude/decisions/0003-event-node-near-miss.md`, which also records why
+   the interner reports a node nothing drives rather than the near-miss
+   definition `0030`'s acceptance criterion asked for. What remains named
+   there is `doc/codex/issues/0027`, `unlet` matching a vector name case
+   insensitively.
 
    `0029`'s (a) is worth reading beside decision 3, though it is not an
    identifier comparison and so is not in its table. It is Class C's rule

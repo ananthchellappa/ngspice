@@ -2,7 +2,8 @@
 
 ## Status
 
-Open. Found while closing Phase 3 gates 2 and 4. Those gates closed the
+Fixed on branch `ver_50`; see Resolution. Found while closing Phase 3 gates 2
+and 4. Those gates closed the
 **comparators** at `src/xspice/evt/evtcheck_nodes.c` and
 `src/xspice/evt/evttermi.c`; they did not add the near-miss diagnostic that
 decision 2 of `doc/claude/decisions/0001-distinguish.md` asks for at a failed
@@ -65,6 +66,15 @@ claimed" is decidable.
 
   matching the wording decisions 0001 and 0002 already use for the vector
   table and for `mkvnode`.
+
+  **Amended when this was implemented.** As written this is a test on a
+  *definition*, and decision 2 of `0001-distinguish.md` rejects warning on a
+  definition by name: under `distinguish`, `Out` and `OUT` as two event nodes
+  is the feature. The criterion that was implemented instead is the event
+  analogue of `0002`'s `t_unclaimed` bit — an event node that **nothing
+  drives** when a **driven** node differs from it only in case. The message
+  text is unchanged. `doc/claude/decisions/0003-event-node-near-miss.md`
+  carries the argument.
 - Under `casemode=distinguish`, an event node that matches no analog node
   exactly but case-insensitively matches one produces the analogous warning at
   the auto-bridge, and the run continues.
@@ -76,14 +86,64 @@ claimed" is decidable.
 
 ## Resolution
 
-Not fixed. Deliberately out of the gate-2 and gate-4 commits, which are about
-what the simulator *computes*; this is about what it *says*, it is
-`distinguish`-only where those commits are `preserve`-only, and it is the
-larger of the two changes because the auto-bridge half needs a second,
-non-mutating pass over `ckt->evt->info.node_list` after the bridging loop, in
-the style of `INPtermCaseCheck()` (`src/spicelib/parser/inpsymt.c`).
+Fixed on `ver_50` in two commits, one per site, plus a third that retires the
+clause this issue had in `set_case_mode()`'s experimental-mode warning.
+
+**The auto-bridge**, `report_bridge_case_miss()` in
+`src/xspice/evt/evtcheck_nodes.c`, called from `Evtcheck_nodes()` once an
+event node's scan of `ckt->CKTnodes` has finished without an exact match:
+
+```
+Warning: no analog node named 'A'; 'a' differs only in case (casemode=distinguish)
+```
+
+It stays silent when the deck has already joined the two nodes by hand —
+`already_joined()`, one XSPICE instance with a port on both — because under
+`distinguish` case-splitting the two sides of a hand-written bridge is a
+legitimate and mode-specific way to write it, and warning on it is the false
+positive decision 2 rejects. That guard was added after an adversarial review
+of the first version of the fix; `tests/xspice/casedist/hand-bridge-node-case-split.cir`
+is its deck.
+
+The second, non-mutating pass over `ckt->evt->info.node_list` that this issue
+asked for turned out not to be needed. The bridging loop mutates neither
+`CKTnodes` nor the event node list — it accumulates cards, which are parsed
+after it — so "this event node matched no analog node" is already decidable at
+the end of the node's own inner loop. Reporting *inside* that loop would be
+wrong for a different reason: a single failed comparison is not a failed
+resolution, since `A` can miss `a` and still match `A` further down the list.
+
+**The interner**, `EVTnode_case_check()` in `src/xspice/evt/evttermi.c`,
+called from `src/frontend/spiceif.c` after `Evtcheck_nodes()` and before
+`EVTinit()`:
+
+```
+Warning: no event node named 'dig'; 'Dig' differs only in case (casemode=distinguish)
+```
+
+It reports an event node with `num_outputs == 0` when another node in the list
+has `num_outputs > 0` and the two names differ only in case. It must run after
+the auto-bridge, because the `adc_bridge` the auto-bridge inserts is the
+driver of an event node that takes its value from the analog side —
+`find_bridge()` picks `MIF_IN` for exactly `num_outputs == 0`.
+
+Both are gated on `inp_case_mode() == NG_CASE_DISTINGUISH`; under `fold` and
+`preserve` the conditions are unreachable, so the guard is belt and braces.
+Nothing that either site touches changes a computed value: both only write to
+`stderr`.
+
+Decks: `tests/xspice/casedist/event-node-case-split.cir` (the interner split,
+`v(aout) = 0.0`), `tests/xspice/casedist/event-node-dangling-no-variant.cir`
+(a dangling event node with no case variant, not reported),
+`tests/xspice/digital/event-node-case-fold.cir` and
+`tests/xspice/digital/auto-bridge-node-case-fold.cir` (the same spellings in
+the default mode, no report, numbers unmoved), and
+`tests/xspice/casedist/hand-bridge-node-case-split.cir` (the same case split
+with a hand-written bridge across it, not reported, `v(dout) = 5.0`). The
+auto-bridge half reused `tests/xspice/casedist/auto-bridge-node-case-split.cir`,
+which already asserted `v(a) = 0.0`; its header called the miss silent and
+pointed at `doc/codex/issues/0029` by mistake, and now names this issue and
+quotes the line.
 
 `doc/codex/issues/0028` is the neighbouring, larger question of diagnosing a
-reference that misses with **no** case variant present. This issue is the
-narrow one that decision 2 already answered in principle and that only needs
-implementing at two sites.
+reference that misses with **no** case variant present, and stays open.

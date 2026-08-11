@@ -1097,21 +1097,21 @@ static void set_case_mode(void)
         ng_case_mode = NG_CASE_PRESERVE;
     else if (cieq(mode, "distinguish")) {
         ng_case_mode = NG_CASE_DISTINGUISH;
-        /* The Phase 3 gate list is closed, so the clause about XSPICE event
-           nodes being interned and bridged is gone, and doc/codex/issues/0029
-           is closed, so the clause about the auto-bridge looking its vcc and
-           family parameters up under a lower-case name is gone with it. The
-           word 'experimental' stays, because the silent failures it warns
-           about are not exhausted - doc/codex/issues/0027 and
-           doc/codex/issues/0030 are the two known ones and each is named here
-           rather than in a release note, because both are silent.
+        /* doc/codex/issues/0030 is closed, so the XSPICE event node has
+           crossed from the silent half of this sentence to the reported half:
+           the auto-bridge reports an event node that matched no analog node
+           except by case, and the interner reports an event node that nothing
+           drives when a driven node differs from it only in case. The word
+           'experimental' stays, because the silent failures are not
+           exhausted - doc/codex/issues/0027 is the one that remains and is
+           named here rather than in a release note, because it is silent.
            doc/claude/decisions/0001-distinguish.md decision 6. */
         fprintf(stderr,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
-                "identity is case sensitive, and a vector or B source V() "
-                "reference that misses by case is reported, but an XSPICE "
-                "event node that misses by case is not, and 'unlet' still "
-                "removes a vector whose name differs only in case.\n");
+                "identity is case sensitive, and a vector, a B source V() "
+                "reference or an XSPICE node whose resolution misses by case "
+                "is reported, but 'unlet' still removes a vector whose name "
+                "differs only in case.\n");
     }
     else
         fprintf(stderr,
