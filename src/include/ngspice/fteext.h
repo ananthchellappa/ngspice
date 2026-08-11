@@ -356,6 +356,11 @@ extern int plot_num;
 extern struct dvec *vec_fromplot(char *word, struct plot *plot);
 extern struct dvec *vec_copy(struct dvec *v);
 extern struct dvec *vec_get(const char *word);
+/* vec_get() for a caller whose lookup is allowed to miss -- it is defining the
+ * name rather than resolving it -- so the case near-miss report is suppressed
+ * and nothing else is.  doc/codex/issues/0034,
+ * doc/claude/decisions/0001-distinguish.md decision 2. */
+extern struct dvec *vec_get_quiet(const char *word);
 extern struct dvec *vec_mkfamily(struct dvec *v);
 extern struct plot *plot_cur;
 extern struct plot *plot_alloc(char *name);

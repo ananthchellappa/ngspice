@@ -15,7 +15,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-scale-case.cir vector-diff-case.cir \
 	vector-rawfile-scale-case.cir vector-diff-pairing-case.cir \
 	vector-diff-wrapper-case.cir vector-diff-branch-case.cir \
-	bsource-node-case-report.cir sens-node-case-report.cir
+	bsource-node-case-report.cir sens-node-case-report.cir \
+	vector-let-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -35,10 +36,13 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # against a live run, because only a file can spell a current as i(name):
 # ngspice stores its own branch currents as name#branch.
 # sens-node-case-report.cir writes its sub-decks and captures for
-# bsource-node-case-report.cir's reason.
+# bsource-node-case-report.cir's reason.  vector-let-report.cir writes both for
+# a different reason: 'let' is on control.c's noredirect[] list, because
+# 'let a = b > c' needs '>' as an operator, so the only way to put a 'let'
+# under a redirect is to source a deck whose control block runs it.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
-	snr_*.txt snr_*.cir
+	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir
 
 EXTRA_DIST = \
 	$(TESTS) \

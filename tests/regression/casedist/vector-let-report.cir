@@ -1,0 +1,232 @@
+* 'let' defines the name on its left-hand side, so it must not report a case near miss
+* doc/codex/issues/0034.  findvec() (src/frontend/vectors.c) reports a case
+* near miss whenever a lookup fails under distinguish, and com_let() reaches it
+* through vec_get() to decide whether to overwrite an existing vector or create
+* a new one.  When it creates, the lookup has just failed, so the warning fired
+* on a *definition* -- the option decision 2 of
+* doc/claude/decisions/0001-distinguish.md rejects by name, because under
+* distinguish two spellings being two vectors is the feature and a warning
+* there trains users to ignore the warning that matters.  The right-hand side
+* of the same command is a *resolution* and must keep the warning, which is why
+* every case below pairs the two.
+*
+* The diagnostic goes to cp_err, which tests/bin/check.sh does not capture, so
+* this deck redirects it.  'let' cannot take the redirect itself: it is on
+* control.c's noredirect[] list (src/frontend/control.c:62), because 'let a =
+* b > c' needs '>' as an operator, so 'let VAA = 2 >& f' parses the redirect
+* into the right-hand side and fails.  Each case is therefore written out with
+* echo and sourced from inside this deck's control block, the shape
+* bsource-undef-node-report.cir uses: 'source' re-enters inp_spsource(), which
+* sets cp_curout/cp_curerr to the redirect targets for the whole of the sourced
+* deck (src/frontend/inp.c:629-634), so the sub-deck's own control block runs
+* with the wrapper's redirect in force.  '>&' sets cp_err as well as cp_out
+* (src/frontend/streams.c:156) and the capture is read back with
+* fopen/fread/strstr.  Every token is upper case because check.sh's filter
+* drops any line containing 'Warning', 'Error' or 'time'.
+*
+* Every silence here is asserted beside something in the SAME capture that must
+* be reported, so a silence cannot pass on a capture that was never written,
+* never read, or read from the wrong file: doc/claude/decisions/
+* 0006-diagnostic-deck-coverage.md decision 5 and the review that closed
+* doc/codex/issues/0028.  In each case the thing that must be reported is a
+* right-hand side, so one capture carries both halves of the rule.
+*
+*   PLOT   'let op1.NNN = 8' beside an 'Nnn' in op1, run while a different plot
+*          is current -> silent.  This is vec_get()'s plot-prefix branch
+*          (src/frontend/vectors.c:773), a second path into the same lookup.
+*          It cannot pass vacuously: if the 'op1.' prefix did not resolve to a
+*          plot inside vec_get(), the lookup would be for 'op1.NNN' in the
+*          const plot, which has no twin, and the case would have been silent
+*          against the binary before the fix as well -- it is not, which is the
+*          RED
+*   SCALE  'let TIME = time * 2' beside a tran run's own scale -> silent.  The
+*          twin here is a simulation vector rather than one a 'let' made, and
+*          this is the shape doc/codex/issues/0034's Impact measured
+*   LET    'let VAA = 4' beside a 'Vaa' -> silent, and both vectors survive
+*          with both values, which is criterion 4.  In the same capture,
+*          'let QQQ[0] = 9' beside a 'Qqq' -> reported: the indexed form
+*          cannot create a vector, so it RESOLVES a name that must already
+*          exist, and the near miss is the only thing that says why a vector
+*          the user can see was not found.  That is the boundary of the fix
+*          and it is in the same capture as the silence it bounds
+*   SCALECMD 'setscale wBB' beside a 'Wbb' -> reported.  setscale *resolves*
+*          the name it is given -- find_vec() (src/frontend/com_setscale.c:19)
+*          prints its own 'no such vector' on a miss -- so it is the audit's
+*          answer for the other vec_get() callers, and it says the fix is
+*          narrow: a second caller of the same function still reports
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+.control
+op
+* --- the value half: two spellings are two vectors and both values are kept
+let Vaa = 1
+let VAA = 2
+print Vaa
+print VAA
+* --- PLOT: the same definition through vec_get()'s plot-prefix branch.  The
+* --- sub-deck carries no analysis, so plot_cur is still this deck's op1 when
+* --- its control block runs and 'Nnn' lands there; 'setplot const' then makes
+* --- the dotted lookup a real cross-plot one.
+let Nnn = 7
+echo "* PLOT the dotted left-hand side of a let" > vlr_plot.cir
+echo ".OPTIONS noacct" >> vlr_plot.cir
+echo "R9 in 0 1meg" >> vlr_plot.cir
+echo ".control" >> vlr_plot.cir
+echo "let Aaa = v(OUt)" >> vlr_plot.cir
+echo "setplot const" >> vlr_plot.cir
+echo "let op1.NNN = 8" >> vlr_plot.cir
+echo "setplot op1" >> vlr_plot.cir
+echo ".endc" >> vlr_plot.cir
+echo ".end" >> vlr_plot.cir
+source vlr_plot.cir >& vlr_plot.txt
+set defn1 = 0
+set othr1 = 0
+set n1 = 1
+fopen f1 vlr_plot.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named 'NNN'"
+  if $p1 >= 0
+    set defn1 = 1
+  end
+  strstr q1 "_$capline" "no vector named 'OUt'"
+  if $q1 >= 0
+    set othr1 = 1
+  end
+end
+fclose $f1
+if $defn1 > 0
+  echo LET-PLOT-REPORTED
+else
+  echo LET-PLOT-SILENT
+end
+if $othr1 > 0
+  echo LET-PLOT-RHS-REPORTED
+else
+  echo LET-PLOT-RHS-SILENT
+end
+print Nnn
+print NNN
+* --- SCALE: the twin is the tran run's own scale, which is the shape 0034's
+* --- Impact measured.  The sub-deck's own right-hand side must still report.
+echo "* SCALE a let whose name differs from the run scale only in case" > vlr_scale.cir
+echo ".OPTIONS noacct" >> vlr_scale.cir
+echo "V1 in 0 PULSE(0 1 0 1n 1n 5u 10u)" >> vlr_scale.cir
+echo "R1 in Out 1k" >> vlr_scale.cir
+echo "R2 Out 0 1k" >> vlr_scale.cir
+echo ".tran 1u 10u" >> vlr_scale.cir
+echo ".control" >> vlr_scale.cir
+echo "run" >> vlr_scale.cir
+echo "let TIME = time * 2" >> vlr_scale.cir
+echo "let Zzz = v(OUt)" >> vlr_scale.cir
+echo ".endc" >> vlr_scale.cir
+echo ".end" >> vlr_scale.cir
+source vlr_scale.cir >& vlr_scale.txt
+set defn2 = 0
+set othr2 = 0
+set n2 = 1
+fopen f2 vlr_scale.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no vector named 'TIME'"
+  if $p2 >= 0
+    set defn2 = 1
+  end
+  strstr q2 "_$capline" "no vector named 'OUt'"
+  if $q2 >= 0
+    set othr2 = 1
+  end
+end
+fclose $f2
+if $defn2 > 0
+  echo LET-SCALE-REPORTED
+else
+  echo LET-SCALE-SILENT
+end
+if $othr2 > 0
+  echo LET-SCALE-RHS-REPORTED
+else
+  echo LET-SCALE-RHS-SILENT
+end
+* --- LET: the plain case 0034 is about, with the values asserted after it
+echo "* LET a second spelling of a vector that already exists" > vlr_let.cir
+echo ".OPTIONS noacct" >> vlr_let.cir
+echo "V1 in 0 dc 1.5" >> vlr_let.cir
+echo "R1 in Out 1k" >> vlr_let.cir
+echo "R2 Out 0 1k" >> vlr_let.cir
+echo ".control" >> vlr_let.cir
+echo "op" >> vlr_let.cir
+echo "let Vaa = 3" >> vlr_let.cir
+echo "let VAA = 4" >> vlr_let.cir
+echo "let Qqq = 1" >> vlr_let.cir
+echo "let QQQ[0] = 9" >> vlr_let.cir
+echo "let Aaa = v(OUt)" >> vlr_let.cir
+echo ".endc" >> vlr_let.cir
+echo ".end" >> vlr_let.cir
+source vlr_let.cir >& vlr_let.txt
+set defn3 = 0
+set idx3 = 0
+set othr3 = 0
+set n3 = 1
+fopen f3 vlr_let.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no vector named 'VAA'"
+  if $p3 >= 0
+    set defn3 = 1
+  end
+  strstr r3 "_$capline" "no vector named 'QQQ'"
+  if $r3 >= 0
+    set idx3 = 1
+  end
+  strstr q3 "_$capline" "no vector named 'OUt'"
+  if $q3 >= 0
+    set othr3 = 1
+  end
+end
+fclose $f3
+if $defn3 > 0
+  echo LET-DEFN-REPORTED
+else
+  echo LET-DEFN-SILENT
+end
+if $idx3 > 0
+  echo LET-INDEXED-REPORTED
+else
+  echo LET-INDEXED-SILENT
+end
+if $othr3 > 0
+  echo LET-DEFN-RHS-REPORTED
+else
+  echo LET-DEFN-RHS-SILENT
+end
+print Vaa
+print VAA
+* --- SCALECMD: another vec_get() caller, resolving rather than defining, still
+* --- reports.  'setscale' is not on noredirect[], so it takes the redirect.
+compose Wbb values 1 2 3
+setscale wBB >& vlr_setscale.txt
+set rslv4 = 0
+set n4 = 1
+fopen f4 vlr_setscale.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "no vector named 'wBB'"
+  if $p4 >= 0
+    set rslv4 = 1
+  end
+end
+fclose $f4
+if $rslv4 > 0
+  echo SETSCALE-MISS-REPORTED
+else
+  echo SETSCALE-MISS-SILENT
+end
+.endc
+.end

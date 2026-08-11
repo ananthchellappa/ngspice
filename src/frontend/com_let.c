@@ -97,8 +97,23 @@ void com_let(wordlist *wl)
     }
 
     /* Locate the vector being assigned values. If NULL, the vector
-     * does not exist */
-    struct dvec *vec_dst = vec_get(vec_name);
+     * does not exist.
+     *
+     * 'let' DEFINES this name, so a lookup that misses is the ordinary path to
+     * creating it and not a resolution failure: vec_get_quiet() so that a
+     * vector differing from it only in case does not draw a warning under
+     * casemode=distinguish, where two spellings being two vectors is the
+     * feature.  doc/codex/issues/0034.
+     *
+     * The indexed form is the one exception and keeps vec_get().  'let x[0] =
+     * 1' cannot create x -- it is refused below at "When creating a new
+     * vector, it cannot be indexed" -- so there the lookup RESOLVES a name
+     * that must already exist, the miss is the reported error, and the near
+     * miss is the only thing that says why a vector the user can see on the
+     * screen was not found.  The right-hand side keeps vec_get() for the same
+     * reason: a typo there is what the report is for. */
+    struct dvec *vec_dst = index_start ? vec_get(vec_name)
+                                       : vec_get_quiet(vec_name);
 
     if (vec_dst == (struct dvec *) NULL) {
         /* If the name has a dot (plotname.vecname), remove the plotname

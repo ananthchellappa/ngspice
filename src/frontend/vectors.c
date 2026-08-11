@@ -41,6 +41,10 @@ static void vec_warn_case_near_miss(NGHASHPTR pl_lookup_table,
         const char *word);
 static enum ALL_TYPE_ENUM get_all_type(const char *word);
 static bool plot_prefix(const char *pre, const char *str);
+static struct dvec *vec_fromplot_maybe_report(char *word, struct plot *plot,
+        bool report_case_miss);
+static struct dvec *vec_get_maybe_report(const char *vec_name,
+        bool report_case_miss);
 
 #ifdef XSPICE
 extern int EVTswitch_plot(CKTcircuit* ckt, const char* plottypename);
@@ -151,8 +155,15 @@ static enum ALL_TYPE_ENUM get_all_type(const char *word)
 
 
 /* Find a named vector in a plot. We are careful to copy the vector if
- * v_link2 is set, because otherwise we will get screwed up.  */
-static struct dvec *findvec(char *word, struct plot *pl)
+ * v_link2 is set, because otherwise we will get screwed up.
+ *
+ * report_case_miss carries decision 2 of doc/claude/decisions/0001-distinguish.md
+ * down from the caller: a lookup whose miss is a resolution failure says so
+ * when a case variant is present, and a lookup whose miss is the ordinary
+ * outcome -- a name being defined, or a question about whether a name exists
+ * at all -- does not.  findvec() cannot tell the two apart on its own, which
+ * is doc/codex/issues/0034.  */
+static struct dvec *findvec(char *word, struct plot *pl, bool report_case_miss)
 {
     /* If no plot, cannot find */
     if (pl == NULL) {
@@ -231,7 +242,7 @@ static struct dvec *findvec(char *word, struct plot *pl)
     /* gtri - end   - Add processing for getting event-driven vector */
 #endif
 
-    if (!d && inp_case_mode() == NG_CASE_DISTINGUISH) {
+    if (!d && report_case_miss && inp_case_mode() == NG_CASE_DISTINGUISH) {
         vec_warn_case_near_miss(pl_lookup_table, word);
     }
 
@@ -663,8 +674,17 @@ vec_remove(const char *name, bool report_case_miss)
  * it checks for pre-defined vectors.
  */
 
+/* Every caller of vec_fromplot() outside this file is resolving a name, so the
+ * public entry point reports; only vec_get() needs the choice.  */
+
 struct dvec *vec_fromplot(char *word, struct plot *plot) {
-    struct dvec *d = findvec(word, plot);
+    return vec_fromplot_maybe_report(word, plot, TRUE);
+}
+
+
+static struct dvec *vec_fromplot_maybe_report(char *word, struct plot *plot,
+        bool report_case_miss) {
+    struct dvec *d = findvec(word, plot, report_case_miss);
     if (d != (struct dvec *) NULL) {
         return d;
     }
@@ -692,7 +712,7 @@ struct dvec *vec_fromplot(char *word, struct plot *plot) {
                     (void) fprintf(cp_err, "Unable to build vector name.\n");
                 }
                 else { /* name built OK */
-                    d = findvec(ds_get_buf(&ds), plot);
+                    d = findvec(ds_get_buf(&ds), plot, report_case_miss);
                 } /* end of case of vector name built OK */
                 ds_free(&ds);
             } /* end of case of x(node) */
@@ -700,7 +720,7 @@ struct dvec *vec_fromplot(char *word, struct plot *plot) {
     } /* end of case of non-empty string and not leading '(' */
 
     return d;
-} /* end of function vec_fromplot */
+} /* end of function vec_fromplot_maybe_report */
 
 
 
@@ -719,8 +739,28 @@ struct dvec *vec_fromplot(char *word, struct plot *plot) {
 
 #define SPECCHAR '@'
 
+/* vec_get() resolves a name, so a lookup that misses with a case variant
+ * present reports it.  vec_get_quiet() is the same lookup for a caller whose
+ * miss is not a resolution failure: com_let()'s left-hand side is defining the
+ * name it looks up, so a miss is the ordinary outcome and not a mistake.
+ * Nothing else is suppressed -- the wildcard and '@' diagnostics below are the
+ * same in both.  doc/codex/issues/0034, decision 2 of
+ * doc/claude/decisions/0001-distinguish.md.  */
+
 struct dvec *
 vec_get(const char *vec_name) {
+    return vec_get_maybe_report(vec_name, TRUE);
+}
+
+
+struct dvec *
+vec_get_quiet(const char *vec_name) {
+    return vec_get_maybe_report(vec_name, FALSE);
+}
+
+
+static struct dvec *
+vec_get_maybe_report(const char *vec_name, bool report_case_miss) {
     struct dvec *d, *end = NULL, *newv = NULL;
     struct plot *pl;
     char buf[BSIZE_SP], *s, *wd, *word, *whole, *name = NULL, *param;
@@ -754,14 +794,15 @@ vec_get(const char *vec_name) {
     }
 
     if (pl) {
-        d = vec_fromplot(word, pl);
+        d = vec_fromplot_maybe_report(word, pl, report_case_miss);
         if (!d)
-            d = vec_fromplot(word, &constantplot);
+            d = vec_fromplot_maybe_report(word, &constantplot,
+                    report_case_miss);
     } else {
         for (pl = plot_list; pl; pl = pl->pl_next) {
             if (cieq(pl->pl_typename, "const"))
                 continue;
-            d = vec_fromplot(word, pl);
+            d = vec_fromplot_maybe_report(word, pl, report_case_miss);
             if (d) {
                 if (end)
                     end->v_link2 = d;
