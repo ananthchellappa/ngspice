@@ -1,0 +1,32 @@
+* lower case twin of numnodes-letter-case.cir
+* Byte identical to numnodes-letter-case.cir except that every leading
+* device letter, and every reference to an instance name from another card,
+* is lower case.  Its .out is identical too, which is what pins the claim
+* that the case of the letter numnodes() dispatches on cannot change a
+* voltage.
+*
+* doc/codex/issues/0014
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 3 4 blk
+rout 4 0 1k
+.subckt blk a b c d
+ee b 0 a 0 0.5
+ge 0 c a 0 1m
+rc c 0 1k
+vw w1 0 dc 0
+iw 0 w1 dc 1
+ww d 0 vw wmod
+rw a d 2k
+lk1 k1 0 1m
+lk2 k2 0 1m
+kk lk1 lk2 0.5
+rk1 k1 0 1k
+rk2 k2 0 1k
+.ends
+.model wmod csw ron=1 roff=1e9 it=0.5 ih=0
+.control
+op
+print v(2) v(3) v(4)
+.endc
+.end

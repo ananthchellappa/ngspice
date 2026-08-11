@@ -1,0 +1,55 @@
+* upper case device letters that numnodes() classifies, inside a subckt
+* numnodes() (src/frontend/subckt.c:1716) decides how many tokens on a card
+* inside a subcircuit body are node names, and it does so with
+* "switch (*line)" against lower case literals.  Under casemode=preserve the
+* reader no longer folds the card, so an upper case E, G, W or K skips its
+* case arm and falls through to get_number_terminals(), which counts
+* something else entirely: 4 for E and G, 3 for W, 2 for K.  translate()
+* then rewrites the wrong number of tokens and the run aborts.
+*
+* All four arms are in one subcircuit body, which is what criterion 2 of
+* doc/codex/issues/0014 asks for:
+*   Ee  the E arm, numnodes 2 against get_number_terminals 4.  Witness v(2).
+*   Ge  the G arm, numnodes 2 against 4.  Witness v(3).
+*   Ww  the W arm, numnodes 2 against 3.  Witness v(4).
+*   Kk  the K arm, numnodes 0 against 2.  No witness of its own: if the two
+*       inductor names are eaten as node names the coupling has nothing to
+*       refer to and the whole deck aborts, so its evidence is that the
+*       three voltages appear at all.
+*
+* The X arm is not exercisable here.  Its fallback returns the x card's
+* token count minus two, which equals su_numargs for every well formed
+* subcircuit call, so no deck can tell the two apart; folding the letter
+* re-enables the case 'x' arm and with it the case-insensitive subcircuit
+* name compare doc/codex/issues/0010 added at subckt.c:1731, but that is a
+* structural claim, not a numeric one.
+*
+* numnodes-letter-case-lower.cir is the all-lower-case twin and its .out is
+* byte identical, which is the actual assertion: the spelling of a device
+* letter cannot change a voltage.
+*
+* doc/codex/issues/0014
+.OPTIONS noacct
+V1 1 0 dc 4
+X1 1 2 3 4 blk
+Rout 4 0 1k
+.subckt blk a b c d
+Ee b 0 a 0 0.5
+Ge 0 c a 0 1m
+Rc c 0 1k
+Vw w1 0 dc 0
+Iw 0 w1 dc 1
+Ww d 0 Vw wmod
+Rw a d 2k
+Lk1 k1 0 1m
+Lk2 k2 0 1m
+Kk Lk1 Lk2 0.5
+Rk1 k1 0 1k
+Rk2 k2 0 1k
+.ends
+.model wmod csw ron=1 roff=1e9 it=0.5 ih=0
+.control
+op
+print v(2) v(3) v(4)
+.endc
+.end

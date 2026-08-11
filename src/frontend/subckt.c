@@ -72,6 +72,7 @@ Modified: 2000 AlansFixes
 #endif
 
 #include "subckt.h"
+#include "inpcom.h"
 #include "variable.h"
 
 #include "numparam/numpaif.h"
@@ -1716,7 +1717,7 @@ gettrans(const char *name, const char *name_end, bool *isglobal)
 static int
 numnodes(const char* line, struct subs* subs)
 {
-    switch (*line) {
+    switch (elem_letter(line)) {
         case 'e':
         case 'g':
         case 'w':
