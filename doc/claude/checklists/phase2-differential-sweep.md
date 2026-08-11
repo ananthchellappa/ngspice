@@ -790,3 +790,93 @@ flag — is invisible to the sweep twice over, because the sweep only ever
 compares `preserve` against stock and never asserts anything about stock alone.
 That half is pinned by `tests/regression/misc/gnd-command-text.cir`, which
 carries no flag at all.
+
+## Re-run after `doc/codex/issues/0026` and Phase 3 gate 3
+
+`doc/codex/issues/0026` folded the parameter letter `if_set_binned_model()`
+tests; Phase 3 gate 3 made `casemode=distinguish` real and stopped the frontend
+vector table aliasing case-variant names. Seven new decks: two in
+`tests/regression/case/` and five in the new `tests/regression/casedist/`. The
+same command reports:
+
+| verdict | baseline (HEAD `a47808879`) | after 0026 + gate 3 |
+| --- | ---: | ---: |
+| OK | 204 | 208 |
+| DIFF | 48 | 51 |
+| PARSE-FAIL | 0 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **255** | **262** |
+
+Both columns were measured on this tree with the same script. The baseline was
+taken before any change in this session and reproduces the previous round's
+closing numbers exactly, which is the first time that has happened and is worth
+recording: the `ring51.cir` flip landed on `tests/bsim3soifd` this time and on
+`tests/bsim3soidd` last time, and the totals were unaffected.
+
+Compared per deck rather than on the totals, the entire delta is three lines:
+
+```
+> DIFF tests/regression/case/alter-rebin-param-case-lower.cir
+> DIFF tests/regression/case/alter-rebin-param-case.cir
+> DIFF tests/regression/casedist/harness-alive.cir
+```
+
+**No deck's verdict got worse and no deck that was `OK` became anything else.**
+All three additions are decks that did not exist in the baseline.
+
+### `alter-rebin-case.cir` did not clear, and 0026 was still fixed
+
+The prompt for this session predicted that fixing `doc/codex/issues/0026` would
+clear the two `alter-rebin-case{,-lower}.cir` `DIFF`s. It did not, and the
+reason is worth having in writing, because the totals hide it. What changed is
+the *reason*, not the verdict:
+
+```
+baseline  alter-rebin-case.cir   preserve-UPPER: stdout
+                                 -'notice: model has changed from nch.1 to nch.2.'
+                                 +'v(3) = 1.340324e+00'
+after     alter-rebin-case.cir   preserve: stdout reordered only;
+                                 preserve-UPPER: stdout reordered only
+```
+
+`1.340324e+00` was the defect: the width was applied without re-binning. It is
+gone from both decks. What remains is the `reordered only` class — the sweep
+found the same lines in a different order — which is the same nondeterministic
+class as `ring51.cir` and is not a numeric disagreement at all. The two new
+`alter-rebin-param-case{,-lower}.cir` decks join the same class for the same
+reason: the `Notice: model has changed` line is emitted on a different stream
+from the `print` output, so its position relative to the voltages is not
+stable.
+
+**A verdict of `DIFF` is therefore not by itself evidence of a defect, and the
+detail column is the thing to read.** That is the third lesson of this kind,
+after `binning-1.cir` and `ring51.cir`.
+
+### The two `harness-alive.cir` decks are `DIFF` by design
+
+```
+preserve: stdout -'error: casemode: no such variable.'; -'casemode-is';
+                 +'casemode-is preserve'
+```
+
+Both liveness probes `echo CASEMODE-IS $casemode`, which is the whole point of
+them: the variable is unset in the sweep's stock column and set in its preserve
+column, so the two columns must differ. `tests/regression/case/harness-alive.cir`
+has reported `DIFF` for this reason since it was written and did so in the
+baseline too.
+
+### What the sweep could not see this round
+
+`casemode=distinguish`, entirely. The sweep runs stock, `preserve` and
+`preserve` on a mechanically uppercased copy; it has no `distinguish` column and
+adding one would be meaningless, because uppercasing a deck under `distinguish`
+changes the circuit rather than only its spelling. The four
+`tests/regression/casedist/*-case-split.cir` decks are `OK` in the sweep for
+exactly that reason — all three of its columns run them in a mode where the two
+spellings are one name — and their real assertion is `make check`, which runs
+that directory with `-D casemode=distinguish`.
+
+Its job this round was the same as last: prove that fifteen identity call sites
+changed predicate without moving a single number in `fold` or `preserve`. It
+did.
