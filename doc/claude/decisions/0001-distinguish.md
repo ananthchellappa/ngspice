@@ -296,12 +296,23 @@ decided `print`'s scale column, both `write` sites, both `write_sparam` sites
 and `agraf.c`'s x axis — and all six of its callers are scale comparisons,
 which is why they move together.
 
-One thing this rule does **not** reach, and it is worth naming here so the
-next reader does not assume otherwise: `diff`'s pairing of a vector in one
-plot with its twin in the other is a hash lookup whose comparator is `nghash`'s
+One thing this rule did **not** reach was `diff`'s pairing of a vector in one
+plot with its twin in the other: a hash lookup whose comparator is `nghash`'s
 `strcmp`, byte exact in all three modes, and therefore too strict under both
 `fold` and `preserve`. That is `doc/codex/issues/0037`, a shipped-mode defect
-found by this work and not part of it.
+found by this work and not part of it, and it is **closed**: `com_diff()`
+folds the key with a `canonical_key()` beside `canonical_name()` and filters
+the duplicate chain with `vec_name_eq()`, which is this section's mechanism
+applied to a second table. `doc/claude/decisions/0007-diff-cross-plot-pairing.md`.
+It moves `fold` and `preserve` rather than `distinguish`, which is the
+opposite of every other row of this decision; under `distinguish` the only
+pairing it adds is the `v()`/`i()` wrapper letter, because folding the key is
+what first brings `V(1)` and `v(1)` onto one chain for
+`vec_wrapped_name_eq()` to judge.
+
+That leaves the frontend with two folded-key tables filtered by the same
+predicate and no vector-name matcher outside them, which is the state the
+build-enforced lint of item 7 of `0005`'s closing list would freeze.
 
 The mechanism keeps the plan's rule intact. The fold at `:71` and `:184` and
 the `nghash_unique(pl_lookup_table, FALSE)` at `:61` are all unchanged; what

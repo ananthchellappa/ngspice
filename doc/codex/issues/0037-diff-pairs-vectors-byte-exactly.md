@@ -2,7 +2,7 @@
 
 ## Status
 
-Open. Found while closing `doc/codex/issues/0032`, by reading `com_diff()`
+Fixed on `ver_50`. Found while closing `doc/codex/issues/0032`, by reading `com_diff()`
 around the `nameeq()` call that issue names. Not a regression — the hash has
 always been there. Unlike almost everything else in the `casemode` series this
 is wrong in the two **shipped** modes and right under `distinguish`, which is
@@ -96,4 +96,32 @@ has a place to go; what is missing is the fold on the key.
 
 ## Resolution
 
-Not fixed.
+Fixed. `com_diff()` folds the cross-reference key with `canonical_key()` and
+filters the duplicate chain `nghash_unique(..., FALSE)` already permitted with
+`vec_name_eq()`, which is the shape `vec_rebuild_lookup_table()` and
+`find_permanent_vector_by_name()` use. The comparator is untouched, so the
+table still owns its keys. The fold is unconditional rather than
+mode-dependent, for the reason recorded in
+`doc/claude/decisions/0007-diff-cross-plot-pairing.md` decision 1.
+
+Every row of the Impact table above was re-measured against the fixed binary
+and each is now the correct answer: `fold` reports both spellings, `preserve`
+reports both, `distinguish` reports the matching spelling only.
+
+Two decks, both proved RED through `make check` against the binary built at
+`28d36a7c4`:
+
+- `tests/regression/misc/diff-pairing-case.cir` — criterion 3, the `fold` row.
+  It is in `misc` rather than in `casedist` because the row it asserts is the
+  default mode, which `casedist` cannot run.
+- `tests/regression/casedist/vector-diff-pairing-case.cir` — criterion 4 from
+  the other side: `OUT` must still not pair under `distinguish`, and `v(1)`
+  from a rawfile must pair with the `V(1)` `src/frontend/outitf.c:1164`
+  constructs, which is `vec_wrapped_name_eq()` and the only thing this change
+  moves in that mode.
+
+`tests/regression/casedist/vector-diff-case.cir`, criterion 4's own deck,
+still passes: it selects with `nameeq()`, which this does not touch.
+
+`doc/codex/issues/0040` was found by this work in the same loop and fixed in
+the commit after it.

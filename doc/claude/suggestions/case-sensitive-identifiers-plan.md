@@ -199,8 +199,13 @@ and every structural edit there is a recurring rebase cost.
 
 Fold the key, never swap the comparator. `src/misc/hash.c:549` does
 `curTable->key = copy(user_key)` **only** when
-`hash_func == NGHASH_DEF_HASH(NGHASH_FUNC_STR)`, and the frees at `:108`,
-`:182`, `:393` are gated the same way. Installing a custom hash silently flips
+`hash_func == NGHASH_DEF_HASH(NGHASH_FUNC_STR)`, and every free of a key is
+gated on the same test: `:110` in `nghash_resize()`, `:182` in
+`nghash_empty()`, `:393` in `nghash_delete()`, `:471` in
+`nghash_delete_special()`, `:787` in `nghash_merge()` and `:866` in
+`nghash_deleteItem()`. (This paragraph read `:108, :182, :393` until
+`doc/claude/decisions/0007-diff-cross-plot-pairing.md` re-grepped them.)
+Installing a custom hash silently flips
 every such table from owning to borrowing its keys — given commits `c5cd68015`
 and `5ad395d5e`, not a trade worth making.
 

@@ -316,6 +316,15 @@ pointing where it always pointed.
    not assumed. Fixing it is the fold-the-key-and-filter-the-chain shape the
    vector table already uses, and it is a shipped-mode defect rather than part
    of `0032`.
+
+   **Closed**, `doc/claude/decisions/0007-diff-cross-plot-pairing.md`. The
+   shape named here was the shape taken, and `vec_name_eq()`'s export — this
+   record's decision 1 — is what made it a four-line change rather than a
+   seventh site with a predicate of its own. Two things this item did not
+   foresee: the fold has to be unconditional rather than mode-dependent, or
+   `vec_name_eq()`'s wrapper arm can never be reached from a chain; and the
+   `TRUE` that `com_diff()` passed to `canonical_name()` was a second, looser
+   fold hiding underneath the first, which is `doc/codex/issues/0040`.
 2. **`doc/codex/issues/0034`**, per decision 5. Rejected as the clause's
    subject, not fixed.
 3. **`doc/codex/issues/0035`**, per decision 6, all three items.
