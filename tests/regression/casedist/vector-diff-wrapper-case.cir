@@ -1,0 +1,61 @@
+* diff's canonical name folds an i() wrapper's inner name, and should not
+* doc/codex/issues/0040.  canonical_name() (src/frontend/diff.c) rewrites
+* i(some_name) as some_name#branch so that a vector spelled either way pairs
+* with its twin, and com_diff() asked it to lower case the name inside the
+* wrapper while doing so.  That fold predates the case modes and is invisible
+* under fold and preserve, where the pairing is case insensitive anyway, but
+* under distinguish i(Vsrc) and i(VSRC) are two names and it paired them.
+*
+* The fold belongs to the hash key, which is folded for every name, and not
+* to the name the pairing predicate compares.  With it removed the two
+* spellings reach vec_name_eq() intact and are two vectors here, while
+* i(Vsrc) and Vsrc#branch -- the two spellings of one vector that
+* canonical_name() exists for -- still pair in every mode.
+*
+* Both plots are rawfiles the deck writes with echo, because only a file can
+* spell a current as i(name): ngspice stores its own branch currents as
+* name#branch, so a live plot cannot hold the left hand side of this compare.
+*
+* The evidence is one line and one silence.  sig differs between the files
+* and must be reported, which proves the pairing ran and the block was
+* reached; the two i() currents differ by 1 A and must not be reported at
+* all.  Before the change there are two lines here.
+*
+* The extra line appears after sig rather than before it, because diff walks
+* the first plot's vectors in pl_dvecs order and the rawfile reader appends.
+* The captures are cleaned by the CLEANFILES vdw_* pattern.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in 0 1k
+.control
+echo "Title: hand built" > vdw_one.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> vdw_one.raw
+echo "Plotname: Operating Point" >> vdw_one.raw
+echo "Flags: real" >> vdw_one.raw
+echo "No. Variables: 2" >> vdw_one.raw
+echo "No. Points: 1" >> vdw_one.raw
+echo "Variables:" >> vdw_one.raw
+echo " 0 sig voltage" >> vdw_one.raw
+echo " 1 i(Vsrc) current" >> vdw_one.raw
+echo "Values:" >> vdw_one.raw
+echo " 0 1.0" >> vdw_one.raw
+echo " 7.0" >> vdw_one.raw
+echo "Title: hand built" > vdw_two.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> vdw_two.raw
+echo "Plotname: Operating Point" >> vdw_two.raw
+echo "Flags: real" >> vdw_two.raw
+echo "No. Variables: 2" >> vdw_two.raw
+echo "No. Points: 1" >> vdw_two.raw
+echo "Variables:" >> vdw_two.raw
+echo " 0 sig voltage" >> vdw_two.raw
+echo " 1 i(VSRC) current" >> vdw_two.raw
+echo "Values:" >> vdw_two.raw
+echo " 0 2.0" >> vdw_two.raw
+echo " 6.0" >> vdw_two.raw
+load vdw_one.raw >& vdw_load.txt
+load vdw_two.raw >& vdw_load.txt
+echo DIFF-BEGIN
+diff op1 op2 all
+echo DIFF-END
+.endc
+.end

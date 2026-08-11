@@ -233,9 +233,13 @@ com_diff(wordlist *wl)
     crossref_p = nghash_init(NGHASH_MIN_SIZE);
     nghash_unique(crossref_p, FALSE);
 
+    /* The canonical name keeps the spelling inside an i() wrapper, which the
+     * key's fold makes unnecessary here and which the mode decides below.
+     * Folding it in the name as well paired i(Vsrc) with i(VSRC) under
+     * distinguish, where they are two names.  doc/codex/issues/0040. */
     for (v2 = p2->pl_dvecs; v2; v2 = v2->v_next) {
         v2->v_link2 = NULL;
-        v2_name = canonical_name(v2->v_name, &ibuf, TRUE);
+        v2_name = canonical_name(v2->v_name, &ibuf, FALSE);
         nghash_insert(crossref_p, canonical_key(v2_name, &kbuf), v2);
     }
 
@@ -246,14 +250,14 @@ com_diff(wordlist *wl)
      * exact under distinguish, where two spellings are two vectors and the
      * pairing must stay byte exact.  doc/codex/issues/0037. */
     for (v1 = p1->pl_dvecs; v1; v1 = v1->v_next) {
-        v1_name = canonical_name(v1->v_name, &ibuf, TRUE);
+        v1_name = canonical_name(v1->v_name, &ibuf, FALSE);
         key = canonical_key(v1_name, &kbuf);
         for (v2 = nghash_find(crossref_p, key);
              v2;
              v2 = nghash_find_again(crossref_p, key))
         {
             if (!v2->v_link2 &&
-                vec_name_eq(canonical_name(v2->v_name, &jbuf, TRUE),
+                vec_name_eq(canonical_name(v2->v_name, &jbuf, FALSE),
                         v1_name) &&
                 ((v1->v_flags & (VF_REAL | VF_COMPLEX)) ==
                  (v2->v_flags & (VF_REAL | VF_COMPLEX))) &&
