@@ -250,7 +250,11 @@ have hunted a numeric regression that was not there.
    unpaired vectors go to `cp_err` and the differing values to `cp_out`, which
    is what made `0037` silent on stdout. Changing it would move output no deck
    asked to move.
-5. **The build-enforced lint** that would stop a new `strcmp` or `cieq`
+5. **`doc/codex/issues/0041`**, one definitely-lost block on the `load` path,
+   found by running this work's decks under valgrind and present at
+   `28d36a7c4` with `diff` removed from the deck. Filed, not fixed: the tree
+   is built without `-g` and the stack is six frames of `???`.
+6. **The build-enforced lint** that would stop a new `strcmp` or `cieq`
    against a vector name from re-entering the tree, per `0005` item 7. With
    this record the frontend has two folded-key tables filtered by one
    predicate and no vector-name matcher outside them, which is the state the
