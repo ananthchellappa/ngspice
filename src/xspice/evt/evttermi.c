@@ -54,6 +54,11 @@ NON-STANDARD FEATURES
 #include "ngspice/cktdefs.h"
 //#include "util.h"
 
+/* ng_ideq(): identifier identity under the current case mode.
+   src/xspice/evt/evtcheck_nodes.c is the precedent for a frontend header
+   in this directory. */
+#include "ngspice/fteext.h"
+
 #include "ngspice/mif.h"
 #include "ngspice/evt.h"
 #include "ngspice/evtudn.h"
@@ -294,14 +299,18 @@ static void EVTnode_insert(
     /* ******************************************* */
 
     /* Scan list of nodes in event structure to see if already there */
-    /* and get the index */
+    /* and get the index.  Both names are written on an A card by the deck,
+     * so this is an identity test and takes ng_ideq(): under 'preserve' two
+     * spellings are one identifier and must be one event node, under 'fold'
+     * and 'distinguish' they are compared byte for byte as before.
+     * doc/claude/decisions/0001-distinguish.md decision 3, Class A. */
     found = MIF_FALSE;
     index = 0;
     node = ckt->evt->info.node_list;
     node_ptr  = &(ckt->evt->info.node_list);
 
     while(node) {
-        if(strcmp(node_name, node->name) == 0) {
+        if(ng_ideq(node_name, node->name)) {
             found = MIF_TRUE;
             break;
         }

@@ -1,0 +1,22 @@
+* all-lower-case control for event-node-case.cir
+* Same circuit with the shared event node spelled 'dig' on both cards, so
+* src/xspice/evt/evttermi.c:304's strcmp finds the existing entry and the two
+* references are one node in every mode.  This deck passes before and after the
+* gate 4 change; it is here so the pair isolates the case question from the
+* d_buffer/dac_bridge chain - if this one ever moves, the defect is in the
+* chain and not in the comparison.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outq dbuf
+.model dbuf d_buffer
+A3 [outq] [aout] dac1
+.model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)
+R1 aout 0 1k
+.OPTIONS noacct
+.control
+op
+print v(aout)
+.endc
+.end

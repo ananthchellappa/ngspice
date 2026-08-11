@@ -1,0 +1,34 @@
+* two event-node references differing only in case, under casemode=preserve
+* Phase 3 gate 4.  Under 'preserve' two spellings are one identifier, so the
+* event node 'Dig' driven by the adc_bridge and the event node 'dig' read by
+* the d_buffer are ONE node.
+*   src/xspice/evt/evttermi.c:304, at feff44746
+*     if(strcmp(node_name, node->name) == 0)
+* is the find-or-create site for the event-driven node list - the interning
+* site - and its strcmp made them two nodes instead, so the d_buffer's input
+* was a node no card ever drives and the net was silently split.
+* Nothing about this is diagnosed: EVTtermInsert() creates on a miss exactly
+* the way INPtermInsert() does at Phase 3 gate 1.
+* RED evidence at feff44746: this deck prints v(aout) = 0.000000e+00 while
+* event-node-case-lower.cir prints 5.000000e+00.  Under the default 'fold' mode
+* the reader lower cases both spellings, so this deck already printed 5.0
+* there; the defect is 'preserve'-only.
+* The digital and analog names here are deliberately disjoint - 'outq' is only
+* ever an event node and 'aout' only ever an analog node - so no auto-bridge is
+* generated and this deck tests the interning site alone, independently of
+* evtcheck_nodes.c:720.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [Dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outq dbuf
+.model dbuf d_buffer
+A3 [outq] [aout] dac1
+.model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)
+R1 aout 0 1k
+.OPTIONS noacct
+.control
+op
+print v(aout)
+.endc
+.end
