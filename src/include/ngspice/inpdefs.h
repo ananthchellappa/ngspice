@@ -26,10 +26,11 @@ struct INPnTab {
     char *t_ent;
     CKTnode *t_node;
     struct INPnTab *t_next;
-    /* set when only a reference inside an expression ever named this node,
-       so that INPtermCaseCheck() can tell a node no card defines from an
-       ordinary one; cleared by the first INPtermInsert() that claims it.
-       doc/claude/decisions/0002-deferred-node-resolution-check.md */
+    /* set when only a reference ever named this node, so that
+       INPtermCaseCheck() can tell a node no card defines from an ordinary
+       one; cleared by the first INPtermInsert() that claims it.
+       doc/claude/decisions/0002-deferred-node-resolution-check.md,
+       doc/claude/decisions/0008-undefined-node-diagnostic.md */
     bool t_unclaimed;
 };
 

@@ -2,53 +2,40 @@
 Note: No compatibility mode selected!
 
 
-Circuit: * the near-miss report for a B source V() reference, and the silences it owes
+Circuit: * the undefined-node report for a b source v() reference, and the silences it owes
 
 
 Note: No compatibility mode selected!
 
-NODE-MISS-REPORTED
+UNDEF-TYPO-REPORTED
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
 
 No. of Data Rows : 1
-v(In) = 1.500000e+00
+v(mid) = 1.500000e+00
 v(miss) = 0.000000e+00
 
 Note: No compatibility mode selected!
 
-NODE-DEFN-SILENT
-NODE-DEFN-CAPTURE-READ
+UNDEF-FLOAT-SILENT
+UNDEF-FLOAT-CAPTURE-READ
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
 
 No. of Data Rows : 1
-v(In) = 1.500000e+00
-v(in) = 0.000000e+00
+v(dangle) = 1.500000e+00
 v(out) = 3.000000e+00
 
 Note: No compatibility mode selected!
 
-NODE-FWDREF-SILENT
-NODE-FWDREF-CAPTURE-READ
+UNDEF-FWDREF-SILENT
+UNDEF-FWDREF-CAPTURE-READ
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
 
 No. of Data Rows : 1
-v(Out) = 3.000000e+00
-
-Note: No compatibility mode selected!
-
-NODE-NOTWIN-REPORTED
-NODE-NOTWIN-NOT-NEARMISS
-NODE-NOTWIN-CAPTURE-READ
-Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
-
-Using SPARSE 1.3 as Direct Linear Solver
-
-No. of Data Rows : 1
-v(miss) = 0.000000e+00
+v(out) = 3.000000e+00
 Note: Simulation executed from .control section 

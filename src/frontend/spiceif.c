@@ -198,11 +198,13 @@ if_inpdeck(struct card *deck, INPtables **tab)
             ft_sim->numNodeParms);
 
     /* Every card that can define a node has now been seen, so a node that
-     * only a V() reference ever created is a node no card defines.  Under
-     * casemode=distinguish, one whose name differs only in case from a node
-     * that is defined is a resolution miss and is reported here rather than
-     * at the reference, where it could not be told from a forward reference.
-     * doc/claude/decisions/0002-deferred-node-resolution-check.md */
+     * only a reference ever created is a node no card defines.  It is
+     * reported here rather than at the reference, where it could not be told
+     * from a forward reference.  Under casemode=distinguish, one whose name
+     * differs only in case from a node that is defined is reported as that
+     * near miss instead, naming both spellings.
+     * doc/claude/decisions/0002-deferred-node-resolution-check.md,
+     * doc/claude/decisions/0008-undefined-node-diagnostic.md */
     INPtermCaseCheck(*tab);
 
 #ifdef XSPICE

@@ -1,0 +1,155 @@
+* the undefined-node report for a B source V() reference, and the silences it owes
+* doc/codex/issues/0028 gap 1, in the DEFAULT case mode.
+* INPtermCaseCheck() (src/spicelib/parser/inpsymt.c) reports a node that a
+* V() reference created and that no card ever defined.  With a name differing
+* from it only in case defined it says so and names both spellings, which is
+* doc/claude/decisions/0002-deferred-node-resolution-check.md and fires only
+* under distinguish; with no such name the report is the plain undefined node
+* and is mode independent, which is this deck and
+* doc/claude/decisions/0008-undefined-node-diagnostic.md.
+*
+* This deck is in tests/regression/misc and not in tests/regression/casedist
+* because casedist forces -D casemode=distinguish on every deck it holds and
+* the report asserted here is the one that fires with no casemode set at all.
+* diff-pairing-case.cir is the precedent for a default-mode deck of this
+* series here.  Everything below is lower case for the same reason: the
+* default reader folds a card, so a mixed-case sub-deck would be asserting
+* about the fold rather than about the node.
+*
+* The diagnostic is written before the first line of any .control block runs -
+* it is the end of the parse, src/frontend/spiceif.c - so there is no command
+* to attach a redirect to.  This deck therefore writes each circuit out with
+* echo and sources it from inside its own control block: 'source' re-enters
+* inp_spsource() and if_inpdeck(), so the whole parse including the check runs
+* again, with the wrapper's redirect in force.  '>&' sets cp_err as well as
+* cp_out (src/frontend/streams.c), and the sourced circuit stays current
+* afterwards, which is why the op and the prints below are about the sub-deck.
+* bsource-node-case-report.cir is the shape and doc/claude/decisions/
+* 0006-diagnostic-deck-coverage.md decision 2 is why it is the only one
+* available.  The bun_* names are lower case because in the default mode the
+* reader lower cases a control line unless its first word is on a fixed exempt
+* list - 'echo' and 'source' are on it, 'fopen' is not - doc/codex/issues/0038.
+*
+* Each silence case also echoes a CAPTURE-READ token, set by finding the
+* sub-deck's own 'Circuit:' line in the capture, so that an assertion about an
+* absence cannot pass on a capture that was never read.  Every token is upper
+* case because tests/bin/check.sh drops any line containing 'Warning'.
+*
+*   TYPO     v(mdi) against a net 'mid'   -> reported, and v(miss) = 0 is the
+*                                            wrong number the report explains
+*   FLOAT    a net named by exactly one card, which is a legal floating node
+*            in SPICE                     -> silent.  This is the case that
+*            decides the rule: the bit is set by a REFERENCE, so a node a card
+*            names is not a candidate however few cards name it
+*   FWDREF   v(mid) referenced before the cards that define it -> silent
+.OPTIONS noacct
+.control
+* --- TYPO: a reference no card ever claims, with no case variant in sight
+echo "* a V() reference that names a node no card defines" > bun_typo.cir
+echo ".OPTIONS noacct rshunt=1e9" >> bun_typo.cir
+echo "v1 mid 0 dc 1.5" >> bun_typo.cir
+echo "r1 mid 0 1k" >> bun_typo.cir
+echo "b2 miss 0 V={V(mdi)*2}" >> bun_typo.cir
+echo "r3 miss 0 1k" >> bun_typo.cir
+echo ".end" >> bun_typo.cir
+source bun_typo.cir >& bun_typo.txt
+set found1 = 0
+set n1 = 1
+fopen f1 bun_typo.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no node named 'mdi'; it is referenced"
+  if $p1 >= 0
+    set found1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo UNDEF-TYPO-REPORTED
+else
+  echo UNDEF-TYPO-SILENT
+end
+op
+print v(mid)
+print v(miss)
+* --- FLOAT: one card names 'dangle' and nothing else does, which is legal
+echo "* a legal floating node, named by exactly one card" > bun_float.cir
+echo ".OPTIONS noacct" >> bun_float.cir
+echo "v1 in 0 dc 1.5" >> bun_float.cir
+echo "r1 in 0 1k" >> bun_float.cir
+echo "r2 in dangle 1k" >> bun_float.cir
+echo "b1 out 0 V={V(in)*2}" >> bun_float.cir
+echo "r3 out 0 1k" >> bun_float.cir
+echo ".end" >> bun_float.cir
+source bun_float.cir >& bun_float.txt
+set found2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 bun_float.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no node named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo UNDEF-FLOAT-REPORTED
+else
+  echo UNDEF-FLOAT-SILENT
+end
+if $read2 > 0
+  echo UNDEF-FLOAT-CAPTURE-READ
+else
+  echo UNDEF-FLOAT-CAPTURE-EMPTY
+end
+op
+print v(dangle)
+print v(out)
+* --- FWDREF: the reference creates the node and a later card claims it
+echo "* a forward reference claimed by a later card" > bun_fwdref.cir
+echo ".OPTIONS noacct" >> bun_fwdref.cir
+echo "b1 out 0 V={V(mid)*2}" >> bun_fwdref.cir
+echo "r2 out 0 1k" >> bun_fwdref.cir
+echo "v1 mid 0 dc 1.5" >> bun_fwdref.cir
+echo "r1 mid 0 1k" >> bun_fwdref.cir
+echo ".end" >> bun_fwdref.cir
+source bun_fwdref.cir >& bun_fwdref.txt
+set found3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 bun_fwdref.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no node named"
+  if $p3 >= 0
+    set found3 = 1
+  end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo UNDEF-FWDREF-REPORTED
+else
+  echo UNDEF-FWDREF-SILENT
+end
+if $read3 > 0
+  echo UNDEF-FWDREF-CAPTURE-READ
+else
+  echo UNDEF-FWDREF-CAPTURE-EMPTY
+end
+op
+print v(out)
+.endc
+.end

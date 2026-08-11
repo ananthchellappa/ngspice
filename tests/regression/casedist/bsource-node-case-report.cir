@@ -56,7 +56,13 @@
 *   MISS     v(in) misses, 'In' is defined  -> reported, v(miss) = 0
 *   DEFN     'In' and 'in' both defined     -> silent (the definition half)
 *   FWDREF   'mid' referenced then defined, 'MID' defined too -> silent
-*   NOTWIN   v(mdi) misses, no variant      -> silent, doc/codex/issues/0028
+*   NOTWIN   v(mdi) misses, no variant      -> reported as an undefined node
+*            and NOT as a near miss.  This case asserted silence until
+*            doc/codex/issues/0028 gap 1 closed; the two reports are told
+*            apart here because they share the phrase this deck scans for,
+*            and only the near-miss half is about case.  The default-mode
+*            deck for the undefined-node report itself is
+*            tests/regression/misc/bsource-undef-node-report.cir.
 .OPTIONS noacct
 .control
 * --- MISS: a reference the deck never defines, beside a defined case variant
@@ -179,15 +185,20 @@ echo "R3 miss 0 1k" >> bnr_notwin.cir
 echo ".end" >> bnr_notwin.cir
 source bnr_notwin.cir >& bnr_notwin.txt
 set found4 = 0
+set near4 = 0
 set read4 = 0
 set n4 = 1
 fopen f4 bnr_notwin.txt r
 while $n4 >= 0
   set capline = "no_line_read"
   fread capline $f4 n4
-  strstr p4 "_$capline" "no node named"
+  strstr p4 "_$capline" "no node named 'mdi'; it is referenced"
   if $p4 >= 0
     set found4 = 1
+  end
+  strstr q4 "_$capline" "differs only in case"
+  if $q4 >= 0
+    set near4 = 1
   end
   strstr r4 "_$capline" "Circuit:"
   if $r4 >= 0
@@ -199,6 +210,11 @@ if $found4 > 0
   echo NODE-NOTWIN-REPORTED
 else
   echo NODE-NOTWIN-SILENT
+end
+if $near4 > 0
+  echo NODE-NOTWIN-NEARMISS
+else
+  echo NODE-NOTWIN-NOT-NEARMISS
 end
 if $read4 > 0
   echo NODE-NOTWIN-CAPTURE-READ

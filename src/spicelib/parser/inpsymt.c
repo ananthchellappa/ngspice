@@ -116,48 +116,58 @@ int INPtermInsertRef(CKTcircuit *ckt, char **token, INPtables * tab, CKTnode **n
 }
 
 
-/* Report every node that a reference created and that no card ever defined,
-   when a name differing from it only in case is defined.  That is decision 2
-   of doc/claude/decisions/0001-distinguish.md applied to the parser: silence
-   when a name is being defined, a warning when a name is being resolved, the
-   resolution fails, and a name differing only in case exists.
+/* Report every node that a reference created and that no card ever defined.
+   That is decision 2 of doc/claude/decisions/0001-distinguish.md applied to
+   the parser: silence when a name is being defined, a warning when a name is
+   being resolved and the resolution fails.
 
    It has to run after the whole netlist is parsed rather than at the
    reference, because at the reference a miss is indistinguishable from a
    forward reference to a card further down the deck.
 
-   Only distinguish can produce the condition from a spelling the deck chose.
-   Under preserve ent_eq() is case insensitive, so two entries differing only
-   in case cannot both be in the table and the sibling scan below can never
-   find anything.  Under fold the reader has lowercased every card, so the
-   only entries carrying upper case are the ones ngspice constructs for
-   itself, such as q1#collCX; warning about those would fire in the default
-   mode on a name the user never wrote, which is the wrong side of decision
-   3's rule that distinguish is exact about names the deck chose and case
-   insensitive about names ngspice constructs. */
+   One scan, two reports, and which one a node gets is decided by whether a
+   name differing from it only in case is defined:
+
+   - with such a twin, the deck almost certainly meant the twin, so the
+     message names both spellings.  That is the near-miss of
+     doc/claude/decisions/0002-deferred-node-resolution-check.md and it is
+     guarded on distinguish.  The guard is belt and braces rather than
+     policy: under preserve ent_eq() is case insensitive, so two entries
+     differing only in case cannot both be in the table, and under fold the
+     reader has lowercased every card.
+   - with no twin the reference is a plain undefined node, and that report is
+     mode independent, because nothing about it is about case.  See
+     doc/claude/decisions/0008-undefined-node-diagnostic.md; the name of this
+     function is kept because four records cite it. */
 
 void INPtermCaseCheck(INPtables *tab)
 {
     int i;
-    struct INPnTab *t, *u;
-
-    if (inp_case_mode() != NG_CASE_DISTINGUISH)
-        return;
+    struct INPnTab *t, *u, *twin;
 
     for (i = 0; i < tab->INPtermsize; i++)
         for (t = tab->INPtermsymtab[i]; t; t = t->t_next) {
             if (!t->t_unclaimed)
                 continue;
-            /* hash() folds the bucket key whenever the reader is not folding,
-               so a name differing from t only in case is necessarily in this
-               same bucket and the scan does not have to walk the table */
-            for (u = tab->INPtermsymtab[i]; u; u = u->t_next)
-                if (u != t && !u->t_unclaimed && cieq(t->t_ent, u->t_ent)) {
-                    fprintf(cp_err,
-                            "Warning: no node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
-                            t->t_ent, u->t_ent);
-                    break;
-                }
+            twin = NULL;
+            if (inp_case_mode() == NG_CASE_DISTINGUISH)
+                /* hash() folds the bucket key whenever the reader is not
+                   folding, so a name differing from t only in case is
+                   necessarily in this same bucket and the scan does not have
+                   to walk the table */
+                for (u = tab->INPtermsymtab[i]; u; u = u->t_next)
+                    if (u != t && !u->t_unclaimed && cieq(t->t_ent, u->t_ent)) {
+                        twin = u;
+                        break;
+                    }
+            if (twin)
+                fprintf(cp_err,
+                        "Warning: no node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
+                        t->t_ent, twin->t_ent);
+            else
+                fprintf(cp_err,
+                        "Warning: no node named '%s'; it is referenced but no card defines it\n",
+                        t->t_ent);
         }
 }
 
