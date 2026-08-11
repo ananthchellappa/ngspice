@@ -1,0 +1,21 @@
+* casedist harness liveness probe
+* All identifiers are lower case, so the electrical answer is the same in
+* every case mode.  The only mode-dependent evidence is the echoed value of
+* the casemode variable, which proves that this directory's
+* TESTS_ENVIRONMENT really did reach the binary.  Written in upper case so
+* that the egrep -v filter in tests/bin/check.sh cannot eat it.
+*
+* This deck is the answer to "does the harness run at all", asked before any
+* deck in here asserts anything about case.  It stays after the directory has
+* real decks, because it is the one that fails loudly if the -D flag ever
+* stops being passed and everything else silently reverts to fold.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in out 1k
+R2 out 0 1k
+.control
+op
+print v(out)
+echo CASEMODE-IS $casemode
+.endc
+.end
