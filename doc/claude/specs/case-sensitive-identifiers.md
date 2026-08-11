@@ -190,18 +190,19 @@ the one place where "the default is provably byte-identical" does not hold.
    function names. Many already are (`ciprefix` for card dispatch,
    `strcasecmp` at `src/spicelib/parser/inptyplk.c:37` and
    `src/frontend/inpcom.c:542`); the rest is the Phase 1 sweep.
-3. The frontend vector table must not silently alias. `src/frontend/vectors.c:59`
+3. The frontend vector table must not silently alias. `src/frontend/vectors.c:61`
    sets `nghash_unique(..., FALSE)` and `:71`/`:184` fold key and query, so under
    `distinguish` two case-variant nets would collide and `print` would return
    whichever hashed first — a silent wrong answer. `distinguish` cannot ship
    until this is exact.
 4. The shared library contract must be stated. `ngGet_Vec_Info`
-   (`src/sharedspice.c:1215` → `findvec`) is case-insensitive; its event twin
-   `ngGet_Evt_NodeInfo` (`src/xspice/evt/evtshared.c:253`) is exact `strcmp`.
-   **The two halves of the public API already disagree**, and
-   `src/include/ngspice/sharedspice.h:54-58` documents neither. Any mode change
-   makes the analog half ambiguous and the event half stricter. This requires a
-   header contract note, not just an implementation change.
+   (`src/sharedspice.c:1194` → `findvec`) is case-insensitive; its event twin
+   `ngGet_Evt_NodeInfo` (`src/sharedspice.c:1441` → `EVTshareddata`, whose
+   `strcmp` is in `get_index()` at `src/xspice/evt/evtshared.c:253`) is exact.
+   **The two halves of the public API already disagree.** Any mode change makes
+   the analog half ambiguous and the event half stricter, so this needed a
+   header contract note and not just an implementation change. **Done**: the
+   note is `src/include/ngspice/sharedspice.h:65-84`.
 5. Rawfiles are not self-describing. Three writers use three naming policies
    (batch `-r` verbatim, `write` lowercased, `wrdata`), and the reader binds
    `scale=` with `cieq` (`src/frontend/rawfile.c:611`). A consumer cannot tell
@@ -216,27 +217,26 @@ because the fix is specified.
 
 | Site | Failure |
 | --- | --- |
-| `src/spicelib/parser/inpptree.c:1256` | `mkvnode` uses `INPtermInsert`, which **creates on miss**. `B1 out 0 V={V(IN)*2}` against net `in` manufactures a floating node at 0 V and runs to completion. |
+| `src/spicelib/parser/inpptree.c:1249`, call at `:1256` | `mkvnode` uses `INPtermInsert`, which **creates on miss**. `B1 out 0 V={V(IN)*2}` against net `in` manufactures a floating node at 0 V and runs to completion. |
 | `src/xspice/evt/evtcheck_nodes.c:720` | Auto-bridge insertion is `strcmp(event_node->name, analog_node->name)`. Digital `A` and analog `a` stop being the same mixed-type node; no bridge is inserted, both nets float, no diagnostic fires. |
 | `src/frontend/measure.c:236` | **Done.** `strtolower(an_name)` at `:237` is now gated on `inp_case_folding()` at `:236` and its consumers at `:351` and `:446` compare with `cieq`. A case-mixed `.MEAS TRAN` used to be silently skipped with no output line. |
 | `src/frontend/subckt.c:659`, `:675`, `:692`, `:708` | **Done.** MOS bin selection now uses `cistrstr(curr_line, " wmin=")` and the `wmax`/`lmin`/`lmax` siblings. A card written `WMIN=` used to select the wrong bin, silently. |
-| `src/frontend/outitf.c:391` | `tmpname[1] == 'd'` classifies internal nodes for `.save alli`; a diode named `D1` loses its terminal current. Still open; `doc/codex/issues/0016`. |
+| `src/frontend/outitf.c:391` | **Done**, commit `f38570c43`. The internal-node classifier is now `tolower_c(tmpname[1]) == 'd'`. A diode named `D1` used to lose its terminal current under `.save alli`; `doc/codex/issues/0016` class (a). |
 | `src/spicelib/parser/inp2dot.c:366`, `:387`, `:489`, `:512` | **Done.** `.SENS`/`.TF` now match `v`/`i` with `cieq`, as `.NOISE` already did. |
 
 ## Fold sites outside the reader
 
 Three destructive folds exist outside `inp_read()` and must be handled:
 
-- `src/frontend/device.c:1417-1418` — `com_alter_common` does
+- `src/frontend/device.c:1421-1422` — `com_alter_common` does
   `strtolower(param); strtolower(dev);`, on the shared-library command path.
-  Related asymmetry: `src/frontend/spiceif.c:1101` uses `cieq` for instance
-  parameters but `:1115` uses `eq` for model parameters, masked today only
-  because `device.c:1417` folded first.
+  The pair is now gated on `inp_case_folding()` at `:1420`. What that gate
+  exposes one call level deeper is `doc/codex/issues/0026`.
 - `src/frontend/measure.c:236` — as above.
-- `src/frontend/inp_casefix()` — three unrelated jobs in one function (quote
-  handling at `:3544-3553`, non-printable-to-`_` at `:3555`, folding at
-  `:3556-3557`). Only the fold may be gated; gating the whole function would
-  disable input sanitisation.
+- `src/frontend/inp_casefix()` (`src/frontend/inpcom.c:3653`) — three unrelated
+  jobs in one function (quote handling at `:3697-3703`, non-printable-to-`_` at
+  `:3704-3705`, folding at `:3706-3707`). Only the fold may be gated; gating the
+  whole function would disable input sanitisation.
 
 ## OSDI
 

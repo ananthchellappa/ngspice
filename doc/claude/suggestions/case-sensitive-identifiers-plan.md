@@ -281,11 +281,12 @@ convenience.
 Do not schedule until every item below is closed. Each produces wrong numbers
 with no diagnostic.
 
-1. `src/spicelib/parser/inpptree.c:1256` — `mkvnode` creates on miss; a
-   case-mismatched `V(IN)` in a B-source manufactures a floating node.
+1. `src/spicelib/parser/inpptree.c:1249`, whose `INPtermInsert` call is at
+   `:1256` — `mkvnode` creates on miss; a case-mismatched `V(IN)` in a B-source
+   manufactures a floating node.
 2. `src/xspice/evt/evtcheck_nodes.c:720` — auto-bridge `strcmp`; mixed-signal
    decks silently lose their bridges.
-3. `src/frontend/vectors.c:59,71,184` — `nghash_unique(..., FALSE)` plus folded
+3. `src/frontend/vectors.c:61,71,184` — `nghash_unique(..., FALSE)` plus folded
    key and query means two case-variant nets alias and `print` returns whichever
    hashed first. Until this is exact, `distinguish` can create two nets that the
    user cannot address independently — the feature would be unobservable.
@@ -389,7 +390,10 @@ Open these before writing code:
 - `man/man1/ngspice.1` documentation for `-D`, plus a `NEWS` bullet and an
   out-of-tree manual plan.
 - A contract note in `src/include/ngspice/sharedspice.h` covering the
-  `ngGet_Vec_Info` / `ngGet_Evt_NodeInfo` case asymmetry.
+  `ngGet_Vec_Info` / `ngGet_Evt_NodeInfo` case asymmetry. **Done**: the note is
+  `src/include/ngspice/sharedspice.h:65-84`, and it says in as many words that
+  `ngGet_Evt_NodeInfo` "compares with strcmp, so it only accepts the exact
+  string that `ngSpice_AllEvtNodes` returned".
 - A single decision record for OSDI (`src/osdi/osdiinit.c:74`).
 - An explicit paragraph stating that CIDER and `tclspice` are out of scope, and
   what breaks in them.
