@@ -289,11 +289,24 @@ not control.
 
 ## Open decisions
 
+Decisions 1 and 2 are **closed** by
+`doc/claude/decisions/0001-distinguish.md`, which also answers the three
+questions this section never asked: whether `distinguish` is a `casemode` value
+or a flag, what the diagnostic is for a case near-miss, and which
+`inp_case_folding()` call sites were asking about identity rather than about the
+fold. It is not repeated here.
+
 1. **OSDI**: fold-and-`strcasecmp` versus remove-the-fold. Untestable in-tree
-   either way.
+   either way. **Closed**: keep the fold in all three modes,
+   `doc/claude/decisions/0001-distinguish.md` decision 4, which extends
+   `doc/claude/checklists/phase2-prerequisites.md` section 4 to `distinguish`.
 2. **Mixed-mode decks**: a `distinguish` top level `.include`-ing a
    fold-assuming PDK. The failure is silent — an unresolved node is not an
-   error, the parser mints a new floating node. No proposal exists.
+   error, the parser mints a new floating node. **Closed as far as a rule
+   goes**, `doc/claude/decisions/0001-distinguish.md` decisions 2 and 5: the
+   miss is diagnosable wherever a *resolution* fails while a case-variant
+   exists, and that is what Phase 3 gate 1 has to implement. Until it does, a
+   `distinguish` deck and everything it includes must be case-consistent.
 3. **`vec_basename` churn**: accept the `#collCX` output change as a correction,
    or preserve bug-compatibility in `fold` mode with a mode check.
 4. **Vendor-dialect gating**: default to `fold` when `ngbehavior` names a vendor

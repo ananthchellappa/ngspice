@@ -382,18 +382,33 @@ If the feature is declined:
 
 ## Prerequisites, absent from every design reviewed
 
+**All six are closed.** `doc/claude/checklists/phase2-prerequisites.md` takes
+them one at a time and says for each whether it needed action, what was done,
+and what was deferred with what consequence. The list below is kept for the
+record with its outcome marked; do not re-open one of these without reading
+that file first.
+
 Open these before writing code:
 
 - A scope entry for `src/frontend/vectors.c:1129` plus
   `postcoms.c:207,661,826`, `com_fft.c:165,398`, `spec.c:213`. **Done**, 2.5.
-- A `visualc/*.vcxproj` (×3) checklist item.
+- A `visualc/*.vcxproj` (×3) checklist item. **Done**, checklist section 1: no
+  action was needed because Phase 2 added no new `.c` file, and the standing
+  obligation for anyone who does is stated there.
 - `man/man1/ngspice.1` documentation for `-D`, plus a `NEWS` bullet and an
-  out-of-tree manual plan.
+  out-of-tree manual plan. **Done**, checklist section 2. `-D`/`--define` is in
+  the man page's OPTIONS section between `-o` and `-p`, the `casemode` bullet is
+  in `NEWS`'s Ngspice-47 block, and `src/spinit.in:17` ships a commented
+  `*set casemode=preserve`. The manual itself is deferred with a stated
+  consequence: it is not in this repository.
 - A contract note in `src/include/ngspice/sharedspice.h` covering the
   `ngGet_Vec_Info` / `ngGet_Evt_NodeInfo` case asymmetry. **Done**: the note is
   `src/include/ngspice/sharedspice.h:65-84`, and it says in as many words that
   `ngGet_Evt_NodeInfo` "compares with strcmp, so it only accepts the exact
   string that `ngSpice_AllEvtNodes` returned".
-- A single decision record for OSDI (`src/osdi/osdiinit.c:74`).
+- A single decision record for OSDI (`src/osdi/osdiinit.c:74`). **Done**,
+  checklist section 4 for `fold` and `preserve` and
+  `doc/claude/decisions/0001-distinguish.md` decision 4 for `distinguish`. One
+  answer in all three modes: keep the fold, keep the case-insensitive matchers.
 - An explicit paragraph stating that CIDER and `tclspice` are out of scope, and
-  what breaks in them.
+  what breaks in them. **Done**, checklist section 5.

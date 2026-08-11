@@ -57,10 +57,10 @@ Added to `src/include/ngspice/sharedspice.h`, in the comment block that already
 documents each entry point.
 
 The asymmetry it records was already true before this work and documented
-nowhere. `ngGet_Vec_Info` (`sharedspice.c:1211` -> `vec_get` -> `findvec`)
-lowercases both the query and the table key (`vectors.c:183`, `:71`), and
+nowhere. `ngGet_Vec_Info` (`sharedspice.c:1194` -> `vec_get` -> `findvec`)
+lowercases both the query and the table key (`vectors.c:184`, `:71`), and
 `ngSpice_Raw_Evt` folds too (`evtplot.c:83`). `ngGet_Evt_NodeInfo`
-(`sharedspice.c:1443` -> `EVTshareddata` -> `get_index`) compares with plain
+(`sharedspice.c:1441` -> `EVTshareddata` -> `get_index`) compares with plain
 `strcmp` at `evtshared.c:253`. So one half of the public API accepts any case
 and the other half accepts exactly one. A caller's only safe rule is to use the
 string `ngSpice_AllEvtNodes` returned.
