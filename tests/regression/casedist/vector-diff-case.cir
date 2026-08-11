@@ -1,0 +1,36 @@
+* diff compares the vector the deck named, not its case twin as well
+* doc/codex/issues/0032, the last of the six name matchers outside findvec().
+* nameeq() (src/frontend/diff.c) is what throws out the vectors that are not
+* in diff's argument list, and it compared a stored v_name against the word
+* the user typed with cieq(), so under distinguish 'diff op1 tran1 OUT' also
+* reported Out -- a vector the deck did not ask about, and under this mode a
+* different net entirely.
+*
+* nameeq() is the only case decision in diff that this issue reaches.  The
+* pairing of a vector in one plot with its twin in the other is a hash lookup
+* on canonical names (diff.c:192-215) whose comparator is nghash's strcmp
+* (src/misc/hash.c:260), so it is byte exact in all three modes already; that
+* it is too strict under preserve is a different defect and is filed
+* separately.
+*
+* Out and OUT are two nets under distinguish, the same circuit
+* node-case-split.cir and vector-unlet-case.cir use.  The two plots are an op
+* and a tran of the same deck, so every vector holds the same value and the
+* only difference diff can report is the length: one point against sixteen.
+* That keeps the reference to one line per selected vector, which is exactly
+* the evidence -- before the fix there are two lines, after it there is one.
+* The report is on cp_out, so no capture is needed.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+R3 in OUT 1k
+R4 OUT 0 3k
+.control
+op
+tran 1m 4m 0 4m
+echo DIFF-BEGIN
+diff op1 tran1 OUT
+echo DIFF-END
+.endc
+.end

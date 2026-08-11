@@ -1,0 +1,3 @@
+DIFF-BEGIN
+>>> OUT is 1 long in op1 and 16 long in tran1
+DIFF-END

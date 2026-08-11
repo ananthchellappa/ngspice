@@ -80,13 +80,19 @@ canonical_name(const char *name, DSTRINGPTR dbuf_p,
 
 /* Determine if two vectors have the 'same' name. Note that this compare can
  * be performed by using the "canonical" forms returned by
- * canonical_name(). */
+ * canonical_name().
+ *
+ * Both call sites hand this a stored v_name and a word from diff's argument
+ * list, so it is the frontend's vector-name compare and takes vec_name_eq():
+ * cieq() under fold and preserve, exact under distinguish, where two
+ * spellings are two vectors and asking for one must not select the other.
+ * doc/codex/issues/0032. */
 static bool
 nameeq(const char *n1, const char *n2)
 {
-    /* First compare them the way they came in, case insensitive.
+    /* First compare them the way they came in.
      * If they match nothing more to do */
-    if (cieq(n1, n2)) {
+    if (vec_name_eq(n1, n2)) {
         return TRUE;
     }
 
@@ -95,7 +101,7 @@ nameeq(const char *n1, const char *n2)
     DS_CREATE(ds2, 100);
 
     /* Compare canonical names */
-    const bool rc = (bool) cieq(canonical_name(n1, &ds1, FALSE),
+    const bool rc = vec_name_eq(canonical_name(n1, &ds1, FALSE),
             canonical_name(n2, &ds2, FALSE));
 
     /* Free the dynamic string buffers */
