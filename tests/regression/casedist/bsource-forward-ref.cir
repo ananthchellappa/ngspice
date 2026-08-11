@@ -1,0 +1,32 @@
+* a B source V() reference to a node that a later card defines, under distinguish
+* The regression guard for Phase 3 gate 1's design, and the reason that gate
+* cannot be closed by refusing to create the node.
+*
+* mkvnode() (src/spicelib/parser/inpptree.c:1249) is reached while B1's own
+* card is being parsed, which is before the V1 and R1 cards that define 'Mid'
+* have been seen.  The reference works only because INPtermInsert() creates
+* the node and the later cards then find it.  Replace that call with
+* INPtermSearch() (src/spicelib/parser/inpsymt.c:310), which is the obvious
+* non-creating probe, and this deck stops solving: every forward reference in
+* the tree breaks at once.  That is why the near-miss diagnostic is deferred
+* to the end of the parse instead of being raised at the reference.
+*
+*   v(Mid)  1.500000e+00
+*   v(Out)  3.000000e+00
+*
+* The reference is spelled in the same case as the definition, so this deck
+* asserts nothing about case policy: it asserts that closing gate 1 did not
+* cost the language a feature it has always had.  tests/regression/case has
+* the preserve twins, bsource-forward-ref-case.cir and its -lower pair,
+* because the same guarantee has to hold in the mode that has shipped decks.
+.OPTIONS noacct
+B1 Out 0 V={V(Mid)*2}
+R2 Out 0 1k
+V1 Mid 0 dc 1.5
+R1 Mid 0 1k
+.control
+op
+print v(Mid)
+print v(Out)
+.endc
+.end

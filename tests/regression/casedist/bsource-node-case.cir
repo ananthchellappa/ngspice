@@ -1,0 +1,49 @@
+* a B source V() reference that differs only in case from a real net
+* Phase 3 gate 1.  mkvnode() (src/spicelib/parser/inpptree.c:1249) resolves a
+* V() reference with INPtermInsert(), which creates the node on a miss.  Under
+* distinguish 'In' and 'in' are two names, so V(in) against a deck that only
+* ever wrote 'In' is a resolution miss and the parser mints a third node that
+* no card defines.
+*
+* Three nodes, three assertions:
+*
+*   v(In)    1.500000e+00   the net the deck actually defined
+*   v(hit)   3.000000e+00   B1 spells the reference exactly as the deck does,
+*                           so it resolves and sees 1.5
+*   v(miss)  0.000000e+00   B2 spells it 'in', which no card defines; the
+*                           manufactured node sits at 0 and B2 doubles nothing
+*
+* Under fold or preserve 'in' and 'In' are one net and v(miss) would read
+* 3.000000e+00 as well.  That is the value this deck exists to keep out: it is
+* what a "fix" that quietly resolved the near-miss to the case variant would
+* produce, and resolving it would be fold behaviour in the one mode that is
+* defined not to fold.
+*
+* rshunt is what makes the evidence a number.  An expression reference
+* contributes no conductance to the referenced node's own row, so without a
+* shunt the manufactured node is genuinely isolated, the matrix is singular
+* and the run aborts with
+*   Warning: singular matrix:  check node in
+* naming a node the deck never wrote.  A deck asserting a *missing* number
+* would be weaker evidence and would couple this file to the gmin-stepping
+* path; 1e9 puts the node on a DC path without moving any other voltage.
+*
+* The diagnostic this gate adds -- 'no node named ...; ... differs only in
+* case' -- cannot be asserted here.  tests/bin/check.sh captures stdout only
+* and its egrep -v filter drops every line containing Warning from both sides.
+* It goes to stderr, per doc/claude/decisions/0001-distinguish.md decision 2,
+* and is verified by hand and quoted in the commit that adds it.
+.OPTIONS noacct rshunt=1e9
+V1 In 0 dc 1.5
+R1 In 0 1k
+B1 hit 0 V={V(In)*2}
+R2 hit 0 1k
+B2 miss 0 V={V(in)*2}
+R3 miss 0 1k
+.control
+op
+print v(In)
+print v(hit)
+print v(miss)
+.endc
+.end

@@ -1,0 +1,17 @@
+* the all-lower-case control for bsource-forward-ref-case.cir
+* Same circuit, same forward reference, every identifier lower case, so this
+* twin is what an ordinary legacy deck does and its .out is mode independent.
+* If the mixed-case twin ever disagrees with this one on a number rather than
+* on a spelling, the difference is a case-policy defect and not a change in
+* how forward references are resolved.
+.OPTIONS noacct
+b1 out 0 V={V(mid)*2}
+r2 out 0 1k
+v1 mid 0 dc 1.5
+r1 mid 0 1k
+.control
+op
+print v(mid)
+print v(out)
+.endc
+.end

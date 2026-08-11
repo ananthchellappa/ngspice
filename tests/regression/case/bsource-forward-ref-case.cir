@@ -1,0 +1,31 @@
+* a B source V() reference to a node that a later card defines, under preserve
+* The preserve half of the Phase 3 gate 1 guard; the distinguish half is
+* tests/regression/casedist/bsource-forward-ref.cir and the all-lower-case
+* control is bsource-forward-ref-case-lower.cir.
+*
+* mkvnode() (src/spicelib/parser/inpptree.c:1249) resolves V(Mid) while B1's
+* own card is being parsed, before the V1 and R1 cards that define 'Mid' have
+* been seen.  It works only because INPtermInsert() creates the node on a
+* miss and the later cards then find it.  Gate 1 makes that create-on-miss
+* diagnosable without removing it, and this pair is what says so: the
+* mixed-case twin and the lower-case twin must print the same two numbers as
+* each other and the same two numbers as they printed before the gate closed.
+*
+*   v(Mid)  1.500000e+00
+*   v(Out)  3.000000e+00
+*
+* The reference is spelled in the same case as the definition, so under
+* preserve, under fold and under distinguish alike this is an ordinary
+* forward reference and not a case question.  Only the spelling that comes
+* back from print differs between the twins.
+.OPTIONS noacct
+B1 Out 0 V={V(Mid)*2}
+R2 Out 0 1k
+V1 Mid 0 dc 1.5
+R1 Mid 0 1k
+.control
+op
+print v(Mid)
+print v(Out)
+.endc
+.end

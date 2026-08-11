@@ -9,7 +9,8 @@
 ## tests/regression/case and tests/regression/case-lt are the precedents.
 
 TESTS = harness-alive.cir node-case-split.cir \
-	instance-case-split.cir model-case-split.cir param-case-split.cir
+	instance-case-split.cir model-case-split.cir param-case-split.cir \
+	bsource-node-case.cir bsource-forward-ref.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
