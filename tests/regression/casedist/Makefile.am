@@ -11,15 +11,16 @@
 TESTS = harness-alive.cir node-case-split.cir \
 	instance-case-split.cir model-case-split.cir param-case-split.cir \
 	bsource-node-case.cir bsource-forward-ref.cir \
-	vector-unlet-case.cir vector-compose-case.cir vector-unlet-report.cir
+	vector-unlet-case.cir vector-compose-case.cir vector-unlet-report.cir \
+	vector-scale-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
-# vector-unlet-report.cir redirects cp_err to a file and reads it back, which
-# is the only way a deck in this harness can assert on a diagnostic:
-# tests/bin/check.sh captures stdout only and filters every line containing
-# 'Warning'.  The captures land in the build directory.
-CLEANFILES = vuc_*.txt
+# vector-unlet-report.cir and vector-scale-case.cir redirect cp_err to a file
+# and read it back, which is the only way a deck in this harness can assert on
+# a diagnostic: tests/bin/check.sh captures stdout only and filters every line
+# containing 'Warning'.  The captures land in the build directory.
+CLEANFILES = vuc_*.txt vsc_*.txt
 
 EXTRA_DIST = \
 	$(TESTS) \

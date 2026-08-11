@@ -36,7 +36,6 @@ static struct dvec *findvec_alle(void);
 #endif
 static struct dvec *find_permanent_vector_by_name(
         NGHASHPTR pl_lookup_table, char *name, const char *typed);
-static bool vec_name_eq(const char *v_name, const char *typed);
 static bool vec_wrapped_name_eq(const char *v_name, const char *typed);
 static void vec_warn_case_near_miss(NGHASHPTR pl_lookup_table,
         const char *word);
@@ -282,7 +281,7 @@ FINDVEC_ALL_GEN(findvec_alli,
         (d->v_flags & VF_PERMANENT) && (d->v_type == SV_CURRENT))
 FINDVEC_ALL_GEN(findvec_ally,
         (d->v_flags & VF_PERMANENT) &&
-                (!cieq(d->v_name, pl->pl_scale->v_name)))
+                (!vec_name_eq(d->v_name, pl->pl_scale->v_name)))
 
 #if defined (XSPICE) && defined (SIMULATOR) /* SIMULATOR: disable old app nutmeg */
 /* special case for finding all event nodes and return them as linked vectors */
@@ -370,7 +369,17 @@ static bool vec_wrapped_name_eq(const char *v_name, const char *typed)
 }
 
 
-/* Does this vector carry the name the caller actually typed?
+/* Are these two vector names the same name?
+ *
+ * Written for findvec(), where the first operand is a stored v_name and the
+ * second is the spelling the caller typed, and now also the frontend's one
+ * answer to that question wherever it is asked outside the lookup table:
+ * findvec_ally() and vec_eq() below, is_scale_vec_of_current_plot()
+ * (src/frontend/postcoms.c) and nameeq() (src/frontend/diff.c).  The argument
+ * order is a convention rather than a constraint -- cieq() is symmetric, and
+ * so is vec_wrapped_name_eq(), which permits a difference only at index 0 of
+ * a v() or i() wrapper and compares every other byte including the closing
+ * parenthesis.  doc/codex/issues/0032.
  *
  * The lookup key is folded at vec_rebuild_lookup_table():71 and the query at
  * findvec():184, and nghash_unique(..., FALSE) at :61 lets two vectors share
@@ -390,7 +399,7 @@ static bool vec_wrapped_name_eq(const char *v_name, const char *typed)
  * this is a tautology and the lookup is byte identical to the historical one.
  * doc/claude/decisions/0001-distinguish.md decision 3. */
 
-static bool vec_name_eq(const char *v_name, const char *typed)
+bool vec_name_eq(const char *v_name, const char *typed)
 {
     if (inp_case_mode() != NG_CASE_DISTINGUISH)
         return cieq(v_name, typed) != 0;
@@ -1232,7 +1241,7 @@ vec_eq(struct dvec *v1, struct dvec *v2)
     s1 = vec_basename(v1);
     s2 = vec_basename(v2);
 
-    if (cieq(s1, s2))
+    if (vec_name_eq(s1, s2))
         rtn = TRUE;
     else
         rtn = FALSE;

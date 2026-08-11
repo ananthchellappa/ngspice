@@ -45,8 +45,13 @@ is_scale_vec_of_current_plot(const char *v_name)
         return FALSE;
     }
 
-    /* Test if this vector's name matches the scale vector's name */
-    return cieq(v_name, pl_scale->v_name);
+    /* Test if this vector's name matches the scale vector's name.  The
+     * predicate has to be vec_remove()'s, or the guard stops covering exactly
+     * the vectors 'unlet' can reach: under distinguish a cieq() here refuses a
+     * name that vec_remove() would have resolved to some *other* vector, so
+     * the scale's case twin became permanently undeletable while the scale
+     * itself stayed as protected as it is now.  doc/codex/issues/0032. */
+    return vec_name_eq(pl_scale->v_name, v_name);
 } /* end of function is_scale_vec_of_current_plot */
 
 

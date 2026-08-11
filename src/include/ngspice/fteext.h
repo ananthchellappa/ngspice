@@ -347,6 +347,11 @@ extern int ft_typnum(char *);
 
 extern bool vec_iszero(const struct dvec *v);
 extern bool vec_eq(struct dvec *v1, struct dvec *v2);
+/* The frontend's one answer to "are these two vector names the same name?":
+ * cieq() under fold and preserve, exact under distinguish.  It is findvec()'s
+ * rule, and every name matcher outside the lookup table shares it.
+ * doc/codex/issues/0032, doc/claude/decisions/0001-distinguish.md decision 3. */
+extern bool vec_name_eq(const char *v_name, const char *typed);
 extern int plot_num;
 extern struct dvec *vec_fromplot(char *word, struct plot *plot);
 extern struct dvec *vec_copy(struct dvec *v);

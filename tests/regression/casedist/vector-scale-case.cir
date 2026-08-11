@@ -1,0 +1,74 @@
+* a vector missing the scale only by case is not the scale
+* doc/codex/issues/0032.  The current plot's scale vector was identified by an
+* unconditional cieq() in three places, so under distinguish a vector whose
+* name differs from the scale's only in case was treated as the scale:
+*
+*   src/frontend/vectors.c  vec_eq()      -> print dropped its scale column
+*   src/frontend/vectors.c  findvec_ally()-> ally silently omitted it
+*   src/frontend/postcoms.c is_scale_vec_of_current_plot() -> unlet refused it
+*
+* One bug wearing three hats, so one deck asserts all three.  TIME is the twin
+* and time is the scale; both are real vectors under distinguish, which is the
+* mode that creates the situation in the first place.
+*
+* The twin has to be the scale's length -- print renders a length-1 vector in
+* scalar form, with no columns at all, so 'let TIME = 5' would prove nothing --
+* which is why it is time * 2.  'let' on the left-hand side also emits
+* findvec()'s near-miss warning here, which is doc/codex/issues/0034 and is on
+* cp_err, so it does not reach this reference.
+*
+* tstart and tmax are given so that the run stores 16 timepoints instead of
+* 59, and every one of them is an exact doubling of tmax/1e4, so the table is
+* short and its numbers are exact.
+*
+* tests/bin/check.sh filters every line containing 'Index', 'time' or 'trans',
+* so both table headers and the analysis banner are eaten and the evidence is
+* the column count of the data rows:
+*
+*   print TIME   one number per row without the scale column, two with it
+*   print ally   three with TIME missing from the plot listing, four with it
+*
+* The circuit is one source and one resistor rather than a divider so that the
+* widest of those rows is four vectors.  print paginates at 8 + 16 per real
+* vector against the 'width' variable, which defaults to 80, so a fifth column
+* would split every ally table in two.
+*
+* The unlet refusal is on cp_err, which check.sh does not capture, so it is
+* redirected with '>&' (src/frontend/streams.c:153) and read back, the shape
+* tests/regression/casedist/vector-unlet-report.cir uses.  Two lines are read
+* because the message begins with a newline, so the capture's first line is
+* empty; both variables are preseeded and the two are concatenated, so an
+* empty capture cannot be mistaken for a read line.  The token is upper case
+* because the filter drops any line containing 'Warning'.
+*
+* The final 'print TIME' is the guard on the other half of the unlet: with the
+* refusal gone the vector really is deleted, so print writes nothing at all
+* between the two markers.  A fix that listed the twin in ally without being
+* able to delete it would leave a sixteen-row table there.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in 0 1k
+.tran 1m 4m 0 4m
+.control
+run
+let TIME = time * 2
+print TIME
+print ally
+set cap1 = "no_line_read"
+set cap2 = "no_line_read"
+unlet TIME >& vsc_unlet.txt
+fopen f1 vsc_unlet.txt r
+fread cap1 $f1 n1
+fread cap2 $f1 n2
+fclose $f1
+strstr p1 "_$cap1$cap2" "cannot be deleted"
+if $p1 < 0
+  echo SCALE-TWIN-DELETED
+else
+  echo SCALE-TWIN-REFUSED
+end
+echo AFTER-UNLET-PRINT-BEGIN
+print TIME
+echo AFTER-UNLET-PRINT-END
+.endc
+.end
