@@ -49,6 +49,23 @@ NON-STANDARD FEATURES
 #include "ngspice/dvec.h"
 #include "ngspice/cpstd.h"
 
+/* inp_case_mode(): the case policy this netlist was read under. */
+#include "ngspice/fteext.h"
+
+
+/* Does a looked-up name select this event node?  Declared in evtproto.h,
+ * defined here beside Evt_Parse_Node(), which is the canonical event-node
+ * lookup; evtaccept.c, evtprint.c and evtshared.c share it so the four
+ * lookups into one node list cannot drift apart.  See the header for why
+ * the predicate is NG_CASE_DISTINGUISH and not ng_ideq().
+ */
+
+bool Evt_Node_Name_Eq(const char *query, const char *stored)
+{
+    return inp_case_mode() == NG_CASE_DISTINGUISH ? (strcmp(query, stored) == 0)
+                                                  : (cieq(query, stored) != 0);
+}
+
 
 /* Parse member qualifier from node name and find node index.
  * The node name may be qualified by a member name for nodes with
@@ -78,10 +95,6 @@ int Evt_Parse_Node(const char *node, struct node_parse *result)
 
     name = MIFcopy((char *)node);
 
-    /* Convert to all lower case */
-
-    strtolower(name);
-
     /* Divide into the node name and member name */
 
     result->node = name;
@@ -101,13 +114,24 @@ int Evt_Parse_Node(const char *node, struct node_parse *result)
         result->member = NULL;
     }
 
+    /* Convert the member to all lower case.  The member is a keyword named
+     * by the user-defined node type - "state", "strength" - and keywords are
+     * case insensitive in every mode, so it keeps the fold it always had.
+     * The node name is an identifier and does not: folding it here made
+     * every event-node lookup case insensitive even under 'distinguish',
+     * where 'DIG' and 'dig' are two names.
+     */
+
+    if (result->member)
+        strtolower(result->member);
+
     /* Look for node name in the event-driven node list */
 
     node_table = evt->info.node_table;
     num_nodes = evt->counts.num_nodes;
 
     for (i = 0; i < num_nodes; i++) {
-        if (cieq(name, node_table[i]->name))
+        if (Evt_Node_Name_Eq(name, node_table[i]->name))
             break;
     }
     if (i >= num_nodes) {

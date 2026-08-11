@@ -339,7 +339,7 @@ void EVTcancel_value_call(const char         *node,
     num_nodes = evt->counts.num_nodes;
 
     for (i = 0; i < num_nodes; i++) {
-        if (cieq(node, node_table[i]->name))
+        if (Evt_Node_Name_Eq(node, node_table[i]->name))
             break;
     }
     if (i >= num_nodes)

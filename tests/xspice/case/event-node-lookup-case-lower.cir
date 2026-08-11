@@ -1,0 +1,17 @@
+* all-lower-case control for event-node-lookup-case.cir
+* Same circuit, the 'eprint' query spelled exactly as the A card spelled the
+* node, so src/xspice/evt/evtprint.c:341 resolves it in every mode before and
+* after the Class C change.  If this deck ever moves, the defect is in eprint
+* or in the d_buffer chain and not in the case comparison.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outq dbuf
+.model dbuf d_buffer
+.OPTIONS noacct
+.control
+op
+eprint outq
+.endc
+.end

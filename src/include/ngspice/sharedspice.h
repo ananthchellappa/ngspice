@@ -65,12 +65,15 @@ asked for. See the note on identifier case below.
 
 **
 Identifier case
-The two halves of this API do not agree about case, and never have.
-Under casemode=fold and casemode=preserve, ngGet_Vec_Info and ngSpice_Raw_Evt
-accept a name in any case.
-ngGet_Evt_NodeInfo does not: it compares with strcmp, so it only accepts the
-exact string that ngSpice_AllEvtNodes returned. Callers should use the string
-ngSpice_AllEvtNodes gave them rather than one they built themselves.
+Under casemode=fold and casemode=preserve, ngGet_Vec_Info, ngSpice_Raw_Evt
+and ngGet_Evt_NodeInfo all accept a name in any case; under
+casemode=distinguish all three require the stored spelling, because two
+spellings are then two names.
+ngGet_Evt_NodeInfo used to be the exception: it compared with strcmp in every
+mode, so in the two case-insensitive modes it rejected a query the analog
+half of the same API accepted. That is fixed; a caller that was already
+passing the string ngSpice_AllEvtNodes returned sees no change, and that
+remains the rule that is safe in all three modes.
 
 Which spelling the simulator stores is selected by the control variable
 'casemode', read once per netlist read. The default, fold, lowercases every
@@ -80,12 +83,12 @@ and this API returns that instead; identity is unchanged, so R1 and r1 are
 still one device.
 
 With casemode=distinguish, R1 and r1 are two devices and Out and OUT are two
-nets, so ngGet_Vec_Info stops accepting a name in any case and requires the
-stored spelling. That is a contract change for callers that relied on the
-case-insensitive match, and it is the reason the rule above is stated per
-mode. The safe rule in every mode is the one the event half already imposes:
-use the string the simulator gave you. casemode=distinguish is experimental
-and prints a warning naming what it does not yet distinguish.
+nets, so ngGet_Vec_Info and ngGet_Evt_NodeInfo stop accepting a name in any
+case and require the stored spelling. That is a contract change for callers
+that relied on the case-insensitive match, and it is the reason the rule
+above is stated per mode. The safe rule in every mode is to use the string
+the simulator gave you. casemode=distinguish is still experimental and prints
+a warning on stderr naming what is known to be unfinished in it.
 
 libngspice has no argv, so the only way to select the mode is
     ngSpice_Command("set casemode=preserve");

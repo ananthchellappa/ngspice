@@ -158,6 +158,16 @@ struct node_parse {
 
 int Evt_Parse_Node(const char *node, struct node_parse *result);
 
+/* Does a looked-up name select this event node?  The query reaches these
+ * lookups from ngGet_Evt_NodeInfo(), from a word typed at the control
+ * language, or from a name ngspice built, so its case is not the deck's
+ * choice and it stays case insensitive except under 'distinguish'.  This is
+ * findvec()'s rule; doc/claude/decisions/0001-distinguish.md decision 3,
+ * Class C.  Not ng_ideq(), which is identity between two names the deck
+ * wrote and would make the default mode exact. */
+
+bool Evt_Node_Name_Eq(const char *query, const char *stored);
+
 /* Internal utility functions. */
 
 void Evt_purge_free_outputs(void);

@@ -250,7 +250,7 @@ static int get_index(
     node = ckt->evt->info.node_list;
 
     while(node) {
-        if(strcmp(node_name, node->name) == 0) {
+        if(Evt_Node_Name_Eq(node_name, node->name)) {
             found = MIF_TRUE;
             break;
         }

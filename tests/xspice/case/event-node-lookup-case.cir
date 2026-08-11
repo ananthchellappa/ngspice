@@ -1,0 +1,28 @@
+* eprint of an event node, queried in a case the deck did not write
+* Under 'preserve' the event node keeps the spelling the A card gave it, but
+* the word handed to 'eprint' is a lookup query, not a second declaration of
+* the name, so it must resolve without regard to case - the rule findvec()
+* has always used for the analog side and that Phase 3 gate 3 made explicit.
+*   src/xspice/evt/evtprint.c:341
+*     if(strcmp(node_name, node->name) == 0)
+* made the event lookup stricter than the analog one in every mode: with the
+* node interned as 'outq', 'eprint OUTQ' failed while 'print v(...)' of an
+* analog net answered to any spelling.
+* RED evidence at feff44746: this deck printed nothing after the trtol line -
+* 'ERROR - Node OUTQ is not an event node.' goes to stderr, which check.sh
+* does not capture - while event-node-lookup-case-lower.cir printed the
+* table.  GREEN is the table under both spellings.
+* This is a Class C lookup, so the predicate is exact only under
+* 'distinguish'; doc/claude/decisions/0001-distinguish.md decision 3.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outq dbuf
+.model dbuf d_buffer
+.OPTIONS noacct
+.control
+op
+eprint OUTQ
+.endc
+.end
