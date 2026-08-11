@@ -1269,7 +1269,12 @@ if_set_binned_model(CKTcircuit *ckt, char *devname, char *param, struct dvec *va
     l = v->va_V.vV_real;
     free_struct_variable(v);
 
-    if (param[0] == 'w')
+    /* the caller admitted this parameter name case insensitively, with
+       eqc(param, "w") || eqc(param, "l"), so the letter is folded here too.
+       Under a non-folding case mode device.c:1420 leaves the typed name
+       alone, and a byte exact test would send an upper case W into the
+       length and re-bin on the unchanged width. */
+    if (tolower_c(param[0]) == 'w')
         w = *val->v_realdata; /* overwrite the width with the alter param */
     else
         l = *val->v_realdata; /* overwrite the length with the alter param */

@@ -1,0 +1,48 @@
+* an upper case typed parameter letter on alter must still re-select the bin
+* if_set_binned_model() (src/frontend/device.c:1250) decides which of the two
+* geometry parameters the user altered by testing param[0] against a lower
+* case literal at :1272, but its only caller admits the parameter name case
+* insensitively at :1489 with eqc(param, "w") || eqc(param, "l").  So
+* 'alter M1 W=2u' is let in and then falls into the else arm, which assigns
+* the new width to the local length; the bin is chosen from the unchanged
+* width and the device keeps the bin it already had.
+*
+* device.c:1420 folds the typed parameter name only under inp_case_folding(),
+* which is correct and is what leaves the upper case W visible at :1272, so
+* this is unreachable in fold mode and wrong under casemode=preserve only.
+*
+* nch.1 and nch.2 differ only in vth0 and in which width band they claim, so
+* crossing the bin boundary is visible as a drain voltage:
+*
+*   op                W=1u,   bin nch.1, vth0=0.4     v(3) = 1.432887e+00
+*   alter M1 W=2u     W=2u,   bin nch.2, vth0=0.9     v(3) = 1.481980e+00
+*   alter M1 L=1.5u   L=1.5u, bin nch.2, vth0=0.9     v(3) = 1.484293e+00
+*
+* Without the re-bin the second op keeps nch.1's vth0=0.4 at the new width,
+* draws more current and lands on 1.340324e+00 instead.  The third op is the
+* guard on the other arm: L must still reach the length, not the width.
+*
+* alter-rebin-param-case-lower.cir is the twin.  The only bytes that differ
+* between the two decks are the two typed parameter letters on the alter
+* commands; the instance card keeps 'W=1u L=1u' in both.  Its .out is
+* byte identical.
+*
+* doc/codex/issues/0026
+.OPTIONS noacct
+Vd 1 0 dc 1.5
+Vg 2 0 dc 1.5
+Rd 1 3 10k
+M1 3 2 0 0 nch W=1u L=1u
+.model nch.1 nmos level=49 version=3.3.0 lmin=0.1u lmax=2u wmin=0.5u wmax=1.5u vth0=0.4 u0=300
+.model nch.2 nmos level=49 version=3.3.0 lmin=0.1u lmax=2u wmin=1.5u wmax=5u vth0=0.9 u0=300
+.control
+op
+print v(3)
+alter M1 W=2u
+op
+print v(3)
+alter M1 L=1.5u
+op
+print v(3)
+.endc
+.end
