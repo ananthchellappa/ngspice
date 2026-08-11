@@ -24,9 +24,13 @@ char* Sourcefile;
 /*#define TRACE*/
 
 /* pass 2 - Scan through the lines.  ".model" cards have processed in
- *  pass1 and are ignored here.  */
+ *  pass1 and are ignored here.
+ *
+ *  Returns non-zero when it gave up with cards still unread, which is the
+ *  answer to "has every card that can define a node been seen?" and is what
+ *  INPtermCaseCheck() needs before it can call a node undefined.  */
 
-void INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
+int INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
 {
 
     struct card *current;
@@ -252,7 +256,13 @@ void INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
 
         case '.':   /* .<something> Many possibilities */
             if (INP2dot(ckt,tab,current,task,gnode))
-            return;
+                /* the rest of the deck is abandoned here - a .dc whose
+                   syntax is bad returns 1 - so the cards below this one are
+                   never parsed and whatever they would have defined is not
+                   in the symbol table.  Say so, rather than leave the caller
+                   to assume the table is complete.
+                   doc/claude/decisions/0008-undefined-node-diagnostic.md */
+                return current->nextcard ? 1 : 0;
             break;
 
         case '\0':
@@ -265,5 +275,5 @@ void INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
         }
     }
 
-    return;
+    return 0;
 }

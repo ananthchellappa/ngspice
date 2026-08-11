@@ -149,7 +149,7 @@ char *INPmodKey(const char *);
 int INPmakeMod(char *, int, struct card *);
 char *INPmkTemp(char *);
 void INPpas1(CKTcircuit *, struct card *, INPtables *);
-void INPpas2(CKTcircuit *, struct card *, INPtables *, TSKtask *);
+int INPpas2(CKTcircuit *, struct card *, INPtables *, TSKtask *);
 void INPpas3(
         CKTcircuit *, struct card *, INPtables *, TSKtask *, IFparm *, int);
 void INPpas4(CKTcircuit *, INPtables *);

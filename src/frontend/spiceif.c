@@ -100,7 +100,7 @@ CKTcircuit *
 if_inpdeck(struct card *deck, INPtables **tab)
 {
     CKTcircuit *ckt;
-    int err, i;
+    int err, i, incomplete;
     struct card *ll;
     IFuid taskUid;
     IFuid optUid;
@@ -180,7 +180,7 @@ if_inpdeck(struct card *deck, INPtables **tab)
        This is the next major step:
        Scan through the instance lines and parse the circuit.
        Set up the circuit matrix. */
-    INPpas2(ckt, deck->nextcard, *tab, ft_curckt->ci_defTask);
+    incomplete = INPpas2(ckt, deck->nextcard, *tab, ft_curckt->ci_defTask);
 #ifdef XSPICE
     if (!Evtcheck_nodes(ckt, *tab)) {
         ft_sperror(E_PRIVATE, "Evtcheck_nodes");
@@ -203,9 +203,15 @@ if_inpdeck(struct card *deck, INPtables **tab)
      * from a forward reference.  Under casemode=distinguish, one whose name
      * differs only in case from a node that is defined is reported as that
      * near miss instead, naming both spellings.
+     *
+     * Unless pass 2 gave up with cards still unread, which a bad .dc does:
+     * the cards below it never reached the symbol table, so a node they
+     * define looks exactly like a node nothing defines, and the report would
+     * be a false one on top of an error the user already has.
      * doc/claude/decisions/0002-deferred-node-resolution-check.md,
      * doc/claude/decisions/0008-undefined-node-diagnostic.md */
-    INPtermCaseCheck(*tab);
+    if (!incomplete)
+        INPtermCaseCheck(*tab);
 
 #ifdef XSPICE
     /* The event node list is complete and the auto-bridge has run, so an event
