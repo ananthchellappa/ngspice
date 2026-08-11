@@ -26,7 +26,7 @@ name spaces, and every compare on that path is byte exact.
 `eq(name, v->va_name)`, i.e. `strcmp`.
 
 `vec_get()`'s qualifier half splits the argument at the first `.` and walks the
-plot list with `plot_prefix(buf, pl->pl_typename)` (`src/frontend/vectors.c:598`,
+plot list with `plot_prefix(buf, pl->pl_typename)` (`src/frontend/vectors.c:607`,
 definition at `:1392`), whose loop is `if (*pre != *str) break;`. The *vector*
 half of the same lookup is already case-insensitive: the per-plot lookup table
 is built from `ds_cat_str_case(&dbuf, d->v_name, ds_case_lower)`, so only the

@@ -64,7 +64,7 @@ untestable until `inp_casefix` behaves as documented.
 | 0.1 | `src/frontend/inpcom.c:3545-3557` | `keepquotes` polarity inverted; also computed with `*string == 'x'`, lowercase-only |
 | 0.2 | `src/frontend/inpcom.c:1857` | `$`-token fold on `echo` lines inside `.control` breaks `setcs`+`echo` |
 | 0.3 | `src/frontend/inp.c:713` | `*#`-prefixed commands bypass the whitelist because `ciprefix` sees the prefix |
-| 0.4 | `src/frontend/vectors.c:101` | `tolower(word[0] != 'a')` folds a boolean; `all`/`allv` wildcards are case-sensitive |
+| 0.4 | `src/frontend/vectors.c:100` | `tolower(word[0] != 'a')` folds a boolean; `all`/`allv` wildcards are case-sensitive |
 | 0.5 | `src/frontend/control.c` flow keywords | command names use `strcasecmp` at `:205` but `if`/`while`/`foreach`/`end` use `eq`, so `PRINT` works and `IF` does not |
 
 Hazard for 0.2: `src/xspice/verilog/vlnggen` deliberately uses `setcs` at lines
@@ -224,8 +224,8 @@ key while `t_ent` keeps the first-seen spelling
 ### 2.5 The output path — **done, commit `47c52c7dd`**
 
 Not optional. The `strtolower` was removed from `vec_basename`
-(`src/frontend/vectors.c:1129`, now the comment recording the removal) so
-`print` (`postcoms.c:207`), `write` (`postcoms.c:661`, which *replaces*
+(`src/frontend/vectors.c:1138`, now the comment recording the removal) so
+`print` (`postcoms.c:212`), `write` (`postcoms.c:666`, which *replaces*
 `v_name`), `write_sparam` (`:826`), `spec` (`spec.c:213`) and `fft`/`psd`
 (`com_fft.c:165`, `:398`) carry the preserved name. Without it, `preserve`
 delivered case on `listing`/`show`/batch-`-r` and discarded it on five other
@@ -293,7 +293,7 @@ with no diagnostic.
    guard.
 2. `src/xspice/evt/evtcheck_nodes.c:720` — auto-bridge `strcmp`; mixed-signal
    decks silently lose their bridges.
-3. `src/frontend/vectors.c:61,71,184` — **done**. `nghash_unique(..., FALSE)`
+3. `src/frontend/vectors.c:60,71,184` — **done**. `nghash_unique(..., FALSE)`
    plus folded key and query meant two case-variant nets aliased and `print`
    returned whichever hashed first. Until this was exact, `distinguish` could
    create two nets that the user could not address independently and the
@@ -401,8 +401,8 @@ that file first.
 
 Open these before writing code:
 
-- A scope entry for `src/frontend/vectors.c:1129` plus
-  `postcoms.c:207,661,826`, `com_fft.c:165,398`, `spec.c:213`. **Done**, 2.5.
+- A scope entry for `src/frontend/vectors.c:1138` plus
+  `postcoms.c:212,661,826`, `com_fft.c:165,398`, `spec.c:213`. **Done**, 2.5.
 - A `visualc/*.vcxproj` (×3) checklist item. **Done**, checklist section 1: no
   action was needed because Phase 2 added no new `.c` file, and the standing
   obligation for anyone who does is stated there.

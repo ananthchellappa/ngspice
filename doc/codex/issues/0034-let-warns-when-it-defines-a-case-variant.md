@@ -9,7 +9,7 @@ left-hand side through `vec_get()`.
 ## Summary
 
 `findvec()` reports a case near-miss on a failed lookup
-(`src/frontend/vectors.c:235`):
+(`src/frontend/vectors.c:234`):
 
 ```c
     if (!d && inp_case_mode() == NG_CASE_DISTINGUISH) {

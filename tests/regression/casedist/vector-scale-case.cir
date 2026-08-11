@@ -17,9 +17,10 @@
 * findvec()'s near-miss warning here, which is doc/codex/issues/0034 and is on
 * cp_err, so it does not reach this reference.
 *
-* tstart and tmax are given so that the run stores 16 timepoints instead of
-* 59, and every one of them is an exact doubling of tmax/1e4, so the table is
-* short and its numbers are exact.
+* .tran's fourth argument, tmax, is given so that the run stores 16 timepoints
+* instead of 59.  They are ngspice's own opening ramp -- doublings of tmax/1e4,
+* which is 4e-07 here -- with the last two clamped by tstop, so every value is
+* exact in binary and the table stays short.
 *
 * tests/bin/check.sh filters every line containing 'Index', 'time' or 'trans',
 * so both table headers and the analysis banner are eaten and the evidence is
@@ -30,11 +31,12 @@
 *
 * The circuit is one source and one resistor rather than a divider so that the
 * widest of those rows is four vectors.  print paginates at 8 + 16 per real
-* vector against the 'width' variable, which defaults to 80, so a fifth column
-* would split every ally table in two.
+* vector against the 'width' variable, whose default is DEF_WIDTH = 80
+* (src/include/ngspice/ftedefs.h:13), so a fifth column would split every ally
+* table in two.
 *
 * The unlet refusal is on cp_err, which check.sh does not capture, so it is
-* redirected with '>&' (src/frontend/streams.c:153) and read back, the shape
+* redirected with '>&' (src/frontend/streams.c:156) and read back, the shape
 * tests/regression/casedist/vector-unlet-report.cir uses.  Two lines are read
 * because the message begins with a newline, so the capture's first line is
 * empty; both variables are preseeded and the two are concatenated, so an

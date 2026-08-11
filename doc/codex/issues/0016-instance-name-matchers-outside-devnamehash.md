@@ -214,5 +214,5 @@ uses `show`, `showmod` or `save alli`.
 - `doc/claude/suggestions/case-sensitive-identifiers-plan.md` Phase 3 lists
   `outitf.c:391` among the items to close before Phase 3 starts; that entry can
   now be marked done, and the `gens.c` (b) pair joins the `distinguish` gate
-  list alongside `inpptree.c:1256`, `vectors.c:59,71,184`,
+  list alongside `inpptree.c:1256`, `vectors.c:58,71,184`,
   `evtcheck_nodes.c:720` and `evttermi.c:304`.

@@ -64,7 +64,7 @@ list through `vec_remove()` rather than comparing names themselves, so the
 predicate change is confined to the file that owns `pl_dvecs`.
 
 The one site that *would* need it exported is
-`is_scale_vec_of_current_plot()` (`src/frontend/postcoms.c:49`), which is
+`is_scale_vec_of_current_plot()` (`src/frontend/postcoms.c:54`), which is
 `cieq` and is `doc/codex/issues/0032`. Exporting `vec_name_eq()` is the shape
 that issue's fix will take; it is deliberately not done here, because
 exporting a predicate for a caller that does not yet exist would leave the
@@ -84,7 +84,7 @@ reported.
 `compose` and `cross` must stay silent. The string each hands to
 `vec_remove()` is the name it is about to allocate — `com_compose.c:116`
 `cp_unquote`s it and `:637` passes that same allocation to `dvec_alloc()`;
-`postcoms.c:953` takes the raw word and `:991` `copy()`s it — so a miss is the
+`postcoms.c:958` takes the raw word and `:991` `copy()`s it — so a miss is the
 ordinary case and not a failure. Warning there is the "warn on definition"
 option decision 2 rejected by name, and it would fire on the legitimate deck:
 under `distinguish`, `compose OUT` beside an `Out` is two vectors on purpose.
@@ -129,7 +129,7 @@ All four of those lines are asserted by a deck, not only measured by hand.
 the strength of decision 2's own paragraph saying no deck in this harness can
 assert on a warning. Both were wrong, and an adversarial review of that commit
 is what found it. `>&` redirects `cp_err` as well as `cp_out`
-(`src/frontend/streams.c:153`), so the warning can be captured to a file and
+(`src/frontend/streams.c:156`), so the warning can be captured to a file and
 read back with `fopen`/`fread`/`strstr`, exactly as
 `tests/regression/pipe/shell-keyword-case.cmd:79` already does for output it
 has to take off disk, and reduced to one upper-case token that the filter
@@ -179,12 +179,12 @@ mismatch as `doc/codex/issues/0033`.**
 
 `0027`'s acceptance criterion 2 asks for an audit of the line, and the audit's
 answer is that the two halves genuinely disagree: vectors are registered under
-their own spelling (`vectors.c:588`, `com_let.c:239`, `com_compose.c:658`,
-`postcoms.c:1013`), `clookup()` (`src/frontend/parser/complete.c`) walks the
+their own spelling (`vectors.c:597`, `com_let.c:239`, `com_compose.c:658`,
+`postcoms.c:1018`), `clookup()` (`src/frontend/parser/complete.c`) walks the
 trie byte for byte with no case folding in any mode, and `vec_remove()` is
 handed the spelling the user typed. So whenever the two differ the removal
 finds nothing and leaves a stale completion entry — in `fold` and `preserve`
-too, independent of this issue. `com_remzerovec()` (`postcoms.c:89`) already
+too, independent of this issue. `com_remzerovec()` (`postcoms.c:94`) already
 passes `ov->v_name` and is the in-tree precedent for the one-word fix.
 
 It is not taken here, for three reasons and not one:
@@ -202,8 +202,8 @@ It is not taken here, for three reasons and not one:
    matches. Zero observable benefit does not justify newly exercising it.
 3. **It would record something false.** "Add and remove now use the same
    string" is true; "the keyword is now always removed" is not, because
-   `plot_setcur()` deliberately does not swap the tree (`vectors.c:1338`), a
-   rawfile `load` leaves `keywords[CT_VECTOR]` NULL (`vectors.c:605`), and
+   `plot_setcur()` deliberately does not swap the tree (`vectors.c:1347`), a
+   rawfile `load` leaves `keywords[CT_VECTOR]` NULL (`vectors.c:614`), and
    simulation vectors are never added at all. A one-word change here would be
    read as "`CT_VECTOR` is now consistent" when three structural mismatches
    remain.
@@ -246,9 +246,26 @@ needs writing down rather than assuming:
 
 1. **`doc/codex/issues/0032`**, the vector name comparators outside
    `findvec()` — `is_scale_vec_of_current_plot()`, `findvec_ally()`,
-   `vec_eq()` and its six callers, `rawfile.c:611`, `diff.c:89`. All Class C
+   `vec_eq()` and its six callers, `rawfile.c:618`, `diff.c:95`. All Class C
    sites by decision 3's rule, none fixed here. It is what the experimental
    warning now names.
+
+   **Closed since**, on `ver_50`, by
+   `doc/claude/decisions/0005-scale-vector-identity.md`. Decision 2 above
+   predicted the shape correctly: `vec_name_eq()` was exported, and all six
+   sites call it. What decision 2 did *not* settle, and `0005` decision 1
+   does, is that a `vec_is_plot_scale()` helper is not the alternative it
+   looked like — the three scale rows have three different signatures.
+
+   Decision 6's expectation is the part that did not survive. It kept the word
+   `experimental` **and** retargeted the clause to `0032`, arguing that
+   auditing `vec_remove()`'s neighbourhood had found a replacement subject.
+   Closing `0032` emptied the clause again with no defect left to name, and
+   `0005` decision 5 declines to retarget it a third time: the obvious
+   candidate, `doc/codex/issues/0034`, is a false positive rather than a
+   silence, and this clause has always promised a silence. The clause now
+   names decision 5's migration hazard instead, which is inherent to the mode
+   and cannot be closed. The word stays, on decision 6's own reasoning.
 2. **`doc/codex/issues/0033`**, `cp_remkword()`'s spelling, per decision 5.
 3. **`doc/codex/issues/0034`**, `findvec()`'s near-miss warning firing on a
    *definition* when it is reached through `com_let()`'s left-hand side. That

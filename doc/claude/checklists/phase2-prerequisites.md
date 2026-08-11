@@ -58,7 +58,7 @@ documents each entry point.
 
 The asymmetry it records was already true before this work and documented
 nowhere. `ngGet_Vec_Info` (`sharedspice.c:1194` -> `vec_get` -> `findvec`)
-lowercases both the query and the table key (`vectors.c:184`, `:71`), and
+lowercases both the query and the table key (`vectors.c:183`, `:71`), and
 `ngSpice_Raw_Evt` folds too (`evtplot.c:83`). `ngGet_Evt_NodeInfo`
 (`sharedspice.c:1441` -> `EVTshareddata` -> `get_index`) compares with plain
 `strcmp` at `evtshared.c:253`. So one half of the public API accepts any case

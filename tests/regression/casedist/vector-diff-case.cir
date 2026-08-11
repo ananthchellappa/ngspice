@@ -8,7 +8,7 @@
 *
 * nameeq() is the only case decision in diff that this issue reaches.  The
 * pairing of a vector in one plot with its twin in the other is a hash lookup
-* on canonical names (diff.c:192-215) whose comparator is nghash's strcmp
+* on canonical names (diff.c:198-215) whose comparator is nghash's strcmp
 * (src/misc/hash.c:260), so it is byte exact in all three modes already; that
 * it is too strict under preserve is a different defect and is filed
 * separately.

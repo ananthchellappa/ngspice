@@ -159,14 +159,14 @@ line numbers and the tense are corrected.
 
 `preserve` does not deliver preservation by fixing the reader alone.
 `vec_basename()` used to call `strtolower(buf)` at
-`src/frontend/vectors.c:1129`; that line is now the comment recording its
+`src/frontend/vectors.c:1138`; that line is now the comment recording its
 removal. It sits on the output path of:
 
 | Consumer | Site |
 | --- | --- |
-| `print` | `src/frontend/postcoms.c:207` |
-| `write` | `src/frontend/postcoms.c:661` — *replaces* `v_name` before writing the rawfile |
-| `write_sparam` | `src/frontend/postcoms.c:826` |
+| `print` | `src/frontend/postcoms.c:212` |
+| `write` | `src/frontend/postcoms.c:666` — *replaces* `v_name` before writing the rawfile |
+| `write_sparam` | `src/frontend/postcoms.c:831` |
 | `spec` | `src/frontend/spec.c:213` |
 | `fft`, `psd` | `src/frontend/com_fft.c:165`, `:398` |
 
@@ -196,7 +196,7 @@ the one place where "the default is provably byte-identical" does not hold.
    `strcasecmp` at `src/spicelib/parser/inptyplk.c:37` and
    `src/frontend/inpcom.c:542`); the rest is the Phase 1 sweep.
 3. The frontend vector table must not silently alias. **Done**, Phase 3 gate 3.
-   `src/frontend/vectors.c:61` sets `nghash_unique(..., FALSE)` and `:71`/`:184`
+   `src/frontend/vectors.c:60` sets `nghash_unique(..., FALSE)` and `:71`/`:184`
    fold key and query, so under `distinguish` two case-variant nets would
    collide and `print` would return whichever hashed first — a silent wrong
    answer. All three lines stay; the duplicate chain they produce is now
@@ -215,7 +215,7 @@ the one place where "the default is provably byte-identical" does not hold.
    note is `src/include/ngspice/sharedspice.h:65-84`.
 5. Rawfiles are not self-describing. Three writers use three naming policies
    (batch `-r` verbatim, `write` lowercased, `wrdata`), and the reader binds
-   `scale=` with `cieq` (`src/frontend/rawfile.c:611`). A consumer cannot tell
+   `scale=` with `cieq` (`src/frontend/rawfile.c:618`). A consumer cannot tell
    whether `Out` and `out` are two nets or an artifact of which writer produced
    the file. The format has no case-policy field; this spec does not add one.
 
@@ -408,12 +408,18 @@ fold. It is not repeated here.
   `-D casemode=preserve` and the new `tests/xspice/casedist/` under
   `-D casemode=distinguish`; both carry their own `spinit` because
   `tests/bin/spinit` loads no code models. `set_case_mode()` still calls the
-  mode experimental, but no longer names these sites: `doc/codex/issues/0029`
-  and `doc/codex/issues/0027` have both closed since, and what the clause names
-  now is `doc/codex/issues/0032`, the vector name matchers outside `findvec()`.
-  None of the three is a gate. `doc/claude/decisions/0004-unlet-vector-identity.md`
-  decision 6 records why the word stays with the clause this narrow, and why it
-  would stay even if the clause emptied.
+  mode experimental, but no longer names any of these sites, and no longer
+  names an open defect at all: `doc/codex/issues/0029`, `0027` and `0032` have
+  each closed in turn, none of the three a gate, and with `0032` the clause ran
+  out of defects to name. It now names the mode's own limitation instead — a
+  deck that spells one net two ways becomes a deck with two nets, silently,
+  because both spellings are definitions and decision 2 of
+  `doc/claude/decisions/0001-distinguish.md` deliberately does not warn on a
+  definition. That subject cannot be closed, only withdrawn with the feature.
+  `doc/claude/decisions/0005-scale-vector-identity.md` decision 5 records why
+  `doc/codex/issues/0034` was rejected as the next subject and why the clause
+  was not simply emptied; `doc/claude/decisions/0004-unlet-vector-identity.md`
+  decision 6 records the reasons the word does not rest on the clause alone.
 - The frontend vector table no longer aliases case-variant names. **Done**,
   Phase 3 gate 3.
 - A B source `V()` reference that misses by case is diagnosed rather than

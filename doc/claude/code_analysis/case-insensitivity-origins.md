@@ -160,7 +160,7 @@ preserve:
   upper-cases the copy for dispatch; `devmodtranslate` (`subckt.c:1836-1839`)
   lower-cases a local for the same purpose. Neither mutates the card.
 - Card keyword recognition uses `ciprefix()` throughout, which folds nothing.
-- Frontend vector lookup: `src/frontend/vectors.c:71-76` inserts a **lowercased
+- Frontend vector lookup: `src/frontend/vectors.c:70-76` inserts a **lowercased
   copy** of `v_name` as the hash key and `findvec()` lowercases the query into a
   scratch buffer. `v_name` itself keeps the original case. This is the one place
   in the codebase that already implements preserve-the-name, fold-the-key, and
@@ -214,7 +214,7 @@ These are live and independent of any case-sensitivity work.
 5. `keep_case_of_cider_param()` requires exactly two double quotes
    (`inpcom.c:238`); four or more folds the whole line including paths. This is
    the defect recorded in `doc/codex/issues/0005`.
-6. `src/frontend/vectors.c:101` reads `if (tolower(word[0] != 'a'))` — the
+6. `src/frontend/vectors.c:100` reads `if (tolower(word[0] != 'a'))` — the
    parenthesis encloses the comparison, so `tolower` folds a boolean. The
    `all`/`allv`/`alli`/`ally`/`alle` wildcards are therefore matched
    case-sensitively.

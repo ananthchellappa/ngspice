@@ -35,7 +35,7 @@ Three shipped diagnostics are therefore assertable and unasserted:
 | an event node that matched no analog node except by case | `report_bridge_case_miss()`, `src/xspice/evt/evtcheck_nodes.c` | `doc/claude/decisions/0003-event-node-near-miss.md` |
 | an event node that nothing drives when a driven node differs from it only in case | `EVTnode_case_check()`, `src/xspice/evt/evttermi.c` | `doc/claude/decisions/0003-event-node-near-miss.md` |
 
-`findvec()`'s own near-miss warning (`src/frontend/vectors.c:235`) is the
+`findvec()`'s own near-miss warning (`src/frontend/vectors.c:234`) is the
 fourth, and it is the one whose *false positive* is already filed separately as
 `doc/codex/issues/0034`.
 

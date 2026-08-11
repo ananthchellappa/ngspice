@@ -205,7 +205,7 @@ and no test can reach it in this configuration.
 | `src/frontend/com_hardcopy.c:62` | plot | Only reached by bare 'hardcopy' (no args), which then blocks on the X click-to-select prompt (hangs) or, headless, aborts and dumps core. |
 | `src/frontend/com_hardcopy.c:67` | plot | Same bare-'hardcopy' branch; the .ps/.svg suffix goes onto a $HOME temp name that is only ever reported in a message, never turned into a readable file. |
 | `src/frontend/define.c:99` | variable | parse.c strtolowers a call name before matching ft_funcs, so a colliding user function is always shadowed; accepting or rejecting the define changes only the me |
-| `src/frontend/diff.c:237` | exprcoms | com_diff only prints text; its sole state change is the internal v_link2 cross-link, which print/let/display never expose |
+| `src/frontend/diff.c:243` | exprcoms | com_diff only prints text; its sole state change is the internal v_link2 cross-link, which print/let/display never expose |
 | `src/frontend/help/readhelp.c:326` | shell | configure defines NOINTHELP, so com_ghelp calls com_help and never reaches hlp_main/findsubject; no ngspice.idx help index is built or shipped either. |
 | `src/frontend/inpcom.c:2399` | shell | inp_read folds every node position; uppercase reaches this loop only on .lib/.inc paths and whitelisted control text, where matching corrupts rather than fixes. |
 | `src/frontend/inpcom.c:2406` | shell | Same loop, same reason: no card position that means the gnd keyword survives the fold, so a case-insensitive match can only newly hit case-preserved non-node te |
@@ -244,11 +244,11 @@ and no test can reach it in this configuration.
 | `src/frontend/parse.c:253` | exprcoms | eq(v_name,"all") only selects which warning text checkvalid prints; both branches return FALSE, so no value or state differs |
 | `src/frontend/plotting/plotit.c:565` | plot | Recognised 'lingrid' and any unrecognised value both yield GRID_LIN with gfound TRUE; renders byte-identical svg. Only the warning text differs. |
 | `src/frontend/plotting/plotit.c:662` | plot | Recognised 'linplot' and any unrecognised value both yield PLOT_LIN with pfound TRUE; renders byte-identical svg. Only the warning text differs. |
-| `src/frontend/postcoms.c:452` | postcoms | com_sndprint is inside #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE; both undefined in build-ver_50 config.h, so the sndprint command is not registered. |
-| `src/frontend/postcoms.c:455` | postcoms | Same #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE guard; sndprint is not compiled or registered in this build, so the site is unreachable. |
-| `src/frontend/postcoms.c:591` | postcoms | Unrecognised filetype falls back to AsciiRawFile = 0 (binary), so BINARY and a rejected value write identical files; only SPICE_ASCIIRAWFILE flips it, unsettabl |
-| `src/frontend/postcoms.c:1034` | postcoms | pl_typename is never user text: it is the compile-time "const" of static constantplot or ft_plotabbrev's fixed lowercase table plus a digit. |
-| `src/frontend/postcoms.c:1067` | postcoms | Same operand as 1034 in killplot's guard; pl_typename is machine-generated lowercase, so no uppercase value can ever reach this eq(). |
+| `src/frontend/postcoms.c:457` | postcoms | com_sndprint is inside #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE; both undefined in build-ver_50 config.h, so the sndprint command is not registered. |
+| `src/frontend/postcoms.c:460` | postcoms | Same #if HAVE_LIBSNDFILE && HAVE_LIBSAMPLERATE guard; sndprint is not compiled or registered in this build, so the site is unreachable. |
+| `src/frontend/postcoms.c:596` | postcoms | Unrecognised filetype falls back to AsciiRawFile = 0 (binary), so BINARY and a rejected value write identical files; only SPICE_ASCIIRAWFILE flips it, unsettabl |
+| `src/frontend/postcoms.c:1039` | postcoms | pl_typename is never user text: it is the compile-time "const" of static constantplot or ft_plotabbrev's fixed lowercase table plus a digit. |
+| `src/frontend/postcoms.c:1072` | postcoms | Same operand as 1034 in killplot's guard; pl_typename is machine-generated lowercase, so no uppercase value can ever reach this eq(). |
 | `src/frontend/resource.c:219` | resource | NO_RUDATA branch; USE_OMP/HAVE_CLOCK_GETTIME are defined in config.h so this eq(name,"totalcputime") is not compiled. |
 | `src/frontend/resource.c:221` | resource | NO_RUDATA branch; USE_OMP/HAVE_CLOCK_GETTIME are defined in config.h so this eq(name,"cputime") is not compiled. |
 | `src/frontend/resource.c:275` | resource | HAVE_GETRUSAGE is undefined, so the "faults" body is empty; lowercase and uppercase both print only the cp_err note. |
@@ -1023,7 +1023,7 @@ behaviour today and needs a test. Unmarked keyword rows are reviewable no-ops.
 | [x] | 1030 | `eq` | `all` | keyword **fv** | destroy sub-keyword from the command wordlist; unfolded when typed interactively |
 | [x] | 1034 | `eq` | `const` | keyword **fv** | (overturned) "const" is the reserved name of the built-in constants plot (plotting.c:8-9 static constantplot has compile-time pl_typename "const"), not a user-chos |
 | n/a | 1047 | `eq` |  | identifier | user-typed plot name against generated pl_typename; destroy argument unfolded interactively |
-| [x] | 1067 | `eq` | `const` | keyword **fv** | (overturned) Same reserved literal in killplot's "can't destroy the constant plot" guard; vectors.c:618 uses cieq for it. pl_typename can be user text only via com |
+| [x] | 1067 | `eq` | `const` | keyword **fv** | (overturned) Same reserved literal in killplot's "can't destroy the constant plot" guard; vectors.c:627 uses cieq for it. pl_typename can be user text only via com |
 
 ### `src/frontend/device.c` — 10 keyword, 8 fold-visible
 

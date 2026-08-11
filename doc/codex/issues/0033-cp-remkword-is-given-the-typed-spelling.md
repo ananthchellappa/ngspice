@@ -9,7 +9,7 @@ of why. Mode-independent and pre-existing.
 
 ## Summary
 
-`vec_remove()` (`src/frontend/vectors.c:627`) deregisters the completion
+`vec_remove()` (`src/frontend/vectors.c:636`) deregisters the completion
 keyword with the name the **caller** passed:
 
 ```c
@@ -18,8 +18,8 @@ keyword with the name the **caller** passed:
 ```
 
 Every producer registers it with the **vector's own** spelling:
-`cp_addkword(CT_VECTOR, v->v_name)` at `vectors.c:588`, `com_let.c:239`,
-`com_compose.c:658`, `postcoms.c:1013`.
+`cp_addkword(CT_VECTOR, v->v_name)` at `vectors.c:597`, `com_let.c:239`,
+`com_compose.c:658`, `postcoms.c:1018`.
 
 `cp_remkword()` reaches `clookup()` (`src/frontend/parser/complete.c:485`),
 which walks the trie byte for byte — `place->cc_name[ind] < word[ind]` and
@@ -30,7 +30,7 @@ not meet.
 
 The pair is therefore internally inconsistent: the vector is selected
 case-insensitively (`fold`, `preserve`) and deregistered case-sensitively.
-`com_remzerovec()` (`postcoms.c:89`) already passes `ov->v_name` and is the
+`com_remzerovec()` (`postcoms.c:94`) already passes `ov->v_name` and is the
 in-tree precedent for the one-word fix.
 
 ## Impact
@@ -84,8 +84,8 @@ readers there was nothing left to notice.
    `preserve` is the cheap guard.
 4. The commit does not claim `CT_VECTOR` is now consistent. Three structural
    mismatches would remain: `plot_setcur()` deliberately does not swap the tree
-   (`vectors.c:1338`, with the reason in a comment), a rawfile `load` leaves
-   `keywords[CT_VECTOR]` NULL (`vectors.c:605`) so every later remove is a
+   (`vectors.c:1347`, with the reason in a comment), a rawfile `load` leaves
+   `keywords[CT_VECTOR]` NULL (`vectors.c:614`) so every later remove is a
    guaranteed no-op, and `vec_new()` never registers simulation vectors at all.
 
 ## Resolution

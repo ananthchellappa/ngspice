@@ -9,12 +9,12 @@ always been there and is correct in the two shipped modes. The record is
 
 ## Summary
 
-`vec_remove()` (`src/frontend/vectors.c:500`), which is what `unlet` runs,
+`vec_remove()` (`src/frontend/vectors.c:509`), which is what `unlet` runs,
 picks the vector to drop with an unconditional case-insensitive compare over
 the plot's vector list:
 
 ```c
-/* src/frontend/vectors.c:504-506 */
+/* src/frontend/vectors.c:513-506 */
     for (ov = plot_cur->pl_dvecs; ov; ov = ov->v_next)
         if (cieq(name, ov->v_name) && (ov->v_flags & VF_PERMANENT))
             break;

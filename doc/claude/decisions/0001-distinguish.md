@@ -110,12 +110,13 @@ Where it applies, and its state:
 
 | Site | Rule | State |
 | --- | --- | --- |
-| `findvec()`, `src/frontend/vectors.c:152` | resolution | **implemented** with this decision |
+| `findvec()`, `src/frontend/vectors.c:151` | resolution | **implemented** with this decision |
 | `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference |
 | auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **implemented** with `doc/codex/issues/0030`, in `report_bridge_case_miss()`, once an event node's scan of `CKTnodes` has finished without an exact match |
 | `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator. The near-miss warning is **implemented** with `doc/codex/issues/0030`, deferred to `EVTnode_case_check()` and narrowed there from the issue's wording to an event node that nothing drives; see `doc/claude/decisions/0003-event-node-near-miss.md` |
-| `vec_remove()` from `com_unlet()`, `src/frontend/vectors.c:613` | resolution | **implemented** with `doc/codex/issues/0027`, behind `vec_remove()`'s `report_case_miss`, reusing `vec_warn_case_near_miss()` so the wording is `findvec()`'s. See `doc/claude/decisions/0004-unlet-vector-identity.md` |
+| `vec_remove()` from `com_unlet()`, `src/frontend/vectors.c:622` | resolution | **implemented** with `doc/codex/issues/0027`, behind `vec_remove()`'s `report_case_miss`, reusing `vec_warn_case_near_miss()` so the wording is `findvec()`'s. See `doc/claude/decisions/0004-unlet-vector-identity.md` |
 | `vec_remove()` from `com_compose()` and `com_cross()` | definition — each passes the name it is about to allocate | silent, deliberately, via the same flag |
+| a rawfile variable's `scale=` reference, `src/frontend/rawfile.c` | resolution | **reports the miss but not the twin**, with `doc/codex/issues/0032`. The predicate is now `vec_name_eq()`, so under `distinguish` a `scale=` naming a variable the file spells differently reaches the reader's own `Error: no such vector %s` instead of binding to the case variant. That is the resolution failure, loud, but it does not name the near miss. Upgrading it to `vec_warn_case_near_miss()` is not taken: that helper wants the plot's lookup table, and a loaded plot has none — `vectors.c:614` leaves `keywords[CT_VECTOR]` NULL — so the wording would have to be duplicated rather than reused |
 | `vec_get()` on `com_let()`'s left-hand side, `src/frontend/com_let.c:101` | definition | **reports, and should not.** It reaches `findvec()`, so `let TIME = time * 2` warns and then correctly succeeds. This is the rejected option arriving by accident; `doc/codex/issues/0034` |
 | `INPtermInsert()` from a device card | definition | silent, deliberately |
 | `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately |
@@ -129,7 +130,7 @@ harness can assert on it either way", and that was wrong. A deck *can* assert
 on a diagnostic, and `doc/codex/issues/0027`'s
 `tests/regression/casedist/vector-unlet-report.cir` does. The control language
 redirects `cp_err` as well as `cp_out` with `>&`
-(`src/frontend/streams.c:153`), so `unlet oUt >& capture.txt` puts the warning
+(`src/frontend/streams.c:156`), so `unlet oUt >& capture.txt` puts the warning
 in a file; `fopen`/`fread`/`strstr` then reduce it to one upper-case token on
 stdout, which the filter keeps because it contains neither `Warning` nor
 `Error`. `tests/regression/pipe/shell-keyword-case.cmd:79` was already using
@@ -241,7 +242,7 @@ land in that order.
 
 ### Class C — the frontend vector lookup, which is neither
 
-`src/frontend/vectors.c:61`, `:71`, `:184` — duplicates permitted, key and
+`src/frontend/vectors.c:60`, `:71`, `:184` — duplicates permitted, key and
 query folded, so two case-variant nets aliased and `findvec()` returned
 whichever hashed first. **Phase 3 gate 3, closed with this decision.**
 
@@ -263,8 +264,27 @@ section's verbatim — its query is a control-language word, which the reader
 folds only when the word arrived through `inp_readall()`. The name matchers
 *outside* `findvec()` that this decision also did not reach —
 `is_scale_vec_of_current_plot()`, `findvec_ally()`, `vec_eq()` and its six
-callers, `rawfile.c:611`, `diff.c:89` — are `doc/codex/issues/0032` and are
-what `set_case_mode()`'s experimental warning now names.
+callers, `rawfile.c`'s `scale=` binding, `diff.c`'s `nameeq()` — were
+`doc/codex/issues/0032`, and are **closed**: `vec_name_eq()` is exported in
+`src/include/ngspice/fteext.h` and all six call it, so the frontend now has
+one answer to "are these two vector names the same name?" and it is this
+section's rule. `doc/claude/decisions/0005-scale-vector-identity.md`. Two of
+the six were listed there as unexercised and both were reached by a deck.
+
+The three sites the export was needed for were all the *current plot's scale
+vector*, which is why one issue covered three commands: whether the user asked
+`print`, `ally` or `unlet`, a vector that merely resembled the scale was
+treated as the scale. `vec_eq()` is the widest of the six — one `cieq()`
+decided `print`'s scale column, both `write` sites, both `write_sparam` sites
+and `agraf.c`'s x axis — and all six of its callers are scale comparisons,
+which is why they move together.
+
+One thing this rule does **not** reach, and it is worth naming here so the
+next reader does not assume otherwise: `diff`'s pairing of a vector in one
+plot with its twin in the other is a hash lookup whose comparator is `nghash`'s
+`strcmp`, byte exact in all three modes, and therefore too strict under both
+`fold` and `preserve`. That is `doc/codex/issues/0037`, a shipped-mode defect
+found by this work and not part of it.
 
 The mechanism keeps the plan's rule intact. The fold at `:71` and `:184` and
 the `nghash_unique(pl_lookup_table, FALSE)` at `:61` are all unchanged; what
@@ -420,6 +440,15 @@ are two:
   `src/include/ngspice/sharedspice.h` is updated by the commit that lands the
   vector-table change, because a header that says "matched without regard to
   case" becomes false.
+- A rawfile's `scale=` reference. `load` bound a variable's `scale=` parameter
+  to another variable of the same file case-insensitively; under `distinguish`
+  the reference must name the variable exactly, and a rawfile whose `scale=`
+  differs in case from the variable it names now gets the reader's
+  `Error: no such vector %s` and a variable with no scale, where before it
+  silently bound to the case variant. ngspice's own writer never emits
+  `scale=`, so only a hand-written rawfile is affected.
+  `doc/codex/issues/0032`, `doc/claude/decisions/0005-scale-vector-identity.md`
+  decision 4.
 
 **Not withdrawn.** These are case-insensitive in all three modes and stay that
 way — the spec's compatibility contract point 2 and its Out of scope section:
@@ -498,7 +527,7 @@ Enumerated so they are not read as oversights:
    `distinguish` is the hazard in decision 5 with a vendor library attached.
 3. **The OSDI duplicate-parameter diagnostic** (decision 4). A load-time
    collision check in `src/osdi/osdiinit.c`, mode-independent.
-4. **`vec_remove()`, `src/frontend/vectors.c:613`,** which found the vector to
+4. **`vec_remove()`, `src/frontend/vectors.c:622`,** which found the vector to
    `unlet` with `cieq` unconditionally. Under `distinguish` `unlet Out` removed
    `OUT`. Not on any gate list; filed as `doc/codex/issues/0027`. It is the
    same shape as `evtaccept.c:342` and `evtplot.c:110`, which gates 2 and 4

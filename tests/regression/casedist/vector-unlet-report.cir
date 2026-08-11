@@ -9,7 +9,7 @@
 *
 * The diagnostic goes to cp_err, which tests/bin/check.sh does not capture, so
 * this deck redirects it.  '>&' sets cp_err as well as cp_out to the named file
-* (src/frontend/streams.c:153), and the capture is read back with
+* (src/frontend/streams.c:156), and the capture is read back with
 * fopen/fread/strstr and reduced to one token on stdout, which is the shape
 * tests/regression/pipe/shell-keyword-case.cmd:79 already uses to assert on
 * output it has to read off disk.  Each variable is preseeded, so a capture
