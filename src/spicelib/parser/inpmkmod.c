@@ -25,14 +25,16 @@ NGHASHPTR modtabhash = NULL;
  * newModel and is what every diagnostic prints.  The key is folded here
  * rather than by installing a case insensitive hash function, because
  * src/misc/hash.c copies the key on insert and frees it again only when
- * hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR).
+ * hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR).  Under distinguish the key
+ * is not folded at all, so two model names differing only in case are two
+ * entries rather than one.
  *--------------------------------------------------------------*/
 
 char *INPmodKey(const char *name)
 {
    char *key = copy(name);
 
-   if (!inp_case_folding())
+   if (!inp_case_exact_ids())
        strtolower(key);
 
    return key;

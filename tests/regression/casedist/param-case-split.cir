@@ -1,0 +1,27 @@
+* two .param names differing only in case are two parameters under distinguish
+* Vhi and VHI are separate symbols, so the two sources take different values
+* and the evidence is exact:
+*
+*   V1  'Vhi'   v(a) = 1.500000e+00
+*   V2  'VHI'   v(b) = 5.000000e-01
+*
+* Under fold or preserve the two cards define one symbol, the second .param
+* wins, and both nodes read 5.000000e-01.  That is the RED value, and it is
+* the shape of doc/codex/issues/0015 read in the other direction.
+*
+* This deck covers symbol_key() (src/frontend/numparam/xpressn.c:386), which
+* stops folding the numparam symbol table's hash key, and user_ident_eq()
+* (src/frontend/inpcom.c:4360).
+.OPTIONS noacct
+.param Vhi = 1.5
+.param VHI = 0.5
+V1 a 0 dc 'Vhi'
+V2 b 0 dc 'VHI'
+R1 a 0 1k
+R2 b 0 1k
+.control
+op
+print v(a)
+print v(b)
+.endc
+.end

@@ -2,12 +2,17 @@
 
 ## Status
 
-Draft for review. No code written. Companion documents:
+Phases 0, 1 and 2 are implemented and `preserve` has shipped; Phase 3
+(`distinguish`) is experimental, with gates 1, 2 and 4 open. The design text
+below is kept as written except where a line is marked **Done**. Companion
+documents:
 
 - `doc/claude/code_analysis/case-insensitivity-origins.md` — where the current
   behavior comes from.
 - `doc/claude/suggestions/case-sensitive-identifiers-plan.md` — the RED-first
   delivery plan.
+- `doc/claude/decisions/0001-distinguish.md` — the `distinguish` decision
+  record, which closes Open decisions 1 and 2 below.
 
 ## Problem
 
@@ -190,11 +195,16 @@ the one place where "the default is provably byte-identical" does not hold.
    function names. Many already are (`ciprefix` for card dispatch,
    `strcasecmp` at `src/spicelib/parser/inptyplk.c:37` and
    `src/frontend/inpcom.c:542`); the rest is the Phase 1 sweep.
-3. The frontend vector table must not silently alias. `src/frontend/vectors.c:61`
-   sets `nghash_unique(..., FALSE)` and `:71`/`:184` fold key and query, so under
-   `distinguish` two case-variant nets would collide and `print` would return
-   whichever hashed first — a silent wrong answer. `distinguish` cannot ship
-   until this is exact.
+3. The frontend vector table must not silently alias. **Done**, Phase 3 gate 3.
+   `src/frontend/vectors.c:61` sets `nghash_unique(..., FALSE)` and `:71`/`:184`
+   fold key and query, so under `distinguish` two case-variant nets would
+   collide and `print` would return whichever hashed first — a silent wrong
+   answer. All three lines stay; the duplicate chain they produce is now
+   filtered on the spelling the caller typed, which is a tautology under `fold`
+   and `preserve` and exact under `distinguish`.
+   `tests/regression/casedist/node-case-split.cir` is the assertion. See
+   `doc/claude/decisions/0001-distinguish.md` Class C for why this site does not
+   use the same predicate as the identity sites.
 4. The shared library contract must be stated. `ngGet_Vec_Info`
    (`src/sharedspice.c:1194` → `findvec`) is case-insensitive; its event twin
    `ngGet_Evt_NodeInfo` (`src/sharedspice.c:1441` → `EVTshareddata`, whose
@@ -336,7 +346,15 @@ fold. It is not repeated here.
 
 - Two nets, two instances, and two subcircuit formal pins differing only by case
   are distinct, independently addressable from the control language, and
-  independently present in the rawfile.
+  independently present in the rawfile. **Partly done**: nets and instances are,
+  asserted by `tests/regression/casedist/node-case-split.cir` and
+  `instance-case-split.cir`; `.model` names and `.param` names are too, asserted
+  by `model-case-split.cir` and `param-case-split.cir`. Subcircuit formal pins
+  and the rawfile are untested.
 - Every site in "Silent-failure sites that gate `distinguish`" either diagnoses
-  or behaves correctly.
-- The frontend vector table no longer aliases case-variant names.
+  or behaves correctly. **Open**: gates 1, 2 and 4 —
+  `src/spicelib/parser/inpptree.c:1249`, `src/xspice/evt/evtcheck_nodes.c:720`
+  and `src/xspice/evt/evttermi.c:304`. `set_case_mode()` warns on `stderr` that
+  the mode is experimental and names them.
+- The frontend vector table no longer aliases case-variant names. **Done**,
+  Phase 3 gate 3.

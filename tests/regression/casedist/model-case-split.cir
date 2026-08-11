@@ -1,0 +1,30 @@
+* two .model cards differing only in case are two models under distinguish
+* swmod and SWMOD differ only in ron, and each switch is closed by a fixed
+* control voltage, so the answer is a plain resistive divider and the numbers
+* are exact rather than the result of a Newton iteration:
+*
+*   S1 / swmod   ron 1k   v(mid)  = 1.5 * 1k / 2k = 7.500000e-01
+*   S2 / SWMOD   ron 3k   v(mid2) = 1.5 * 1k / 4k = 3.750000e-01
+*
+* Under fold or preserve the two cards are one model, both switches get the
+* same ron, and both nodes read 7.500000e-01.  That is the RED value.
+*
+* This deck covers a different identity site from node-case-split.cir:
+* INPmodKey() (src/spicelib/parser/inpmkmod.c:35) stops folding the model
+* table's hash key, and ent_eq() (src/spicelib/parser/inpsymt.c:31) and
+* ng_ideq() stop matching the two names.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+Vc ctl 0 dc 1
+S1 in mid ctl 0 swmod
+R1 mid 0 1k
+S2 in mid2 ctl 0 SWMOD
+R2 mid2 0 1k
+.model swmod sw(vt=0.5 ron=1k roff=1meg)
+.model SWMOD sw(vt=0.5 ron=3k roff=1meg)
+.control
+op
+print v(mid)
+print v(mid2)
+.endc
+.end

@@ -56,15 +56,18 @@ receives the name of a vector (may be in the form 'vectorname' or
 <plotname>.vectorname) and returns a pointer to a vector_info struct.
 The caller may then directly assess the vector data (but probably should
 not modify them).
-The name is matched without regard to case: findvec() lowercases both the
-query and the table key. The name returned in vector_info is the one the
-simulator stored, which is not necessarily the one that was asked for.
-See the note on identifier case below.
+The name is matched without regard to case under casemode=fold and
+casemode=preserve: findvec() lowercases both the query and the table key.
+Under casemode=distinguish it is matched exactly, because two spellings are
+then two vectors. The name returned in vector_info is the one the simulator
+stored, which under fold and preserve is not necessarily the one that was
+asked for. See the note on identifier case below.
 
 **
 Identifier case
 The two halves of this API do not agree about case, and never have.
-ngGet_Vec_Info and ngSpice_Raw_Evt accept a name in any case.
+Under casemode=fold and casemode=preserve, ngGet_Vec_Info and ngSpice_Raw_Evt
+accept a name in any case.
 ngGet_Evt_NodeInfo does not: it compares with strcmp, so it only accepts the
 exact string that ngSpice_AllEvtNodes returned. Callers should use the string
 ngSpice_AllEvtNodes gave them rather than one they built themselves.
@@ -75,6 +78,14 @@ ordinary card as it is read, so every name this API returns is lower case.
 With casemode=preserve the stored name keeps the spelling the deck first used
 and this API returns that instead; identity is unchanged, so R1 and r1 are
 still one device.
+
+With casemode=distinguish, R1 and r1 are two devices and Out and OUT are two
+nets, so ngGet_Vec_Info stops accepting a name in any case and requires the
+stored spelling. That is a contract change for callers that relied on the
+case-insensitive match, and it is the reason the rule above is stated per
+mode. The safe rule in every mode is the one the event half already imposes:
+use the string the simulator gave you. casemode=distinguish is experimental
+and prints a warning naming what it does not yet distinguish.
 
 libngspice has no argv, so the only way to select the mode is
     ngSpice_Command("set casemode=preserve");

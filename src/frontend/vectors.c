@@ -35,7 +35,11 @@ static struct dvec *findvec_ally(struct plot *pl);
 static struct dvec *findvec_alle(void);
 #endif
 static struct dvec *find_permanent_vector_by_name(
-        NGHASHPTR pl_lookup_table, char *name);
+        NGHASHPTR pl_lookup_table, char *name, const char *typed);
+static bool vec_name_eq(const char *v_name, const char *typed);
+static bool vec_wrapped_name_eq(const char *v_name, const char *typed);
+static void vec_warn_case_near_miss(NGHASHPTR pl_lookup_table,
+        const char *word);
 static enum ALL_TYPE_ENUM get_all_type(const char *word);
 static bool plot_prefix(const char *pre, const char *str);
 
@@ -188,22 +192,32 @@ static struct dvec *findvec(char *word, struct plot *pl)
     char * const lower_name = ds_get_buf(&dbuf);
     NGHASHPTR pl_lookup_table = pl->pl_lookup_table;
     struct dvec *d = find_permanent_vector_by_name(pl_lookup_table,
-            lower_name);
+            lower_name, word);
 
     /* If the vector was not using the lowercased name, try finding it as
      * v(lowercased name) */
     if (!d) {
+        DS_CREATE(tbuf, 200); /* the same name with the deck's own spelling */
         ds_clear(&dbuf);
         bool f_ok = ds_cat_str(&dbuf, "v(") == DS_E_OK;
         f_ok &= ds_cat_str_case(&dbuf, word,
                 ds_case_lower) == DS_E_OK;
         f_ok &= ds_cat_char(&dbuf, ')') == DS_E_OK;
+        /* The 'v' and the parentheses are this function's, not the caller's,
+         * so under distinguish the stored name has to spell them the way they
+         * are spelled here. A vector actually named V(Out) is reached by the
+         * first lookup above, where the caller typed the V. */
+        f_ok &= ds_cat_str(&tbuf, "v(") == DS_E_OK;
+        f_ok &= ds_cat_str(&tbuf, word) == DS_E_OK;
+        f_ok &= ds_cat_char(&tbuf, ')') == DS_E_OK;
         if (!f_ok) {
             fprintf(stderr, "Error: DS could not add string V() around %s\n", word);
             controlled_exit(-1);
         }
         char * const node_name = ds_get_buf(&dbuf);
-        d = find_permanent_vector_by_name(pl_lookup_table, node_name);
+        d = find_permanent_vector_by_name(pl_lookup_table, node_name,
+                ds_get_buf(&tbuf));
+        ds_free(&tbuf);
     }
 
     ds_free(&dbuf);
@@ -217,6 +231,11 @@ static struct dvec *findvec(char *word, struct plot *pl)
 
     /* gtri - end   - Add processing for getting event-driven vector */
 #endif
+
+    if (!d && inp_case_mode() == NG_CASE_DISTINGUISH) {
+        vec_warn_case_near_miss(pl_lookup_table, word);
+    }
+
     if (d && d->v_link2) {
         d = vec_copy(d);
         vec_new(d);
@@ -322,9 +341,69 @@ static struct dvec* findvec_alle(void) {
 }
 #endif
 
-/* Find a permanent vector with the given name */
+/* Accept a difference confined to a leading v() or i() wrapper's letter.
+ *
+ * src/frontend/outitf.c:1164 stores a node name that begins with a digit as
+ * V(<name>), with that upper case V in every mode, so the vector for node 1
+ * is named V(1) whatever the deck says.  The wrapper is language syntax and
+ * not part of the identifier -- the identifier is the name inside it, and v
+ * and i are the voltage and current accessors, which the spec's
+ * compatibility contract keeps case insensitive in all three modes.  So the
+ * wrapper letter is folded while the name inside it is still compared
+ * exactly.  Without this, 'print v(1)' would find nothing under distinguish
+ * while working in both other modes, for a name no deck chose. */
+
+static bool vec_wrapped_name_eq(const char *v_name, const char *typed)
+{
+    const size_t n = strlen(v_name);
+
+    if (n < 4 || strlen(typed) != n)
+        return FALSE;
+    if (v_name[1] != '(' || typed[1] != '(' || v_name[n - 1] != ')')
+        return FALSE;
+    if (tolower_c(v_name[0]) != tolower_c(typed[0]))
+        return FALSE;
+    if (tolower_c(v_name[0]) != 'v' && tolower_c(v_name[0]) != 'i')
+        return FALSE;
+
+    return strncmp(v_name + 2, typed + 2, n - 2) == 0;
+}
+
+
+/* Does this vector carry the name the caller actually typed?
+ *
+ * The lookup key is folded at vec_rebuild_lookup_table():71 and the query at
+ * findvec():184, and nghash_unique(..., FALSE) at :61 lets two vectors share
+ * one key, so a folded-key chain can hold Out and OUT at once.  The fold is
+ * load bearing and stays: it is what lets a caller type any case at all, and
+ * swapping the hash comparator instead would flip the table from owning its
+ * keys to borrowing them, because src/misc/hash.c:549 copies the key only for
+ * NGHASH_DEF_HASH(NGHASH_FUNC_STR).  So the chain is filtered here instead.
+ *
+ * This is a lookup, not an identifier identity, and it deliberately does not
+ * use inp_case_exact_ids().  In fold mode the query may still arrive with
+ * upper case in it -- from the shared library, from the interactive prompt,
+ * or from a generated name such as q1#collCX -- and has always been matched
+ * without regard to case; making it exact there would be a regression in the
+ * default mode.  Only distinguish makes it exact.  Under fold and preserve
+ * every candidate on a folded-key chain satisfies cieq() by construction, so
+ * this is a tautology and the lookup is byte identical to the historical one.
+ * doc/claude/decisions/0001-distinguish.md decision 3. */
+
+static bool vec_name_eq(const char *v_name, const char *typed)
+{
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return cieq(v_name, typed) != 0;
+
+    return (strcmp(v_name, typed) == 0) ||
+            vec_wrapped_name_eq(v_name, typed);
+}
+
+
+/* Find a permanent vector with the given name.  'name' is the folded lookup
+ * key; 'typed' is the same name with the spelling the caller used. */
 static struct dvec *find_permanent_vector_by_name(
-        NGHASHPTR pl_lookup_table, char *name)
+        NGHASHPTR pl_lookup_table, char *name, const char *typed)
 {
     struct dvec *d;
     /* Find the first vector with the given name and then find others
@@ -332,25 +411,59 @@ static struct dvec *find_permanent_vector_by_name(
     for (d = nghash_find(pl_lookup_table, name);
             d;
             d = nghash_find_again(pl_lookup_table, name)) {
-        if (d->v_flags & VF_PERMANENT) {
+        if ((d->v_flags & VF_PERMANENT) && vec_name_eq(d->v_name, typed)) {
             /* A "permanent" vector was found with the name, so done */
             return d;
         }
     } /* end of loop over vectors in the plot having this name */
     /* try again, this time without quotes around the name */
     char *nname = cp_unquote(name);
+    char *ntyped = cp_unquote(typed);
     for (d = nghash_find(pl_lookup_table, nname);
             d;
             d = nghash_find_again(pl_lookup_table, nname)) {
-        if (d->v_flags & VF_PERMANENT) {
+        if ((d->v_flags & VF_PERMANENT) && vec_name_eq(d->v_name, ntyped)) {
             /* A "permanent" vector was found with the name, so done */
             tfree(nname);
+            tfree(ntyped);
             return d;
         }
     } /* end of loop over vectors in the plot having this name */
     tfree(nname);
+    tfree(ntyped);
     return (struct dvec *) NULL; /* not found */
 } /* end of function find_permanent_vector_by_name */
+
+
+/* A lookup missed under distinguish.  Say so if the plot holds a vector whose
+ * name differs from the one asked for only in case, because that is the one
+ * mistake the page cannot show the user.  Silence when a name is being
+ * defined, a warning when a name is being resolved:
+ * doc/claude/decisions/0001-distinguish.md decision 2. */
+
+static void vec_warn_case_near_miss(NGHASHPTR pl_lookup_table,
+        const char *word)
+{
+    DS_CREATE(dbuf, 200);
+    if (ds_cat_str_case(&dbuf, word, ds_case_lower) != DS_E_OK) {
+        ds_free(&dbuf);
+        return;
+    }
+    char * const lower_name = ds_get_buf(&dbuf);
+    struct dvec *d;
+    for (d = nghash_find(pl_lookup_table, lower_name);
+            d;
+            d = nghash_find_again(pl_lookup_table, lower_name)) {
+        if (d->v_flags & VF_PERMANENT) {
+            fprintf(cp_err,
+                    "Warning: no vector named '%s'; '%s' differs only in "
+                    "case (casemode=distinguish)\n",
+                    word, d->v_name);
+            break;
+        }
+    }
+    ds_free(&dbuf);
+} /* end of function vec_warn_case_near_miss */
 
 
 

@@ -145,13 +145,15 @@ static char start[32], sbend[32], invoke[32], model[32];
    src/spicelib/parser/inpsymt.c then interns the spellings to one node.  The
    key is folded here rather than by installing a case insensitive hash
    function, because src/misc/hash.c copies the key on insert and frees it
-   again only when hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR). */
+   again only when hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR).  Under
+   distinguish the key is not folded at all, which is the same rule read the
+   other way: fold the key, never swap the comparator. */
 
 static char *glo_key(const char *name)
 {
     char *key = copy(name);
 
-    if (!inp_case_folding())
+    if (!inp_case_exact_ids())
         strtolower(key);
 
     return key;
@@ -1662,7 +1664,7 @@ eq_substr(const char *str, const char *end, const char *cstring)
 static int
 eq_substr_id(const char *str, const char *end, const char *cstring)
 {
-    if (inp_case_folding())
+    if (inp_case_exact_ids())
         return eq_substr(str, end, cstring);
 
     while (str < end)
@@ -1850,7 +1852,7 @@ modtranslate(struct card *c, char *subname, wordlist *new_modnames)
 static wordlist *
 wl_find_id(const char *string, const wordlist *wl)
 {
-    if (inp_case_folding())
+    if (inp_case_exact_ids())
         return wl_find(string, wl);
 
     if (!string)
@@ -2159,7 +2161,7 @@ devmodtranslate(struct card *s, char *subname, wordlist * const orig_modnames)
             while (!found) {
                 /* Now, is this a subcircuit model? */
                 for (wlsub = orig_modnames; wlsub; wlsub = wlsub->wl_next)
-                    if (model_name_match(name, wlsub->wl_word, !inp_case_folding())) {
+                    if (model_name_match(name, wlsub->wl_word, !inp_case_exact_ids())) {
                         found = 1;
                         break;
                     }

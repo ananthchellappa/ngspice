@@ -379,11 +379,13 @@ donedico(dico_t *dico)
    and the single insert attrib(), while entry->symbol keeps the spelling the
    deck used first for reporting. Under fold mode the reader has already
    lowercased the card, so the key is passed through untouched and the default
-   mode hashes and compares exactly the bytes it did before. */
+   mode hashes and compares exactly the bytes it did before; under distinguish
+   it is passed through for the opposite reason, because .param Vdd and
+   .param VDD are then two symbols. */
 
 static char *symbol_key(DSTRINGPTR key_p, char *s)
 {
-    if (inp_case_folding())
+    if (inp_case_exact_ids())
         return s;
 
     ds_clear(key_p);
@@ -1598,9 +1600,10 @@ search_isolated_identifier(char *str, const char *identifier)
     char *str_begin = str;
 
     /* the identifier comes from the .subckt card and str from the instance
-       card, so the two spellings need not agree when the deck is not folded */
-    while ((str = inp_case_folding() ? strstr(str, identifier)
-                                     : cistrstr(str, identifier)) != NULL) {
+       card, so under preserve the two spellings need not agree; under fold
+       and under distinguish they do */
+    while ((str = inp_case_exact_ids() ? strstr(str, identifier)
+                                       : cistrstr(str, identifier)) != NULL) {
 
         if (str <= str_begin || isspace_c(str[-1])) {
             char after = str[strlen(identifier)];

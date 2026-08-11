@@ -1,0 +1,31 @@
+* two instances differing only in case are two devices under distinguish
+* Rab and RAB coexist and are independently addressable.  Under fold or
+* preserve the second card is a duplicate and the deck does not run at all --
+* 'device already exists, bail out' on stderr, then 'no simulations run' --
+* so every number below is one the pre-gate binary could not produce.  That
+* is the RED evidence: check.sh captures stdout only, so an aborting deck
+* asserts a missing number.
+*
+* The alter is the second-order assertion the plan asks for.  A half
+* implementation that made the parser build two devices but left the frontend
+* aliasing them would move both, or the wrong one; here alter has to reach
+* RAB and leave Rab at 1k.
+*
+*   op            Rab 1k, RAB 3k     v(mid) = 1.125000e+00
+*   alter RAB     Rab 1k, RAB 1k     v(mid) = 7.500000e-01
+.OPTIONS noacct
+V1 in 0 dc 1.5
+Rab in mid 1k
+RAB mid 0 3k
+.control
+op
+print v(mid)
+print @Rab[resistance]
+print @RAB[resistance]
+alter RAB resistance=1k
+op
+print v(mid)
+print @Rab[resistance]
+print @RAB[resistance]
+.endc
+.end

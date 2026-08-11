@@ -303,7 +303,7 @@ INPgetModBin(CKTcircuit *ckt, char *name, INPmodel **model, INPtables *tab, char
 
     for (modtmp = modtab; modtmp; modtmp = modtmp->INPnextModel) {
 
-        if (model_name_match(name, modtmp->INPmodName, !inp_case_folding()) < 2)
+        if (model_name_match(name, modtmp->INPmodName, !inp_case_exact_ids()) < 2)
             continue;
 
         /* skip if not binnable */

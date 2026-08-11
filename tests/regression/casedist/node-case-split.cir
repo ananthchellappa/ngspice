@@ -1,0 +1,38 @@
+* two nets differing only in case are two nets under distinguish
+* Phase 3 gate 3.  Out and OUT are each the midpoint of their own divider
+* from the same source, with different lower legs, so under distinguish they
+* carry different voltages and each has to be addressable on its own:
+*
+*   Out   1.5 * 1k / (1k + 1k)  = 7.500000e-01
+*   OUT   1.5 * 3k / (1k + 3k)  = 1.125000e+00
+*
+* Under fold or preserve the two spellings are one net, R1 and R3 are in
+* parallel above it and R2 and R4 in parallel below it, and both prints
+* report 1.5 * 750 / (500 + 750) = 9.000000e-01.  That is the RED value and
+* it is a solvable circuit, deliberately: the deck has to run under both
+* interpretations so that the evidence is two different numbers rather than
+* a missing analysis.
+*
+* The labels are asserted as well as the values.  Section 2.5 of
+* doc/claude/suggestions/case-sensitive-identifiers-plan.md removed the
+* strtolower() from vec_basename(), so print reports the spelling the deck
+* used.  Under fold both labels would read v(out).
+*
+* What this deck is really testing is src/frontend/vectors.c.  The plot's
+* lookup table folds the key at :71 and the query at :184 and permits
+* duplicate entries at :61, so before the fix findvec() returned whichever
+* of the two vectors hashed first and the second net was unaddressable --
+* the feature would have been unobservable even once the parser made two
+* nodes.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+R3 in OUT 1k
+R4 OUT 0 3k
+.control
+op
+print v(Out)
+print v(OUT)
+.endc
+.end

@@ -209,10 +209,15 @@ extern char *find_back_assignment(const char *s, const char *start);
 enum {
     NG_CASE_FOLD = 0,     /* R1 == r1, spelling lowercased (default) */
     NG_CASE_PRESERVE,     /* R1 == r1, spelling as first typed */
-    NG_CASE_DISTINGUISH   /* R1 != r1, spelling as typed; not implemented */
+    NG_CASE_DISTINGUISH   /* R1 != r1, spelling as typed; experimental */
 };
 extern int inp_case_mode(void);
+/* is the reader lowercasing the card? ask this about a language keyword */
 extern bool inp_case_folding(void);
+/* should two identifiers be compared byte for byte? ask this about a name the
+   user chose. Not the same question as inp_case_folding() once there are
+   three modes; doc/claude/decisions/0001-distinguish.md decision 3 */
+extern bool inp_case_exact_ids(void);
 extern bool ng_ideq(const char *a, const char *b);
 
 extern struct card *line_nconc(struct card *head, struct card *rest);

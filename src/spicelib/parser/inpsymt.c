@@ -21,16 +21,18 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 
 static int hash(char *name, int tsize);
 
-/* Identity of an interned token and a stored entry.  Under a non-folding
-   case mode two spellings of one identifier are still one identifier, so the
-   comparison ignores case while t_ent keeps the spelling first seen.  In fold
-   mode both sides are already lower case, so strcmp is retained to keep the
-   default byte identical for the generated node names that carry upper case
-   whatever the deck says, such as q1#collCX. */
+/* Identity of an interned token and a stored entry.  Under preserve two
+   spellings of one identifier are still one identifier, so the comparison
+   ignores case while t_ent keeps the spelling first seen.  In fold mode both
+   sides are already lower case, so strcmp is retained to keep the default
+   byte identical for the generated node names that carry upper case whatever
+   the deck says, such as q1#collCX.  Under distinguish the same strcmp is
+   what makes two case-variant nets two nets: this function, reached from
+   INPtermInsert(), is where that is decided. */
 
 static bool ent_eq(const char *token, const char *ent)
 {
-    return inp_case_folding() ? (strcmp(token, ent) == 0) : cieq(token, ent);
+    return inp_case_exact_ids() ? (strcmp(token, ent) == 0) : cieq(token, ent);
 }
 
 

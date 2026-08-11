@@ -286,10 +286,14 @@ with no diagnostic.
    manufactures a floating node.
 2. `src/xspice/evt/evtcheck_nodes.c:720` — auto-bridge `strcmp`; mixed-signal
    decks silently lose their bridges.
-3. `src/frontend/vectors.c:61,71,184` — `nghash_unique(..., FALSE)` plus folded
-   key and query means two case-variant nets alias and `print` returns whichever
-   hashed first. Until this is exact, `distinguish` can create two nets that the
-   user cannot address independently — the feature would be unobservable.
+3. `src/frontend/vectors.c:61,71,184` — **done**. `nghash_unique(..., FALSE)`
+   plus folded key and query meant two case-variant nets aliased and `print`
+   returned whichever hashed first. Until this was exact, `distinguish` could
+   create two nets that the user could not address independently and the
+   feature was unobservable, which is why this gate went first. The fold and
+   the duplicate entries stay; the chain is filtered on the typed spelling.
+   `tests/regression/casedist/` is the new directory that can assert it, and
+   `node-case-split.cir` is the deck.
 4. `src/frontend/measure.c:236` (done), `src/frontend/outitf.c:391`
    (open, `doc/codex/issues/0016`), `src/frontend/subckt.c:659` (done).
 5. A source lint that fails the build on a new `strcmp` against a lowercase

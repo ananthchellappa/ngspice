@@ -1043,18 +1043,37 @@ bool inp_case_folding(void)
     return ng_case_mode == NG_CASE_FOLD;
 }
 
+/* Should two identifiers be compared byte for byte?  Preserve is the only
+   mode in which they should not: it is the one mode that leaves the deck's
+   spelling alone and still calls two spellings one identifier.  Fold gets the
+   exact comparison because the reader has already lowercased both sides, and
+   distinguish gets it because that is what distinguish means, so the default
+   mode compares exactly the bytes it always did.
+
+   This is deliberately a different question from inp_case_folding(), and the
+   two are not interchangeable now that there are three modes. Ask this one
+   about the identity of a name the user chose; ask inp_case_folding() about
+   whether the reader lowercased the card, which is what a language keyword
+   search needs to know. doc/claude/decisions/0001-distinguish.md decision 3
+   classifies every call site in the tree. */
+
+bool inp_case_exact_ids(void)
+{
+    return ng_case_mode != NG_CASE_PRESERVE;
+}
+
 /* Identity of two identifiers under the current case policy. Under fold the
    reader has already lowercased both sides, so strcmp is retained to keep the
    default byte identical for the names ngspice constructs with upper case of
-   its own, such as q1#collCX. Under a non-folding mode two spellings of one
-   identifier are still one identifier.
+   its own, such as q1#collCX. Under preserve two spellings of one identifier
+   are still one identifier; under distinguish they are two.
    src/spicelib/parser/inpsymt.c:31 is the same test for the parser's own
    interning tables; this one is for the name spaces that never get interned:
    .model, .subckt and .global. */
 
 bool ng_ideq(const char *a, const char *b)
 {
-    return inp_case_folding() ? (strcmp(a, b) == 0) : (cieq(a, b) != 0);
+    return inp_case_exact_ids() ? (strcmp(a, b) == 0) : (cieq(a, b) != 0);
 }
 
 /* Establish the case mode for one netlist read. Called from inp_readall()
@@ -1076,10 +1095,17 @@ static void set_case_mode(void)
         ng_case_mode = NG_CASE_FOLD;
     else if (cieq(mode, "preserve"))
         ng_case_mode = NG_CASE_PRESERVE;
-    else if (cieq(mode, "distinguish"))
+    else if (cieq(mode, "distinguish")) {
+        ng_case_mode = NG_CASE_DISTINGUISH;
+        /* Experimental until the remaining Phase 3 gates close. Named here
+           rather than in a release note because the failure modes are silent:
+           doc/claude/decisions/0001-distinguish.md decision 6. */
         fprintf(stderr,
-                "Warning: casemode 'distinguish' is not implemented yet, "
-                "using 'fold'\n");
+                "Warning: casemode 'distinguish' is experimental. Identifier "
+                "identity is case sensitive, but a B source V() reference to "
+                "a name that does not exist still creates a node, and XSPICE "
+                "event nodes are still bridged case insensitively.\n");
+    }
     else
         fprintf(stderr,
                 "Warning: unknown casemode '%s', using 'fold'\n", mode);
@@ -4323,15 +4349,15 @@ static int inp_get_params(
 
 /* Identity of two names the user chose - a subcircuit formal parameter name
    against the instance parameter name that overrides it, a .func call against
-   its definition. Under a non-folding case mode two spellings of one such name
-   are still one name, the way numparam resolves the same symbol
-   (doc/codex/issues/0015). In fold mode the reader has already lowercased both
-   cards, so strcmp is retained and the default mode compares the same bytes as
-   before. */
+   its definition. Under preserve two spellings of one such name are still one
+   name, the way numparam resolves the same symbol (doc/codex/issues/0015). In
+   fold mode the reader has already lowercased both cards, so strcmp is
+   retained and the default mode compares the same bytes as before, and under
+   distinguish the same strcmp makes the two spellings two names. */
 
 static bool user_ident_eq(const char *a, const char *b)
 {
-    return inp_case_folding() ? (strcmp(a, b) == 0) : cieq(a, b);
+    return inp_case_exact_ids() ? (strcmp(a, b) == 0) : cieq(a, b);
 }
 
 
@@ -4705,17 +4731,18 @@ static void inp_get_func_from_line(struct function_env *env, char *line)
         int i;
 
         /* search_func_arg() uses this as the candidate filter for a formal
-           parameter in the body. A formal is a name the user chose, so under a
-           non-folding case mode the body may spell its first character the
-           other way and both cases have to be admitted; in fold mode the
-           reader has already lowercased both, and the filter keeps exactly the
+           parameter in the body. A formal is a name the user chose, so under
+           preserve the body may spell its first character the other way and
+           both cases have to be admitted; in fold mode the reader has already
+           lowercased both, and under distinguish the two spellings are two
+           formals, so in both of those the filter keeps exactly the
            characters it kept before. */
         char *accept = TMALLOC(char, 2 * function->num_parameters + 1);
         int n_accept = 0;
         for (i = 0; i < function->num_parameters; i++) {
             char c = function->params[i][0];
             accept[n_accept++] = c;
-            if (!inp_case_folding() && isalpha_c(c))
+            if (!inp_case_exact_ids() && isalpha_c(c))
                 accept[n_accept++] =
                         islower_c(c) ? toupper_c(c) : tolower_c(c);
         }
@@ -4784,7 +4811,7 @@ static char *search_func_arg(
                 size_t len = strlen(fcn->params[i]);
                 /* the formal is a name the user chose: same identity rule as
                    user_ident_eq(), on a fixed length */
-                if (inp_case_folding()
+                if (inp_case_exact_ids()
                                 ? strncmp(str, fcn->params[i], len) == 0
                                 : cieqn(str, fcn->params[i], len)) {
                     char after = str[len];
@@ -6072,8 +6099,11 @@ static bool b_transformation_wanted(const char *p)
    same keyword whatever the deck spells it, so under a non-folding case mode
    the hit ignores case; in fold mode the reader has already lowercased the
    card, so strstr is retained and the default mode is provably the same
-   predicate on the same bytes. This is the gate ng_ideq() and
-   src/spicelib/parser/inpsymt.c:31 use. cistrstr() rather than strcasestr():
+   predicate on the same bytes. Note that the caller decides which gate to
+   pass: a keyword search passes !inp_case_folding() and stays case
+   insensitive in every mode, while ya_search_identifier() below passes
+   !inp_case_exact_ids() because the name it looks for is the user's.
+   cistrstr() rather than strcasestr():
    configure.ac does not check for the latter and there is no compatibility
    implementation. The delimiter tests around the hit need nothing: they are
    is_arith_char(), isspace_c() and identifier_char(), none of which
@@ -6126,14 +6156,16 @@ char *search_identifier(char *str, const char *identifier, char *str_begin)
    and inp_quote_params() - were pinned byte-exact in every mode until numparam
    resolved such a name case insensitively, because a case insensitive quoter
    would otherwise have handed numparam a spelling numparam could not resolve.
-   doc/codex/issues/0015 closed that gap, so they now take the same
-   inp_case_folding() gate as the keyword searches: one policy for the whole
-   name space. In fold mode the reader has lowercased the card and the search is
-   the same strstr on the same bytes as before. */
+   doc/codex/issues/0015 closed that gap, so they now take the identity gate,
+   inp_case_exact_ids(), and not the keyword gate the searches above use: the
+   name they look for is the user's, so distinguish makes it exact while the
+   keyword searches stay case insensitive in every mode. In fold mode the
+   reader has lowercased the card and the search is the same strstr on the
+   same bytes as before. */
 
 char *ya_search_identifier(char *str, const char *identifier, char *str_begin)
 {
-    const bool ci = !inp_case_folding();
+    const bool ci = !inp_case_exact_ids();
 
     if (str && identifier) {
         while ((str = token_hit(str, identifier, ci)) != NULL) {
@@ -9674,7 +9706,7 @@ static struct modellist *inp_find_model_1(
 {
     struct modellist *p = scope->models;
     for (; p; p = p->next) {
-        if (model_name_match(name, p->modelname, !inp_case_folding()))
+        if (model_name_match(name, p->modelname, !inp_case_exact_ids()))
             break;
     }
     return p;
@@ -9794,7 +9826,7 @@ static void mark_all_binned(struct nscope *scope, char *name)
     struct modellist *p = scope->models;
 
     for (; p; p = p->next)
-        if (model_name_match(name, p->modelname, !inp_case_folding()))
+        if (model_name_match(name, p->modelname, !inp_case_exact_ids()))
             p->used = TRUE;
 }
 

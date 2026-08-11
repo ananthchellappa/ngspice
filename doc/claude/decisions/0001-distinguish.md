@@ -167,7 +167,63 @@ spelling alone. A site asking **"are these two names the same?"** while spelled
 | `src/frontend/numparam/xpressn.c:1602` `search_isolated_identifier()` — the identifier is a `.subckt` formal | `fold ? strstr : cistrstr` | `cistrstr` — wrong |
 | `src/frontend/inpcom.c:4718` — doubles each `.func` formal's initial into an accept set | doubles when not folding | doubles — wrong, though only a filter widening |
 | `src/frontend/inpcom.c:6136` `ya_search_identifier()` — user-chosen names, `doc/codex/issues/0015` | `ci = !inp_case_folding()` | ci — wrong |
-| `src/frontend/vectors.c:61`, `:71`, `:184` | duplicates allowed, key and query folded | two nets alias — **Phase 3 gate 3, closed with this decision** |
+
+Every Class A site is now the single token `inp_case_exact_ids()`
+(`src/frontend/inpcom.c:1060`) in place of `inp_case_folding()`, on an
+otherwise unchanged line. That is deliberate: it makes the classification
+visible in the source — a line that says `inp_case_folding()` is asking about
+the fold, a line that says `inp_case_exact_ids()` is asking about identity —
+and it is the single-token edit shape the plan's fallback strategy asks for,
+because a token swap on an untouched line rarely conflicts on rebase.
+
+`inp_case_exact_ids()` returns `mode != NG_CASE_PRESERVE`. Both `fold` and
+`distinguish` therefore take the byte-exact branch, for opposite reasons: fold
+because the reader lowercased both sides, distinguish because two spellings
+are two names. The default mode compares exactly the bytes it always did, and
+every Class A edit is provably a no-op under `fold` and under `preserve`.
+
+### Class C — the frontend vector lookup, which is neither
+
+`src/frontend/vectors.c:61`, `:71`, `:184` — duplicates permitted, key and
+query folded, so two case-variant nets aliased and `findvec()` returned
+whichever hashed first. **Phase 3 gate 3, closed with this decision.**
+
+It is listed apart because its predicate is
+`inp_case_mode() == NG_CASE_DISTINGUISH`, not `inp_case_exact_ids()`, and the
+difference is not cosmetic. This is a *lookup*, not an identity test between
+two deck tokens. In `fold` mode the query still arrives with upper case in it
+— from `ngGet_Vec_Info()`, from the interactive prompt, from a generated name
+such as `q1#collCX` — and `findvec()` has always matched it without regard to
+case. Giving this site the Class A predicate would make the default mode
+exact and break every one of those callers. Only `distinguish` makes it exact.
+
+The mechanism keeps the plan's rule intact. The fold at `:71` and `:184` and
+the `nghash_unique(pl_lookup_table, FALSE)` at `:61` are all unchanged; what
+is new is that the duplicate chain those three lines already produced is
+filtered on the spelling the caller typed. Under `fold` and `preserve` every
+candidate on a folded-key chain satisfies `cieq()` by construction, so the
+filter is a tautology and the lookup is byte identical to the historical one.
+
+One exception inside the exception, found by running the filter rather than
+by reading it. `src/frontend/outitf.c:1164` stores a node name that begins
+with a digit as `V(<name>)`, with that upper-case `V`, **in every mode**. A
+strict `strcmp` therefore made `print v(1)` find nothing under `distinguish`
+while working under both other modes, for a spelling no deck chose. The
+wrapper is language syntax and not part of the identifier — `v` and `i` are
+the voltage and current accessors, and compatibility contract point 2 keeps
+language keywords case-insensitive in **all** modes — so the wrapper letter is
+folded and only the name inside it is compared exactly
+(`vec_wrapped_name_eq()`). This is the same distinction as Class A versus
+Class B, applied inside a single string.
+
+The general form of the hazard is worth stating, because it will recur at
+gates 1, 2 and 4: **`distinguish` must be exact about names the deck chose and
+must stay case-insensitive about names ngspice constructs.** `V(1)` is the
+first instance. `q1#collCX` (`src/spicelib/devices/bjt/bjtsetup.c:433`) is the
+next one, and it is not handled: its upper case is inside the constructed
+part, so a user must type it as the simulator spells it. That is a documented
+limitation and not a silent wrong answer — the lookup fails and decision 2's
+warning fires.
 
 Sites that reach identity only through `ng_ideq()` and therefore need no edit of
 their own: `subckt.c:628`, `:1634`, `:1860`, `inpcom.c:3318`, `:3396`, `:3892`,
