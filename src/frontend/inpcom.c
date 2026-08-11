@@ -2460,6 +2460,36 @@ static char *readline(FILE *fd, FileEncoding encoding)
 }
 
 
+/* Next occurrence of 'what' in 'str' that is not inside a single or double
+   quoted span, case insensitively if 'ci'.  A quoted run is a file name or
+   a message, never a node name; inp_stripcomments_line() skips quoted runs
+   the same way at inpcom.c:3720-3735.  A caller that resumes the scan past
+   a hit starts with a fresh quote state, which is correct because a hit is
+   never returned from inside a quoted run. */
+
+static char *unquoted_hit(char *str, const char *what, bool ci)
+{
+    char quote = '\0';
+    size_t len = strlen(what);
+
+    for (; *str; str++) {
+        if (quote) {
+            if (*str == quote)
+                quote = '\0';
+            continue;
+        }
+        if (*str == '"' || *str == '\'') {
+            quote = *str;
+            continue;
+        }
+        if (ci ? ciprefix(what, str) : (strncmp(str, what, len) == 0))
+            return str;
+    }
+
+    return NULL;
+}
+
+
 /* Replace "gnd" by " 0 "
    Delimiters of gnd may be ' ' or ',' or '(' or ')',
    may be disabled by setting variable no_auto_gnd.
@@ -2468,11 +2498,37 @@ static char *readline(FILE *fd, FileEncoding encoding)
 static void inp_fix_gnd_name(struct card *c)
 {
     bool found_subckt = FALSE;
+    int skip_control = 0;
     for (; c; c = c->nextcard) {
         char *gnd = c->line;
+        bool replaced = FALSE;
 
         // if there is a comment, go to next line
         if (*gnd == '*')
+            continue;
+
+        /* Command text is not netlist text.  This pass runs before
+           inp_spsource() cuts the control section out of the deck, so a
+           'gnd' in an echo, shell, write or file name argument would be
+           rewritten as if it were a node.  Track .control nesting the way
+           inp_rem_unused_models() does.  The reader's case-preserving
+           whitelist (inpcom.c:1912-1923) fires only inside .control, on a
+           '*#' command or in a command file: '*#' is covered by the '*'
+           test above and a command file never reaches this function, so
+           skipping the control section covers the whole whitelist. */
+        if (ciprefix(".control", gnd)) {
+            skip_control++;
+            continue;
+        }
+        else if (ciprefix(".endc", gnd)) {
+            skip_control--;
+            continue;
+        }
+        else if (skip_control > 0)
+            continue;
+
+        /* a library or include reference is a path, not a node list */
+        if (ciprefix(".lib", gnd) || ciprefix(".inc", gnd))
             continue;
 
         /* if inside of a subcircuit, and compatmode is ps,
@@ -2492,10 +2548,11 @@ static void inp_fix_gnd_name(struct card *c)
         gnd = nexttok(gnd);
 
         // replace "?gnd?" by "? 0 ?", ? being a ' '  ','  '('  ')'.
-        while ((gnd = cistrstr(gnd, "gnd")) != NULL) {
+        while ((gnd = unquoted_hit(gnd, "gnd", TRUE)) != NULL) {
             if ((isspace_c(gnd[-1]) || gnd[-1] == '(' || gnd[-1] == ',') &&
                     (isspace_c(gnd[3]) || gnd[3] == ')' || gnd[3] == ',')) {
                 memcpy(gnd, " 0 ", 3);
+                replaced = TRUE;
             }
             gnd += 3;
         }
@@ -2506,10 +2563,11 @@ static void inp_fix_gnd_name(struct card *c)
             gnd = c->line;
             // a gnd node will not occur in the first token of the line
             gnd = nexttok(gnd);
-            while ((gnd = cistrstr(gnd, "/gnd")) != NULL) {
+            while ((gnd = unquoted_hit(gnd, "/gnd", TRUE)) != NULL) {
                 if ((isspace_c(gnd[-1]) || gnd[-1] == '(' || gnd[-1] == ',') &&
                         (isspace_c(gnd[4]) || gnd[4] == ')' || gnd[4] == ',')) {
                     memcpy(gnd, "  0 ", 4);
+                    replaced = TRUE;
                 }
                 gnd += 4;
             }
@@ -2517,17 +2575,19 @@ static void inp_fix_gnd_name(struct card *c)
             gnd = c->line;
             // a gnd node will not occur in the first token of the line
             gnd = nexttok(gnd);
-            while ((gnd = strstr(gnd, "/0")) != NULL) {
+            while ((gnd = unquoted_hit(gnd, "/0", FALSE)) != NULL) {
                 if ((isspace_c(gnd[-1]) || gnd[-1] == '(' || gnd[-1] == ',') &&
                     (isspace_c(gnd[2]) || gnd[2] == ')' || gnd[2] == ',')) {
                     gnd[0] = ' ';
+                    replaced = TRUE;
                 }
                 gnd += 2;
             }
         }
 
         // now remove the extra white spaces around 0
-        c->line = inp_remove_ws(c->line);
+        if (replaced)
+            c->line = inp_remove_ws(c->line);
     }
 }
 

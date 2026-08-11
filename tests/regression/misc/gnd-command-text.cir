@@ -1,0 +1,37 @@
+* the gnd rewrite must not reach control-language command text
+* inp_fix_gnd_name() (src/frontend/inpcom.c:2468) replaces a
+* delimiter-bounded "gnd" by " 0 " on every card of the deck.  It is called
+* from inp_readall() (inpcom.c:1252) while the card list still contains the
+* .control section, so it also rewrites the arguments of control-language
+* commands, which are not netlist text.  The reader keeps echo, shell,
+* write, wrdata, source, cd, load, setcs, strcmp and strstr arguments
+* case-preserved on purpose (inpcom.c:1912-1923), so both "gnd" and "Gnd"
+* arrive at the substitution loop intact and both are rewritten.
+*
+* This deck runs in the default fold mode with no -D flag, because that is
+* the mode the defect lives in; it is deliberately not in
+* tests/regression/case/, where every deck runs under casemode=preserve and
+* would prove nothing about the shipping default.
+*
+* Evidence, all of it on stdout because tests/bin/check.sh captures stdout
+* only:
+*   ZAPMARK lines  the words "Gnd" and "gnd" must come back unchanged.
+*                  ZAPMARK is chosen to survive check.sh's egrep -v filter
+*                  and to contain no "gnd" of its own.
+*   v(2)           r2's second node really is spelled "gnd", so the netlist
+*                  rewrite must still fire.  Without it node gnd is not node
+*                  0, the divider is broken and v(2) is not 3 V.  A "fix"
+*                  that disabled the pass would fail this line.
+*
+* doc/codex/issues/0011
+.OPTIONS noacct
+v1 1 0 dc 4
+r1 1 2 1k
+r2 2 gnd 3k
+.control
+op
+echo ZAPMARK Gnd rail
+echo ZAPMARK my gnd rail
+print v(2)
+.endc
+.end
