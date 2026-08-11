@@ -1,0 +1,36 @@
+* a hand-written bridge whose two sides differ only in case is not diagnosed
+* The false-positive guard for report_bridge_case_miss()
+* (src/xspice/evt/evtcheck_nodes.c).  Under 'distinguish' the two sides of a
+* bridge are two names, so spelling them as one name in two cases - the event
+* node 'DOUT' and the analog net 'dout' - is a natural way to write the
+* dac_bridge on A3, and the circuit is correct: v(dout) = 5.0.
+* The near-miss report added for doc/codex/issues/0030 fires when an event
+* node matches no analog node exactly and one matches when case is ignored,
+* which is true of 'DOUT' here.  It must NOT fire, because A3 already joins
+* the two nodes: already_joined() sees one XSPICE instance with a port on the
+* event node and a port on that analog node, which is exactly the connection
+* the auto-bridge would have inserted.  Warning on this deck is what decision
+* 2 of doc/claude/decisions/0001-distinguish.md rejects - a warning on the
+* legitimate deck trains users to ignore the warning that matters.
+* Verified by hand under casemode=distinguish: stderr carries the
+* experimental-mode warning and nothing else.  check.sh's filter drops every
+* 'Warning' line, so that absence cannot be asserted here; what this deck pins
+* is that the hand-written bridge still conducts, which is the 5.0 below, and
+* that it differs from tests/xspice/casedist/auto-bridge-node-case-split.cir -
+* same case split, no hand-written bridge, 0.0 and a warning - in the deck and
+* not in the mode.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [Dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 Dig DOUT dbuf
+.model dbuf d_buffer
+A3 [DOUT] [dout] dac1
+.model dac1 dac_bridge(out_low=0.0 out_high=5.0 out_undef=2.5)
+R1 dout 0 1k
+.OPTIONS noacct
+.control
+op
+print v(dout)
+.endc
+.end

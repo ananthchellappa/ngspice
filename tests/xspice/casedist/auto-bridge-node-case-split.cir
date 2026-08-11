@@ -10,10 +10,16 @@
 * ground.  v(a) = 0 is the correct answer, not a failure - it is the same
 * stdout the same deck produces under 'preserve' before gate 2 and a
 * different meaning.
-* The miss is still silent: decision 2 of doc/claude/decisions/0001-distinguish.md
-* asks for a near-miss warning at a failed resolution, and this site does not
-* have one yet.  It is out of scope here and is recorded in
-* doc/codex/issues/0029.
+* The miss is no longer silent.  Decision 2 of
+* doc/claude/decisions/0001-distinguish.md asks for a near-miss warning at a
+* failed resolution; doc/codex/issues/0030 added it here, so under
+* casemode=distinguish this run also prints, on stderr,
+*   Warning: no analog node named 'A'; 'a' differs only in case (casemode=distinguish)
+* from report_bridge_case_miss() (src/xspice/evt/evtcheck_nodes.c).
+* check.sh captures stdout only and its egrep -v filter drops every line
+* containing 'Warning' from both sides, so that line cannot be asserted here;
+* it is quoted in the commit and this deck asserts the number, which the
+* diagnostic must not move - and did not.
 V1 in 0 dc 1
 R0 in 0 1meg
 A1 [in] [Dig] adc1

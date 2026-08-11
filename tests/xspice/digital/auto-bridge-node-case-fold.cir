@@ -1,0 +1,28 @@
+* a mixed-type node written in two cases is one node in the default fold mode
+* The fold half of the pair tests/xspice/case/auto-bridge-node-case.cir
+* (preserve, bridged, 3.3) and
+* tests/xspice/casedist/auto-bridge-node-case-split.cir (distinguish, not
+* bridged, 0.0).  The reader lowercases every card here, so the d_buffer's 'A'
+* and R1's 'a' reach Evtcheck_nodes() as one spelling, the auto-bridge inserts
+* a dac_bridge, and v(a) = 3.3.
+* Its job is the near-miss diagnostic added for doc/codex/issues/0030.
+* report_bridge_case_miss() (src/xspice/evt/evtcheck_nodes.c) is guarded on
+* casemode == distinguish, not on the spellings in the deck, and this deck
+* holds the spellings constant while changing only the mode: after folding
+* there is no unmatched event node to report and the number must not move.
+* Verified by hand: stderr is empty for this deck.
+* check.sh's filter drops every line containing 'Warning' from both sides, so
+* the silence cannot be asserted here and the assertion is the number.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [Dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 Dig A dbuf
+.model dbuf d_buffer
+R1 a 0 1k
+.OPTIONS noacct
+.control
+op
+print v(a)
+.endc
+.end

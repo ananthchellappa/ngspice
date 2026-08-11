@@ -817,6 +817,128 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
     return bridge;
 }
 
+/* True if the deck already joins this event node to the analog node with the
+ * given equation number: some XSPICE instance has a port on both, which is
+ * exactly the connection the auto-bridge would have made, made by hand.
+ *
+ * Under distinguish the two sides of a hand-written bridge are two names, so
+ * writing them as one name in two cases - event 'DOUT' against analog 'dout'
+ * - is a natural way to spell that device, and it is correct.  Without this
+ * test the report below fires on it, and a warning on the legitimate deck is
+ * what decision 2 of doc/claude/decisions/0001-distinguish.md rejects: it
+ * trains users to ignore the warning that matters.
+ *
+ * The event side is matched by node index, the way scan_ports() does it, and
+ * the analog side by CKTnode number rather than by name, so no comparison of
+ * spellings enters the test.  A port that names no analog node has
+ * smp_data.pos_node and .neg_node zero from tmalloc()'s calloc, and node
+ * number zero is ground, which has no case variant and so is never the node
+ * being asked about.
+ */
+
+static bool already_joined(
+    CKTcircuit *ckt,              /* The circuit structure */
+    int         node_index,       /* Index of the event node in node_list */
+    int         analog_number)    /* Equation number of the analog node */
+{
+    Evt_Inst_Info_t *inst_info;
+
+    for (inst_info = ckt->evt->info.inst_list;
+         inst_info;
+         inst_info = inst_info->next) {
+        MIFinstance *inst;
+        bool         on_event = FALSE, on_analog = FALSE;
+        int          i, j;
+
+        inst = inst_info->inst_ptr;
+        for (i = 0; i < inst->num_conn; ++i) {
+            Mif_Conn_Data_t *conn;
+
+            conn = inst->conn[i];
+            if (conn->is_null)
+                continue;
+            for (j = 0; j < conn->size; ++j) {
+                Mif_Port_Data_t *port;
+
+                port = conn->port[j];
+                if (port->is_null)
+                    continue;
+                if (port->type == MIF_DIGITAL ||
+                    port->type == MIF_USER_DEFINED) {
+                    if (port->evt_data.node_index == node_index)
+                        on_event = TRUE;
+                } else if (port->smp_data.pos_node == analog_number ||
+                           port->smp_data.neg_node == analog_number) {
+                    on_analog = TRUE;
+                }
+            }
+        }
+        if (on_event && on_analog)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/* Report an event node that matched no analog node exactly but does match one
+ * when case is ignored, and that the deck has not joined to it by hand.  That
+ * is decision 2 of
+ * doc/claude/decisions/0001-distinguish.md at this site: silence when a name
+ * is being defined, a warning when a name is being resolved, the resolution
+ * fails, and a name differing only in case exists.  The bridging loop below
+ * is the resolution - an event node and an analog node of the same name are
+ * one mixed-type net - so a near miss there leaves the analog net driven by
+ * nothing and the run prints a plausible number.
+ *
+ * Called once per event node, after that node's scan of CKTnodes has
+ * finished, rather than at the comparison that failed.  A single failed
+ * comparison is not a failed resolution: the loop compares one event node
+ * against every analog node, so 'A' can miss 'a' and still match 'A' further
+ * down the list, and reporting inside the loop would warn about a net that
+ * was bridged and would warn once per analog node besides.  A separate pass
+ * over the whole node list after the bridging loop, which
+ * doc/codex/issues/0030 suggested, buys nothing: the loop mutates neither
+ * CKTnodes nor the event node list - it only accumulates cards, which are
+ * parsed after it - so the question is already decidable here.
+ *
+ * Only distinguish can reach the condition.  Under preserve ng_ideq() is
+ * case insensitive, so a name that matches when case is ignored has already
+ * matched and been bridged; under fold the reader has lowercased every card,
+ * so the two spellings are one.  The guard is therefore on the mode and not
+ * on the spelling.
+ */
+
+static void report_bridge_case_miss(
+    CKTcircuit      *ckt,             /* The circuit structure */
+    Evt_Node_Info_t *event_node)      /* The event node that matched nothing */
+{
+    Evt_Node_Info_t *chase;
+    CKTnode         *analog_node;
+    int              node_index;
+
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return;
+
+    /* Find the node index, as scan_ports() does. */
+
+    for (node_index = 0, chase = ckt->evt->info.node_list;
+         chase && chase != event_node;
+         ++node_index, chase = chase->next)
+        ;
+
+    for (analog_node = ckt->CKTnodes;
+         analog_node;
+         analog_node = analog_node->next) {
+        if (cieq(event_node->name, analog_node->name)) {
+            if (already_joined(ckt, node_index, analog_node->number))
+                return;
+            fprintf(stderr,
+                    "Warning: no analog node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
+                    event_node->name, analog_node->name);
+            return;
+        }
+    }
+}
+
 /* Early detection of node type clashes and attempted fix by
  * automatic insertion of a bridging device.
  */
@@ -861,11 +983,14 @@ bool Evtcheck_nodes(
     for (event_node = ckt->evt->info.node_list;
          event_node;
          event_node = event_node->next) {
+         bool matched = FALSE;
+
          for (analog_node = ckt->CKTnodes;
              analog_node;
              analog_node = analog_node->next) {
              int nl;
              if (ng_ideq(event_node->name, analog_node->name)) {
+                 matched = TRUE;
                  if (show == AB_OFF) {
                      FREE(errMsg);
                      errMsg = tprintf("Auto bridging is switched off "
@@ -926,6 +1051,11 @@ bool Evtcheck_nodes(
                  bridge->end_index += nl;
              }
          }
+
+         /* This node's resolution against the analog side is now decided. */
+
+         if (!matched)
+             report_bridge_case_miss(ckt, event_node);
     }
 
     /* Flush cards. */

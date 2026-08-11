@@ -14,7 +14,7 @@
 ## extra flag rides on that argument.
 
 TESTS = harness-alive.cir event-node-lookup-case-split.cir \
-	auto-bridge-node-case-split.cir \
+	auto-bridge-node-case-split.cir hand-bridge-node-case-split.cir \
 	auto-bridge-vcc-param-case.cir auto-bridge-vcc-param-case-lower.cir \
 	auto-bridge-family-param-case.cir \
 	auto-bridge-family-param-case-lower.cir \
