@@ -1,0 +1,175 @@
+* the near-miss report for a B source V() reference, and the silences it owes
+* doc/codex/issues/0036, acceptance criteria 1 and 2, for the parser half.
+* INPtermCaseCheck() (src/spicelib/parser/inpsymt.c) reports a node that a
+* V() reference created and that no card ever defined, when a name differing
+* from it only in case IS defined.  Decision 2 of
+* doc/claude/decisions/0001-distinguish.md is the rule and the half that
+* matters is the silence: a warning on a name being DEFINED fires on the
+* legitimate deck, because two spellings being two nets is the feature.
+* Silence is what a deck cannot notice by accident, so three of the four
+* cases below assert it.
+*
+* The diagnostic is written before the first line of any .control block runs -
+* it is the end of the parse, src/frontend/spiceif.c - so there is no command
+* to attach a redirect to.  This deck therefore writes each circuit out with
+* echo and sources it from inside its own control block: 'source' re-enters
+* inp_spsource() and if_inpdeck(), so the whole parse including the check runs
+* again, with the wrapper's redirect in force.  '>&' sets cp_err as well as
+* cp_out (src/frontend/streams.c:156), and the sourced circuit stays current
+* afterwards, which is why the op and the prints below are about the sub-deck
+* and not about this file.  The sub-decks are written rather than shipped so
+* that the four circuits being distinguished are visible here, in the deck
+* that asserts about them; the bnr_* files are cleaned by CLEANFILES.  Their
+* names are lower case because in the default mode the reader lower cases a
+* control line unless its first word is on a fixed exempt list - 'echo' and
+* 'source' are on it, 'fopen' is not (src/frontend/inpcom.c) - so an
+* upper-case name would be written as typed and then looked for folded, and
+* this deck would stop working in the mode it is not about.  That asymmetry
+* is doc/codex/issues/0038.  The cost of the lower-case names is that the
+* uppercased copy doc/claude/scripts/case_differential_sweep.py makes of this
+* deck does not run: the sweep leaves a 'source' line alone and uppercases an
+* 'echo' line, so the sub-deck is written under one spelling and sourced
+* under another.  That is the collateral vector-rawfile-scale-case.cir
+* already has, and the sweep never runs distinguish, so it is not evidence
+* about this deck either way.
+*
+* The capture is scanned with a while loop rather than a counted fread,
+* because the parse writes its own lines before the warning can appear.
+* fread returns the line length in its third argument and -1 at EOF
+* (src/frontend/com_fileio.c), so the loop terminates on the file, and a
+* fresh seed each pass means an unread line cannot carry the previous line's
+* text.
+*
+* The phrase asserted is "no node named", never the shared tail "differs only
+* in case": the two XSPICE checks say "no analog node named" and "no event
+* node named", so a deck asserting the tail would pass on the wrong warning.
+* "no node named" is not a substring of either, which is checked both ways.
+* Every token is upper case because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error'.
+*
+*   MISS     v(in) misses, 'In' is defined  -> reported, v(miss) = 0
+*   DEFN     'In' and 'in' both defined     -> silent (the definition half)
+*   FWDREF   'mid' referenced then defined, 'MID' defined too -> silent
+*   NOTWIN   v(mdi) misses, no variant      -> silent, doc/codex/issues/0028
+.OPTIONS noacct
+.control
+* --- MISS: a reference the deck never defines, beside a defined case variant
+echo "* a V() reference that misses with a case variant defined" > bnr_miss.cir
+echo ".OPTIONS noacct rshunt=1e9" >> bnr_miss.cir
+echo "V1 In 0 dc 1.5" >> bnr_miss.cir
+echo "R1 In 0 1k" >> bnr_miss.cir
+echo "B2 miss 0 V={V(in)*2}" >> bnr_miss.cir
+echo "R3 miss 0 1k" >> bnr_miss.cir
+echo ".end" >> bnr_miss.cir
+source bnr_miss.cir >& bnr_miss.txt
+set found1 = 0
+set n1 = 1
+fopen f1 bnr_miss.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no node named 'in'; 'In'"
+  if $p1 >= 0
+    set found1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo NODE-MISS-REPORTED
+else
+  echo NODE-MISS-SILENT
+end
+op
+print v(In)
+print v(miss)
+* --- DEFN: both spellings written by cards, so neither is a failed lookup
+echo "* two spellings, both defined by cards" > bnr_defn.cir
+echo ".OPTIONS noacct" >> bnr_defn.cir
+echo "V1 In 0 dc 1.5" >> bnr_defn.cir
+echo "R1 In 0 1k" >> bnr_defn.cir
+echo "R2 in 0 2k" >> bnr_defn.cir
+echo "B1 out 0 V={V(In)*2}" >> bnr_defn.cir
+echo "R3 out 0 1k" >> bnr_defn.cir
+echo ".end" >> bnr_defn.cir
+source bnr_defn.cir >& bnr_defn.txt
+set found2 = 0
+set n2 = 1
+fopen f2 bnr_defn.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no node named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo NODE-DEFN-REPORTED
+else
+  echo NODE-DEFN-SILENT
+end
+op
+print v(In)
+print v(in)
+print v(out)
+* --- FWDREF: the reference creates the node, a later card claims it, and a
+* --- case variant is defined as well, so only the claim can keep this silent
+echo "* a forward reference claimed later, with a case variant defined" > bnr_fwdref.cir
+echo ".OPTIONS noacct" >> bnr_fwdref.cir
+echo "B1 Out 0 V={V(mid)*2}" >> bnr_fwdref.cir
+echo "R2 Out 0 1k" >> bnr_fwdref.cir
+echo "V1 mid 0 dc 1.5" >> bnr_fwdref.cir
+echo "R1 mid 0 1k" >> bnr_fwdref.cir
+echo "R3 MID 0 1k" >> bnr_fwdref.cir
+echo ".end" >> bnr_fwdref.cir
+source bnr_fwdref.cir >& bnr_fwdref.txt
+set found3 = 0
+set n3 = 1
+fopen f3 bnr_fwdref.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no node named"
+  if $p3 >= 0
+    set found3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo NODE-FWDREF-REPORTED
+else
+  echo NODE-FWDREF-SILENT
+end
+op
+print v(Out)
+* --- NOTWIN: an ordinary typo, with no case variant behind it
+echo "* a V() reference that misses with no case variant present" > bnr_notwin.cir
+echo ".OPTIONS noacct rshunt=1e9" >> bnr_notwin.cir
+echo "V1 In 0 dc 1.5" >> bnr_notwin.cir
+echo "R1 In 0 1k" >> bnr_notwin.cir
+echo "B2 miss 0 V={V(mdi)*2}" >> bnr_notwin.cir
+echo "R3 miss 0 1k" >> bnr_notwin.cir
+echo ".end" >> bnr_notwin.cir
+source bnr_notwin.cir >& bnr_notwin.txt
+set found4 = 0
+set n4 = 1
+fopen f4 bnr_notwin.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "no node named"
+  if $p4 >= 0
+    set found4 = 1
+  end
+end
+fclose $f4
+if $found4 > 0
+  echo NODE-NOTWIN-REPORTED
+else
+  echo NODE-NOTWIN-SILENT
+end
+op
+print v(miss)
+.endc
+.end

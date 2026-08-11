@@ -29,10 +29,13 @@
 * path; 1e9 puts the node on a DC path without moving any other voltage.
 *
 * The diagnostic this gate adds -- 'no node named ...; ... differs only in
-* case' -- cannot be asserted here.  tests/bin/check.sh captures stdout only
-* and its egrep -v filter drops every line containing Warning from both sides.
-* It goes to stderr, per doc/claude/decisions/0001-distinguish.md decision 2,
-* and is verified by hand and quoted in the commit that adds it.
+* case' -- is not asserted here: it goes to cp_err, and tests/bin/check.sh
+* captures stdout only and its egrep -v filter drops every line containing
+* Warning from both sides.  It IS asserted, together with the silences
+* decision 2 of doc/claude/decisions/0001-distinguish.md requires, by
+* bsource-node-case-report.cir beside this file, which sources the circuit it
+* is about from inside a .control block so that a '>&' redirect can reach the
+* parse.  doc/codex/issues/0036.
 .OPTIONS noacct rshunt=1e9
 V1 In 0 dc 1.5
 R1 In 0 1k

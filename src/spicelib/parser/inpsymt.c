@@ -153,7 +153,7 @@ void INPtermCaseCheck(INPtables *tab)
                same bucket and the scan does not have to walk the table */
             for (u = tab->INPtermsymtab[i]; u; u = u->t_next)
                 if (u != t && !u->t_unclaimed && cieq(t->t_ent, u->t_ent)) {
-                    fprintf(stderr,
+                    fprintf(cp_err,
                             "Warning: no node named '%s'; '%s' differs only in case (casemode=distinguish)\n",
                             t->t_ent, u->t_ent);
                     break;
