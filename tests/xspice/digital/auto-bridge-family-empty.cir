@@ -1,0 +1,38 @@
+* an empty family= on a model must behave as if the parameter were absent
+* doc/codex/issues/0029 defect (c), first half.  Case independent, so it runs
+* in the default 'fold' mode here rather than in tests/xspice/case.
+*   src/xspice/evt/evtcheck_nodes.c:370-372, at 3dbd6ba95, inside
+*   examine_device(MIFinstance *inst, const char **family)
+*     *family = pdp->element->svalue; // May be NULL
+*     if (family && !family[0])
+*         family = NULL;     // Ignore empty string.
+* 'family' is the out-parameter and is never NULL there, 'family[0]' is
+* '*family', and the assignment overwrites the local pointer-to-pointer
+* instead of the caller's string, so the empty-string guard was dead in both
+* directions and the empty string reached find_bridge() as a family name.
+* RED evidence at 3dbd6ba95: this deck printed v(outn) = 3.300000e+00 - the
+* built-in default dac_bridge, because an empty family is non-NULL and so
+* suppressed the '.param family' lookup at evtcheck_nodes.c:526 and then
+* selected nothing.  With the family= removed from the model card entirely it
+* printed 1.650000e+00, and that is what an empty family must also print.
+* 1.650000e+00 is the "demo" family bridge that pre_set defines with
+* out_high = vcc/2, reached through .param family="demo".
+.control
+pre_set auto_bridge_demo_d_out =
++ ( ".model auto_da dac_bridge(out_high='%g/2' out_low=0)"
++   "auto_bridge%d [ %s ] [ %s ] auto_da" 1000 )
+.endc
+.param family="demo"
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer family=""
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

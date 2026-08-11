@@ -3,7 +3,9 @@
 TESTS = \
 	d_ram.cir          \
 	d_source.cir       \
-	d_state.cir
+	d_state.cir        \
+	auto-bridge-family-null.cir \
+	auto-bridge-family-empty.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -r foobaz"
 

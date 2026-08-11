@@ -1,0 +1,42 @@
+* a family-bearing node must not match a family-less auto-bridge
+* doc/codex/issues/0029 defect (c), second half.  This deck has nothing to do
+* with identifier case: it runs in the default 'fold' mode, which is why it
+* lives here rather than in tests/xspice/case.
+*   src/xspice/evt/evtcheck_nodes.c:558, at 3dbd6ba95
+*     if (family) {
+*         if (!strcmp(family, bridge->family)) {
+* find_bridge() looks for an existing bridge with the same udn_index and
+* direction before building a new one.  bridge->family is NULL for a bridge
+* built for a node that named no family, and the enclosing `if (family)`
+* guards only the left operand, so a family-bearing node reaching such a
+* bridge passed NULL to strcmp.
+* RED evidence at 3dbd6ba95: this deck printed nothing and ngspice died with
+* SIGSEGV (exit 139).  Node order is load bearing - 'plain', whose d_buffer
+* model names no family, is the first digital output node, so its family-less
+* bridge is already on the list when 'fancy' is examined.
+* The two numbers are the assertion and they differ: 'plain' takes the
+* built-in default dac_bridge with out_high = vcc = 3.3, while 'fancy' takes
+* the "demo" family bridge that pre_set defines with out_high = vcc/2.  A
+* deck asserting only that the run completed would also pass if the two nodes
+* wrongly shared one bridge.
+.control
+pre_set auto_bridge_demo_d_out =
++ ( ".model auto_da dac_bridge(out_high='%g/2' out_low=0)"
++   "auto_bridge%d [ %s ] [ %s ] auto_da" 1000 )
+.endc
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [d1 d2] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 d1 plain pbuf
+.model pbuf d_buffer
+A3 d2 fancy fbuf
+.model fbuf d_buffer family="demo"
+R1 plain 0 1k
+R2 fancy 0 1k
+.OPTIONS noacct
+.control
+op
+print v(plain) v(fancy)
+.endc
+.end

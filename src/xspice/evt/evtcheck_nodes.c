@@ -368,8 +368,8 @@ static int examine_device(MIFinstance *inst, const char **family)
                  /* Return value for "family" parameter. */
 
                  *family = pdp->element->svalue; // May be NULL
-                 if (family && !family[0])
-                     family = NULL;     // Ignore empty string.
+                 if (*family && !(*family)[0])
+                     *family = NULL;    // Ignore empty string.
                  break;
              }
          }
@@ -555,7 +555,13 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
         if (bridge->udn_index == event_node->udn_index &&
             bridge->direction == direction) {
             if (family) {
-                if (!strcmp(family, bridge->family)) {
+                /* bridge->family is NULL for a bridge built for a node that
+                 * named no family, and such a bridge can precede this one on
+                 * the list with the same udn_index and direction.  It is not
+                 * a match for a node that does name a family.
+                 */
+
+                if (bridge->family && !strcmp(family, bridge->family)) {
                     if (!s_family && bridge->max == 1) {
                         /* Set bridge vcc for formatting. */
 
