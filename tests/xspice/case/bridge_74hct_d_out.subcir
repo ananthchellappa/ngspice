@@ -1,0 +1,13 @@
+* Auto-bridge subcircuit for the "74hct" family, digital output.
+* Support file for auto-bridge-family-file-case.cir and
+* auto-bridge-family-file-case-lower.cir.  The auto-bridge builds this file's
+* name as bridge_<family>_<node type>_<direction>.subcir and resolves it with
+* inp_pathresolve(), so the name here is the lower-case spelling that a deck
+* writing family='74HCT' must reach in every casemode.
+* The port order is the one the generated X card uses: digital node first,
+* analogue node second.  See the commentary at
+* src/xspice/evt/evtcheck_nodes.c:156-170.
+.subckt bridge_74hct_d_out dig ana vcc=3.3
+.model hct_dac dac_bridge(out_low = 0 out_high = '0.8 * vcc')
+adac [ dig ] [ ana ] hct_dac
+.ends

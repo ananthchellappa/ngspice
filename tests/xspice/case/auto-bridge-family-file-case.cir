@@ -1,0 +1,36 @@
+* an upper-case family= must select the same bridge file, under preserve
+* doc/codex/issues/0029 defect (b).  "family" is a parameter *value* the deck
+* wrote on a .model card, not an identifier, and find_bridge() turns it into a
+* file name: bridge_<family>_<node type>_<direction>.subcir, resolved with
+* inp_pathresolve() at src/xspice/evt/evtcheck_nodes.c:540.
+*   src/xspice/evt/evtcheck_nodes.c:538-539, at 75fb84480
+*     snprintf(buff, sizeof buff, "bridge_%s_%s_%s.subcir",
+*              family, type_name, dirs[direction]);
+* A POSIX file system is byte exact whatever the casemode, so under
+* 'preserve', which leaves the .model card's case alone, family="74HCT" asked
+* for bridge_74HCT_d_out.subcir, found nothing, and the run degraded to the
+* built-in default dac_bridge - a different device with different levels and
+* no message at all.  Under the default 'fold' mode the reader lower cases the
+* card, so the same deck found bridge_74hct_d_out.subcir and worked.
+* RED evidence at 75fb84480, the same deck run three ways:
+*   fold        v(outn) = 2.640000e+00
+*   preserve    v(outn) = 3.300000e+00
+*   distinguish v(outn) = 3.300000e+00
+* and auto-bridge-family-file-case-lower.cir, which spells the family
+* "74hct", printed 2.640000e+00 in all three.  2.64 is 0.8 * vcc from
+* bridge_74hct_d_out.subcir; 3.3 is the default bridge's out_high = vcc.  The
+* two numbers are what separates "found the family file" from "silently used
+* something else", which is the whole defect.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer family="74HCT"
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

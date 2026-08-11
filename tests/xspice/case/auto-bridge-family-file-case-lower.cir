@@ -1,0 +1,19 @@
+* an all-lower-case family=, under preserve
+* The control for auto-bridge-family-file-case.cir: the same circuit with the
+* family spelled the way the file is named.  It passed before the
+* doc/codex/issues/0029 defect (b) change and after it, in all three modes,
+* and it is what pins 2.640000e+00 to a measurement rather than to an
+* argument about what bridge_74hct_d_out.subcir computes.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer family="74hct"
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

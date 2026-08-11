@@ -272,6 +272,8 @@ static void free_bridges(struct bridge *bridge_list)
         bridge_list = bridge->next;
         if (bridge->format)
             tfree(bridge->format);
+        if (bridge->family)
+            tfree(bridge->family); // find_bridge() gave us a folded copy.
         tfree(bridge);
     }
 }
@@ -527,6 +529,37 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
     if (family && cp_getvar("no_auto_bridge_family", CP_BOOL, NULL, 0))
         family = NULL;
 
+    /* "family" is a parameter *value*, not an identifier, and everything
+     * below turns it into a name that lives outside the deck: a file name
+     * resolved by inp_pathresolve(), a command interpreter variable name that
+     * cp_getvar() matches with strcmp in every mode, a .include card and a
+     * subcircuit name.  A POSIX file system is byte exact whatever the
+     * casemode, so a deck writing family="74HCT" found no bridge_74HCT_...
+     * file under 'preserve' or 'distinguish' and silently took the built-in
+     * default bridge, while under 'fold' the reader had lower cased the card
+     * and the same deck worked.
+     *
+     * Fold it once, here, where all three places it can come from have
+     * converged - a model card's "family" parameter, a scoped .param and a
+     * global .param - rather than gating the five snprintf()s below.  That is
+     * the rule of the "Fold sites outside the reader" section of
+     * doc/claude/specs/case-sensitive-identifiers.md; this is its convergence
+     * point rather than the capture in examine_device() the spec names,
+     * because the two .param sources do not pass through that function.
+     * Under 'fold' the value is already lower case, so nothing moves there
+     * and every mode now builds the same name.
+     *
+     * From here on the string is ours.  It is handed to the new bridge below
+     * and released by free_bridges(); the two early returns free it.
+     */
+
+    if (family) {
+        char *folded = copy(family);
+
+        strtolower(folded);
+        family = folded;
+    }
+
     if (family) {
         if (*family == '*') {
             s_family = family + 1; // Use variable look-up.
@@ -581,8 +614,11 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
             }
         }
     }
-    if (bridge)
+    if (bridge) {
+        if (family)
+            tfree(family); // The matched bridge has its own copy.
         return bridge;
+    }
 
     /* Determine if a bridging element exists, starting with the node type. */
 
@@ -655,8 +691,11 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
         setup = copy(setup);
         format = copy(format);
     }
-    if (!format)
+    if (!format) {
+        if (family)
+            tfree(family);
         return NULL;
+    }
 
     /* If the setup is not a .include card, format it with vcc. */
 

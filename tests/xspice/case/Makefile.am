@@ -19,11 +19,17 @@ TESTS = freq-e-source-case.cir freq-e-source-case-lower.cir \
 	auto-bridge-node-case.cir auto-bridge-node-case-lower.cir \
 	event-node-case.cir event-node-case-lower.cir \
 	event-node-lookup-case.cir event-node-lookup-case-lower.cir \
-	multi-input-pwl-model-case.cir multi-input-pwl-model-case-lower.cir
+	multi-input-pwl-model-case.cir multi-input-pwl-model-case-lower.cir \
+	auto-bridge-family-file-case.cir auto-bridge-family-file-case-lower.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 
+## bridge_74hct_d_out.subcir is not a deck; it is the family bridge file that
+## auto-bridge-family-file-case*.cir make the auto-bridge resolve, so it has
+## to be distributed even though it is never a TEST.
+
 EXTRA_DIST = \
+	bridge_74hct_d_out.subcir \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
 
