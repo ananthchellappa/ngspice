@@ -1,0 +1,206 @@
+* the undefined-node report for the dot cards that name a node they expect to exist
+* doc/codex/issues/0028 gap 2, in the DEFAULT case mode.
+* .noise, .tf, .sens and .pz each resolve a node name with a call that creates
+* the node on a miss, exactly as a B source V() reference does
+* (src/spicelib/parser/inp2dot.c and src/spicelib/parser/inpgval.c).  Each is a
+* reference and not a definition, so each takes INPtermInsertRef() and is
+* reported by INPtermCaseCheck() when no card ever defines the name.  Before
+* that they inserted as definitions, which also CLEARED the bit a V()
+* reference had set, so a dot card naming the manufactured node suppressed the
+* near-miss warning of doc/claude/decisions/0002; that half is asserted by
+* tests/regression/casedist/sens-node-case-report.cir, in the mode it needs.
+*
+* .pz is the only card that reaches the IF_NODE branch of INPgetValue()
+* (inpgval.c): no device or model parameter in the tree is IF_NODE typed, so
+* the four .pz nodes are the whole of that site's reachable surface.  The two
+* remaining reference sites cannot be exercised by any deck in this build:
+* .pss is behind #ifdef WITH_PSS, which bare ../configure leaves undefined,
+* and .hb is behind WITH_HB, which no configure.ac or header ever defines.
+*
+* The deck shape is bsource-undef-node-report.cir's and the reason for it is
+* doc/claude/decisions/0006-diagnostic-deck-coverage.md decision 2: the
+* diagnostic is written during the parse, so the only redirect that can reach
+* it is one in force across a 'source'.  Tokens are upper case because
+* tests/bin/check.sh drops any line containing 'Warning', and the dun_* names
+* are lower case because the default reader folds a control line whose first
+* word is not on its exempt list (doc/codex/issues/0038).
+*
+*   OK       every dot card names a node a device card defines -> silent
+*   FWD      the dot cards come FIRST, before the cards that define the nodes
+*            -> silent, which is why the check is deferred to the end of the
+*            parse for these sites too and not raised at the card
+*   MISS     each dot card names a node no card defines -> five reports, one
+*            per name, and each is asserted by name.  No op follows this one:
+*            five manufactured nodes with no DC path make the matrix singular
+*            and the solve then dies inside spSolve on an unfactored matrix,
+*            taking the whole deck with it.  That is the second shape of
+*            doc/claude/decisions/0002's Context section, it is the same
+*            failure a misspelt B source reference produces, and these five
+*            reports are what now arrive before it and explain it.  A found
+*            phrase proves its own capture was read, so this case needs no
+*            CAPTURE-READ token
+.OPTIONS noacct
+.control
+* --- OK: the reference resolves because the deck spells it the way it wrote it
+echo "* dot cards naming nodes the deck defines" > dun_ok.cir
+echo ".OPTIONS noacct" >> dun_ok.cir
+echo "v1 in 0 dc 1 ac 1" >> dun_ok.cir
+echo "r1 in out 1k" >> dun_ok.cir
+echo "r2 out 0 1k" >> dun_ok.cir
+echo ".noise v(out) v1 dec 2 1k 10k" >> dun_ok.cir
+echo ".tf v(out) v1" >> dun_ok.cir
+echo ".sens v(out)" >> dun_ok.cir
+echo ".pz in 0 out 0 vol pz" >> dun_ok.cir
+echo ".end" >> dun_ok.cir
+source dun_ok.cir >& dun_ok.txt
+set found1 = 0
+set read1 = 0
+set n1 = 1
+fopen f1 dun_ok.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no node named"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr r1 "_$capline" "Circuit:"
+  if $r1 >= 0
+    set read1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo DOTCARD-OK-REPORTED
+else
+  echo DOTCARD-OK-SILENT
+end
+if $read1 > 0
+  echo DOTCARD-OK-CAPTURE-READ
+else
+  echo DOTCARD-OK-CAPTURE-EMPTY
+end
+op
+print v(out)
+remcirc
+* --- FWD: the dot cards are parsed before the cards that define their nodes
+echo "* dot cards ahead of the cards that define the nodes they name" > dun_fwd.cir
+echo ".OPTIONS noacct" >> dun_fwd.cir
+echo ".noise v(out) v1 dec 2 1k 10k" >> dun_fwd.cir
+echo ".tf v(out) v1" >> dun_fwd.cir
+echo ".sens v(out)" >> dun_fwd.cir
+echo ".pz in 0 out 0 vol pz" >> dun_fwd.cir
+echo "v1 in 0 dc 1 ac 1" >> dun_fwd.cir
+echo "r1 in out 1k" >> dun_fwd.cir
+echo "r2 out 0 1k" >> dun_fwd.cir
+echo ".end" >> dun_fwd.cir
+source dun_fwd.cir >& dun_fwd.txt
+set found2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 dun_fwd.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no node named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo DOTCARD-FWD-REPORTED
+else
+  echo DOTCARD-FWD-SILENT
+end
+if $read2 > 0
+  echo DOTCARD-FWD-CAPTURE-READ
+else
+  echo DOTCARD-FWD-CAPTURE-EMPTY
+end
+op
+print v(out)
+remcirc
+* --- MISS: one typo per card, five names no card defines
+echo "* dot cards naming nodes no card defines" > dun_miss.cir
+echo ".OPTIONS noacct" >> dun_miss.cir
+echo "v1 in 0 dc 1 ac 1" >> dun_miss.cir
+echo "r1 in out 1k" >> dun_miss.cir
+echo "r2 out 0 1k" >> dun_miss.cir
+echo ".noise v(uot) v1 dec 2 1k 10k" >> dun_miss.cir
+echo ".tf v(tuo) v1" >> dun_miss.cir
+echo ".sens v(sou)" >> dun_miss.cir
+echo ".pz zin 0 zut 0 vol pz" >> dun_miss.cir
+echo ".end" >> dun_miss.cir
+source dun_miss.cir >& dun_miss.txt
+set noise3 = 0
+set tf3 = 0
+set sens3 = 0
+set pzi3 = 0
+set pzj3 = 0
+set n3 = 1
+fopen f3 dun_miss.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr a3 "_$capline" "no node named 'uot'; it is referenced"
+  if $a3 >= 0
+    set noise3 = 1
+  end
+  strstr b3 "_$capline" "no node named 'tuo'; it is referenced"
+  if $b3 >= 0
+    set tf3 = 1
+  end
+  strstr c3 "_$capline" "no node named 'sou'; it is referenced"
+  if $c3 >= 0
+    set sens3 = 1
+  end
+  strstr d3 "_$capline" "no node named 'zin'; it is referenced"
+  if $d3 >= 0
+    set pzi3 = 1
+  end
+  strstr e3 "_$capline" "no node named 'zut'; it is referenced"
+  if $e3 >= 0
+    set pzj3 = 1
+  end
+end
+fclose $f3
+if $noise3 > 0
+  echo NOISE-MISS-REPORTED
+else
+  echo NOISE-MISS-SILENT
+end
+if $tf3 > 0
+  echo TF-MISS-REPORTED
+else
+  echo TF-MISS-SILENT
+end
+if $sens3 > 0
+  echo SENS-MISS-REPORTED
+else
+  echo SENS-MISS-SILENT
+end
+if $pzi3 > 0
+  echo PZ-FIRST-MISS-REPORTED
+else
+  echo PZ-FIRST-MISS-SILENT
+end
+if $pzj3 > 0
+  echo PZ-THIRD-MISS-REPORTED
+else
+  echo PZ-THIRD-MISS-SILENT
+end
+* Each sourced deck is removed once its case is done.  Whichever is current
+* when the control block ends is the one batch mode runs the analyses of, and
+* these sub-decks carry four analyses each: the MISS one dies in spSolve on
+* the unfactored matrix its five DC-pathless nodes produce, taking the whole
+* deck with it - and a deck that dies produces no stdout at all, which is
+* indistinguishable from a pass against an empty reference - while the other
+* two would print a .tf and .sens dump that says nothing this deck is about.
+remcirc
+.endc
+.end

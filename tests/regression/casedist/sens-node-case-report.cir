@@ -1,0 +1,101 @@
+* a .sens naming the node a V() reference manufactured, under distinguish
+* doc/codex/issues/0028 acceptance criterion 4.
+* Before gap 2 the dot cards that name a node resolved it with
+* INPtermInsert(), the DEFINITION entry point, which clears the t_unclaimed
+* bit a V() reference had set (src/spicelib/parser/inpsymt.c).  So a deck
+* whose B source misspelt a node by case and whose .sens then named the same
+* misspelling was SILENT: the near-miss warning of
+* doc/claude/decisions/0002-deferred-node-resolution-check.md was suppressed
+* by the very card that repeated the mistake.  That is what this deck pins.
+*
+* SENSMISS is the false-negative case and is RED against the binary before
+* gap 2.  SENSOK is the guard on the other side: a .sens naming a node the
+* deck really defines must stay silent, in this mode too, so that the fix is
+* not "report whatever a dot card names".
+*
+* The shape is bsource-node-case-report.cir's, for the reason given there and
+* in doc/claude/decisions/0006-diagnostic-deck-coverage.md decision 2: the
+* diagnostic is written during the parse, so only a redirect in force across a
+* 'source' can capture it.  The phrase scanned is "no node named", the
+* parser's own noun, never the shared tail "differs only in case"; the
+* SENSMISS case scans for the pair of spellings, because decision 2 of
+* doc/claude/decisions/0001-distinguish.md makes naming both spellings part of
+* the contract.  Tokens are upper case because tests/bin/check.sh drops any
+* line containing 'Warning', and the snr_* names are lower case for
+* doc/codex/issues/0038's reason.
+*
+*   SENSMISS  B source says V(in), .sens says v(in), only 'In' is defined
+*             -> the near miss is reported and names 'in' and 'In'
+*   SENSOK    .sens names a node cards define -> silent
+.OPTIONS noacct
+.control
+* --- SENSMISS: the dot card repeats the misspelling and must not hide it
+echo "* a .sens naming the node a V() reference manufactured" > snr_miss.cir
+echo ".OPTIONS noacct rshunt=1e9" >> snr_miss.cir
+echo "V1 In 0 dc 1.5" >> snr_miss.cir
+echo "R1 In 0 1k" >> snr_miss.cir
+echo "B2 miss 0 V={V(in)*2}" >> snr_miss.cir
+echo "R3 miss 0 1k" >> snr_miss.cir
+echo ".sens v(in)" >> snr_miss.cir
+echo ".end" >> snr_miss.cir
+source snr_miss.cir >& snr_miss.txt
+set found1 = 0
+set n1 = 1
+fopen f1 snr_miss.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no node named 'in'; 'In'"
+  if $p1 >= 0
+    set found1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo SENS-NEARMISS-REPORTED
+else
+  echo SENS-NEARMISS-SILENT
+end
+op
+print v(In)
+print v(miss)
+* --- SENSOK: a .sens on a node the deck defines stays silent
+echo "* a .sens naming a node the deck defines" > snr_ok.cir
+echo ".OPTIONS noacct" >> snr_ok.cir
+echo "V1 In 0 dc 1.5" >> snr_ok.cir
+echo "R1 In Out 1k" >> snr_ok.cir
+echo "R2 Out 0 1k" >> snr_ok.cir
+echo ".sens v(Out)" >> snr_ok.cir
+echo ".end" >> snr_ok.cir
+source snr_ok.cir >& snr_ok.txt
+set found2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 snr_ok.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no node named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo SENS-OK-REPORTED
+else
+  echo SENS-OK-SILENT
+end
+if $read2 > 0
+  echo SENS-OK-CAPTURE-READ
+else
+  echo SENS-OK-CAPTURE-EMPTY
+end
+op
+print v(Out)
+.endc
+.end

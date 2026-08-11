@@ -86,8 +86,12 @@ INPgetValue(CKTcircuit *ckt, char **line, int type, INPtables *tab)
     } else if (type == IF_FLAG) {
         temp.iValue = 1;
     } else if (type == IF_NODE) {
+        /* the .pz nodes are the only IF_NODE values a deck can reach; each is
+           a name the card resolves rather than a node it defines, so a miss
+           is reported by INPtermCaseCheck() at the end of the parse.
+           doc/claude/decisions/0008-undefined-node-diagnostic.md */
         INPgetNetTok(line, &word, 1);
-        INPtermInsert(ckt, &word, tab, &(temp.nValue));
+        INPtermInsertRef(ckt, &word, tab, &(temp.nValue));
     } else if (type == IF_INSTANCE) {
         INPgetNetTok(line, &word, 1);
         INPinsert(&word, tab);

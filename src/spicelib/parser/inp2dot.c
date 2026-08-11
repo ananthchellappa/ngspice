@@ -49,14 +49,19 @@ dot_noise(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
 
         if ((*name == 'V' || *name == 'v') && !name[1]) {
 
+            /* the output node is a name this card resolves, not one it puts
+               on the netlist, so a miss here is an undefined node and not a
+               definition; INPtermCaseCheck() reports it at the end of the
+               parse, where a miss can still be told from a forward reference.
+               doc/claude/decisions/0008-undefined-node-diagnostic.md */
             INPgetNetTok(&line, &nname1, 0);
-            INPtermInsert(ckt, &nname1, tab, &node1);
+            INPtermInsertRef(ckt, &nname1, tab, &node1);
             ptemp.nValue = node1;
             GCA(INPapName, (ckt, which, foo, "output", &ptemp));
 
             if (*line != ')') {
                 INPgetNetTok(&line, &nname2, 1);
-                INPtermInsert(ckt, &nname2, tab, &node2);
+                INPtermInsertRef(ckt, &nname2, tab, &node2);
                 ptemp.nValue = node2;
             } else {
                 ptemp.nValue = gnode;
@@ -367,13 +372,14 @@ dot_tf(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         if (*line != '(' ) {
             /* error, bad input format */
         }
+        /* a resolved name, not a definition; see dot_noise() above */
         INPgetNetTok(&line, &nname1, 0);
-        INPtermInsert(ckt, &nname1, tab, &node1);
+        INPtermInsertRef(ckt, &nname1, tab, &node1);
         ptemp.nValue = node1;
         GCA(INPapName, (ckt, which, foo, "outpos", &ptemp));
         if (*line != ')') {
             INPgetNetTok(&line, &nname2, 1);
-            INPtermInsert(ckt, &nname2, tab, &node2);
+            INPtermInsertRef(ckt, &nname2, tab, &node2);
             ptemp.nValue = node2;
             GCA(INPapName, (ckt, which, foo, "outneg", &ptemp));
             ptemp.sValue = tprintf("V(%s,%s)", nname1, nname2);
@@ -491,14 +497,15 @@ dot_sens(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
             LITERR("Syntax error: '(' expected after 'v'\n");
             return 0;
         }
+        /* a resolved name, not a definition; see dot_noise() above */
         INPgetNetTok(&line, &nname1, 0);
-        INPtermInsert(ckt, &nname1, tab, &node1);
+        INPtermInsertRef(ckt, &nname1, tab, &node1);
         ptemp.nValue = node1;
         GCA(INPapName, (ckt, which, foo, "outpos", &ptemp));
 
         if (*line != ')') {
             INPgetNetTok(&line, &nname2, 1);
-            INPtermInsert(ckt, &nname2, tab, &node2);
+            INPtermInsertRef(ckt, &nname2, tab, &node2);
             ptemp.nValue = node2;
             GCA(INPapName, (ckt, which, foo, "outneg", &ptemp));
             ptemp.sValue = tprintf("V(%s,%s)", nname1, nname2);
@@ -673,8 +680,9 @@ dot_pss(char *line, void *ckt, INPtables *tab, struct card *current,
     parm = INPgetValue(ckt, &line, IF_REAL, tab);		/* StabTime */
     GCA(INPapName, (ckt, which, foo, "stabtime", parm));
 
+    /* a resolved name, not a definition; see dot_noise() above */
     INPgetNetTok(&line, &nname, 0);
-    INPtermInsert(ckt, &nname, tab, &nnode);
+    INPtermInsertRef(ckt, &nname, tab, &nnode);
     ptemp.nValue = nnode;
     GCA(INPapName, (ckt, which, foo, "oscnode", &ptemp));	/* OscNode given as string */
 
@@ -771,8 +779,9 @@ dot_hb(char* line, void* ckt, INPtables* tab, struct card* current,
     parm = INPgetValue(ckt, &line, IF_INTVEC, tab);		/* StabTime */
     GCA(INPapName, (ckt, which, foo, "harmonics", parm));
 
+    /* a resolved name, not a definition; see dot_noise() above */
     INPgetNetTok(&line, &nname, 0);
-    INPtermInsert(ckt, &nname, tab, &nnode);
+    INPtermInsertRef(ckt, &nname, tab, &nnode);
     ptemp.nValue = nnode;
     GCA(INPapName, (ckt, which, foo, "oscnode", &ptemp));	/* OscNode given as string */
 
