@@ -1097,30 +1097,30 @@ static void set_case_mode(void)
         ng_case_mode = NG_CASE_PRESERVE;
     else if (cieq(mode, "distinguish")) {
         ng_case_mode = NG_CASE_DISTINGUISH;
-        /* doc/codex/issues/0027 is closed, so 'unlet' has left the silent half
-           of this sentence: it removes the vector the deck named, and reports
-           a name that missed only by case. What replaces it in that half is
-           doc/codex/issues/0032, the vector name comparators outside
-           findvec() - the current plot's scale is still identified with
-           cieq(), so a vector whose name differs from the scale's only in case
-           is taken for the scale by 'print', dropped from 'ally', and refused
-           by 'unlet'. That is the same shape of silent wrong output this
-           clause has always named, so the clause stays and only its subject
-           changes. The word 'experimental' stays with it, and would stay even
-           if the clause emptied: doc/codex/issues/0028 is open, a name ngspice
-           constructs with upper case of its own such as q1#collCX must be
-           typed as the simulator spells it, and decision 5's migration hazard
-           - a deck that spells one net two ways becomes two nets, silently,
-           because both spellings are definitions - is inherent to the mode
-           rather than a defect in it. doc/claude/decisions/0001-distinguish.md
-           decision 6, doc/claude/decisions/0004-unlet-vector-identity.md. */
+        /* doc/codex/issues/0032 is closed, and with it this clause has run
+           out of open defects to name - 0029, 0027 and 0032 were the last
+           three. What replaces them is not a fourth defect but the mode's own
+           limitation, decision 5's migration hazard: a deck that spells one
+           net two ways becomes a deck with two nets, silently, because both
+           spellings are definitions and decision 2 deliberately does not warn
+           on a definition. So the clause keeps its shape - it has always
+           named a silence - and stops being a changelog of open issues.
+           Unlike every previous subject it can never be closed, only
+           withdrawn with the feature.
+
+           doc/codex/issues/0034 was rejected as the next subject: it is a
+           false positive rather than a silence, and naming it would tell a
+           user their output may be wrong at the one moment it is right.
+           doc/claude/decisions/0005-scale-vector-identity.md decision 5 has
+           that argument and the reasons the word 'experimental' does not rest
+           on this clause alone; 0004 decision 6 is where those started. */
         fprintf(stderr,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
                 "identity is case sensitive, and a vector, a B source V() "
                 "reference or an XSPICE node whose resolution misses by case "
-                "is reported, but a vector whose name differs only in case "
-                "from the current plot's scale vector is still confused with "
-                "it.\n");
+                "is reported, but a deck that spells one net two ways becomes "
+                "a deck with two nets and nothing says so, because both "
+                "spellings are definitions.\n");
     }
     else
         fprintf(stderr,
