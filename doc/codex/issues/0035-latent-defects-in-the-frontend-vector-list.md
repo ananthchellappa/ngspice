@@ -10,7 +10,7 @@ Grouped because they are one read of one file and would be one patch.
 ## Summary
 
 **(a) `vec_basename()` reads past the terminator.**
-`src/frontend/vectors.c:1252`:
+`src/frontend/vectors.c:1257`:
 
 ```c
     if (strchr(v->v_name, '.')) {

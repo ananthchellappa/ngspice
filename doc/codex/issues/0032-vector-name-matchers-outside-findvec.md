@@ -24,7 +24,7 @@ already uses.
 | --- | --- | --- |
 | `src/frontend/postcoms.c:49` `is_scale_vec_of_current_plot()` | `cieq(v_name, pl_scale->v_name)` | too loose: a case variant of the scale's name cannot be `unlet` at all. **Loud** |
 | `src/frontend/vectors.c:285` `findvec_ally()` | `!cieq(d->v_name, pl->pl_scale->v_name)` | too loose: `ally` silently omits a case variant of the scale |
-| `src/frontend/vectors.c:1213` `vec_eq()` | `cieq(s1, s2)` over `vec_basename()` | too loose: a case variant of the scale is taken *for* the scale. Six callers — `postcoms.c:300` (`print`'s scale column), `:675` and `:700` (`write`), `:840` and `:865` (`write_sparam`), `src/frontend/plotting/agraf.c:62` |
+| `src/frontend/vectors.c:1235` `vec_eq()` | `cieq(s1, s2)` over `vec_basename()` | too loose: a case variant of the scale is taken *for* the scale. Six callers — `postcoms.c:301` (`print`'s scale column), `:676` and `:701` (`write`), `:841` and `:866` (`write_sparam`), `src/frontend/plotting/agraf.c:62` |
 | `src/frontend/rawfile.c:611` | `cieq((char *) v->v_scale, nv->v_name)` | too loose: a rawfile naming both `time` and `TIME` binds a variable's scale to whichever comes first |
 | `src/frontend/diff.c:89`, `:98` | `cieq(n1, n2)` | too loose: `diff` reports two spellings as one vector, so a real difference between `Out` and `OUT` across two plots is invisible |
 
@@ -86,9 +86,14 @@ one `cieq()` there decides six behaviours.
    sentence in the migration note.
 3. A deck in `tests/regression/casedist/` asserts the scale-vector case:
    a vector whose name differs from the scale's only in case prints *with* its
-   scale column, appears in `ally`, and can be removed by `unlet`. The first
-   two are assertable on stdout; the third is only observable as the absence of
-   a stderr refusal, so assert it by printing the plot afterwards.
+   scale column, appears in `ally`, and can be removed by `unlet`. All three
+   are assertable. The first two are stdout, with the caveat that the filter
+   eats any line containing `Index` or `time`, so the evidence is the column
+   count of the *data* rows and the tran wants few enough points to keep the
+   reference short. The refusal is on `cp_err` and is captured with `>&` and
+   read back, the way `tests/regression/casedist/vector-unlet-report.cir`
+   does — see `doc/claude/decisions/0001-distinguish.md` decision 2, whose
+   claim that no deck can assert a diagnostic was corrected at `c42cf6748`.
 4. `make check` unchanged with `casemode` unset, and `tests/regression/case/`
    unchanged.
 
