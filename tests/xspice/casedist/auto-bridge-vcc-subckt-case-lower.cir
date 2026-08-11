@@ -1,10 +1,16 @@
 * an X card spelled x1, under casemode=distinguish
 * The control for auto-bridge-vcc-subckt-case.cir: the same circuit with the
 * subcircuit instance spelled x1, which is the spelling numparam stores
-* whatever the deck wrote.  It printed 6.000000e+00 before the
-* doc/codex/issues/0029 defect (a) change and after it, in all three modes,
-* and it is what pins the device letter as the whole of the difference - the
-* subcircuit formal is still spelled VCC here, as in the upper-case deck.
+* whatever the deck wrote.
+* It is a control on the instance name only, and NOT a deck that held
+* constant across the doc/codex/issues/0029 defect (a) change.  Its formal is
+* still spelled VCC, so before that change it missed on the final component's
+* case exactly as its upper-case sibling did: measured at 3dbd6ba95,
+* 3.300000e+00 under 'distinguish' against 6.000000e+00 under 'fold' and
+* 'preserve'.  What it isolates is that the instance name was a *second*,
+* independent reason for the miss, since it is the only thing that differs
+* between the two decks and the sibling still failed when this one was made
+* to pass.  Both print 6.000000e+00 in all three modes now.
 .subckt buf1 din aout VCC=6
 A2 din aout dbuf
 .model dbuf d_buffer

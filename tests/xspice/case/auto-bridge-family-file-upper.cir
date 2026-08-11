@@ -1,0 +1,32 @@
+* a family and its bridge file both spelled with upper case, under preserve
+* The compatibility guard for doc/codex/issues/0029 defect (b).  That defect
+* is a deck whose family="74HCT" cannot find a lower-case-named
+* bridge_74hct_d_out.subcir; the obvious fix, folding the family value
+* unconditionally, breaks the deck that had adapted to 'preserve' by naming
+* the file the way the deck spells the family - which is the only naming that
+* worked in that mode before.  It is not even a no-op under the default
+* 'fold' mode: a quoted value on a .model card survives the reader's fold
+* whenever is_xspice_model() matches the card, and that is a substring test
+* over the whole line which fires on a trailing comment
+* (doc/codex/issues/0005).  Measured on the unconditional-fold draft, in
+* 'fold' mode with a `; d_source` comment on the model card: 3.300000e+00
+* where the released ngspice printed 2.640000e+00.
+* find_bridge() therefore tries the deck's own spelling first and the folded
+* spelling only if that names nothing, which is a superset: this deck and
+* auto-bridge-family-file-case.cir both select their bridge, in all three
+* modes.
+* 1.650000e+00 is 0.5 * vcc from bridge_HCTB_d_out.subcir, chosen to differ
+* from that deck's 2.64 and from the default bridge's 3.3.
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer family="HCTB"
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

@@ -182,11 +182,12 @@ identifier comparisons: none of these four is one.
   defect, filed as `doc/codex/issues/0031` and deliberately not fixed here.
 
 - **(b)** `fix: fold the auto-bridge's family value once, where it becomes a
-  file name`. Folded unconditionally at the convergence of `family`'s three
-  sources, after `evtcheck_nodes.c:530`, rather than at the `examine_device()`
-  capture the spec names — the two `.param` sources do not pass through that
-  function. The folded string is now owned by the `struct bridge` and released
-  by `free_bridges()`; it used to be a borrowed pointer that was never freed.
+  file name`, corrected by the follow-up commit below. The spelling is chosen
+  at the convergence of `family`'s three sources, after
+  `evtcheck_nodes.c:530`, rather than at the `examine_device()` capture the
+  spec names — the two `.param` sources do not pass through that function.
+  The chosen string is now owned by the `struct bridge` and released by
+  `free_bridges()`; it used to be a borrowed pointer that was never freed.
   RED: `family="74HCT"` printed 3.3 under `preserve` and `distinguish` against
   2.64 under `fold`; all six cells of that matrix are now 2.64.
   Decks: `tests/xspice/case/auto-bridge-family-file-case{,-lower}.cir` with
@@ -218,6 +219,41 @@ identifier comparisons: none of these four is one.
   `auto-bridge-family-param-case{,-lower}.cir`,
   `auto-bridge-vcc-subckt-case{,-lower}.cir` and
   `auto-bridge-vcc-param-ambiguous.cir`.
+
+- **follow-up**, `fix: choose the auto-bridge's family spelling instead of
+  imposing one, and fold one path letter`. An adversarial review of the four
+  commits above found five defects, two of them regressions the commits
+  themselves introduced, and this commit fixes all five. In order of weight:
+
+  1. (b)'s unconditional fold is wrong in **every** mode. It breaks the deck
+     whose bridge file or `auto_bridge_*` variable is named the way the deck
+     spells the family — the only naming that worked under `preserve` — and it
+     is not a `fold`-mode no-op either, because a quoted `.model` value
+     survives the reader's fold whenever `is_xspice_model()` matches the card,
+     which is a substring test over the whole line and fires on a trailing
+     comment (`doc/codex/issues/0005`). Measured: a `fold`-mode deck that
+     printed 2.64 at `3dbd6ba95` printed 3.3 at `4caf2ff35`. Now the deck's
+     own spelling is tried first and the folded one second, which is a
+     superset of both behaviours. Guard:
+     `tests/xspice/case/auto-bridge-family-file-upper.cir`.
+  2. (a)'s `fold_path_device_letters()` folded the leading letter of every
+     dot-separated path component, but `spicenum.c:721` folds only the first
+     character of the whole path, so a nested instance is stored as
+     `x1.XIn.vcc`. The probe became `x1.xIn.vcc` and a nested-subcircuit
+     lookup that had always worked under `distinguish` broke: 6.0 became 3.3.
+     Guard: `tests/xspice/casedist/auto-bridge-vcc-nested-subckt-case.cir`.
+  3. `Evtcheck_nodes()` has three exits and only two called `free_bridges()`;
+     the `expand_deck()` failure path leaked the whole bridge list, and (b)
+     added the owned family string to what it leaks. Pre-existing, made
+     slightly worse, now fixed.
+  4. The tolerant scan was type-blind, so a `.subckt` whose name differs from
+     the probe only in case counted as a second candidate and vetoed the one
+     real `.param` through the ambiguity branch. It now skips entries that are
+     neither `NUPA_REAL` nor `NUPA_STRING`. Guard:
+     `tests/xspice/casedist/auto-bridge-vcc-param-subckt-name.cir`.
+  5. The two `snprintf()`s in the scoped-probe loop passed a size one byte
+     larger than the space at `dot + 1`. Pre-existing, one byte of stack, and
+     inside the loop this work rewrote.
 
 With (a) closed, `set_case_mode()` no longer names the auto-bridge. The word
 "experimental" stays for `doc/codex/issues/0027` (`unlet` still removes a

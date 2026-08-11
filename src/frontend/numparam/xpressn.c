@@ -494,6 +494,15 @@ entrynb_constructed(dico_t *dico, char *s)
         {
             const char *table_key = (const char *) key;
 
+            /* symbols[0] holds more than parameters: defsubckt() enters every
+               subcircuit name here too.  A subcircuit whose name differs from
+               the probe only in case is not a candidate and must not veto a
+               real one through the ambiguity branch below - under distinguish
+               a .param and a .subckt of the same spelling are two things in
+               two name spaces. */
+
+            if (scan->tp != NUPA_REAL && scan->tp != NUPA_STRING)
+                continue;
             if (strncmp(table_key, s, head_len) != 0)
                 continue;
             if (!cieq(table_key + head_len, s + head_len))

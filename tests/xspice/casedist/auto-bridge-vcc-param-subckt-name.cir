@@ -1,0 +1,31 @@
+* a .subckt named like the wanted .param must not veto it, under distinguish
+* The boundary on the other side from auto-bridge-vcc-param-ambiguous.cir.
+* entrynb_constructed()'s tolerant scan walks a numparam symbol table that
+* holds more than parameters: defsubckt() enters every subcircuit name in the
+* same table.  A subcircuit called 'Vcc' therefore looks like a second
+* candidate for a probe of 'vcc' and, without a type test, tripped the
+* ambiguity branch and discarded the one real candidate, '.param VCC'.
+* Under 'distinguish' a .param and a .subckt of one spelling are two things
+* in two name spaces, so there is nothing ambiguous here and the scan skips
+* every entry that is neither NUPA_REAL nor NUPA_STRING.
+* Measured before the type test: v(outn) = 3.300000e+00 plus a warning
+* describing the subcircuit name as a parameter.  Now 5.000000e+00, the value
+* of the only .param in the deck.
+.param VCC=5
+.subckt Vcc a b
+R9 a b 1k
+.ends
+XR1 in 0 Vcc
+V1 in 0 dc 1
+R0 in 0 1meg
+A1 [in] [dig] adc1
+.model adc1 adc_bridge(in_low=0.4 in_high=0.6)
+A2 dig outn dbuf
+.model dbuf d_buffer
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

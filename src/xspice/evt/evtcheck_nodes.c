@@ -446,32 +446,65 @@ static const char *scan_devices(Evt_Node_Info_t   *event_node,
     return best_inst ? best_inst->MIFname + 2 : NULL;
 }
 
-/* Fold the device letter of every component of a subcircuit instance path.
+/* Fold the leading device letter of a subcircuit instance path.
  *
- * The path a scoped parameter is stored under has each instance name's device
- * letter forced to lower case when the X card is evaluated
- * (src/frontend/numparam/spicenum.c:721), because a device letter is a
- * keyword and is case insensitive in every mode.  The path find_bridge()
- * probes with is built from the MIF instance name, which keeps whatever the
- * deck wrote, so a deck writing "X1" asked numparam for "X1.vcc" while the
- * table held "x1.VCC".  Fold the same one character per component here.
+ * The path a scoped parameter is stored under has one character forced to
+ * lower case when the X card is evaluated: src/frontend/numparam/spicenum.c
+ * :721 is `*inst_name = 'x'`, applied to the *first* character of the name it
+ * builds, because a device letter is a keyword and is case insensitive in
+ * every mode.  The path find_bridge() probes with is built from the MIF
+ * instance name, which keeps whatever the deck wrote, so a deck writing "X1"
+ * asked numparam for "X1.vcc" while the table held "x1.VCC".
+ *
+ * Fold exactly the same one character and no more.  Folding the letter of
+ * every dot-separated component instead would be a different rule from the
+ * one numparam applies, and for a nested instance it breaks a lookup that
+ * worked: numparam stores "x1.XIn.vcc" - only index 0 folded - so a probe
+ * folded per component asks for "x1.xIn.vcc" and misses.
  *
  * Under fold the reader had lower cased the card and under preserve
  * symbol_key() folds both sides, so the two spellings met anyway; this only
  * moves distinguish.
  */
 
-static void fold_path_device_letters(char *path)
+static void fold_path_device_letter(char *path)
 {
-    char *cp;
-
     if (*path)
         *path = tolower_c(*path);
-    for (cp = path; (cp = strchr(cp, '.')) != NULL; ) {
-        ++cp;
-        if (*cp)
-            *cp = tolower_c(*cp);
+}
+
+/* Does this spelling of a family name select a bridge?
+ *
+ * The two things a family name can name are a subcircuit file resolved by
+ * inp_pathresolve() and a command interpreter variable matched by cp_getvar()
+ * with strcmp.  Both are byte exact in every casemode, which is why
+ * find_bridge() has to choose a spelling before it uses one; this answers the
+ * question it chooses on.  A leading '*' means "variable look-up only" and is
+ * not part of the name.
+ */
+
+static bool family_is_known(const char *family, const char *type_name,
+                            const char *dir)
+{
+    struct variable *cvar;
+    char             buff[256];
+
+    if (*family == '*') {
+        family++;
+    } else {
+        char *path;
+
+        snprintf(buff, sizeof buff, "bridge_%s_%s_%s.subcir",
+                 family, type_name, dir);
+        path = inp_pathresolve(buff);
+        if (path) {
+            tfree(path);
+            return TRUE;
+        }
     }
+    snprintf(buff, sizeof buff, "auto_bridge_%s_%s_%s",
+             family, type_name, dir);
+    return cp_getvar(buff, CP_LIST, &cvar, sizeof cvar) ? TRUE : FALSE;
 }
 
 /* Can a bridge element be inserted? */
@@ -515,12 +548,12 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
 
     type_name = g_evt_udn_info[event_node->udn_index]->name;
     snprintf(buff, sizeof buff, "auto_bridge_parm_%s", type_name);
-    our_vcc_parm = MIF_FALSE;
+    our_vcc_parm = FALSE;
     if (cp_getvar(buff, CP_STRING, buff, sizeof buff)) {
         vcc_parm = buff;
     } else if (event_node->udn_index == 0) {
         vcc_parm = "vcc";
-        our_vcc_parm = MIF_TRUE;
+        our_vcc_parm = TRUE;
     } else {
         vcc_parm = NULL;
     }
@@ -537,16 +570,18 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
      */
 
     snprintf(buff, sizeof buff, "%s", deep);
-    fold_path_device_letters(buff);
+    fold_path_device_letter(buff);
     dot = strrchr(buff, '.');
     while (dot) {
         if (!ok) {
-            snprintf(dot + 1, sizeof buff - (size_t)(dot - buff), "%s", vcc_parm);
+            snprintf(dot + 1, sizeof buff - (size_t)(dot - buff) - 1, "%s",
+                     vcc_parm);
             vcc = our_vcc_parm ? nupa_get_constructed_param(buff, &ok)
                                : nupa_get_param(buff, &ok);
         }
         if (!family) {
-            snprintf(dot + 1, sizeof buff - (size_t)(dot - buff), "family");
+            snprintf(dot + 1, sizeof buff - (size_t)(dot - buff) - 1,
+                     "family");
             family = nupa_get_constructed_string_param(buff);
         }
         if (ok && family)
@@ -576,21 +611,32 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
      * below turns it into a name that lives outside the deck: a file name
      * resolved by inp_pathresolve(), a command interpreter variable name that
      * cp_getvar() matches with strcmp in every mode, a .include card and a
-     * subcircuit name.  A POSIX file system is byte exact whatever the
-     * casemode, so a deck writing family="74HCT" found no bridge_74HCT_...
-     * file under 'preserve' or 'distinguish' and silently took the built-in
-     * default bridge, while under 'fold' the reader had lower cased the card
-     * and the same deck worked.
+     * subcircuit name.  Both consumers are byte exact whatever the casemode,
+     * so a deck writing family="74HCT" found no bridge_74HCT_... file under
+     * 'preserve' or 'distinguish' and silently took the built-in default
+     * bridge, while under 'fold' the reader had lower cased the card and the
+     * same deck worked.
      *
-     * Fold it once, here, where all three places it can come from have
-     * converged - a model card's "family" parameter, a scoped .param and a
-     * global .param - rather than gating the five snprintf()s below.  That is
-     * the rule of the "Fold sites outside the reader" section of
-     * doc/claude/specs/case-sensitive-identifiers.md; this is its convergence
-     * point rather than the capture in examine_device() the spec names,
+     * Choose the spelling once, here, where the three places family can come
+     * from have converged - a model card's "family" parameter, a scoped
+     * .param and a global .param - rather than gating the five snprintf()s
+     * below.  That is the "Fold sites outside the reader" rule of
+     * doc/claude/specs/case-sensitive-identifiers.md, at the convergence
+     * point rather than at the examine_device() capture the spec names,
      * because the two .param sources do not pass through that function.
-     * Under 'fold' the value is already lower case, so nothing moves there
-     * and every mode now builds the same name.
+     *
+     * The deck's own spelling wins if it names something that exists, and the
+     * folded spelling is used otherwise.  Folding unconditionally would be
+     * simpler and is wrong in both shipped modes: a deck whose family bridge
+     * file or variable is named with the case the deck wrote - which is the
+     * only naming that worked under 'preserve' before this - would stop
+     * selecting it, silently.  It is not even a no-op under 'fold', because a
+     * quoted value on a .model card survives the reader's fold whenever
+     * is_xspice_model() matches the card, which is a substring test over the
+     * whole line and fires on a trailing comment (doc/codex/issues/0005).
+     * Trying the deck's spelling first is a superset of both: nothing that
+     * resolved before stops resolving, and the family bridge that only 'fold'
+     * could reach is now reachable in every mode.
      *
      * From here on the string is ours.  It is handed to the new bridge below
      * and released by free_bridges(); the two early returns free it.
@@ -600,7 +646,13 @@ static struct bridge *find_bridge(Evt_Node_Info_t  *event_node,
         char *folded = copy(family);
 
         strtolower(folded);
-        family = folded;
+        if (strcmp(folded, family) != 0 &&
+            family_is_known(family, type_name, dirs[direction])) {
+            tfree(folded);
+            family = copy(family);      // The deck's spelling names a bridge.
+        } else {
+            family = folded;
+        }
     }
 
     if (family) {
@@ -896,8 +948,10 @@ bool Evtcheck_nodes(
     /* Expand .include cards and expressions. */
 
     head = expand_deck(head);
-    if (!head)
+    if (!head) {
+        free_bridges(bridge_list);      // Including each bridge's family.
         return FALSE;
+    }
 
     /* Push the cards into the circuit. */
 

@@ -282,25 +282,50 @@ not control.
   auto-bridge, fold `family` once at `evtcheck_nodes.c:367` rather than gating
   the five downstream `snprintf` sites.
 
-  **Done for the auto-bridge**, `doc/codex/issues/0029` defect (b), with one
-  deviation from the line named above: the fold is at the *convergence* point,
-  after `evtcheck_nodes.c:530`, not at the `examine_device()` capture. `family`
-  has three sources — a model card's `family` parameter, a scoped `.param` and
-  a global `.param` — and only the first passes through `examine_device()`, so
-  a fold at `:367` would have left the two `.param` sources unfolded. The fold
-  is unconditional: under `fold` the reader has already lower cased the value,
-  so all three modes now build the same file name. The folded string is owned
-  by the `struct bridge` and released by `free_bridges()`.
+  **Done for the auto-bridge**, `doc/codex/issues/0029` defect (b), with two
+  deviations from the line named above, both forced by measurement.
+
+  The first is *where*: the choice is made at the **convergence** point, after
+  `evtcheck_nodes.c:530`, not at the `examine_device()` capture. `family` has
+  three sources — a model card's `family` parameter, a scoped `.param` and a
+  global `.param` — and only the first passes through `examine_device()`, so a
+  fold at `:367` would have left the two `.param` sources unfolded.
+
+  The second is *what*: **an unconditional fold is wrong**, and this is the
+  correction to the rule as stated above. It breaks the deck that named its
+  bridge file or its `auto_bridge_*` variable the way the deck spells the
+  family, which is the only naming that worked under `preserve` before. It is
+  not even a `fold`-mode no-op, because a quoted value on a `.model` card
+  survives the reader's fold whenever `is_xspice_model()` matches the card —
+  a substring test over the whole line, which fires on a trailing comment
+  (`doc/codex/issues/0005`). What is implemented instead is a superset: the
+  deck's own spelling is used if it names a bridge file or an `auto_bridge_*`
+  variable that exists, and the folded spelling otherwise. Nothing that
+  resolved before stops resolving, and the family bridge that only `fold`
+  could reach is now reachable in every mode. The chosen string is owned by
+  the `struct bridge` and released by `free_bridges()`.
+
+  The general form, for the sites still open below: **fold as a fallback, not
+  as a rewrite.** Folding at capture is only safe where nothing downstream can
+  already be spelled the way the deck wrote it; a filesystem and `cp_getvar()`
+  both can.
 
   The same rule reaches one site that is a *lookup* rather than a filename and
   is listed here because it is the same "fold what ngspice constructs" move:
   the auto-bridge's scoped parameter probe is built from the MIF instance
   name, which keeps the deck's spelling, while numparam stores a scoped
   parameter under a path whose device letter has been forced lower case at
-  `src/frontend/numparam/spicenum.c:721`. `fold_path_device_letters()` folds
-  that one character per path component before the probe. Device letters are
-  keywords, so this is compatibility contract point 2 and not an identity
-  loosening.
+  `src/frontend/numparam/spicenum.c:721`. `fold_path_device_letter()` folds
+  that character before the probe. Device letters are keywords, so this is
+  compatibility contract point 2 and not an identity loosening.
+
+  Exactly one character, because that is what `spicenum.c:721` folds: it is
+  `*inst_name = 'x'` on the first character of the name it builds, so a nested
+  instance is stored as `x1.XIn.vcc` with the inner component untouched. A
+  draft that folded the leading letter of *every* dot-separated component
+  built `x1.xIn.vcc`, missed, and broke a nested-subcircuit lookup that had
+  always worked under `distinguish`. `tests/xspice/casedist/`
+  `auto-bridge-vcc-nested-subckt-case.cir` is the guard.
 
   Still open: CIDER's `ic.<instname>` and `.include` paths, neither of which
   this work touched.

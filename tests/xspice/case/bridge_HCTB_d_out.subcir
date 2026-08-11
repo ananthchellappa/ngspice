@@ -1,0 +1,14 @@
+* Auto-bridge subcircuit for the "HCTB" family, digital output.
+* Support file for auto-bridge-family-file-upper.cir.  Its name carries upper
+* case deliberately: it is the naming a 'preserve' deck had to use before
+* doc/codex/issues/0029 defect (b), because the family value reached
+* inp_pathresolve() exactly as the deck wrote it, and the point of that deck
+* is that such a pair still selects this file.
+* The family is "HCTB" rather than another spelling of "74hct" on purpose.
+* A repository cannot hold bridge_74HCT_d_out.subcir beside
+* bridge_74hct_d_out.subcir: on Windows and on a default macOS checkout the
+* two names are one file.
+.subckt bridge_HCTB_d_out dig ana vcc=3.3
+.model hctb_dac dac_bridge(out_low = 0 out_high = '0.5 * vcc')
+adac [ dig ] [ ana ] hctb_dac
+.ends

@@ -20,7 +20,8 @@ TESTS = freq-e-source-case.cir freq-e-source-case-lower.cir \
 	event-node-case.cir event-node-case-lower.cir \
 	event-node-lookup-case.cir event-node-lookup-case-lower.cir \
 	multi-input-pwl-model-case.cir multi-input-pwl-model-case-lower.cir \
-	auto-bridge-family-file-case.cir auto-bridge-family-file-case-lower.cir
+	auto-bridge-family-file-case.cir auto-bridge-family-file-case-lower.cir \
+	auto-bridge-family-file-upper.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 
@@ -30,6 +31,7 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdi
 
 EXTRA_DIST = \
 	bridge_74hct_d_out.subcir \
+	bridge_HCTB_d_out.subcir \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
 
