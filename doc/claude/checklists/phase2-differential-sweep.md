@@ -680,3 +680,113 @@ measured by hand; it is written out in `doc/codex/issues/0022`.
 `doc/codex/issues/0023` is invisible to both harnesses: a leak and a latent
 one-past-the-end write, neither of which changes a number. Its evidence is
 `valgrind`, quoted in that issue.
+
+## Re-run after `doc/codex/issues/0011`, `0014` and `0016` class (a)
+
+`doc/codex/issues/0011` scoped the `gnd` rewrite off command text;
+`doc/codex/issues/0014` folded the device letter `numnodes()` dispatches on;
+`doc/codex/issues/0016` class (a) folded three one-character device-letter
+comparisons in `gens.c`, `device.c` and `outitf.c`. Eight new decks, seven of
+them in `tests/regression/case/`. The same command reports:
+
+| verdict | after 0022 + 0023 | after 0011 + 0014 + 0016(a) |
+| --- | ---: | ---: |
+| OK | 197 | 204 |
+| DIFF | 47 | 48 |
+| PARSE-FAIL | 0 | 0 |
+| NUM-DIFF | 0 | 0 |
+| SKIP | 3 | 3 |
+| **total** | **247** | **255** |
+
+**Both columns were measured on this tree with the amended tool.** The `NOISE`
+one-liner the previous round asked for — `reference value`, commit
+`351d95d8f` — was taken **before** the baseline run, precisely so that the two
+runs would use a byte-identical script.
+
+The left-hand column therefore reads 197/47 where the previous round recorded
+195/49 for the same tree. Two decks differ, and **which two is not determined
+here**: the previous round did not preserve a per-deck list, and both candidate
+causes are non-behavioural — the amended `NOISE` alternation, and the
+`reordered only` run-to-run flip demonstrated on `ring51.cir` below. It does
+not need determining, because the comparison that decides is before against
+after *within this round*, both measured with the same script on the same tree.
+`binning-1.cir` is not one of the two: it reports `OK` in both of this round's
+runs, and it was already `OK` in the previous round's closing numbers.
+
+The baseline run was started before the eight new decks existed, which is why
+its total is 247 rather than 255; the per-deck comparison is unaffected.
+
+### The sweep was a pure regression guard this round
+
+Stated in advance and confirmed after. None of the three issues clears a single
+sweep entry, because no deck under `tests/` uses `show`, `showmod`,
+`save alli`, an upper-case `E`/`G`/`W`/`K`/`X` inside a `.subckt`, or a `gnd`
+token in command text. Its job was to prove nothing moved, and the decisive
+harness was `make check` plus hand-written twin pairs, as it was for `0015`,
+`0019` and `0022`.
+
+Compared per deck rather than on the totals, the entire delta is three lines:
+
+```
+< DIFF tests/bsim3soidd/ring51.cir
+> DIFF tests/regression/case/alter-rebin-case-lower.cir
+> DIFF tests/regression/case/alter-rebin-case.cir
+```
+
+**No deck's verdict got worse and no deck that was `OK` became anything else.**
+Neither of the two remaining lines is a fix and neither is a regression.
+
+### `ring51.cir` is a run-to-run flip, not a fix
+
+`tests/bsim3soidd/ring51.cir` reported `DIFF` in the baseline and `OK` in the
+after-run, with detail `preserve: stdout reordered only; preserve-UPPER: stdout
+reordered only` — the sweep found the same lines in a different order, not
+different numbers. Its identical twin `tests/bsim3soifd/ring51.cir` carries the
+same detail and did **not** flip, which is the tell.
+
+Measured rather than assumed: re-running the sweep with `--filter ring51` on
+the *fixed* binary reports `DIFF` for both decks again. So the deck's verdict on
+the tree as it now stands is unchanged from the baseline, and the after-run's
+`OK` was the flake. `reordered only` is a nondeterministic class the sweep
+cannot currently normalise; it joins the `binning-1.cir` lesson as a reason to
+compare per deck and to re-measure a single-deck flip before calling it a fix.
+
+### `alter-rebin-case.cir` reports `DIFF`, and that is a new issue
+
+The new twin pair for `doc/codex/issues/0016`'s `device.c:1489` half is `DIFF`
+in the `preserve-UPPER` column only, with detail:
+
+```
+-'notice: model has changed from nch.1 to nch.2.'
++'v(3) = 1.340324e+00'
+```
+
+The sweep uppercases the whole deck, so the `alter` command becomes
+`ALTER M1 W=2U`. `doc/codex/issues/0016`'s fix at `device.c:1489` admits it —
+that guard is `eqc(param, "w")` and always was — and the body it calls then
+tests `param[0] == 'w'` byte-exactly at `device.c:1272`, takes the `else` arm,
+assigns the new width to the local **length**, and bins on the unchanged width.
+
+This is a real defect and a new one: `doc/codex/issues/0026`. It is **not** a
+regression from this round — a binary built with all three fixes stashed
+produces `v(3) = 1.340324e+00` for the same deck, i.e. the identical wrong
+number. The committed decks type `w=2u` in lower case and pass; only the
+sweep's mechanical uppercasing reaches the fourth site.
+
+Worth recording as a method note: this is the first time the sweep has found
+something the hand-written decks did not, and it found it *by uppercasing a deck
+that was written for a different question*. The new decks are worth having in
+the sweep's input set for exactly that reason.
+
+### What the sweep could not see this round
+
+All three fixes, by construction, and this was known before the runs started.
+`0011` lives in `.control` command text, which no deck under `tests/` puts a
+`gnd` token into; `0014` needs an upper-case `E`/`G`/`W`/`K` inside a
+`.subckt`, which no deck has; `0016` class (a) needs `show`, `showmod` or
+`save alli`, which no deck uses. The fold-mode half of `0011` — the half that
+matters, since it is the only defect in the series that is wrong with no `-D`
+flag — is invisible to the sweep twice over, because the sweep only ever
+compares `preserve` against stock and never asserts anything about stock alone.
+That half is pinned by `tests/regression/misc/gnd-command-text.cir`, which
+carries no flag at all.
