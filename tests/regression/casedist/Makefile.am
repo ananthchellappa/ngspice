@@ -14,7 +14,7 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-unlet-case.cir vector-compose-case.cir vector-unlet-report.cir \
 	vector-scale-case.cir vector-diff-case.cir \
 	vector-rawfile-scale-case.cir vector-diff-pairing-case.cir \
-	vector-diff-wrapper-case.cir \
+	vector-diff-wrapper-case.cir vector-diff-branch-case.cir \
 	bsource-node-case-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
@@ -31,10 +31,11 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # vector-diff-pairing-case.cir writes the rawfile it loads for the same reason
 # as vector-rawfile-scale-case.cir: the second plot of a cross-plot diff has
 # to spell a name the way another tool would.  vector-diff-wrapper-case.cir
-# writes both of its plots, because only a file can spell a current as
-# i(name): ngspice stores its own branch currents as name#branch.
+# writes both of its plots, and vector-diff-branch-case.cir the one it pairs
+# against a live run, because only a file can spell a current as i(name):
+# ngspice stores its own branch currents as name#branch.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
-	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw
+	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw
 
 EXTRA_DIST = \
 	$(TESTS) \

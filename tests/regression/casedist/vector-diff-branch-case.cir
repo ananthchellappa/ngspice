@@ -1,0 +1,50 @@
+* i(name) and name#branch are one vector, and only for one spelling of name
+* doc/codex/issues/0040, acceptance criterion 1 from the other side.
+* canonical_name() (src/frontend/diff.c) exists so that a current spelled
+* i(V1) in one plot pairs with the name#branch spelling ngspice stores, and
+* com_diff() asked it to lower case the name inside the wrapper while doing
+* so.  Under distinguish that fold did both halves of the job wrong: i(V1)
+* did not reach V1#branch, because the folded canonical name v1#branch was
+* compared against a stored name that kept its capital, while i(V1) and i(v1)
+* reached each other, which they should not.
+*
+* With the fold removed both halves are the mode's own rule.  This deck
+* asserts them together, in one diff, against a live plot:
+*
+*   i(V1)  must pair with V1#branch, and their values differ by amps, so a
+*          line is reported.  That line is also what proves the block ran.
+*   i(v1)  must not pair with anything.  V1#branch is the only current in the
+*          live plot and it is already claimed by the exact spelling, and
+*          under this mode v1 is not V1 in any case.
+*
+* Whether i(V1) or i(v1) is walked first does not decide the outcome: the
+* pairing predicate rejects i(v1) against V1#branch outright, so neither
+* order can make it the claimant.
+*
+* The second plot is a rawfile the deck writes with echo, because ngspice
+* stores its own branch currents as name#branch and only a file can spell one
+* as i(name).  load's output is captured so the reference holds diff's answer
+* alone.  The captures are cleaned by the CLEANFILES vdb_* pattern.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in 0 1k
+.control
+echo "Title: hand built" > vdb_hand.raw
+echo "Date: Tue Aug 11 00:00:00  2026" >> vdb_hand.raw
+echo "Plotname: Operating Point" >> vdb_hand.raw
+echo "Flags: real" >> vdb_hand.raw
+echo "No. Variables: 2" >> vdb_hand.raw
+echo "No. Points: 1" >> vdb_hand.raw
+echo "Variables:" >> vdb_hand.raw
+echo " 0 i(V1) current" >> vdb_hand.raw
+echo " 1 i(v1) current" >> vdb_hand.raw
+echo "Values:" >> vdb_hand.raw
+echo " 0 7.0" >> vdb_hand.raw
+echo " 6.0" >> vdb_hand.raw
+load vdb_hand.raw >& vdb_load.txt
+op
+echo DIFF-BEGIN
+diff op1 op2 all
+echo DIFF-END
+.endc
+.end

@@ -1,0 +1,3 @@
+DIFF-BEGIN
+op1.i(V1)[0] = 7.000000e+00    op2.V1#branch[0] = -1.50000e-03
+DIFF-END
