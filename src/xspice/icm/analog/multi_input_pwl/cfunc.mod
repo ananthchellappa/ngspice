@@ -47,8 +47,21 @@ NON-STANDARD FEATURES
 
 /*=== INCLUDE FILES ====================*/
 
+/* "and", "or", "nand" and "nor" name a behaviour, so they are keywords and
+ * are case insensitive in every casemode.  A code model is loaded through
+ * the coreInfo_t function table of src/xspice/icm/dlmain.c and cannot call
+ * ngspice's cieq(), so the comparison uses the C library, as d_cosim's
+ * cfunc.mod already does.
+ */
 
-                                      
+#if defined (__MINGW32__) || defined (_MSC_VER)
+#include <string.h>
+#define CI_STRCMP _stricmp    // Ignores case.
+#else
+#include <strings.h>
+#define CI_STRCMP strcasecmp  // Ignores case.
+#endif
+
 
 /*=== CONSTANTS ========================*/
 
@@ -204,13 +217,13 @@ cm_multi_input_pwl(ARGS)
   if (INIT) {
       int type;
 
-      if (!strcmp(model, "and"))
+      if (!CI_STRCMP(model, "and"))
           type = 0;
-      else if (!strcmp(model, "nand"))
+      else if (!CI_STRCMP(model, "nand"))
           type = 1;
-      else if (!strcmp(model, "or"))
+      else if (!CI_STRCMP(model, "or"))
           type = 2;
-      else if (!strcmp(model, "nor"))
+      else if (!CI_STRCMP(model, "nor"))
           type = 3;
       else {
 	  fprintf(stderr, "ERROR(cm_multi_input_pwl): unknown gate model type "

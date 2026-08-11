@@ -1,0 +1,17 @@
+* multi_input_pwl's gate-model keyword in lower case, under casemode=preserve
+* The all-lower-case control for multi-input-pwl-model-case.cir: identical
+* circuit, model = "or" rather than model = "OR".  It passed before the
+* doc/codex/issues/0029 defect (d) change and after it, and it is what pins
+* the upper-case deck's expected number to a measurement rather than to an
+* argument about interpolation.
+V1 a 0 dc 1
+V2 b 0 dc 2
+A1 [%vd(a 0) %vd(b 0)] %vd(outn 0) mypwl
+.model mypwl multi_input_pwl(x = [0 1 2 3] y = [0 0 1 1] model = "or")
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end

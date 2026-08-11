@@ -1,0 +1,35 @@
+* multi_input_pwl's gate-model keyword in upper case, under casemode=preserve
+* doc/codex/issues/0029 defect (d).  The 'model' parameter of multi_input_pwl
+* names a behaviour - 'and', 'nand', 'or', 'nor' - so it is a keyword, and
+* keywords are case insensitive in every mode by the spec's compatibility
+* contract point 2.
+*   src/xspice/icm/analog/multi_input_pwl/cfunc.mod:207-218, at 3dbd6ba95
+*     if (!strcmp(model, "and"))
+*     ...
+*     else { fprintf(stderr, ...); exit(-1); }
+* compared the deck's spelling against four lower-case literals with strcmp,
+* so under 'preserve', which leaves the .model card's case alone, model="OR"
+* fell through to the else and killed the process.
+* RED evidence at 3dbd6ba95: this deck printed nothing at all and ngspice
+* exited 255 after
+*   ERROR(cm_multi_input_pwl): unknown gate model type 'OR'; expecting 'and|or|nand|nor'.
+* on stderr, while multi-input-pwl-model-case-lower.cir, the same circuit
+* spelled model="or", printed 1.000000e+00.  Under the default 'fold' mode the
+* reader lower cases the .model card, so this deck already printed
+* 1.000000e+00 there; the defect is 'preserve' and 'distinguish' only.
+* The number is the assertion and it separates the two gates: with
+* x = [0 1 2 3] and y = [0 0 1 1], 'or' selects the largest input, 2 V, and
+* interpolates to 1 V, while the 'and' the parameter would have defaulted to
+* selects the smallest input, 1 V, and interpolates to 0 V.  A deck that only
+* asserted "it ran" would pass on a silent fallback to 'and'.
+V1 a 0 dc 1
+V2 b 0 dc 2
+A1 [%vd(a 0) %vd(b 0)] %vd(outn 0) mypwl
+.model mypwl multi_input_pwl(x = [0 1 2 3] y = [0 0 1 1] model = "OR")
+R1 outn 0 1k
+.OPTIONS noacct
+.control
+op
+print v(outn)
+.endc
+.end
