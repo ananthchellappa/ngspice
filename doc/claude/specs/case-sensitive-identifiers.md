@@ -427,9 +427,10 @@ fold. It is not repeated here.
   `doc/claude/decisions/0002-deferred-node-resolution-check.md`. The node is
   still created, because create-on-miss is what makes forward references work;
   what changed is that a node no card defines, whose name differs only in case
-  from one that is defined, is reported on `stderr` at the end of the parse,
+  from one that is defined, is reported on `cp_err` at the end of the parse,
   asserted by `tests/regression/casedist/bsource-node-case.cir` for the number
-  and verified by hand for the text. A reference that misses with **no** case
+  and by `bsource-node-case-report.cir` beside it for the text and for the
+  three silences (`doc/codex/issues/0036`). A reference that misses with **no** case
   variant present — a plain typo — is still silent in every mode, as are the
   `.NOISE`/`.SENS`/`.TF`/`.PSS` node references, which have the same
   create-on-miss shape; `doc/codex/issues/0028`.

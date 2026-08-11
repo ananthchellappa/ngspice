@@ -111,9 +111,9 @@ Where it applies, and its state:
 | Site | Rule | State |
 | --- | --- | --- |
 | `findvec()`, `src/frontend/vectors.c:151` | resolution | **implemented** with this decision |
-| `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference |
-| auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **implemented** with `doc/codex/issues/0030`, in `report_bridge_case_miss()`, once an event node's scan of `CKTnodes` has finished without an exact match |
-| `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator. The near-miss warning is **implemented** with `doc/codex/issues/0030`, deferred to `EVTnode_case_check()` and narrowed there from the issue's wording to an event node that nothing drives; see `doc/claude/decisions/0003-event-node-near-miss.md` |
+| `mkvnode`, `src/spicelib/parser/inpptree.c:1249` | resolution — it creates on miss, so the miss was invisible | Phase 3 gate 1, **closed** by `0002-deferred-node-resolution-check.md`. It still creates, because a forward reference depends on it; the miss is reported after the parse instead of at the reference. **Guarded** since `doc/codex/issues/0036` by `tests/regression/casedist/bsource-node-case-report.cir`, warning and three silences |
+| auto-bridge, `src/xspice/evt/evtcheck_nodes.c:720` | resolution | Phase 3 gate 2, **closed**: the comparator is `ng_ideq()`. The `distinguish` near-miss warning is **implemented** with `doc/codex/issues/0030`, in `report_bridge_case_miss()`, once an event node's scan of `CKTnodes` has finished without an exact match. **Guarded** since `doc/codex/issues/0036` by `tests/xspice/casedist/auto-bridge-node-case-report.cir`, warning and two silences |
+| `src/xspice/evt/evttermi.c:304` | resolution | Phase 3 gate 4, **closed**, same comparator. The near-miss warning is **implemented** with `doc/codex/issues/0030`, deferred to `EVTnode_case_check()` and narrowed there from the issue's wording to an event node that nothing drives; see `doc/claude/decisions/0003-event-node-near-miss.md`. **Guarded** since `doc/codex/issues/0036` by `tests/xspice/casedist/event-node-case-report.cir`, warning and two silences |
 | `vec_remove()` from `com_unlet()`, `src/frontend/vectors.c:622` | resolution | **implemented** with `doc/codex/issues/0027`, behind `vec_remove()`'s `report_case_miss`, reusing `vec_warn_case_near_miss()` so the wording is `findvec()`'s. See `doc/claude/decisions/0004-unlet-vector-identity.md` |
 | `vec_remove()` from `com_compose()` and `com_cross()` | definition — each passes the name it is about to allocate | silent, deliberately, via the same flag |
 | a rawfile variable's `scale=` reference, `src/frontend/rawfile.c` | resolution | **reports the miss but not the twin**, with `doc/codex/issues/0032`. The predicate is now `vec_name_eq()`, so under `distinguish` a `scale=` naming a variable the file spells differently reaches the reader's own `Error: no such vector %s` instead of binding to the case variant. That is the resolution failure, loud, but it does not name the near miss. Upgrading it to `vec_warn_case_near_miss()` is not taken: that helper wants the plot's lookup table, and a loaded plot has none — `vectors.c:614` leaves `keywords[CT_VECTOR]` NULL — so the wording would have to be duplicated rather than reused |
@@ -139,11 +139,28 @@ variable makes the *silent* cases assertable too, which matters more than the
 warning: silence on a definition is the half of this decision a diagnostic gets
 wrong.
 
+**Corrected again 2026-08-11:** the paragraph above is right about the
+redirect and was wrong about the three diagnostics it went on to name. `>&`
+retargets the *variable* `cp_err`, so it reaches a diagnostic only if the
+diagnostic writes to `cp_err`. `vec_warn_case_near_miss()` does;
+`INPtermCaseCheck()`, `report_bridge_case_miss()` and `EVTnode_case_check()`
+each used a literal `fprintf(stderr, ...)` and were therefore uncapturable as
+shipped. `doc/codex/issues/0036` moves all three to `cp_err` — which is
+`stderr` in every binary that parses a deck, so no byte moves anywhere else —
+and `doc/claude/decisions/0006-diagnostic-deck-coverage.md` is the record.
+A new diagnostic under this decision must be written to `cp_err`, not to
+`stderr`, or it cannot be guarded.
+
+The three are also not commands, so there is nothing in their own deck to
+attach a redirect to: the guarding deck writes the circuit with `echo` and
+`source`s it from inside a `.control` block, which re-enters the parse with
+the redirect in force. See `0006` decision 2.
+
 So a diagnostic under this decision should be verified by hand, quoted in the
 commit that adds it, **and** guarded by a deck. The three diagnostics that
 shipped before this was noticed — `0002`'s parser check and `0003`'s two
-XSPICE event checks — are quoted but unguarded; that is
-`doc/codex/issues/0036`.
+XSPICE event checks — are now guarded, warning and silences both;
+`doc/codex/issues/0036` is closed.
 
 ## Decision 3 — `ng_ideq()`'s third arm, and the twenty-eight call sites
 

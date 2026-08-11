@@ -192,6 +192,15 @@ rule:
 Warning: no node named 'in'; 'In' differs only in case (casemode=distinguish)
 ```
 
+**Guarded since 2026-08-11**, by
+`tests/regression/casedist/bsource-node-case-report.cir`: the warning, and the
+three silences this decision owes — a definition, a forward reference claimed
+by a later card with a case variant also defined, and a miss with no variant
+at all. The deck sources each circuit from inside a `.control` block so that
+`>&` can reach the parse, which needed this diagnostic to write to `cp_err`
+rather than to `stderr`. `doc/codex/issues/0036`,
+`doc/claude/decisions/0006-diagnostic-deck-coverage.md`.
+
 ## Decision 4 — `INPtermSearch()` is not put on any new path
 
 **Decided: `mkvnode()` keeps an inserting call; a new non-mutating sibling scan

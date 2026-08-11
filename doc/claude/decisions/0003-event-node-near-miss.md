@@ -230,6 +230,20 @@ whose lookup failed — the event node was searching `ckt->CKTnodes`:
 Warning: no analog node named 'A'; 'a' differs only in case (casemode=distinguish)
 ```
 
+**Guarded since 2026-08-11**, by
+`tests/xspice/casedist/event-node-case-report.cir` and
+`tests/xspice/casedist/auto-bridge-node-case-report.cir`. Each asserts its own
+noun, asserts that the other noun is absent, and asserts the silences these
+decisions owe: `already_joined()`'s hand-written bridge and the ordinary
+exactly-matched bridge for decision 2, and a dangling event node with no case
+variant plus an auto-bridged input node beside a driven case variant for
+decisions 1 and 3 — that last one reports if the check is moved before
+`Evtcheck_nodes()`, which is what decision 3 is about. Both decks source
+their circuits from inside a `.control` block so that `>&` can reach the
+parse, which needed both diagnostics to write to `cp_err` rather than to
+`stderr`. `doc/codex/issues/0036`,
+`doc/claude/decisions/0006-diagnostic-deck-coverage.md`.
+
 Rejected: calling both "node". The two sites fail on opposite sides of the
 mixed-signal boundary, and a deck that gets both messages should be able to
 tell which is which without reading the source.

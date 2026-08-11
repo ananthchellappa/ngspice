@@ -80,9 +80,13 @@ claimed" is decidable.
   the auto-bridge, and the run continues.
 - Nothing is printed under `fold` or `preserve`, in which the conditions are
   unreachable.
-- Verified by hand and quoted in the commit, not asserted by a deck:
-  `tests/bin/check.sh` captures stdout only and its `egrep -v` filter drops
-  every line containing `Warning`.
+- Verified by hand and quoted in the commit. Asserted by a deck since
+  `doc/codex/issues/0036`: `tests/xspice/casedist/auto-bridge-node-case-report.cir`
+  and `tests/xspice/casedist/event-node-case-report.cir` source the circuit
+  under a `>&` redirect and read the capture back, which is the only way past
+  `tests/bin/check.sh` capturing stdout only and filtering every line
+  containing `Warning`. Both diagnostics had to move from `stderr` to `cp_err`
+  first; see `doc/claude/decisions/0006-diagnostic-deck-coverage.md`.
 
 ## Resolution
 

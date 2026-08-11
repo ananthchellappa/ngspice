@@ -11,8 +11,12 @@
 *   differ from it only in case, so neither is used (casemode=distinguish)
 * That line is verified by hand and quoted in the commit rather than asserted
 * here: tests/bin/check.sh captures stdout only and its egrep -v filter drops
-* any line containing 'Warning' from both sides, so no deck in this harness
-* can assert on it.  What this deck asserts is the number that goes with it -
+* any line containing 'Warning' from both sides.  A deck CAN assert on a
+* diagnostic - it redirects with '>&' and reads the capture back, which is
+* what tests/xspice/casedist/auto-bridge-node-case-report.cir does - but only
+* if the diagnostic is written to cp_err, and this one is written to stderr
+* (src/frontend/numparam/xpressn.c).  That is doc/codex/issues/0039.
+* What this deck asserts is the number that goes with it -
 * 3.300000e+00, the documented fallback, rather than 5 or 7.
 * Under 'fold' and 'preserve' the same deck prints 7.000000e+00: there the
 * two .params are one parameter and the second assignment wins, so there is

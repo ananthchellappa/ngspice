@@ -2,7 +2,7 @@
 
 ## Status
 
-Open. Found by an adversarial review of `doc/codex/issues/0027`'s fixing
+Closed on `ver_50`, 2026-08-11. Found by an adversarial review of `doc/codex/issues/0027`'s fixing
 commits, which asserted that no deck in this harness can assert on a
 diagnostic. That assertion was false, and it had been inherited from
 `doc/claude/decisions/0001-distinguish.md` decision 2, where it stood
@@ -85,7 +85,45 @@ and two later sessions cited it rather than testing it.
 
 ## Resolution
 
-Not fixed for the three earlier diagnostics. `0027`'s is covered, decision 2's
-paragraph is corrected in place with the mechanism spelled out, and
-`doc/claude/decisions/0004-unlet-vector-identity.md` decision 3 records that
-`756112c46` shipped the claim before it was tested.
+Fixed on `ver_50` in three commits, one per diagnostic, plus one for the
+documentation. `doc/claude/decisions/0006-diagnostic-deck-coverage.md` is the
+record.
+
+**The Summary above is itself half wrong, and that is the finding.** `>&`
+retargets the *variable* `cp_err`, so it reaches a diagnostic only if the
+diagnostic writes to `cp_err`. `vec_warn_case_near_miss()` does, which is why
+`0027`'s deck worked; all three diagnostics named here used a literal
+`fprintf(stderr, ...)` and were uncapturable as shipped. Measured at
+`8557994bb`: a wrapper deck sourcing the circuit under `>&` captured the
+sourced parse's `cp_out` — the `Circuit:` line, 22 bytes — and nothing else.
+Each is now written to `cp_err`, which is `stderr` in every binary that parses
+a deck (`src/main.c:916`, `src/sharedspice.c:921`, `src/tclspice.c:2486`), so
+no byte moves on any existing deck in any mode; the change is one
+six-character token per file with no line movement.
+
+None of the three is a command, so there is nothing in their own decks to
+redirect. Each new deck writes the circuits it is about with `echo` and
+`source`s them from inside its own `.control` block: `source` re-enters
+`inp_spsource()` and `if_inpdeck()`, so the whole parse runs again with the
+wrapper's redirect in force, and the sourced circuit stays current so the
+warning and the number are asserted in one run.
+
+| Criterion | Where |
+| --- | --- |
+| 1, the warning | `tests/regression/casedist/bsource-node-case-report.cir`, `tests/xspice/casedist/auto-bridge-node-case-report.cir`, `tests/xspice/casedist/event-node-case-report.cir` — each scanning for its own noun, never the shared tail, and the two XSPICE report cases also asserting the other noun's absence |
+| 2, the silence | four cases in the parser deck (miss, definition, forward reference claimed later with a case variant defined, miss with no variant) and three in each XSPICE deck (miss, plus `already_joined()`'s hand-written bridge and an exactly matched bridge; miss, plus a dangling node with no variant and an auto-bridged input node beside a driven case variant) |
+| 3, RED | each deck proved RED twice: against `8557994bb`, and against a binary with its own diagnostic's `fprintf` deleted, restored afterwards and checked with `md5sum -c`. Each RED is a one-line `make check` diff |
+| 4, `CLEANFILES` | `bnr_*` added to `tests/regression/casedist/Makefile.am`; `tests/xspice/casedist/Makefile.am` gains a `CLEANFILES` line it did not have, for `abr_*` and `enr_*` |
+
+`make check` is **264 PASS, 0 FAIL**, up from 261 by exactly these three
+decks. The differential sweep on a binary built at `8557994bb` and on the
+binary after this work produced **byte identical logs** — 305 decks, DIFF=59,
+OK=243, SKIP=3, PARSE-FAIL=0, NUM-DIFF=0 — so no deck moves. The three new
+decks are among the `DIFF`s: their uppercased copies do not run, which is
+`doc/codex/issues/0038`'s asymmetry seen from the sweep's side and the same
+collateral `vector-rawfile-scale-case.cir` has.
+
+`doc/codex/issues/0038` was found by this work: the fold-mode exemption list
+for control lines is per command, so a file written by `echo` cannot be read
+by `fopen` under a name containing upper case. It is wrong in the default
+mode and is filed rather than fixed.
