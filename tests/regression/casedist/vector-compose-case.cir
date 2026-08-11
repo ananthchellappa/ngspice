@@ -1,0 +1,30 @@
+* compose replaces the name it was given, not that name's case twin
+* doc/codex/issues/0027 reaches further than 'unlet': com_compose.c drops an
+* existing vector of the name it is about to build, through the same
+* vec_remove(), and so did com_cross.  Under distinguish 'compose OUT' beside
+* a net named Out unmade Out -- a vector the command never named -- and said
+* nothing on either stream.
+*
+* Out is the midpoint of a 1.5 V divider, 1.5 * 1k / (1k + 1k), so
+* v(Out) = 7.500000e-01, and OUT is a name no card writes.  After the fix
+* both exist: OUT is composed, Out is untouched.  'print all' shows the pair,
+* in namecmp()'s byte order, which puts 'OUT' before 'Out' because 'U' sorts
+* before 'u'.  Before the fix the Out line is missing from that list.
+*
+* This is a fix and not a behaviour change: the vec_remove() call in compose
+* is the guard for one invariant, that the plot must not end up holding two
+* permanent vectors under the name being defined, and the string handed to it
+* is by construction the name compose is about to allocate.  cieq() enforced
+* something larger than that invariant, and the surplus was another vector's
+* destruction.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+.control
+op
+compose OUT values 2
+print all
+print v(Out)
+.endc
+.end

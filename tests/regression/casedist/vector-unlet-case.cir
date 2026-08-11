@@ -1,0 +1,38 @@
+* unlet removes the vector the deck named, not its case twin
+* doc/codex/issues/0027.  Out and OUT are the midpoints of two dividers off
+* one 1.5 V source, the same circuit node-case-split.cir uses:
+*
+*   Out   1.5 * 1k / (1k + 1k)  = 7.500000e-01
+*   OUT   1.5 * 3k / (1k + 3k)  = 1.125000e+00
+*
+* Under distinguish they are two vectors, so 'unlet Out' has to remove Out
+* and leave OUT.  vec_remove() selected with an unconditional cieq() over
+* plot_cur->pl_dvecs, and vec_new() pushes each new vector onto the front of
+* that list, so the list runs V1#branch, OUT, Out, in and the cieq() scan
+* reaches OUT first.  'unlet Out' therefore removed OUT: the wrong vector,
+* and the one spelling the deck did not name.
+*
+* The deck unlets the lower case spelling because it is the only one of the
+* two that can show the miss -- 'unlet OUT' reaches OUT first as well and so
+* selects the right vector by accident.  That is what makes the RED a number
+* and not an absence: before the fix the first line of 'print all' read
+* 'Out = 7.500000e-01', after it reads 'OUT = 1.125000e+00'.
+*
+* 'print all' is the assertion rather than a single print because
+* findvec_all() filters on VF_PERMANENT, which is the flag vec_remove()
+* clears, so listing the whole plot also fails a fix that removes both twins,
+* or neither, or something besides.  The trailing 'print v(OUT)' adds that
+* the survivor is still addressable under its own spelling.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+R3 in OUT 1k
+R4 OUT 0 3k
+.control
+op
+unlet Out
+print all
+print v(OUT)
+.endc
+.end

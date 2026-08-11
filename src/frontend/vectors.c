@@ -607,7 +607,15 @@ plot_add(struct plot *pl)
 }
 
 
-/* Remove a vector from the database, if it is there. */
+/* Remove a vector from the database, if it is there.
+ *
+ * The vector is picked with findvec()'s rule and not with a bare cieq(),
+ * because under distinguish two spellings are two vectors and this walks
+ * pl_dvecs in list order: vec_new() prepends, so the first cieq() hit was the
+ * most recently created case variant and not the name the caller asked for.
+ * 'unlet Out' beside an OUT therefore removed OUT.  vec_name_eq() is cieq()
+ * in both other modes, where two spellings are one vector and the first hit
+ * is the only hit, so nothing moves there.  doc/codex/issues/0027. */
 
 void
 vec_remove(const char *name)
@@ -615,7 +623,7 @@ vec_remove(const char *name)
     struct dvec *ov;
 
     for (ov = plot_cur->pl_dvecs; ov; ov = ov->v_next)
-        if (cieq(name, ov->v_name) && (ov->v_flags & VF_PERMANENT))
+        if (vec_name_eq(ov->v_name, name) && (ov->v_flags & VF_PERMANENT))
             break;
 
     if (!ov)
