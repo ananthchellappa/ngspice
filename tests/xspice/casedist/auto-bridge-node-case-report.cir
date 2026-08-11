@@ -25,6 +25,12 @@
 * makes of this deck does not run, which is the collateral
 * tests/regression/casedist/vector-rawfile-scale-case.cir already has.
 *
+* Each silence case also echoes a CAPTURE-READ token, set by finding the
+* sub-deck's own 'Circuit:' line in the capture.  Without it a silence
+* assertion passes when the capture was never read at all - a renamed file,
+* a failed fopen - which is the one way an assertion about an absence can
+* be vacuously true.
+*
 * The phrase asserted is "no analog node named", never the shared tail
 * "differs only in case": the parser says "no node named" and the event
 * interner "no event node named", so a deck asserting the tail would pass on
@@ -94,6 +100,7 @@ echo "R1 dout 0 1k" >> abr_hand.cir
 echo ".end" >> abr_hand.cir
 source abr_hand.cir >& abr_hand.txt
 set found2 = 0
+set read2 = 0
 set n2 = 1
 fopen f2 abr_hand.txt r
 while $n2 >= 0
@@ -103,12 +110,21 @@ while $n2 >= 0
   if $p2 >= 0
     set found2 = 1
   end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
 end
 fclose $f2
 if $found2 > 0
   echo BRIDGE-HAND-REPORTED
 else
   echo BRIDGE-HAND-SILENT
+end
+if $read2 > 0
+  echo BRIDGE-HAND-CAPTURE-READ
+else
+  echo BRIDGE-HAND-CAPTURE-EMPTY
 end
 op
 print v(dout)
@@ -125,6 +141,7 @@ echo "R1 dout 0 1k" >> abr_exact.cir
 echo ".end" >> abr_exact.cir
 source abr_exact.cir >& abr_exact.txt
 set found3 = 0
+set read3 = 0
 set n3 = 1
 fopen f3 abr_exact.txt r
 while $n3 >= 0
@@ -134,12 +151,21 @@ while $n3 >= 0
   if $p3 >= 0
     set found3 = 1
   end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
 end
 fclose $f3
 if $found3 > 0
   echo BRIDGE-EXACT-REPORTED
 else
   echo BRIDGE-EXACT-SILENT
+end
+if $read3 > 0
+  echo BRIDGE-EXACT-CAPTURE-READ
+else
+  echo BRIDGE-EXACT-CAPTURE-EMPTY
 end
 op
 print v(dout)

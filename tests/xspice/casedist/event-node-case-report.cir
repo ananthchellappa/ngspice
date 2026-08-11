@@ -27,6 +27,12 @@
 * run, which is the collateral
 * tests/regression/casedist/vector-rawfile-scale-case.cir already has.
 *
+* Each silence case also echoes a CAPTURE-READ token, set by finding the
+* sub-deck's own 'Circuit:' line in the capture.  Without it a silence
+* assertion passes when the capture was never read at all - a renamed file,
+* a failed fopen - which is the one way an assertion about an absence can
+* be vacuously true.
+*
 * The phrase asserted is "no event node named", never the shared tail
 * "differs only in case": the parser says "no node named" and the auto-bridge
 * "no analog node named", so a deck asserting the tail would pass on the
@@ -102,6 +108,7 @@ echo "R1 aout 0 1k" >> enr_notwin.cir
 echo ".end" >> enr_notwin.cir
 source enr_notwin.cir >& enr_notwin.txt
 set found2 = 0
+set read2 = 0
 set n2 = 1
 fopen f2 enr_notwin.txt r
 while $n2 >= 0
@@ -111,12 +118,21 @@ while $n2 >= 0
   if $p2 >= 0
     set found2 = 1
   end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
 end
 fclose $f2
 if $found2 > 0
   echo EVENT-NOTWIN-REPORTED
 else
   echo EVENT-NOTWIN-SILENT
+end
+if $read2 > 0
+  echo EVENT-NOTWIN-CAPTURE-READ
+else
+  echo EVENT-NOTWIN-CAPTURE-EMPTY
 end
 op
 print v(aout)
@@ -136,6 +152,7 @@ echo "R1 aout 0 1k" >> enr_bridged.cir
 echo ".end" >> enr_bridged.cir
 source enr_bridged.cir >& enr_bridged.txt
 set found3 = 0
+set read3 = 0
 set n3 = 1
 fopen f3 enr_bridged.txt r
 while $n3 >= 0
@@ -145,12 +162,21 @@ while $n3 >= 0
   if $p3 >= 0
     set found3 = 1
   end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
 end
 fclose $f3
 if $found3 > 0
   echo EVENT-BRIDGED-REPORTED
 else
   echo EVENT-BRIDGED-SILENT
+end
+if $read3 > 0
+  echo EVENT-BRIDGED-CAPTURE-READ
+else
+  echo EVENT-BRIDGED-CAPTURE-EMPTY
 end
 op
 print v(aout)

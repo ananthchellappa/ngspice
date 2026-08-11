@@ -20,6 +20,7 @@ v(aout) = 0.000000e+00
 Note: No compatibility mode selected!
 
 EVENT-NOTWIN-SILENT
+EVENT-NOTWIN-CAPTURE-READ
 Reducing trtol to 1 for xspice 'A' devices
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
@@ -34,6 +35,7 @@ Note: No compatibility mode selected!
 Note: No compatibility mode selected!
 
 EVENT-BRIDGED-SILENT
+EVENT-BRIDGED-CAPTURE-READ
 Reducing trtol to 1 for xspice 'A' devices
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 

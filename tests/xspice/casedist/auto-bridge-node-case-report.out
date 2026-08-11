@@ -20,6 +20,7 @@ v(a) = 0.000000e+00
 Note: No compatibility mode selected!
 
 BRIDGE-HAND-SILENT
+BRIDGE-HAND-CAPTURE-READ
 Reducing trtol to 1 for xspice 'A' devices
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
@@ -34,6 +35,7 @@ Note: No compatibility mode selected!
 Note: No compatibility mode selected!
 
 BRIDGE-EXACT-SILENT
+BRIDGE-EXACT-CAPTURE-READ
 Reducing trtol to 1 for xspice 'A' devices
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 

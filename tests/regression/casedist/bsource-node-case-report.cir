@@ -40,6 +40,12 @@
 * fresh seed each pass means an unread line cannot carry the previous line's
 * text.
 *
+* Each silence case also echoes a CAPTURE-READ token, set by finding the
+* sub-deck's own 'Circuit:' line in the capture.  Without it a silence
+* assertion passes when the capture was never read at all - a renamed file,
+* a failed fopen - which is the one way an assertion about an absence can
+* be vacuously true.
+*
 * The phrase asserted is "no node named", never the shared tail "differs only
 * in case": the two XSPICE checks say "no analog node named" and "no event
 * node named", so a deck asserting the tail would pass on the wrong warning.
@@ -93,6 +99,7 @@ echo "R3 out 0 1k" >> bnr_defn.cir
 echo ".end" >> bnr_defn.cir
 source bnr_defn.cir >& bnr_defn.txt
 set found2 = 0
+set read2 = 0
 set n2 = 1
 fopen f2 bnr_defn.txt r
 while $n2 >= 0
@@ -102,12 +109,21 @@ while $n2 >= 0
   if $p2 >= 0
     set found2 = 1
   end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
 end
 fclose $f2
 if $found2 > 0
   echo NODE-DEFN-REPORTED
 else
   echo NODE-DEFN-SILENT
+end
+if $read2 > 0
+  echo NODE-DEFN-CAPTURE-READ
+else
+  echo NODE-DEFN-CAPTURE-EMPTY
 end
 op
 print v(In)
@@ -125,6 +141,7 @@ echo "R3 MID 0 1k" >> bnr_fwdref.cir
 echo ".end" >> bnr_fwdref.cir
 source bnr_fwdref.cir >& bnr_fwdref.txt
 set found3 = 0
+set read3 = 0
 set n3 = 1
 fopen f3 bnr_fwdref.txt r
 while $n3 >= 0
@@ -134,12 +151,21 @@ while $n3 >= 0
   if $p3 >= 0
     set found3 = 1
   end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
 end
 fclose $f3
 if $found3 > 0
   echo NODE-FWDREF-REPORTED
 else
   echo NODE-FWDREF-SILENT
+end
+if $read3 > 0
+  echo NODE-FWDREF-CAPTURE-READ
+else
+  echo NODE-FWDREF-CAPTURE-EMPTY
 end
 op
 print v(Out)
@@ -153,6 +179,7 @@ echo "R3 miss 0 1k" >> bnr_notwin.cir
 echo ".end" >> bnr_notwin.cir
 source bnr_notwin.cir >& bnr_notwin.txt
 set found4 = 0
+set read4 = 0
 set n4 = 1
 fopen f4 bnr_notwin.txt r
 while $n4 >= 0
@@ -162,12 +189,21 @@ while $n4 >= 0
   if $p4 >= 0
     set found4 = 1
   end
+  strstr r4 "_$capline" "Circuit:"
+  if $r4 >= 0
+    set read4 = 1
+  end
 end
 fclose $f4
 if $found4 > 0
   echo NODE-NOTWIN-REPORTED
 else
   echo NODE-NOTWIN-SILENT
+end
+if $read4 > 0
+  echo NODE-NOTWIN-CAPTURE-READ
+else
+  echo NODE-NOTWIN-CAPTURE-EMPTY
 end
 op
 print v(miss)

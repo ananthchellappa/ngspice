@@ -153,6 +153,16 @@ and the same run:
 | | NOTWIN | a dangling event node with no case variant is silent |
 | | BRIDGED | an event node the auto-bridge drives, **beside a driven event node differing from it only in case**, is silent — which is only true because `0003` decision 3 puts `EVTnode_case_check()` after `Evtcheck_nodes()`. Run it earlier and this deck reports. `v(aout) = 5` says the inserted bridge really drives the node |
 
+Each silence case also echoes a `CAPTURE-READ` token, set by finding the
+sub-deck's own `Circuit:` line in the capture. This was added by the
+adversarial review of these three commits and it closes the one way an
+assertion about an absence can be vacuously true: a `SILENT` token is printed
+whenever the phrase is not found, including when the capture was never opened.
+Proved RED by pointing one `fopen` per deck at a name that does not exist —
+`CAPTURE-READ` becomes `CAPTURE-EMPTY` and the deck fails, where the `SILENT`
+token alone still passed. The three decks were restored bit identically
+afterwards and checked with `md5sum -c`.
+
 BRIDGED and FWDREF are the two that could not have been written without
 reading the records: each is a circuit that satisfies the diagnostic's
 *surface* condition — an undriven node beside a driven twin, a reference-made
@@ -193,9 +203,15 @@ than an absence.
 
 | Deck | Empty-`.out` failure | RED, and against what | GREEN |
 | --- | --- | --- | --- |
-| `bsource-node-case-report.cir` | 31 added lines | `NODE-MISS-REPORTED` → `NODE-MISS-SILENT`, twice: once against `8557994bb`'s `fprintf(stderr, ...)`, and once against a binary with `INPtermCaseCheck()`'s `fprintf` deleted | PASS |
-| `auto-bridge-node-case-report.cir` | 28 added lines | `BRIDGE-MISS-REPORTED` → `BRIDGE-MISS-SILENT`, same two binaries, the second with `report_bridge_case_miss()`'s `fprintf` deleted | PASS |
-| `event-node-case-report.cir` | 28 added lines | `EVENT-MISS-REPORTED` → `EVENT-MISS-SILENT`, same two binaries, the second with `EVTnode_case_check()`'s `fprintf` deleted | PASS |
+| `bsource-node-case-report.cir` | 34 added lines | `NODE-MISS-REPORTED` → `NODE-MISS-SILENT`, twice: once against `8557994bb`'s `fprintf(stderr, ...)`, and once against a binary with `INPtermCaseCheck()`'s `fprintf` deleted | PASS |
+| `auto-bridge-node-case-report.cir` | 30 added lines | `BRIDGE-MISS-REPORTED` → `BRIDGE-MISS-SILENT`, same two binaries, the second with `report_bridge_case_miss()`'s `fprintf` deleted | PASS |
+| `event-node-case-report.cir` | 30 added lines | `EVENT-MISS-REPORTED` → `EVENT-MISS-SILENT`, same two binaries, the second with `EVTnode_case_check()`'s `fprintf` deleted | PASS |
+
+The added-line counts are for the decks as they stand after the
+`CAPTURE-READ` commit; the three commits that added them measured 31, 28 and
+28 for the decks as those commits left them. Counted with
+`grep '^+' | grep -vc '^+++'`, because a plain `grep -c '^+'` also counts the
+`+++` header — the mistake `18f751b4b` made.
 
 Each single-line diff is the whole diff: the three silence assertions in each
 deck are already correct against the reverted binary, which is what says they
