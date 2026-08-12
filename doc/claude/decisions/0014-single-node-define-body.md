@@ -169,14 +169,17 @@ is the check that the parent's count was not disturbed.
 The bytes that remain on the fixed side are all pre-existing, and each was
 tied to a control deck that isolates it:
 
-- **64 B per call of any user-defined function.** `PP_mkfnode()` frees its
-  `arg` only when it is a comma node, so an arity-1 call leaks the argument
-  `pnode`. Present at `HEAD` on `define c(x) 5+0`, which this change does not
-  touch: 3 calls → `192 bytes in 3 blocks`, both before and after.
-- **160 B + 10 B on `undefine`.** `free_pnode()` on a root with `pn_use == 0`
-  does not free the node's dvec. `define c(x) 5` / `undefine c` with **no call
-  at all** loses `170 (160 direct, 10 indirect) bytes` identically at `HEAD` and
-  after.
+- **64 B per call of a one-argument function whose body ignores its formal.**
+  `PP_mkfnode()` frees its `arg` only when it is a comma node; at arity 1
+  nothing frees it, unless the body used the formal and a parent linked it.
+  Present at `HEAD` on `define c(x) 5+0`, which this change does not touch:
+  3 calls → `192 bytes in 3 blocks`, both before and after. Narrow —
+  `define f(x) x*3`, `define f(x,y) x+y` and `print vm(1)` all lose 0, so no
+  shipped function is exposed.
+- **160 B on `undefine` of a value-rooted body.** `free_pnode()` on a root with
+  `pn_use == 0` does not free the node's dvec. `define c(x) 5` / `undefine c`
+  with **no call at all** loses `170 (160 direct, 10 indirect) bytes`
+  identically at `HEAD` and after; `define c(x) 5+0` / `undefine c` loses 0.
 
 The one shape where this change could have *introduced* a leak is the
 zero-length branch, whose dvec is not given to a plot and so is not collected
@@ -197,8 +200,9 @@ body does not accumulate in the plot. At `HEAD` the same twenty calls are 877
 valgrind errors, because the dvec being freed there belonged to the definition.
 
 Both remaining leaks are filed as `doc/codex/issues/0054`, with a third: `define d(x,y) x` —
-arity ≥ 2 with a bare formal as the body — is `checkvalid: Internal Error: bad
-node`, exit 134, at `HEAD` and still after. `ntharg()` returns the caller's
+arity ≥ 2 with a bare formal as the body — prints `checkvalid: Internal Error:
+bad node` and reads freed memory, at `HEAD` and still after. One call exits 0,
+two abort at 134. `ntharg()` returns the caller's
 argument node and `PP_mkfnode()` then frees the comma node that holds its only
 count. It is the same *family* — a node handed out with nobody counting it —
 but a different site and a different owner, so it is a different commit.
