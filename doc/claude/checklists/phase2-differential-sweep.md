@@ -407,6 +407,15 @@ copy. They are written up as `doc/codex/issues/0020`.
   device-letter half this series just fixed, and it has to move with
   `doc/codex/issues/0015`.
 
+**Corrected 2026-08-11: the twelve is right and the split is not.** The two
+bullets say eight and four; the decks they name are **ten** and **two**. Five
+decks with their twins is ten — `tests/regression/case-lt/` carries
+`rkm-c-case-lower.cir` and `rkm-l-case-lower.cir` as well — and
+`subckt-mult-skip-case` with its twin is two, which is what
+`doc/codex/issues/0020`'s gap 1 Resolution says it turned out to be. Ten of
+the ten cleared when gap 2 was fixed and both of the two cleared when gap 1
+was. The mis-split is what `0020`'s acceptance criterion 3 inherited.
+
 **`NUM-DIFF` has been 0 at every measurement in this table, and `PARSE-FAIL`
 has been 0 since `doc/codex/issues/0013`.**
 
@@ -531,6 +540,15 @@ and `tests/vbic/FG.cir`, whose *stock* run exceeds the 90 s timeout.
 The eight `PRINT VM(2)` entries are still `doc/codex/issues/0020` gap 2, which
 is out of scope for this round: it is control-language surface and wants the
 `distinguish` decision taken with `doc/codex/issues/0011`.
+
+**Corrected after that fix landed, 2026-08-11.** There are **ten** of them,
+not eight; see the correction under "The twelve new decks that report DIFF"
+above, which is where the mis-split originates. And `PRINT VM(2)` is not the
+defect: `vm` is a *user-defined function* that `ft_cpinit()` installs from
+`cpitf.c`'s `udfs[]` table, and the byte-exact compare was `ft_substdef()`'s,
+so every `define` in the control language had it. All ten cleared, with no
+deck newly differing, when
+`doc/claude/decisions/0013-user-defined-function-identity.md` landed.
 
 Three more are now attributable to a single new defect. The uppercased copies of
 `tests/regression/parser/xpressn-1.cir`, `xpressn-2.cir` and `xpressn-3.cir`
@@ -865,6 +883,16 @@ them: the variable is unset in the sweep's stock column and set in its preserve
 column, so the two columns must differ. `tests/regression/case/harness-alive.cir`
 has reported `DIFF` for this reason since it was written and did so in the
 baseline too.
+
+**Added 2026-08-11**: `tests/regression/case/udf-name-case.cir` and its twin
+join that by-design list, on one line — `+'vm (x) = mag (v (x))'`. Their last
+case defines `VM(x)` beside the shipped `vm`, and under `preserve`
+`com_define()`'s replace-or-prepend lookup is a byte-exact *prefix* test, so
+the shipped entry is shadowed rather than replaced and `define vm` lists three
+entries where the stock column's folded card lists two. That is
+`doc/claude/decisions/0013-user-defined-function-identity.md` decision 2's
+residue and `doc/codex/issues/0051`; both entries should clear when it lands,
+which makes them a live check on it rather than noise.
 
 ### What the sweep could not see this round
 

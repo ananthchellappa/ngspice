@@ -2,12 +2,24 @@
 
 ## Status
 
-Gap 1 fixed; gap 2 still open. Both were found by running
+Both gaps fixed. Gap 2 closed on 2026-08-11 by
+`doc/claude/decisions/0013-user-defined-function-identity.md`, and **wider
+than this issue states it**: the defect is not the `vm()` prefix, it is that a
+user-defined function name is matched byte-exactly, so every function the
+control language holds — the user's own `define`s as well as the shipped
+`vm`/`vp`/`vdb`/`vr`/`vi` — answered only to the spelling it was defined with.
+Section 2 and the gap 2 Root Cause paragraph below are corrected in the
+Resolution rather than rewritten in place, so that a reader arriving at
+criterion 2 through the `vm()` wording finds the wider rule.
+
+Both were found by running
 `doc/claude/scripts/case_differential_sweep.py` over the decks added while
 closing `doc/codex/issues/0009`'s follow-up table, and neither is that
 issue's class: one is a parameter-name lookup and one is a control-language
-function prefix. Neither is fixed, because each belongs to a name space with
-its own open issue and its own design decision.
+function prefix. *Neither was fixed when this was written*, because each
+belonged to a name space with its own open issue and its own design decision;
+gap 1 closed on 2026-08-10 and gap 2 on 2026-08-11, each with the decision
+record its name space needed.
 
 ## Summary
 
@@ -56,6 +68,11 @@ uppercased copies print `v(2) = 1.000000e+00`.
 
 ### 2. A control-language vector function prefix is not recognised in upper case
 
+**This heading names the symptom, not the defect.** `vm` is not a prefix and
+is not a built-in; it is a user-defined function ngspice defines for itself,
+and so are `vp`, `vdb`, `vr` and `vi`. The defect is that *any* user-defined
+function name is matched byte-exactly. See the Resolution.
+
 This one is a diagnostic, not a number.
 
 ```
@@ -86,6 +103,14 @@ ordinary SPICE house style.
 Gap 2 cannot change a number — the run stops at the `print` — but it makes
 every AC deck written in house style unusable under `preserve`.
 
+**That sentence is wrong about the name space this defect is really in.** The
+same byte-exact compare reaches `trcopy()`'s formal-parameter match, where
+`define g(X) x*2` leaves the body's `x` unsubstituted under `preserve`, so
+`g(5)` is unavailable where `fold` gives 10; and `com_undefine()`, where
+`undefine F` is a silent no-op. A missing `print` and a function that will not
+undefine are both missing numbers rather than wrong ones, so the paragraph's
+conclusion survives its premise. See the Resolution.
+
 Neither is a regression. Both were reachable before this series and are
 newly *visible* because the decks that exercise them did not exist.
 
@@ -104,21 +129,33 @@ family as `doc/codex/issues/0016` (instance-name matchers outside
 `DEVnameHash`) and adjacent to the `distinguish`-gated vector-table aliasing
 at `src/frontend/vectors.c`.
 
+This paragraph is wrong — there is no such site, and there is no `vm` in
+`ft_funcs[]` either. See the Resolution. It is the second Root Cause paragraph
+of this issue to be wrong about where the defect is; gap 1's named the wrong
+function and this one names a mechanism, the lower-case literal, that does not
+exist anywhere on the path.
+
 ## Acceptance Criteria
 
 1. **Met.** `M=`, `m=` and `M =` on a subcircuit instance all select the
    multiplier, and `tests/regression/case/subckt-mult-param-case.cir` plus its
    twin prove the numbers agree.
-2. `PRINT VM(2)`, `VDB(2)` and `VP(2)` resolve under `preserve`, with a twin
-   pair in `tests/regression/case/`.
-3. **Half met.** The differential sweep's `DIFF` count drops by gap 1's two
-   entries and `NUM-DIFF` stays 0; gap 2's eight remain. The count of twelve
-   is corrected in the Resolution.
+2. **Met, and wider than written.** `PRINT VM(2)`, `VDB(2)` and `VP(2)`
+   resolve under `preserve`, with the twin pair
+   `tests/regression/case/udf-name-case.cir` and `udf-name-case-lower.cir`.
+   So does a user's own `define` called back in the other case, which is the
+   same defect and is what this criterion should have asked for.
+3. **Met.** The differential sweep's `DIFF` count dropped by gap 1's two
+   entries and then by gap 2's, and `NUM-DIFF` stayed 0 throughout. The
+   count of twelve is corrected in gap 1's Resolution; gap 2's count of
+   eight is corrected in gap 2's.
 4. **Met.** `make check` unchanged with `casemode` unset.
 
 ## Resolution
 
-Gap 1 fixed, with `doc/codex/issues/0015`, in one commit. Gap 2 not fixed.
+Gap 1 fixed, with `doc/codex/issues/0015`, in one commit. Gap 2 fixed on
+2026-08-11 in a second, with
+`doc/claude/decisions/0013-user-defined-function-identity.md`.
 
 ### Gap 1 was not where this issue said it was
 
@@ -203,12 +240,85 @@ its twin, whose *uppercased* copies printed `v(2) = 1.000000e+00`. The other
 two of the twelve are `harness-alive.cir` and `write-roundtrip.cir`, which
 report `DIFF` by design. Gap 1's two entries now report `OK`.
 
-### Gap 2
+### Gap 2 was not where this issue said it was either, and is wider than it says
 
-Gap 2 is control-language surface. `doc/codex/issues/0011` already covers one
-way the preprocessor damages command text, and the `distinguish` design
-decision for the vector table is still open; a fold here should be taken
-together with those rather than in isolation.
+Fixed on 2026-08-11 by
+`doc/claude/decisions/0013-user-defined-function-identity.md`.
 
-Both are recorded in `doc/claude/checklists/phase2-differential-sweep.md` as
-the reason twelve of the new decks report `DIFF` rather than `OK`.
+**There is no lower-case literal, and no `vm` in `ft_funcs[]`.**
+`PP_mkfnode()` (`src/frontend/parse.c:506`) copies the typed name, lower cases
+the copy and matches `ft_funcs[]` with `eqc()` — case-insensitive twice over,
+in every mode. `vm`, `vi`, `vr`, `vp`, `vdb`, `vg`, `gd`, `max` and `min` are
+not in that table at all: `ft_cpinit()` (`src/frontend/cpitf.c:56`) holds them
+as source text in a `udfs[]` array and installs them by calling
+`com_define()`, in lower case, at start-up. They are **user-defined
+functions**, and the byte-exact compare is the one that resolves any of them:
+
+```c
+/* src/frontend/define.c, ft_substdef(), before the fix */
+        if (eq(name, udf->ud_name)) {
+```
+
+So the subject is not the `vm()` family and not a prefix. It is that **every**
+user-defined function answers only to the spelling it was defined with:
+
+```
+.control
+define f(x) x*3
+print F(2)      Error: no such function as F, or F(2) is not available.
+print f(2)      f(2) = 6.000000e+00
+.endc
+```
+
+The `vm` family is that rule applied to the nine functions ngspice defines for
+itself, which is why they are the half a deck notices.
+
+Three more sites in the same file went with it, none of them named here:
+`prdefs()`, so `define VM` printed nothing; `com_undefine()`, so `undefine F`
+was a silent no-op with `f` still callable — `doc/codex/issues/0027`'s shape
+one name space over; and `com_define()`'s own replace-or-prepend lookup, so
+`define VM(x)` beside the shipped `vm` left two entries under one identifier
+in the mode whose rule is that two spellings are one identifier. A fifth
+comparison in the file, `trcopy()`'s formal-parameter match, is Class A rather
+than Class C and was a `preserve` defect of its own: `define g(X) x*2` never
+substituted the body's `x`.
+
+**The predicate is Class C, not Class A**, and the reason is measured rather
+than argued: at `4d36cf61d`, under the **default** `fold` mode, `print F(2)`
+and `print VM(1)` typed at the `ngspice -p` prompt both failed. The reader
+folds a control-language word only when it arrived through `inp_readall()`, so
+an identity predicate here would have left the shipped default mode unable to
+call its own shipped functions from the prompt, from `ngSpice_Command()` and
+from the shared library. `doc/claude/decisions/0004-unlet-vector-identity.md`
+decision 1 refused the same thing at `vec_remove()` on the same evidence.
+
+### Criterion 3's accounting for gap 2, corrected
+
+This criterion says gap 2 accounts for eight of the sweep's `DIFF` entries and
+then names five decks *"with their twins"*, which is ten. The list is right
+and the count is not: `tests/regression/case-lt/` does carry
+`rkm-c-case-lower.cir` and `rkm-l-case-lower.cir`, so all five have twins.
+**Ten** of the named decks cleared, measured over a frozen tree with the two
+binaries, and none newly differed.
+
+The eight and gap 1's *"the two gaps account for ten of them"* are not two
+statements about one census and should not be reconciled: gap 1's paragraph
+counts only `tests/regression/case/`, where six of gap 2's ten live, and the
+other four are in `tests/regression/case-lt/`. What is measured rather than
+inferred is the list of ten and the totals beside it — over a frozen tree of
+321 decks, `DIFF` went **74 → 61** with **no deck newly differing**, and
+`NUM-DIFF` and `PARSE-FAIL` were 0 in both runs. Three of the thirteen that
+cleared are not gap 2's: this work's own `casedist` deck, one `alter-rebin`
+flap and one `stdout reordered only` on `tests/bsim3soidd/ring51.cir`.
+
+Two decks *stay* `DIFF`, by design and knowingly:
+`tests/regression/case/udf-name-case.cir` and its twin report
+`+'vm (x) = mag (v (x))'`, which is the residue
+`doc/claude/decisions/0013-user-defined-function-identity.md` decision 2
+leaves — under `preserve` a `define VM(x)` shadows the shipped `vm` instead of
+replacing it, because the line that would replace it is a prefix test and
+`doc/codex/issues/0051` has to fix that first. Those two entries should clear
+when `0051` lands.
+
+Gap 2 was recorded in `doc/claude/checklists/phase2-differential-sweep.md` as
+one of the reasons twelve of the new decks reported `DIFF` rather than `OK`.

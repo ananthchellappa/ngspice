@@ -2,10 +2,21 @@
 
 ## Status
 
-Phases 0, 1 and 2 are implemented and `preserve` has shipped; Phase 3
-(`distinguish`) is experimental, with gates 1, 2 and 4 open. The design text
-below is kept as written except where a line is marked **Done**. Companion
-documents:
+Phases 0, 1 and 2 are implemented and `preserve` has shipped. Phase 3
+(`distinguish`) is implemented and experimental. **Every row of "Silent-failure
+sites that gate `distinguish`" is marked Done, and so are all four numbered
+Phase 3 gates** — 1, 2 and 4 are rows of that table and gate 3, the frontend
+vector table, is not. This paragraph said "gates 1, 2 and 4 open" long after
+the acceptance bullets below said **Done** for the same sites, and is
+corrected with
+`doc/claude/decisions/0013-user-defined-function-identity.md`. The mode stays
+experimental for a reason that is not a gate and cannot become one: a deck
+that spells one net two ways becomes a deck with two nets, silently, because
+both spellings are *definitions* and decision 2 of
+`doc/claude/decisions/0001-distinguish.md` deliberately does not warn on a
+definition. `doc/claude/decisions/0004-unlet-vector-identity.md` decision 6
+holds the rest of the reasons. The design text below is kept as written except
+where a line is marked **Done**. Companion documents:
 
 - `doc/claude/code_analysis/case-insensitivity-origins.md` — where the current
   behavior comes from.
@@ -386,7 +397,19 @@ fold. It is not repeated here.
 - Identity is unchanged: every existing test produces identical results under
   `fold` and under `preserve` when the deck is all-lowercase.
 - A mechanically uppercased copy of every deck in `tests/` produces numerically
-  identical results to the original under `preserve`.
+  identical results to the original under `preserve`. **Not yet claimable, and
+  the tool's verdict is narrower than the bullet.**
+  `doc/claude/scripts/case_differential_sweep.py`'s `NUM-DIFF` compares the
+  rawfile payload, which is what the *analysis* wrote — so a number a deck
+  fails to `print` is invisible to it, and `NUM-DIFF` has been 0 throughout
+  while decks were losing printed values. `doc/codex/issues/0020` gap 2 was
+  the largest remaining source of those, ten decks' worth, and is closed by
+  `doc/claude/decisions/0013-user-defined-function-identity.md`. What is left
+  under `DIFF` has not been classified deck by deck and this bullet does not
+  claim it has; the known-by-design entries are `harness-alive.cir` and
+  `write-roundtrip.cir`, which exist to show a spelling change, and the report
+  decks whose sub-deck names the uppercaser rewrites while leaving their
+  `source` lines alone (`doc/claude/decisions/0012` records that shape).
 - Uppercase keywords (`.TRAN`, `UIC`, `PULSE`, `PARAMS:`, `%VD`) work in all
   three modes.
 - `make check` is green with `casemode` unset.
