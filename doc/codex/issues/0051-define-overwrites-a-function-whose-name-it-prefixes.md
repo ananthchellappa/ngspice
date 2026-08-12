@@ -163,6 +163,21 @@ Item 3: no miss path. Both loops fall out of the bottom with nothing to say.
    replaces, or the issue records why `free_pnode()` cannot be called there —
    `trcopy()`'s comment says parse trees are never freed, so this needs
    checking rather than assuming.
+
+   **Unblocked on 2026-08-12 by `doc/codex/issues/0053`, and the sequencing was
+   the reason that issue went first.** Until then `ft_substdef()` handed a
+   single-node body's stored root out to the evaluator with no reference at
+   all and the evaluator freed it, so adding `free_pnode(udf->ud_text)` here
+   would have freed it a second time. That is now closed —
+   `copy_value_node()` gives the caller a node of its own — so nothing escapes
+   `udf->ud_text` uncounted and `free_pnode()` **is** safe on this path. The
+   comment that prompted the caveat is stale: `cbdd811aa` (2005) retired its
+   premise when it added `pn_use` counting to `free_pnode_x()` and the three
+   `pn_use++` lines to `trcopy()`. See
+   `doc/claude/decisions/0014-single-node-define-body.md`, which also records
+   that `undefine` on a single-node body still abandons that body's dvec —
+   `doc/codex/issues/0054` class (c) — which this criterion's repair should be
+   measured against.
 5. `undefine nosuchfunction` and `define nosuchfunction` report the miss, on
    `cp_err`, mode-independently, in `doc/codex/issues/0028`'s wording family.
    Only after that is a `distinguish` near-miss report worth adding, per
