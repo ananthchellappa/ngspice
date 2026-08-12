@@ -1,0 +1,36 @@
+* Calling a user-defined function does not rewrite its definition.
+* doc/codex/issues/0053, second face.
+*
+* Stopping the premature free is not by itself enough, and this deck is the
+* one that says so.  A parse tree's ROOT is not read-only: parse-bison.y
+* writes pn_name on to it, and ft_evaluate() renames the dvec it carries
+* after the enclosing command.  So a repair that merely takes a reference
+* on the shared node keeps it alive and keeps the rewrite -- `define c`
+* then reports
+*     c (x) = c(2)
+* where `c (x) = 5` is right, and a fresh pn_name is leaked on every call.
+* The definition has to stay the definition, so trcopy()'s result must be a
+* node the caller owns.
+*
+* At 1eb641b24 this deck does not merely print the wrong text: reading the
+* freed node in prtree1() is fatal, so the run dies at the first `define c`
+* after a call and the reference output below is missing from `SURVIVED`
+* upwards.
+v1 1 0 dc 1
+r1 1 0 1k
+.control
+op
+define c(x) 5
+define c
+print c(2)
+define c
+print c(2)
+define c
+let a = 5
+define g(y) a
+define g
+print g(1)
+define g
+echo SURVIVED
+.endc
+.end

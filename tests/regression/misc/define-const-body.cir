@@ -1,0 +1,50 @@
+* A user-defined function whose body is a single node is not freed on its
+* first call.  doc/codex/issues/0053.
+*
+* trcopy() shares every value node it does not substitute and leaves the
+* reference to the parent node it builds.  When the body's root IS that
+* value node there is no parent, so the stored node reached the evaluator
+* uncounted and was freed on the first call.  The second call then read
+* freed memory and printed the ARGUMENT instead of the body.
+*
+* This deck asserts the batch face, which is a wrong number and not a fault:
+* at 1eb641b24 it runs to completion with exit status 0 and prints
+*     c(2) = 5.000000e+00 / 2.000000e+00 / 2.000000e+00
+*     g(1) = 5.000000e+00 / 1.000000e+00 / 1.000000e+00
+* The fatal faces -- listing or undefining a function after it has been
+* called -- are asserted by tests/regression/pipe/define-const-body.cmd,
+* which is the harness that can see a non-zero exit status.
+*
+* Four shapes.  The first two were broken.  The last two were always
+* correct and are here so that a repair cannot buy them back: k's root is
+* an operator, whose parent inside trcopy() does take the reference, and
+* p's root is the formal itself, which trcopy() substitutes rather than
+* shares.
+v1 1 0 dc 1
+r1 1 0 1k
+.control
+op
+* a bare constant at the root
+define c(x) 5
+print c(2)
+print c(2)
+print c(2)
+* a bare vector name at the root
+let a = 5
+define g(y) a
+print g(1)
+print g(1)
+print g(1)
+* an operator at the root -- always worked, must stay working
+define k(x) 5+0
+print k(2)
+print k(2)
+print k(2)
+* the root is the formal -- always worked, must stay working
+define p(x) x
+print p(2)
+print p(2)
+print p(2)
+echo SURVIVED
+.endc
+.end

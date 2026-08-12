@@ -31,6 +31,7 @@ static void prtree1(struct pnode *pn, FILE *fp);
 static struct pnode *trcopy(struct pnode *tree, char *arg_names, struct pnode *args);
 static struct pnode *ntharg(int num, struct pnode *args);
 static int numargs(struct pnode *args);
+static struct pnode *copy_value_node(struct pnode *tree);
 
 static struct udfunc *udfuncs = NULL;
 
@@ -374,7 +375,61 @@ ft_substdef(const char *name, struct pnode *args)
     /* Now we have to traverse the tree and copy it over,
      * substituting args.
      */
-    return trcopy(udf->ud_text, arg_names, args);
+    {
+        struct pnode *tree = trcopy(udf->ud_text, arg_names, args);
+
+        /* trcopy() hands a value node back rather than copying it, and
+         * leaves the reference to the parent node it is about to build.
+         * When the body is a single value node there is no parent, and
+         * this frame is the one that knows the node is on its way out to
+         * an evaluator that will free it.  doc/codex/issues/0053.
+         */
+        if (tree == udf->ud_text)
+            tree = copy_value_node(tree);
+
+        return tree;
+    }
+}
+
+
+/* Return a node of our own over a copy of a stored body's vector -- the
+ * tree the parser would have built had the body been typed at the call
+ * site, which is what this file promises its caller.
+ *
+ * The obvious repair, taking the reference count trcopy()'s parents take
+ * and letting the two share the one node, is not enough, because a parse
+ * tree's ROOT is not read-only the way its interior is.  parse-bison.y
+ * writes pn_name on to whatever node an expression reduces to, and
+ * ft_evaluate() renames the dvec that node carries after the enclosing
+ * command.  Measured, with the reference count and nothing else:
+ * `define c(x) 5` then `print c(2)` leaves `define c` reporting
+ * `c (x) = c(2)`, and every further call leaks the pn_name it displaced.
+ * A reference count keeps the node alive; it cannot keep it unwritten.
+ * Sharing is safe for an interior node because nothing writes to one.
+ *
+ * doc/claude/decisions/0014-single-node-define-body.md.
+ */
+
+static struct pnode *
+copy_value_node(struct pnode *tree)
+{
+    struct pnode *pn = alloc_pnode();
+    struct dvec *d = tree->pn_value;
+
+    if (d->v_length == 0) {
+        /* A name the body never resolved.  PP_mksnode() leaves exactly
+         * this placeholder behind on a miss and does not give it to a
+         * plot, so neither do we.
+         */
+        pn->pn_value = dvec_alloc(copy(d->v_name), d->v_type, d->v_flags,
+                                  0, NULL);
+    } else {
+        struct dvec *nv = vec_copy(d);
+        vec_new(nv);
+        pn->pn_value = nv;
+    }
+
+    return pn;
 }
 
 
