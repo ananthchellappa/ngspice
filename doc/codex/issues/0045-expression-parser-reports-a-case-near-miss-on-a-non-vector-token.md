@@ -80,13 +80,21 @@ so nothing reaches `PP_mksnode()` today.
    `parse.c:575` outright. `vec_get_quiet()` (`src/frontend/vectors.c`) is the
    lookup to call once the flag is there; it exists with
    `doc/claude/decisions/0009-let-definition-report.md`.
-4. A deck in `tests/regression/casedist/`. `define` is a command and takes a
-   `>&` redirect — it is **not** on `src/frontend/control.c:62`'s
-   `noredirect[]` list, unlike `let` — so the capture shape of
-   `vector-let-report.cir` applies directly and no sourced sub-deck is needed.
-   `plot` is refused in batch mode ("command 'plot' is not available during
-   batch simulation"), so the `vs` half has to be asserted through `hardcopy`,
-   which reaches the same `plotit()`.
+4. A deck in `tests/regression/casedist/`, and the two halves need two
+   different capture shapes. Measured, not assumed:
+
+   - **`define` is on `src/frontend/control.c:62`'s `noredirect[]` list**, with
+     `if`, `let`, `stop` and `circbyline`. `define f(x) x*2 >& f.txt` parses
+     the redirect into the function body and dies with `PPerror: syntax error
+     in line segment / x*2 > & f.txt`, writing no file. So the `define` half
+     needs the sourced sub-deck of
+     `tests/regression/casedist/vector-let-report.cir`, for the same reason
+     that deck needs it.
+   - **`hardcopy` is not on the list** and takes `>&` directly. `plot` is
+     refused in batch mode ("command 'plot' is not available during batch
+     simulation"), so the `vs` half is asserted through `hardcopy`, which
+     reaches the same `plotit()` and the same `PP_mksnode()`. It writes a file
+     — name it in `CLEANFILES`.
 
 ## Resolution
 
