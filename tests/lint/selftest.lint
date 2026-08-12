@@ -1,0 +1,25 @@
+# selftest.lint -- the identifier-comparison lint run against its own fixtures.
+#
+# identity.lint freezes the tree, so it can only ever say "nothing changed".
+# That makes it a poor witness for the scanner: a scanner that reported
+# nothing at all would pass it, and so would one whose string-literal
+# exemption or `case-lint:` escape hatch had stopped working, because those
+# only ever remove reports and the frozen set was built by the same code.
+#
+# This spec points the same driver at two fixtures instead.  Every comparison
+# in selftest/flagged.c is in selftest.baseline and every comparison in
+# selftest/silent.c is absent from it, so the two failure directions the
+# driver already has become the two REDs:
+#
+#   a detector that stops seeing a raw comparison  -> "no longer in the tree"
+#   a literal or an annotation that stops exempting -> "unclassified comparison"
+#
+# The fixtures are never compiled and are not in any _SOURCES.
+
+root tests/lint/selftest
+
+baseline selftest.baseline
+
+marker case-lint:
+
+comparators strcmp strncmp strcasecmp strncasecmp cieq cieqn eq eqc cistrstr strstr eq_substr

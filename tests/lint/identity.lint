@@ -1,0 +1,50 @@
+# identity.lint -- the scope of the build-enforced identifier-comparison lint.
+#
+# doc/claude/decisions/0001-distinguish.md decision 3 splits every string
+# comparison in the simulator into two questions.  "Are these two names the
+# same?" must go through ng_ideq(), vec_name_eq() or Evt_Node_Name_Eq(),
+# because under casemode=distinguish two spellings are two names.  "Is this
+# word the one the language defines?" must keep comparing bytes, because
+# keywords are case-insensitive in all three modes.  A raw strcmp() or cieq()
+# asked the first question is the defect shape of doc/codex/issues/0027, 0032
+# and 0037.
+#
+# No regular expression can tell the two questions apart.  Measured at
+# 6e2dca123 over the 266 distinct sites this scope selects: 95 are identity
+# comparisons and 171 are not, so a lint that called every hit a bug would be
+# wrong about two thirds of them.  Narrowing by directory makes it worse, not
+# better -- src/spicelib/parser/ is 12 keyword comparisons and 2 of neither
+# kind to 1 identity one, and src/xspice/evt/ is 3 and 5 to 2.  So this lint
+# does not classify.  It reports
+# the sites, freezes them in identity.baseline, and fails on any change to
+# that set in either direction; the classification is the contributor's, made
+# in the diff where a reviewer can see it.
+#
+# Read by tests/bin/identity_lint.sh.  Keys:
+#
+#   root         directory to scan, relative to the top of the source tree
+#   baseline     frozen site list, relative to this file
+#   marker       the escape-hatch comment token
+#   comparators  the string comparison primitives to look for
+#   skip         a path (one per line) never scanned
+
+root src
+
+baseline identity.baseline
+
+marker case-lint:
+
+# Every string comparison primitive the tree has.  The list is deliberately
+# not narrowed to strcmp and cieq: doc/claude/decisions/0001-distinguish.md
+# decision 3 has Class A sites spelled cieqn (inpcom.c, a .func formal) and
+# cistrstr (xpressn.c, a .subckt formal), and eq/eqc are macros over strcmp
+# and cieq that a grep for the underlying name would miss.
+comparators strcmp strncmp strcasecmp strncasecmp cieq cieqn eq eqc cistrstr strstr eq_substr
+
+# lex and yacc write these into the source directory during an in-tree build,
+# which is not the documented workflow but is not forbidden either.  They are
+# generated, so they cannot carry a marker and must not reach the baseline.
+skip src/xspice/cmpp/ifs_lex.c
+skip src/xspice/cmpp/ifs_yacc.c
+skip src/xspice/cmpp/mod_lex.c
+skip src/xspice/cmpp/mod_yacc.c

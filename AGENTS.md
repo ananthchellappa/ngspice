@@ -17,6 +17,21 @@ Ngspice is an Autotools-based C project. Core code lives in `src/`: commands in 
 
 Follow the edited file's style. C generally uses four-space indentation, same-line opening braces, `snake_case` for newer identifiers, and uppercase macros. Keep public declarations in `src/include/ngspice/` and use existing helpers. No repository-wide formatter is configured; avoid whitespace churn. Update the nearest `Makefile.am` when adding sources or tests.
 
+### Comparing two strings
+
+`make check` runs a lint (`tests/lint/`) over every `strcmp`, `cieq`, `eq`, `eqc` and relative in `src/` whose operands are **both runtime expressions**. A comparison against a string literal is never reported. A reported comparison is not a bug — it is unclassified, and it is asking one of two questions that no regular expression can tell apart, so you have to say which:
+
+- **A name a deck wrote** — a node, a vector, an instance, a `.model`, a `.subckt`, a `.param`, an XSPICE event node. Two spellings are two names under `casemode=distinguish`, so call `ng_ideq()`, `vec_name_eq()` or `Evt_Node_Name_Eq()`, or guard with `inp_case_exact_ids()`. `doc/claude/decisions/0001-distinguish.md` decision 3 classifies every existing site.
+- **A word the language defines** — a command, an option, a device letter, an analysis or model type, a parameter keyword. These stay byte-exact in all three case modes. Say so on the line and say why:
+
+  ```c
+  if (eq(a, b))   /* case-lint: keyword - both operands are command names */
+  ```
+
+  The marker suppresses the call on its own line and the call on the line directly below it, and nothing else.
+
+Adding the line to `tests/lint/identity.baseline` is the third option and is for a comparison that is a genuine identity test and cannot be fixed yet; such an entry must name the issue that will fix it. The lint also fails on a baseline entry it can no longer find, so a rewrite of an existing comparison means deleting its line — `make check` prints exactly which.
+
 ## Testing Guidelines
 
 Use RED-first test-driven development for behavioral changes:

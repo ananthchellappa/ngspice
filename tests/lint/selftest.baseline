@@ -1,0 +1,23 @@
+# selftest.baseline -- what the lint must report for tests/lint/selftest/.
+#
+# Unlike identity.baseline this is an assertion, not a ratchet.  Every line
+# here is a comparison in selftest/flagged.c that the scanner must find, and
+# every comparison in selftest/silent.c must be absent, so the driver's two
+# failure directions test the detector and its two exemptions.  Edit this file
+# only together with the fixtures.
+#
+# selftest/flagged.c:39 keys as `strcasecmp(a , b)` with a space before the
+# comma: the key is taken from the masked text, in which the comment inside
+# the argument list has become blanks.  That is deterministic and is what
+# keeps a comment from changing a key.
+tests/lint/selftest/flagged.c	cieq(v->v_name, query)
+tests/lint/selftest/flagged.c	cieqn(a, b, n)
+tests/lint/selftest/flagged.c	cistrstr(hay, needle)
+tests/lint/selftest/flagged.c	eq(a, b)
+tests/lint/selftest/flagged.c	eqc(a, b)
+tests/lint/selftest/flagged.c	strcasecmp(a , b)
+tests/lint/selftest/flagged.c	strcmp(a, b)
+tests/lint/selftest/flagged.c	strcmp(a, b)
+tests/lint/selftest/flagged.c	strcmp(v->v_name, name)
+tests/lint/selftest/flagged.c	strncmp(a, b, n)
+tests/lint/selftest/flagged.c	strstr(hay, needle)

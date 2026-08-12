@@ -33,6 +33,7 @@ Test harness differs per directory — read the `TESTS_ENVIRONMENT` in the local
 - `tests/regression/pipe/`: feeds a `.cmd` file to `ngspice -p` on stdin, no `.out` comparison.
 - `tests/xspice/digital/`: `check.sh` with `ngspice -r foobaz`.
 - Model QA (`tests/bsim3`, `bsim4`, `hisim*`, `hicum2`, `bsimsoi`): `tests/bin/check_cmc.sh` → `runQaTests.pl` against `nmos/qaSpec`, `pmos/qaSpec`.
+- `tests/lint/`: runs no binary and no deck. `tests/bin/identity_lint.sh` reads a `.lint` spec, scans `src/` with `$(AWK)` and compares the result against a frozen baseline. Last in `tests/Makefile.am`'s `SUBDIRS`, because a failing directory aborts `make check`'s recursion.
 
 Adding a test: put the `.cir` in the most specific `tests/<area>/` dir, add it to that dir's `TESTS` list, commit the matching `.out` reference, re-run `autogen.sh`.
 
@@ -75,6 +76,7 @@ Examples: `examples/xspice/verilator/`, `examples/xspice/icarus_verilog/`.
 ## Conventions
 
 - Match the style of the file being edited. C is generally four-space indent, same-line opening brace, `snake_case` for newer identifiers, uppercase macros. No repo-wide formatter — do not reflow or churn whitespace. Prefer existing helpers over new ones.
+- **Comparing two strings.** `make check` lints every `strcmp`/`cieq`/`eq`/`eqc` in `src/` whose operands are both runtime expressions (a literal operand is never reported). A comparison of a name a deck wrote must go through `ng_ideq()`, `vec_name_eq()` or `Evt_Node_Name_Eq()`; a comparison of a word the language defines stays byte-exact and takes a `/* case-lint: keyword - <why> */` comment on its own line or the line above. See `AGENTS.md` and `doc/claude/decisions/0011-identity-lint.md`.
 - Update the nearest `Makefile.am` when adding sources or tests, then re-run `./autogen.sh`.
 - Commits: short imperative summaries; keep unrelated work separate. PRs state problem, solution, affected features, config flags, and tests run, and link relevant reports; include logs or a minimal `.cir` deck for simulation changes. Screenshots only matter for plotting/GUI changes.
 - `doc/codex/` holds analysis artifacts in a numbered convention: `issues/NNNN-slug.md` (Status / Summary / Impact / Root Cause / Acceptance Criteria / Resolution), plus `code_analysis/` and `suggestions/`. Follow that structure when writing up a defect.

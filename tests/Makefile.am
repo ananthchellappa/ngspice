@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-## regression first, then xspice, then the model qua tests
+## regression first, then xspice, then the model qua tests, then the lint
 
 SUBDIRS = regression
 
@@ -24,6 +24,11 @@ SUBDIRS +=		\
 	hisimhv2
 endif
 
+## Last, and unconditional: it runs no binary, so no configure flag gates it.
+## A failing directory aborts the recursion, so from here a lint failure costs
+## the suite nothing that has not already run.
+SUBDIRS += lint
+
 DIST_SUBDIRS =		\
 	bsim1		\
 	bsim2		\
@@ -41,6 +46,7 @@ DIST_SUBDIRS =		\
 	hisimhv1	\
 	hisimhv2	\
 	jfet		\
+	lint		\
 	mes		\
 	mesa		\
 	mos6		\
