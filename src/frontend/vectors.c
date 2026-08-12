@@ -744,9 +744,10 @@ static struct dvec *vec_fromplot_maybe_report(char *word, struct plot *plot,
  * miss is not a resolution failure, and there are two kinds of those:
  * com_let()'s left-hand side is DEFINING the name it looks up, and a PROBE is
  * asking whether the name exists in order to decide what kind of token it is --
- * a formal parameter of a 'define', plotit()'s 'vs' separator.  Nothing else is
- * suppressed: the wildcard and '@' diagnostics below are the same in both.
- * doc/codex/issues/0034, doc/codex/issues/0045, decision 2 of
+ * a formal parameter of a 'define', plotit()'s 'vs' separator, com_pyplot()'s
+ * output file name.  Nothing else is suppressed: the wildcard and '@'
+ * diagnostics below are the same in both.  doc/codex/issues/0034,
+ * doc/codex/issues/0044, doc/codex/issues/0045, decision 2 of
  * doc/claude/decisions/0001-distinguish.md and
  * doc/claude/decisions/0010-probe-category.md.  */
 

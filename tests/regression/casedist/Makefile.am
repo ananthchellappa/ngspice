@@ -16,7 +16,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-rawfile-scale-case.cir vector-diff-pairing-case.cir \
 	vector-diff-wrapper-case.cir vector-diff-branch-case.cir \
 	bsource-node-case-report.cir sens-node-case-report.cir \
-	vector-let-report.cir vector-probe-report.cir
+	vector-let-report.cir vector-probe-report.cir \
+	vector-pyplot-probe-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -46,10 +47,12 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # refused there.  Its sub-decks are named in UPPER CASE, which the deck's own
 # header explains: it is the only spelling the differential sweep's uppercaser
 # leaves agreeing with the 'source' line that reads them.
+# vector-pyplot-probe-report.cir needs no sub-deck: 'pyplot' takes the redirect
+# directly, and its cases stop before any python is started.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
 	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir \
-	vpr_*.txt vpr_*.svg VPR_*.CIR
+	vpr_*.txt vpr_*.svg VPR_*.CIR vpp_*.txt
 
 EXTRA_DIST = \
 	$(TESTS) \

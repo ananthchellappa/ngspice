@@ -1,0 +1,120 @@
+* pyplot's file-name probe must not report a case near miss, and must not be
+* silent when the probe was the only thing that could have caught a typo
+* doc/codex/issues/0044.  com_pyplot() (src/frontend/com_pyplot.c) decides
+* whether its first word is an output file name or the first plot expression by
+* asking whether the word names a vector.  That is a probe: a miss is how the
+* caller learns the word is the file it is about to create, so under
+* casemode=distinguish 'pyplot out v(Out)' warned about 'out' and then
+* correctly wrote out.py -- a warning on a correct deck, which decision 2 of
+* doc/claude/decisions/0001-distinguish.md rejects.
+*
+* Silence alone would have been wrong, and this deck pins both halves of why.
+* 'pyplot out' with NO plot arguments takes 'out' as the file name, finds
+* nothing left to plot and used to return having written nothing and said
+* nothing, so the near miss was the ENTIRE diagnostic a user who mistyped the
+* case of a vector name got.  Silencing the probe on its own would have turned
+* that typo into a silent no-op -- the failure mode this whole series exists to
+* remove, arriving from the other direction.  So the probe is silent AND that
+* return now says what happened, naming the word it took as a file name.
+*
+* The diagnostics go to cp_err, which tests/bin/check.sh does not capture, so
+* this deck redirects them.  'pyplot' is not on control.c's noredirect[] list,
+* so '>&' attaches to it directly and no sourced sub-deck is needed; '>&' sets
+* cp_err as well as cp_out (src/frontend/streams.c) and the capture is read
+* back with fopen/fread/strstr.  Every token echoed is upper case because
+* check.sh's filter drops any line containing 'Warning' or 'Error'.
+*
+* The silence is asserted beside something in the SAME capture that must be
+* reported, so it cannot pass on a capture that was never written, never read,
+* or read from the wrong file: doc/claude/decisions/
+* 0006-diagnostic-deck-coverage.md decision 5.  Here the thing that must be
+* reported is the new message itself, which is the half of this fix that is not
+* an absence.
+*
+* The cases gate themselves on the case mode, and that is not decoration.  In
+* any other mode 'out' IS the vector 'Out', so the probe would succeed, pyplot
+* would plot it, write pyplot.py and pyplot.data NEXT TO THE CIRCUIT FILE --
+* which under this harness is the source tree, not the build directory
+* (Enhancement-183, src/frontend/com_pyplot.c) -- and start a python
+* interpreter.  check.sh runs this deck under distinguish only, but
+* doc/claude/scripts/case_differential_sweep.py and
+* doc/claude/scripts/deck_output_differ.py run every deck under every mode, and
+* a deck that litters the source tree and forks python when they do is a deck
+* that makes those tools unusable.  Measured, not feared: before the gate, a
+* fold-mode run left tests/regression/casedist/pyplot.py, pyplot.data,
+* vpp_none.py and vpp_none.data behind and printed two matplotlib tracebacks.
+*
+*   NOARG  'pyplot out' beside an Out -> the probe is silent, and the command
+*          says that it took 'out' as the output file name and had nothing
+*          left to plot.  Both are read out of one capture.  No python
+*          interpreter is started, because com_pyplot() returns before plotit()
+*   ARG    'pyplot vpp_none OUt' beside an Out -> the file-name probe on
+*          'vpp_none' is silent (it has no case variant), and the plot argument
+*          'OUt' is a RESOLUTION and still reports, which says the silence is
+*          the probe's alone and does not reach the vectors being plotted
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+.control
+op
+* The gate: distinguish only, for the reason in the header.
+set gate = 0
+if $?casemode
+  strcmp cm "$casemode" distinguish
+  if $cm = 0
+    set gate = 1
+  end
+end
+if $gate = 1
+  * NOARG: the probe's own miss, and the return that used to be silent.
+  pyplot out >& vpp_noarg.txt
+  set prb1 = 0
+  set noarg1 = 0
+  set n1 = 1
+  fopen f1 vpp_noarg.txt r
+  while $n1 >= 0
+    set capline = "no_line_read"
+    fread capline $f1 n1
+    strstr p1 "_$capline" "no vector named 'out'"
+    if $p1 >= 0
+      set prb1 = 1
+    end
+    strstr q1 "_$capline" "was taken as the output file name"
+    if $q1 >= 0
+      set noarg1 = 1
+    end
+  end
+  fclose $f1
+  if $prb1 > 0
+    echo PYPLOT-PROBE-REPORTED
+  else
+    echo PYPLOT-PROBE-SILENT
+  end
+  if $noarg1 > 0
+    echo PYPLOT-NOARG-REPORTED
+  else
+    echo PYPLOT-NOARG-SILENT
+  end
+  * ARG: a plot argument of the same command is a resolution and still reports.
+  pyplot vpp_none OUt >& vpp_arg.txt
+  set arg2 = 0
+  set n2 = 1
+  fopen f2 vpp_arg.txt r
+  while $n2 >= 0
+    set capline = "no_line_read"
+    fread capline $f2 n2
+    strstr p2 "_$capline" "no vector named 'OUt'"
+    if $p2 >= 0
+      set arg2 = 1
+    end
+  end
+  fclose $f2
+  if $arg2 > 0
+    echo PYPLOT-ARG-REPORTED
+  else
+    echo PYPLOT-ARG-SILENT
+  end
+end
+.endc
+.end

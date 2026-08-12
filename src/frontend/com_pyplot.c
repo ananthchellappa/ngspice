@@ -50,10 +50,26 @@ com_pyplot(wordlist *wl)
        name defaults to "pyplot" and all words are plot arguments. */
     {
         const char *w = wl->wl_word;
-        bool is_expr = (strchr(w, '(') != NULL) || (vec_get(w) != NULL);
+        /* That lookup is a PROBE: a miss is how this command learns the word
+           is the file it is about to create, not a failure, so it must not
+           report a case near miss -- naming the output file after the net
+           being plotted is the ordinary deck, and under casemode=distinguish
+           it warned and then worked. doc/codex/issues/0044. The one path where
+           the miss really could have been a mistyped vector name is the one
+           just below, which is why that path now says so instead of returning
+           in silence. */
+        bool is_expr = (strchr(w, '(') != NULL) || (vec_get_quiet(w) != NULL);
         if (!is_expr) {
             fname = wl->wl_word;
             wl = wl->wl_next;
+            if (!wl) {
+                /* A file name and nothing to plot. Saying nothing here would
+                   make a case-typo'd 'pyplot Out' a silent no-op, which is
+                   worse than the warning the probe used to print. */
+                fprintf(cp_err, "Error: no vectors given; '%s' was taken "
+                        "as the output file name\n", fname);
+                return;
+            }
         }
     }
 
@@ -85,12 +101,10 @@ com_pyplot(wordlist *wl)
         tfree(dir);
     }
 
-    if (!wl) /* no plot arguments left */
-        goto done;
-
+    /* wl cannot be empty here: the only word this function consumes is the
+       file name, and taking it with nothing behind it returned above. */
     (void) plotit(wl, fname, "pyplot");
 
-done:
     if (tempf)
         tfree(fname);
     if (fullname)

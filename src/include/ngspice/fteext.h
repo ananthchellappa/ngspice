@@ -371,9 +371,9 @@ extern struct dvec *vec_get(const char *word);
 /* vec_get() for a caller whose lookup is allowed to miss -- it is defining the
  * name rather than resolving it, or it is probing to find out what kind of
  * token the word is -- so the case near-miss report is suppressed and nothing
- * else is.  doc/codex/issues/0034, doc/codex/issues/0045,
- * doc/claude/decisions/0001-distinguish.md decision 2 and
- * doc/claude/decisions/0010-probe-category.md. */
+ * else is.  doc/codex/issues/0034, doc/codex/issues/0044,
+ * doc/codex/issues/0045, doc/claude/decisions/0001-distinguish.md decision 2
+ * and doc/claude/decisions/0010-probe-category.md. */
 extern struct dvec *vec_get_quiet(const char *word);
 extern struct dvec *vec_mkfamily(struct dvec *v);
 extern struct plot *plot_cur;

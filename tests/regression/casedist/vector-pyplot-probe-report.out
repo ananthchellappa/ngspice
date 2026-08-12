@@ -1,0 +1,15 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * pyplot's file-name probe must not report a case near miss, and must not be
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+PYPLOT-PROBE-SILENT
+PYPLOT-NOARG-REPORTED
+PYPLOT-ARG-REPORTED
+Note: Simulation executed from .control section 
