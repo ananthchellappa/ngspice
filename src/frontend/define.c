@@ -35,6 +35,45 @@ static int numargs(struct pnode *args);
 static struct udfunc *udfuncs = NULL;
 
 
+/* Are these two user-defined function names the same name?
+ *
+ * Class C of doc/claude/decisions/0001-distinguish.md decision 3, not Class
+ * A.  The second operand is a word typed at the control language, and the
+ * reader folds such a word only when it arrived through inp_readall().
+ * Measured under the *default* fold mode through `ngspice -p`, each
+ * diagnostic joined here from the two lines it really occupies:
+ *
+ *     define f(x) x*3
+ *     print F(2)    Error: no such function as F, / or F(2) is not available.
+ *     print VM(1)   Error: no such function as VM, / or VM(1) is not available.
+ *
+ * so an identity predicate here would leave the shipped default mode unable
+ * to call its own shipped functions from the prompt, from ngSpice_Command()
+ * and from the shared library.  That is the regression
+ * doc/claude/decisions/0004-unlet-vector-identity.md decision 1 refused at
+ * vec_remove() and doc/claude/decisions/0001-distinguish.md decision 3
+ * refused at findvec(), on the same measurement.  Only distinguish makes it
+ * exact, and there two spellings really are two functions.
+ *
+ * This list holds ngspice's own shipped defines as well as the user's:
+ * vm, vp, vdb, vr, vi, vg, gd, max and min are installed through
+ * com_define() from ft_cpinit()'s udfs[] table (src/frontend/cpitf.c).  So
+ * under distinguish they answer only to the lower-case spelling that table
+ * writes, which is what decision 3 says about every name ngspice constructs
+ * for itself.  doc/claude/decisions/0013-user-defined-function-identity.md. */
+
+static bool
+udf_name_eq(const char *ud_name, const char *typed)
+{
+    if (inp_case_mode() == NG_CASE_DISTINGUISH)
+        /* case-lint: helper - this function IS the Class C classification */
+        return eq(ud_name, typed) != 0;
+
+    /* case-lint: helper - its fold and preserve arm, same classification */
+    return cieq(ud_name, typed) != 0;
+}
+
+
 /* Set up a function definition. */
 
 void
@@ -96,7 +135,12 @@ com_define(wordlist *wlist)
             break;
         }
 
+    /* ft_funcs[] is the language's own function table, so this is a keyword
+     * test and not an identity one: a built-in function name is
+     * case-insensitive in all three modes, per the spec's compatibility
+     * contract point 2.  It is already eqc() and stays that way. */
     for (i = 0; ft_funcs[i].fu_name; i++)
+        /* case-lint: keyword - ft_funcs[] is the language's own table */
         if (eqc(ft_funcs[i].fu_name, tbuf)) {
             fprintf(cp_err, "Error: %s is a predefined function.\n",
                     tbuf);
@@ -157,6 +201,22 @@ com_define(wordlist *wlist)
      */
     savetree(names);
 
+    /* The definition side is deliberately NOT given udf_name_eq()'s
+     * predicate, and this is the one place where the resolution and the
+     * definition of a name in this file answer differently.  The test is a
+     * *prefix* test, not an equality one -- doc/codex/issues/0051, where
+     * `define f(x)` already destroys a stored `foo(y)` of the same arity in
+     * every mode -- and case-blinding a prefix test *widens* the set of
+     * names it destroys.  Measured: with ciprefix() here, `define VD(x) x*7`
+     * at the prompt under the default fold silently destroys the shipped
+     * `vdb(x)`, which `prefix()` never matched.  So the case fix at this
+     * site is blocked on `0051`'s repair and waits for it; the residue is
+     * that under preserve a `define VM(x)` beside the shipped `vm` prepends
+     * a second entry rather than replacing it, which changes no number --
+     * com_define() prepends and ft_substdef() takes the first match, so the
+     * newer definition answers both spellings -- but does leave `define vm`
+     * listing two entries under one identifier.
+     * doc/claude/decisions/0013-user-defined-function-identity.md decision 2. */
     for (udf = udfuncs; udf; udf = udf->ud_next)
         if (prefix(b, udf->ud_name) && (arity == udf->ud_arity))
             break;
@@ -224,7 +284,8 @@ prdefs(char *name)
 
     if (name && *name) {    /* You never know what people will do */
         for (udf = udfuncs; udf; udf = udf->ud_next)
-            if (eq(name, udf->ud_name))
+            /* a resolution of the word `define <name>` was given */
+            if (udf_name_eq(udf->ud_name, name))
                 prtree(udf, cp_out);
     } else {
         for (udf = udfuncs; udf; udf = udf->ud_next)
@@ -293,7 +354,8 @@ ft_substdef(const char *name, struct pnode *args)
     int arity = numargs(args);
 
     for (udf = udfuncs; udf; udf = udf->ud_next)
-        if (eq(name, udf->ud_name)) {
+        /* the resolution: `name` is the spelling the caller typed */
+        if (udf_name_eq(udf->ud_name, name)) {
             if (arity == udf->ud_arity)
                 break;
             wrong_udf = udf;
@@ -452,7 +514,8 @@ com_undefine(wordlist *wlist)
         struct udfunc *prev_udf = NULL;
         for (udf = udfuncs; udf;) {
             struct udfunc *next = udf->ud_next;
-            if (eq(wlist->wl_word, udf->ud_name)) {
+            /* a resolution: the word `undefine` was given */
+            if (udf_name_eq(udf->ud_name, wlist->wl_word)) {
                 if (prev_udf)
                     prev_udf->ud_next = udf->ud_next;
                 else

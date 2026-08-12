@@ -19,16 +19,36 @@
 #       eq_substr_id() now, which is not a comparator this lint looks for.
 #       Removed 2026-08-11 with doc/claude/decisions/0012.  273 records.
 #
+#   src/frontend/define.c  eq(name, udf->ud_name)              (twice)
+#   src/frontend/define.c  eq(wlist->wl_word, udf->ud_name)
+#   src/frontend/define.c  eqc(ft_funcs[i].fu_name, tbuf)
+#       ft_substdef(), prdefs() and com_undefine() are the three resolutions
+#       of a user-defined function name, and doc/codex/issues/0020 gap 2:
+#       byte-exact, so a function answered only to the spelling it was
+#       defined with, and the shipped vm/vp/vdb went with it.  All three call
+#       udf_name_eq() now.  The fourth, com_define()'s predefined-function
+#       check, is unchanged code: it is a keyword test and now says so in a
+#       `case-lint:` comment, which is decision 4's second way out and a
+#       third way for an entry to leave -- not by the comparison leaving, but
+#       by its being classified where it stands.
+#       Removed 2026-08-11 with doc/claude/decisions/0013.  269 records.
+#
 # Format: <path><TAB><the call, whitespace collapsed>.  The line number is
 # deliberately absent: keying on it would make every edit above a site look
 # like a new comparison, and a contributor who learns to regenerate a baseline
 # is a contributor for whom it no longer means anything.  A site that occurs
 # more than once in a file appears once per occurrence.
 #
-# HOW AN ENTRY LEAVES.  Only by the comparison leaving the tree.  The lint
-# fails on a baseline entry it can no longer find, so a rewrite of a site is
-# forced through this file and through review.  There is no expiry and no
-# regeneration target; `make check` prints the exact lines to delete.
+# HOW AN ENTRY LEAVES.  By the comparison leaving the tree, or by its being
+# classified where it stands with a `case-lint:` comment -- an annotated call
+# is not a reported site, so its entry would otherwise outlive its report.
+# Either way the lint fails on a baseline entry it can no longer find, so a
+# rewrite of a site, and a classification of one, are both forced through this
+# file and through review.  There is no expiry and no regeneration target;
+# `make check` prints the exact lines to delete.  (This paragraph said "only
+# by the comparison leaving the tree" until the second way was used, by
+# doc/claude/decisions/0013 on eqc(ft_funcs[i].fu_name, tbuf); the ratchet is
+# unchanged, because both ways go through a reviewed diff.)
 #
 # HOW AN ENTRY DOES NOT GET ADDED.  A new comparison is classified in the
 # source instead, with a `case-lint:` comment naming the reason.  This file is
@@ -78,11 +98,7 @@ src/frontend/com_sysinfo.c	strstr(strPtr, matchStrProc)
 src/frontend/control.c	cieq(wlist->wl_word, noredirect[i])
 src/frontend/control.c	eq(s, ct->co_text->wl_word)
 src/frontend/control.c	strcasecmp(cp_coms[i].co_comname, s)
-src/frontend/define.c	eq(name, udf->ud_name)
-src/frontend/define.c	eq(name, udf->ud_name)
 src/frontend/define.c	eq(s, d->v_name)
-src/frontend/define.c	eq(wlist->wl_word, udf->ud_name)
-src/frontend/define.c	eqc(ft_funcs[i].fu_name, tbuf)
 src/frontend/device.c	cieq(newmodelname, modellist[i])
 src/frontend/device.c	eqc(p->wl_word, plist[i].keyword)
 src/frontend/device.c	strcasecmp(ft_sim->devices[k]->name, wlist->wl_word)

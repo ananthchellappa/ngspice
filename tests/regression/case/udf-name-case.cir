@@ -1,0 +1,57 @@
+* an upper-case call of a lower-case function name, under casemode=preserve
+* doc/codex/issues/0020 gap 2, widened.  ft_substdef() (src/frontend/define.c)
+* matched the typed name against the stored one with eq(), so a user-defined
+* function answered only to the spelling it was defined with.  vm, vp and vdb
+* are instances of that rather than its subject: ft_cpinit()'s udfs[] table
+* (src/frontend/cpitf.c) installs them through com_define() itself, in lower
+* case, so 'print VM(2)' under preserve reached
+* 'Error: no such function as VM' -- a line tests/bin/check.sh's filter
+* removes from both sides of the comparison, which is why the assertions here
+* are values, and at the end the text of a 'define' listing, rather than the
+* diagnostic itself.
+*
+* The lower-case call beside each upper-case one is the control: it resolved
+* before this fix and it resolves after, so a run in which both lines are
+* missing fails for a reason that is not case.  At 100 Hz with R = 1k and
+* C = 1u, vm(2) = 1 / sqrt(1 + (2*pi*f*R*C)^2).
+* doc/claude/decisions/0013-user-defined-function-identity.md.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+C1 2 0 1u
+.control
+ac lin 1 100 100
+print VM(2)
+print vm(2)
+print VDB(2)
+print vdb(2)
+print VP(2)
+print vp(2)
+* a define of the user's own, called back in the other case
+define ff(x) x*3
+print FF(2)
+print ff(2)
+* undefine resolves the name the same way, so gg is gone after it and the
+* second print of gg(2) has no line of its own
+define gg(x) x*5
+print gg(2)
+undefine GG
+print gg(2)
+* a define spelled the other way is reached by a call spelled either way,
+* which is the resolution fix; the residue it leaves is the last three lines
+* and is doc/codex/issues/0051.  com_define()'s replace-or-prepend lookup is
+* a *prefix* test, and case-blinding a prefix test widens what it destroys --
+* with ciprefix() there, 'define VD(x)' destroys the shipped vdb(x) -- so it
+* is left byte exact, and VM(x) is prepended beside the shipped vm(x) instead
+* of replacing it.  Both entries are listed by 'define vm', the newer one
+* first, and print reaches the newer one whichever case it is asked for.  The
+* lower twin, where the definition really does replace, lists two lines here
+* and not three.  That is also why this deck and its twin report DIFF in
+* doc/claude/scripts/case_differential_sweep.py and are meant to: the sweep's
+* stock column folds the card and gets two lines.  Both entries clear when
+* doc/codex/issues/0051 lands.
+define VM(x) x*7
+print vm(1)
+define vm
+.endc
+.end

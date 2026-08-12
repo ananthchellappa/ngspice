@@ -1,0 +1,33 @@
+* the consistently-spelled twin of udf-name-case.cir, under casemode=preserve
+* Every call here is spelled the way the function was defined, so this deck
+* resolved before doc/codex/issues/0020 gap 2 was fixed and resolves after.
+* It is what says its twin's assertions are about the case of the call and
+* not about the circuit, the analysis or the arithmetic.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+C1 2 0 1u
+.control
+ac lin 1 100 100
+print vm(2)
+print vm(2)
+print vdb(2)
+print vdb(2)
+print vp(2)
+print vp(2)
+* a define of the user's own, called back in the case it was defined with
+define ff(x) x*3
+print ff(2)
+print ff(2)
+* undefine resolves the name the same way, so gg is gone after it and the
+* second print of gg(2) has no line of its own
+define gg(x) x*5
+print gg(2)
+undefine gg
+print gg(2)
+* a define spelled the same way replaces the shipped vm, which it always did
+define vm(x) x*7
+print vm(1)
+define vm
+.endc
+.end

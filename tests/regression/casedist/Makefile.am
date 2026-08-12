@@ -17,7 +17,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-diff-wrapper-case.cir vector-diff-branch-case.cir \
 	bsource-node-case-report.cir sens-node-case-report.cir \
 	vector-let-report.cir vector-probe-report.cir \
-	vector-pyplot-probe-report.cir subckt-formal-pin-case.cir
+	vector-pyplot-probe-report.cir subckt-formal-pin-case.cir \
+	udf-name-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 

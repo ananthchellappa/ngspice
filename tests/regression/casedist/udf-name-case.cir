@@ -1,0 +1,48 @@
+* two user-defined functions differing only in case are two functions
+* The guard on doc/codex/issues/0020 gap 2's fix.  ft_substdef()
+* (src/frontend/define.c) now resolves the typed name with udf_name_eq(),
+* whose exact arm is inp_case_mode() == NG_CASE_DISTINGUISH -- Class C of
+* doc/claude/decisions/0001-distinguish.md decision 3, because the query is a
+* word typed at the control language and the reader folds such a word only
+* when it arrived through inp_readall().  So fold and preserve resolve a call
+* in either case and this mode does not, and that is what these assertions
+* are for: nothing here is RED at the parent commit, and each of the four
+* case-sensitive ones below would move if the fix reached this mode --
+* ff(2) would print FF's 10, and the three absent lines would appear.  The
+* lines beside them, FF(2) and vm(2) and the second gg(2), do not move and
+* are there to pin the absences.
+*
+* Four shapes.  ff and FF hold different multipliers so that a run which
+* collapsed them into one function prints the same number twice instead of 6
+* and 10.  hh is the Class A site rather than a Class C one -- a formal and a
+* body reference on one card -- and its absence is pinned on both sides.  vm
+* is ft_cpinit()'s shipped define (src/frontend/cpitf.c), written in lower
+* case, so VM(2) is a name no table holds and its line is absent too -- the
+* error that says so is one tests/bin/check.sh's filter removes.
+* 'undefine GG' is the fourth and it is doc/codex/issues/0027's shape at a
+* second name space: a removal that resolves exactly removes nothing, so gg
+* is still callable after it and gone after the exact spelling.
+* doc/claude/decisions/0013-user-defined-function-identity.md.
+.OPTIONS noacct
+V1 1 0 ac 1
+R1 1 2 1k
+C1 2 0 1u
+.control
+ac lin 1 100 100
+define ff(x) x*3
+define FF(x) x*5
+print ff(2)
+print FF(2)
+* the shipped define answers to the spelling its own table writes, and to no
+* other: the second line is absent
+print vm(2)
+print VM(2)
+* undefine is exact here too, so only the second of these two removes gg and
+* only the first print of gg(2) has a line
+define gg(x) x*7
+undefine GG
+print gg(2)
+undefine gg
+print gg(2)
+.endc
+.end
