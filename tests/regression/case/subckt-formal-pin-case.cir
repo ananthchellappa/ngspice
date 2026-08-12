@@ -1,0 +1,66 @@
+* subcircuit formal pin spelled two ways under casemode=preserve
+* The .subckt card names the formal pins in one case and the body of the
+* subcircuit spells them in the other.  Under preserve two spellings of one
+* pin are one pin, so the body must reach the caller's nodes; gettrans()
+* (src/frontend/subckt.c) matched the pin list byte-exactly and did not.
+*
+* A miss here is not an error.  translate_node_name() falls through to
+* prefixing the name with the instance scope, so the body's 'a' becomes the
+* subcircuit-local net 'x1.a' and the subcircuit is simply not wired to the
+* outside.  At the parent commit all three voltages below are ABSENT from
+* stdout - not merely different - because the top-level nodes are never
+* created at all, and what stdout carries instead is
+*
+*   Error: no such vector 2
+*   Error: no such vector 4
+*   Error: no such vector 6
+*
+* which tests/bin/check.sh's egrep -v filter removes, so the harness compares
+* an empty result against this deck's three-line .out.  That is why the
+* evidence is a node voltage and not a diagnostic.
+*
+* Three witnesses:
+*   v(2)  formals UPPER on the .subckt card, body lower case.
+*   v(4)  formals lower on the .subckt card, body UPPER case.  A fix that
+*         folds only the pin list or only the body clears one of these two
+*         and not the other.
+*   v(6)  a subcircuit inside a subcircuit, with the pins of BOTH spelled in
+*         the other case by the body that uses them.  translate() runs once
+*         per expansion and the inner one resolves against a table whose
+*         t_new column holds names the outer expansion already rewrote, so it
+*         is a different path from v(2) and v(4) and not a second dose of the
+*         same one.
+*
+* Device letters are lower case and the top-level nodes are numeric, so the
+* only variable under test is the case of the formal pins.  The subcircuit
+* names are spelled consistently: subckt-name-case.cir is the deck about
+* those.  subckt-formal-pin-case-lower.cir is the consistently-spelled twin
+* and its .out is identical, which is the actual assertion.
+* doc/codex/issues/0049.
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 divup
+v2 3 0 dc 8
+x2 3 4 divlo
+v3 5 0 dc 12
+x3 5 6 outer
+.subckt divup A B
+ra a b 1k
+rb b 0 3k
+.ends
+.subckt divlo a b
+ra A B 1k
+rb B 0 3k
+.ends
+.subckt outer P Q
+xi p q inner
+.ends
+.subckt inner M N
+ra m n 1k
+rb n 0 3k
+.ends
+.control
+op
+print v(2) v(4) v(6)
+.endc
+.end

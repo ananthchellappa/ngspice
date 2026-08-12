@@ -1659,7 +1659,11 @@ eq_substr(const char *str, const char *end, const char *cstring)
 
 
 /* eq_substr() under the current identifier case policy, for the substrings
-   that are subcircuit names rather than node names. */
+   that are subcircuit names or subcircuit formal pins rather than arbitrary
+   text.  Byte-exact under fold, where the reader lower cased both sides, and
+   under distinguish, where two spellings are two names; case insensitive
+   under preserve, which is the one mode in which two spellings are one
+   identifier. */
 
 static int
 eq_substr_id(const char *str, const char *end, const char *cstring)
@@ -1702,7 +1706,7 @@ gettrans(const char *name, const char *name_end, bool *isglobal)
         tfree(newgl);
 
     for (i = 0; table[i].t_old; i++)
-        if (eq_substr(name, name_end, table[i].t_old)) {
+        if (eq_substr_id(name, name_end, table[i].t_old)) {
             *isglobal = FALSE;
             return table[i].t_new;
         }

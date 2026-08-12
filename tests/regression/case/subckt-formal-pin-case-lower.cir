@@ -1,0 +1,32 @@
+* consistently-spelled twin of subckt-formal-pin-case.cir
+* Byte-identical to subckt-formal-pin-case.cir except that each subcircuit
+* body spells its formal pins exactly as its own .subckt card spells them.
+* Its .out is identical too, which is what pins the claim that the spelling
+* of a subcircuit formal pin cannot change a number under preserve.
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 divup
+v2 3 0 dc 8
+x2 3 4 divlo
+v3 5 0 dc 12
+x3 5 6 outer
+.subckt divup A B
+ra A B 1k
+rb B 0 3k
+.ends
+.subckt divlo a b
+ra a b 1k
+rb b 0 3k
+.ends
+.subckt outer P Q
+xi P Q inner
+.ends
+.subckt inner M N
+ra M N 1k
+rb N 0 3k
+.ends
+.control
+op
+print v(2) v(4) v(6)
+.endc
+.end

@@ -2,11 +2,22 @@
 # were in src/ when the identifier-comparison lint landed, at 6e2dca123.
 #
 # This is a ratchet, not a list of defects.  tests/lint/identity.lint says why
-# the lint cannot classify a site: measured over these 274 records, 95 are
-# identity comparisons of a name a deck wrote and 171 are comparisons of a
-# word the language defines or of text that is not an identifier at all.  The
-# lint has no opinion about which is which.  What it enforces is that the set
-# does not change without someone saying so.
+# the lint cannot classify a site: measured at 6e2dca123 over the 274 records
+# this file then held, 95 are identity comparisons of a name a deck wrote and
+# 171 are comparisons of a word the language defines or of text that is not an
+# identifier at all.  The lint has no opinion about which is which.  What it
+# enforces is that the set does not change without someone saying so.
+#
+# The count is the measurement's, not this file's, and the two part company as
+# entries leave.  Entries removed since:
+#
+#   src/frontend/subckt.c  eq_substr(name, name_end, table[i].t_old)
+#       gettrans()'s subcircuit formal pin lookup, which was one of the 95 and
+#       is doc/codex/issues/0049: byte-exact under preserve, where two
+#       spellings of one pin are one pin, so a body that spelled a pin in the
+#       other case got a silently disconnected subcircuit.  It calls
+#       eq_substr_id() now, which is not a comparator this lint looks for.
+#       Removed 2026-08-11 with doc/claude/decisions/0012.  273 records.
 #
 # Format: <path><TAB><the call, whitespace collapsed>.  The line number is
 # deliberately absent: keying on it would make every edit above a site look
@@ -178,7 +189,6 @@ src/frontend/spiceif.c	eqc(name, *vv)
 src/frontend/spiceif.c	eqc(name, *vv)
 src/frontend/spiceif.c	strcmp(ft_sim->analyses[j]->name, name)
 src/frontend/subckt.c	eq_substr(const char *str, const char *end, const char *cstring)
-src/frontend/subckt.c	eq_substr(name, name_end, table[i].t_old)
 src/frontend/subckt.c	eq_substr(str, end, cstring)
 src/frontend/typesdef.c	cieq(name, types[i].t_name)
 src/frontend/typesdef.c	cieq(plotabs[i].p_pattern, pattern)
