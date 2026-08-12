@@ -402,7 +402,18 @@ trcopy(struct pnode *tree, char *arg_names, struct pnode *args)
             int i;
 
             for (i = 1; *s; i++) {
-                if (eq(s, d->v_name))
+                /* The formal's spelling on the `define` card against the
+                 * body's spelling on the same card -- two tokens the deck
+                 * wrote, so this is Class A of
+                 * doc/claude/decisions/0001-distinguish.md decision 3 and
+                 * takes ng_ideq(), like a .func formal.  Under preserve
+                 * `define g(X) x*2` used to leave the body's x
+                 * unsubstituted, so g(5) was unavailable; under distinguish
+                 * X and x are two names and the miss is the right answer.
+                 * parse.c's is_probe_name() matches these same formals byte
+                 * exactly, which agrees with this predicate in the only mode
+                 * where a probe's silence is observable. */
+                if (ng_ideq(s, d->v_name))
                     return ntharg(i, args);
                 s = strchr(s, '\0') + 1;
             }

@@ -19,6 +19,10 @@ print vp(2)
 define ff(x) x*3
 print ff(2)
 print ff(2)
+* a formal parameter spelled the same way in the body, which substituted
+* before the fix and after it
+define hh(x) x*2
+print hh(5)
 * undefine resolves the name the same way, so gg is gone after it and the
 * second print of gg(2) has no line of its own
 define gg(x) x*5

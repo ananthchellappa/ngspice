@@ -31,6 +31,12 @@ print vp(2)
 define ff(x) x*3
 print FF(2)
 print ff(2)
+* a formal parameter spelled the other way in the same define's body.  Two
+* tokens of one card, so this is the Class A site beside the three Class C
+* ones and it takes ng_ideq(): before the fix the body's x was never
+* substituted and hh(5) had no line
+define hh(X) x*2
+print hh(5)
 * undefine resolves the name the same way, so gg is gone after it and the
 * second print of gg(2) has no line of its own
 define gg(x) x*5

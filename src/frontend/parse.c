@@ -602,8 +602,12 @@ struct pnode *PP_mknnode(double number)
  * another meaning for, so that a lookup which misses is the answer it asked
  * for rather than a failure?  Matched byte exactly: the caller passes the
  * spellings it will itself recognise, and com_define() matches its formal
- * parameters with eq() while plotit() collects the 'vs' spellings its own
- * wordlist holds.  doc/claude/decisions/0010-probe-category.md. */
+ * parameters with ng_ideq() while plotit() collects the 'vs' spellings its
+ * own wordlist holds.  Byte exact is still right for the define formals:
+ * ng_ideq() is exact under distinguish, which is the only mode in which a
+ * probe's silence is observable at all, because the near-miss report this
+ * list suppresses is gated on it.
+ * doc/claude/decisions/0010-probe-category.md. */
 static bool is_probe_name(const char *string, const char * const *probes)
 {
     if (!probes)

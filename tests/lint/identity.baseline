@@ -33,6 +33,13 @@
 #       by its being classified where it stands.
 #       Removed 2026-08-11 with doc/claude/decisions/0013.  269 records.
 #
+#   src/frontend/define.c  eq(s, d->v_name)
+#       trcopy()'s formal-parameter match, the Class A site beside those
+#       four: the formal's spelling on a `define` card against the body's on
+#       the same card, so `define g(X) x*2` never substituted under preserve.
+#       ng_ideq() now.
+#       Removed 2026-08-11 with doc/claude/decisions/0013.  268 records.
+#
 # Format: <path><TAB><the call, whitespace collapsed>.  The line number is
 # deliberately absent: keying on it would make every edit above a site look
 # like a new comparison, and a contributor who learns to regenerate a baseline
@@ -98,7 +105,6 @@ src/frontend/com_sysinfo.c	strstr(strPtr, matchStrProc)
 src/frontend/control.c	cieq(wlist->wl_word, noredirect[i])
 src/frontend/control.c	eq(s, ct->co_text->wl_word)
 src/frontend/control.c	strcasecmp(cp_coms[i].co_comname, s)
-src/frontend/define.c	eq(s, d->v_name)
 src/frontend/device.c	cieq(newmodelname, modellist[i])
 src/frontend/device.c	eqc(p->wl_word, plist[i].keyword)
 src/frontend/device.c	strcasecmp(ft_sim->devices[k]->name, wlist->wl_word)

@@ -33,6 +33,11 @@ define ff(x) x*3
 define FF(x) x*5
 print ff(2)
 print FF(2)
+* the Class A site beside them, trcopy()'s formal-parameter match: a formal
+* spelled one way and used the other is two names here, so hh's body never
+* substitutes and hh(5) has no line between FF(2) and vm(2)
+define hh(X) x*2
+print hh(5)
 * the shipped define answers to the spelling its own table writes, and to no
 * other: the second line is absent
 print vm(2)
