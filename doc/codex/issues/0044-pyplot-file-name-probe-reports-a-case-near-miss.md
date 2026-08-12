@@ -2,7 +2,11 @@
 
 ## Status
 
-Open. Found by the `vec_get()` call-site audit that
+Closed by `doc/claude/decisions/0010-probe-category.md`, 2026-08-11, branch
+`ver_50`. Guarded by
+`tests/regression/casedist/vector-pyplot-probe-report.cir`.
+
+Found by the `vec_get()` call-site audit that
 `doc/claude/decisions/0009-let-definition-report.md` carries, while closing
 `doc/codex/issues/0034`. Predates that work.
 
@@ -78,7 +82,31 @@ call site was left out of it deliberately.
 
 ## Resolution
 
-Not fixed. `0034`'s session left it because it needs criterion 2's decision
-first, and because a session that changes two diagnostics changes neither
-carefully — the reasoning `0034`'s own prompt applies to
-`doc/codex/issues/0039`.
+Fixed, `doc/claude/decisions/0010-probe-category.md`. The probe is silent
+(`com_pyplot.c:61` calls `vec_get_quiet()`), **and** the objection criterion 1
+raises is removed rather than paid: the path that used to return without
+writing or saying anything now says
+
+```
+Error: no vectors given; 'out' was taken as the output file name
+```
+
+so a case-typo'd `pyplot Out` is diagnosed on the command's own account, in
+every case mode, and the probe can be quiet for the reason every probe is. The
+check sits above the file-name munging, so it names the word the user typed
+rather than the temp name `pyplot temp` would have made of it; the now
+unreachable `if (!wl) goto done;` at the foot of the function is removed with
+it.
+
+Criterion 2 is met by decision 1 of `0010`, which writes the third row of
+`doc/claude/decisions/0001-distinguish.md` decision 2's rule and states the unit
+as the **token**. Its answer for `measure.c:83`/`:100` is *keep the report*, and
+that is a reading rather than an omission: `com_meas()` acquires no other
+meaning for the token — it leaves it alone for `com_measure2.c` to interpret,
+and `com_measure2.c:400`/`:403` then report the same name — so the near miss is
+the earlier and more informative half of a diagnosed failure, not a probe's
+expected answer. The rule covers three sites; two of them keep reporting
+because the rule says so.
+
+Criterion 3 is met, and its measurement held: the deck's cases stop before
+`plotit()`, so no python interpreter is started and no `.py` is written.

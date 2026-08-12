@@ -2,7 +2,11 @@
 
 ## Status
 
-Open. Found by the `vec_get()` call-site audit that
+Closed by `doc/claude/decisions/0010-probe-category.md`, 2026-08-11, branch
+`ver_50`. Guarded by `tests/regression/casedist/vector-probe-report.cir`. **Two
+of this issue's own claims did not survive being measured; see the Resolution.**
+
+Found by the `vec_get()` call-site audit that
 `doc/claude/decisions/0009-let-definition-report.md` carries, while closing
 `doc/codex/issues/0034`. Predates that work.
 
@@ -98,6 +102,44 @@ so nothing reaches `PP_mksnode()` today.
 
 ## Resolution
 
-Not fixed. It is a third mechanism in a third file and needs the `check` flag
-threaded, which is larger than the one-token call-site change
-`doc/codex/issues/0034` needed.
+Fixed, `doc/claude/decisions/0010-probe-category.md`, in a way this issue's own
+criterion 3 rules out — and it rules it out on a premise that is wrong.
+
+**`device.c:1433` is not a probe.** This issue names it as the third
+`check == FALSE` caller on the strength of a grep and records that it was not
+measured. It was measured, and `com_alterparam()`'s right-hand side is a
+**resolution**: the placeholder is handed to `ft_evaluate()` (`device.c:1483`),
+which fails and prints `Error: no such vector RVAL`. The near miss is the half
+of that pair which says why. `check == FALSE` there buys the fall-back to the
+`alter @vin[pulse] = [ ... ]` numeric-list path when the parse fails outright,
+nothing more. So `check` says *when* a failure is reported, not *whether* the
+miss is one, and threading it down as criterion 3 asks would have silenced a
+real diagnostic. That call site is untouched.
+
+**The unit is the token, not the parse.** Even inside the two callers that are
+probes, only one identifier in the parse is: `hardcopy f.svg NNN vs v(in)` on a
+deck with an `Nnn` must report `NNN` and stay quiet about `vs`, and a `define`
+body's vector reference is resolved once and for good at definition time — a
+`WWW` created afterwards can never be seen — so it must report too. Both are
+asserted by the deck.
+
+The mechanism is therefore a **probe list** rather than the `check` flag: a
+NULL-terminated array of the identifiers the caller already has another meaning
+for, threaded to `PP_mksnode()` as a third `%parse-param` of the grammar and
+consulted by `is_probe_name()` (`parse.c:607`) to choose `vec_get_quiet()` over
+`vec_get()`. `com_define()` passes its formal parameters, which it now computes
+before the parse rather than after; `plotit()` passes the `vs` spellings its own
+wordlist holds. The three existing entry points keep their names and behaviour
+and become wrappers passing NULL, so the other 17 call sites do not move — the
+shape `doc/claude/decisions/0009-let-definition-report.md` decision 1 chose,
+for its reason.
+
+Criteria 1, 2 and 4 are met as written. Criterion 4's two capture shapes are
+both used, and both of its measurements about redirects held.
+
+Cost accepted and recorded: `hardcopy f.svg vs` and `hardcopy f.svg v(X) vs` on
+a deck with a net `VS` no longer print the near miss before
+`Error: misplaced vs arg` / `Error: missing vs arg`. `plotit()`'s own rule for
+the separator is positional-agnostic, so a probe list matching that rule cannot
+be narrower. `doc/codex/issues/0047` would remove the need for the list here
+altogether.

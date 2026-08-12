@@ -174,8 +174,8 @@ The three categories:
 | `com_let.c:101`, indexed | `com_let()` | the same, with `[...]` | resolution | *"cannot be indexed"* | yes, decision 2 |
 | `com_let.c:164` | `com_let()`, `plainlet` | the RHS | resolution | `Can't evaluate "%s"` | yes |
 | `com_pyplot.c:53` | `com_pyplot()` | first word: file name or vector | **probe** | word becomes the file name | yes — `0044` |
-| `parse.c:575` | `PP_mksnode()` | any identifier in any expression | **mixed** | zero-length placeholder | yes — resolution for `check == TRUE` callers, **probe** for the three `check == FALSE` ones; `0045` |
-| `parse.c:500` | `PP_mkfnode()` | a synthesised `func(arg)` | resolution | `no such function as %s` | unlikely — needs a permanent vector literally named `Foo(bar)` |
+| `parse.c:575` | `PP_mksnode()` | any identifier in any expression | **mixed** | zero-length placeholder | yes — resolution for `check == TRUE` callers, **probe** for the three `check == FALSE` ones; `0045`. **Corrected by `0010`:** the split is not `check`. `device.c:1433` parses with `check == FALSE` and is a resolution, and within the other two only the *token* the caller has another meaning for is a probe |
+| `parse.c:500` | `PP_mkfnode()` | a synthesised `func(arg)` | resolution | `no such function as %s` | unlikely — needs a permanent vector literally named `Foo(bar)`. **Corrected by `0010`:** measured, and **reachable** — `let foo(bar) = 1` makes one, and `print FOO(BAR)` then prints the near miss before `no such function as FOO`. It is a resolution and the report is right, so nothing moves |
 | `com_setscale.c:19` | `find_vec()`, both operands | a word the user typed | resolution | `no such vector as %s.` | yes — asserted by the deck |
 | `com_display.c:41` | `com_display()` | a word the user typed | resolution | `no such vector as %s.` | yes |
 | `com_compose.c:233` | `com_compose()`, `device` | `resname`, always `@...` | resolution | loop skipped, silent | no — compose renames its own output `@r1_resistance`, and `vec_get()`'s `@` dvecs are allocated without `VF_PERMANENT`, so neither can be a twin |
@@ -379,11 +379,25 @@ script's header says so.
    arguments returns before `plotit()` without writing or saying anything, so
    the near miss is the *entire* diagnostic a user who mistyped a vector's case
    would get. `measure.c:83`/`:100` are probes of the same shape.
+
+   **Decided 2026-08-11 by `doc/claude/decisions/0010-probe-category.md`:**
+   silent, and the objection above is removed rather than paid — that return
+   now reports on its own account. `measure.c:83`/`:100` **keep** the report:
+   `com_meas()` acquires no other meaning for the token, and
+   `com_measure2.c:400`/`:403` report the same name afterwards.
 2. **`doc/codex/issues/0045`**, `PP_mksnode()`. `define f(x) x*2` on a deck with
    a node `X`, and `plot a vs b` on a deck with a node `VS`, both warn and both
    then work. The fix threads `ft_getpnames()`'s existing `check` flag down to
    the lookup; three callers pass it false. `vec_get_quiet()` is the lookup it
    will call, which is the second user this record's new function will get.
+
+   **Decided 2026-08-11 by `doc/claude/decisions/0010-probe-category.md`:**
+   silent, and `vec_get_quiet()` is indeed the lookup — but **not** through the
+   `check` flag, and this paragraph's last sentence is the thing that record
+   had to correct. The third `check == FALSE` caller, `device.c:1433`, is a
+   *resolution* whose miss `ft_evaluate()` reports, and even within the two
+   that are probes only one token of the parse is. The flag threaded is a
+   per-token list of probe names, not `check`.
 3. **`doc/codex/issues/0046`**, the duplicate report. `vec_get()` scans
    `plot_cur` and then the const plot, so before the first analysis — when
    `plot_cur` **is** the const plot — the same line prints twice.
@@ -400,4 +414,6 @@ script's header says so.
    `vec_get()` has one reporting entry point and one silent one, which is the
    state a lint over `findvec()`'s report would freeze — but `0044` and `0045`
    are two more callers that will move through the silent one, so the lint
-   waits for them.
+   waits for them. **Both are closed by
+   `doc/claude/decisions/0010-probe-category.md`, 2026-08-11**, and
+   `vec_get_quiet()` has three users; nothing now stands before the lint.
