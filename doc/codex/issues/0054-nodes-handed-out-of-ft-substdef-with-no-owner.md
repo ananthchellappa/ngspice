@@ -2,7 +2,9 @@
 
 ## Status
 
-Open. Found on 2026-08-12 while fixing `doc/codex/issues/0053`, which was the
+Fixed, 2026-08-12, branch `ver_50`, all three classes. See Resolution.
+
+Found on 2026-08-12 while fixing `doc/codex/issues/0053`, which was the
 fourth member of this family and is now closed. These three are the residue:
 each was measured both before and after `0053`'s repair and is unchanged by it,
 so none of them is a regression from it.
@@ -182,4 +184,88 @@ floor, and a node may only be shared when some parent holds the count.
 
 ## Resolution
 
-Open.
+Fixed in two commits on `ver_50`, recorded in
+`doc/claude/decisions/0015-argument-list-ownership.md`.
+
+**The rule.** `PP_mkfnode()` owns the argument list, and `ft_substdef()`
+returns a tree whose root is nobody else's. (a) and (b) are one free seen from
+both sides and are one commit; (c) is the same sentence at a third frame and
+is the other.
+
+- `src/frontend/parse.c`, `PP_mkfnode()` — takes a reference on `arg` and
+  releases it on the substitution path at **every** arity, not only when `arg`
+  is a comma node. Fixes (b).
+- `src/frontend/define.c`, `ft_substdef()` — copies the result root when
+  `trcopy()` substituted an argument into the root position, through new
+  static `node_of_arglist()` and `copy_arg_root()`. A root is owned
+  implicitly, at `pn_use == 0`, so two owners cannot be expressed for one.
+  Fixes (a). The interior is untouched: `trcopy()`'s parents already count
+  what they link, so the release decrements those nodes rather than freeing
+  them.
+- `src/frontend/define.c`, `com_define()` — `names->pn_use++`, because
+  `udfuncs` is a parent too. Fixes (c).
+
+**The mechanism, confirmed by instrumentation rather than reading.** The
+inference in Summary was right and incomplete. A `printf` on `pn_use` at the
+four frames shows the returned node freed *with its dvec* — `pn_use == 1`
+crosses `free_pnode_x()`'s second threshold — and then freed a **second** time
+by the caller, which is why glibc reports `double free or corruption
+(fasttop)` rather than merely returning rubble.
+
+**Criterion by criterion.**
+
+1. Met. `define d(x,y) x` / `print d(2,3)` returns `2` on calls 1, 2 and 3,
+   exit 0, 0 bytes lost, 1 valgrind error — the same single error every deck
+   in this tree reports. `define t(x,y,z) y` returns `3`. `define p(x) x` at
+   arity 1 is byte-identical to before, valgrind included. The trap was
+   avoided: the deck calls three times and asserts the **values**.
+2. Met. `define c(x) 5+0` ×3 goes from `192 bytes in 3 blocks` to 0, and
+   ×2000 from `127,936 bytes in 1,999 blocks` to 0, at unchanged peak RSS.
+3. Met. `define c(x) 5` / `undefine c` goes from
+   `170 (160 direct, 10 indirect) bytes` to 0. **At scale this class is larger
+   than Impact above estimates**: 2000 define/undefine cycles in a `while`
+   loop lose `319,840 bytes in 1,999 blocks`, against 127,936 for class (b) at
+   the same count, and the repair recovers 252 kB of peak RSS. "Once per
+   `undefine`, which is not a loop" holds for a human at the prompt but not for
+   a control deck that redefines a helper — and `com_define()`'s replacement
+   path will reach the same free once `doc/codex/issues/0051` criterion 4
+   lands. (c) is the largest of the three at scale, not the smallest.
+4. Met. `tests/regression/misc/define-formal-body.cir`, six shapes, beside
+   `define-const-body.cir`. Its assertion is **not** the `Internal Error`
+   lines — those go to stderr, which `tests/bin/check.sh` does not capture,
+   and its filter drops every line matching `Error` regardless. What the
+   harness sees is the **missing** `d(2,3) = …` value line. At `6ac4dc733`
+   the deck aborts at exit 134 with empty stdout against a 16-line reference.
+5. Met. `make check` **286 PASS / 0 FAIL**, exit 0 — the 285 baseline plus
+   this deck, with every pre-existing directory unchanged. Sweep
+   **324 decks, `DIFF=62, OK=259, SKIP=3`**, `PARSE-FAIL` and `NUM-DIFF`
+   absent. Identity lint unmoved at 268.
+6. Met, and answered: `0051` should land **after** this, not with it. Class
+   (c)'s `names->pn_use++` is the reference `0051` criterion 4 needs — with it
+   the `free_pnode()` that criterion adds to `com_define()`'s replacement path
+   releases the root's vector, where before it would have leaked 160 B per
+   redefinition of a value-rooted body. The two edits do not collide.
+
+**Classes (b) and (c) get no deck, deliberately.** Neither has an observable
+face: the deck prints the same bytes on both sides, and `make check` has no
+leak harness. Peak RSS is the only thing a deck could look at, and it will not
+carry an assertion — 4 kB over 2000 calls for (b), inside noise; 252 kB over
+2000 cycles for (c), but RSS is not something `check.sh` captures nor stable
+across platforms. A deck that passed before and after would assert nothing.
+The valgrind figures above are the assertion, and they are reproducible with
+the decks named in decision 0015's Evidence.
+
+**Losing candidates, each built and run.** `0054` named no preferred
+candidate; these are why. Candidate (i) — `trcopy()` bumping `ntharg()`'s
+return — fixes (a) and then leaks on every shape that *uses* its formals,
+including `print vm(1)` at `192 bytes in 3 blocks`, so it would have leaked on
+every call of every function ngspice ships. An unconditional release without
+the reference count segfaults `print vm(1)` outright. Deleting the comma-node
+free fixes (a) and turns (b) from an arity-1 leak into an every-arity one. The
+full table is in decision 0015.
+
+**Not fixed, and filed.** `define g(y) f(y)+1` — defining a function whose
+body calls another user-defined function — abandons 160 B per shared value
+node in the inner function's stored body. Present identically at `6ac4dc733`
+and after; it is what remains of the chain deck's 230 bytes.
+`doc/codex/issues/0055`.

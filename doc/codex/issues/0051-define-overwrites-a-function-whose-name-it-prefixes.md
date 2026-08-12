@@ -178,6 +178,26 @@ Item 3: no miss path. Both loops fall out of the bottom with nothing to say.
    that `undefine` on a single-node body still abandons that body's dvec —
    `doc/codex/issues/0054` class (c) — which this criterion's repair should be
    measured against.
+
+   **`0054` closed on 2026-08-12, and this criterion should land after it
+   rather than with it.** Class (c)'s repair is precisely the reference this
+   criterion needs: `com_define()` now does `names->pn_use++`, so a stored body
+   is a tree with an owner, and the `free_pnode(udf->ud_text)` added here
+   releases the node, its children **and the root's vector**, the same way
+   `com_undefine()` already does. Landing this first would have added a call
+   that leaked 160 B per redefinition of a value-rooted body — `define c(x) 5`
+   twice — which is exactly the loss `0054` class (c) measured at `undefine`.
+   The two edits do not collide: `0054` touched `com_define()`'s assignment,
+   `ft_substdef()` and `PP_mkfnode()`, while this touches the `prefix()` test
+   and the replacement path. `0054` criterion 6 asked that both be measured
+   together, so this session should re-run the eleven-shape set in
+   `doc/claude/decisions/0015-argument-list-ownership.md`: a redefinition free
+   is the one event that can reach a tree `0015` made owned. Note also
+   `doc/codex/issues/0055` — a body that calls another user-defined function
+   shares that function's interior nodes, so a redefinition free walks into
+   nodes a second `udfunc` still holds. `free_pnode_x()` decrements those
+   rather than freeing them, which is what makes it safe; that is worth
+   asserting with a deck rather than assuming.
 5. `undefine nosuchfunction` and `define nosuchfunction` report the miss, on
    `cp_err`, mode-independently, in `doc/codex/issues/0028`'s wording family.
    Only after that is a `distinguish` near-miss report worth adding, per
