@@ -57,6 +57,18 @@ define sq(x) x*x
 print sq(3)
 print sq(3)
 print sq(3)
+* An argument that resolves to a LIST of vectors.  A name like `all` is one
+* dvec per vector, chained through v_link2 by PP_mksnode(), and a bare
+* formal body hands that whole chain straight back.  The repair above must
+* copy the chain and not just its head: this is the one shape where the
+* copy can be lossy where returning the node was not, and unlike the rest
+* of this deck it was correct at 6ac4dc733 and became wrong when the
+* argument started being copied.  Both arities, because the arity 1 case is
+* a plain regression while at arity 2 the alternative was the abort.
+define id(x) x
+print id(all)
+define pick(u,v) u
+print pick(all,1)
 echo SURVIVED
 .endc
 .end

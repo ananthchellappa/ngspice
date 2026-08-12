@@ -235,10 +235,15 @@ com_define(wordlist *wlist)
      * rests at the count of a node nobody holds, and free_pnode_x() frees
      * pn_value only at pn_use == 1 -- so com_undefine() freed the root and
      * abandoned the vector savetree() had copied for it.  The count is read
-     * by free_pnode_x() and by nothing else, and this is the only frame that
-     * frees a root which owns its vector: an evaluated root's vector has been
-     * handed to a caller, which is what that guard is there to protect.
-     * doc/codex/issues/0054.
+     * by free_pnode_x() and by nothing else.
+     *
+     * That guard exists because an EVALUATED root's vector has been handed to
+     * a caller, and a stored body is never evaluated in place -- trcopy()
+     * copies it first -- so this frame may take the count the guard would
+     * otherwise withhold.  PP_mkfnode()'s release of the argument list is the
+     * other frame that reaches a root owning its vector, and it is sound for
+     * the same reason: at arity 1 a body that ignores its formal never
+     * evaluates the argument.  doc/codex/issues/0054.
      */
     names->pn_use++;
 
@@ -440,9 +445,25 @@ copy_value_node(struct pnode *tree)
         pn->pn_value = dvec_alloc(copy(d->v_name), d->v_type, d->v_flags,
                                   0, NULL);
     } else {
-        struct dvec *nv = vec_copy(d);
-        vec_new(nv);
-        pn->pn_value = nv;
+        struct dvec *vs, *end = NULL;
+
+        /* A name can resolve to a LIST of vectors rather than one -- `all`,
+         * `@dev[all]`, a cross-plot wildcard -- which PP_mksnode() links
+         * through v_link2 and vec_copy() does not carry over, since it
+         * clears v_link2 on the copy it returns.  So walk the chain and
+         * rebuild it exactly as PP_mksnode() does; taking only the head
+         * would hand back one vector where the caller asked for twenty.
+         * doc/codex/issues/0054.
+         */
+        for (vs = d; vs; vs = vs->v_link2) {
+            struct dvec *nv = vec_copy(vs);
+            vec_new(nv);
+            if (end)
+                end->v_link2 = nv;
+            else
+                pn->pn_value = nv;
+            end = nv;
+        }
     }
 
     return pn;

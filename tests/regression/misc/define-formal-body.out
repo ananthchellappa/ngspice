@@ -24,5 +24,9 @@ p(2) = 2.000000e+00
 sq(3) = 9.000000e+00
 sq(3) = 9.000000e+00
 sq(3) = 9.000000e+00
+V(1) = 1.000000e+00
+v1#branch = -1.00000e-03
+V(1) = 1.000000e+00
+v1#branch = -1.00000e-03
 SURVIVED
 Note: Simulation executed from .control section 
