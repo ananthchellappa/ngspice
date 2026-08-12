@@ -516,10 +516,21 @@ struct pnode *PP_mkfnode(const char *func, struct pnode *arg)
         /* Give the user-defined functions a try. */
         q = ft_substdef(func, arg);
         if (q) { /* found */
-            /* remove only the old comma operator pnode, no longer used */
-            if (arg->pn_op && arg->pn_op->op_num == PT_OP_COMMA) {
-                free_pnode(arg);
-            }
+            /* The argument list is this frame's to release, at every arity
+             * and not only when a comma node happens to hold it.  What the
+             * comma node's free really did was collect the arguments; at
+             * arity 1 there is no comma node, so nothing collected the
+             * argument unless the body had used it and a parent in the
+             * result tree had linked it.  Taking the reference first is what
+             * makes the release exact either way: an argument the result
+             * tree kept is decremented back to that one parent, and one it
+             * did not keep reaches the floor here and takes its vector with
+             * it.  ft_substdef() has already made sure the tree it returns
+             * shares no ROOT with these, which is the half of the rule that
+             * cannot be counted.  doc/codex/issues/0054.
+             */
+            arg->pn_use++;
+            free_pnode(arg);
             return q;
         }
     }

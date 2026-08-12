@@ -6,7 +6,8 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	device-letter-case.cir keyword-fold-guard.cir \
 	gnd-command-text.cir diff-pairing-case.cir \
 	bsource-undef-node-report.cir dotcard-undef-node-report.cir \
-	define-const-body.cir define-const-body-listing.cir
+	define-const-body.cir define-const-body-listing.cir \
+	define-formal-body.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 

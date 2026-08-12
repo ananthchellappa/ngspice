@@ -1,0 +1,62 @@
+* A user-defined function whose body is a bare formal parameter, at arity
+* two or more, is handed a node its caller is about to free.
+* doc/codex/issues/0054.
+*
+* trcopy()'s formal branch returns ntharg(i, args), a node of the CALLER's
+* argument list.  At arity >= 2 that list is a comma tree, so the node
+* returned is one whose only pn_use is held by the comma node -- and
+* PP_mkfnode() then frees exactly that comma node.  free_pnode() reaches
+* the child at the floor of its count and frees both the node and its
+* vector underneath the evaluator that is about to read them.
+*
+* What this deck can assert is NOT the diagnostic.  The two lines the fault
+* prints,
+*     checkvalid: Internal Error: bad node
+*     ft_evaluate: Internal Error: bad node
+* go to stderr, which tests/bin/check.sh does not capture, and its filter
+* drops every line matching "Error" in any case.  The assertion rests on
+* what is MISSING from stdout instead: ft_evaluate() fails, so `print`
+* emits no `d(2,3) = ...` line at all.  At 6ac4dc733 the first call prints
+* nothing and exits 0 -- a deck that called once and checked only the
+* status would pass vacuously -- and the second call aborts inside glibc at
+* status 134, taking the rest of the run, `SURVIVED` included, with it.
+*
+* Six shapes.  The first three were broken.  The last three were always
+* correct and are here so that a repair cannot buy the first three back:
+* k's body puts an operator over the formal, so trcopy()'s parent takes the
+* reference the comma node's free then releases; p's arity is 1, where
+* there is no comma node to free; and sq substitutes the same argument node
+* twice, which is the count a repair is most likely to disturb.
+v1 1 0 dc 1
+r1 1 0 1k
+.control
+op
+* a bare formal at the root, arity 2
+define d(x,y) x
+print d(2,3)
+print d(2,3)
+print d(2,3)
+* the same at arity 3, and not the first formal
+define t(x,y,z) y
+print t(2,3,4)
+print t(2,3,4)
+* the argument is an expression rather than a leaf
+print d(2+1,3)
+print d(2+1,3)
+* an operator over the formal -- always worked, must stay working
+define k(x,y) x+0
+print k(2,3)
+print k(2,3)
+* arity 1 -- always worked, must stay working
+define p(x) x
+print p(2)
+print p(2)
+print p(2)
+* the same argument substituted twice -- always worked, must stay working
+define sq(x) x*x
+print sq(3)
+print sq(3)
+print sq(3)
+echo SURVIVED
+.endc
+.end

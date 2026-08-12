@@ -32,6 +32,8 @@ static struct pnode *trcopy(struct pnode *tree, char *arg_names, struct pnode *a
 static struct pnode *ntharg(int num, struct pnode *args);
 static int numargs(struct pnode *args);
 static struct pnode *copy_value_node(struct pnode *tree);
+static bool node_of_arglist(const struct pnode *tree, const struct pnode *args);
+static struct pnode *copy_arg_root(struct pnode *tree);
 
 static struct udfunc *udfuncs = NULL;
 
@@ -386,6 +388,8 @@ ft_substdef(const char *name, struct pnode *args)
          */
         if (tree == udf->ud_text)
             tree = copy_value_node(tree);
+        else if (node_of_arglist(tree, args))
+            tree = copy_arg_root(tree);
 
         return tree;
     }
@@ -428,6 +432,71 @@ copy_value_node(struct pnode *tree)
         vec_new(nv);
         pn->pn_value = nv;
     }
+
+    return pn;
+}
+
+
+/* Is this node one the caller's argument list owns?
+ *
+ * The walk is ntharg()'s own, so the two agree by construction: ntharg()
+ * hands back the comma node's left branch at every level of the list and
+ * the list itself at the last, and those are exactly the nodes tested here.
+ * trcopy()'s other branches allocate, so a node that answers TRUE here can
+ * only have arrived through the formal-substitution branch.
+ */
+
+static bool
+node_of_arglist(const struct pnode *tree, const struct pnode *args)
+{
+    for (; args; args = args->pn_right) {
+        if (!(args->pn_op && (args->pn_op->op_num == PT_OP_COMMA)))
+            return tree == args;
+        if (tree == args->pn_left)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
+
+/* Return a root of our own over an argument trcopy() substituted into the
+ * root position -- the body was a bare formal, so the tree handed back is
+ * a node of the caller's argument list and not one this file built.
+ *
+ * A root is owned implicitly, at pn_use == 0, so two owners cannot be
+ * expressed for one: PP_mkfnode() releases the argument list on the way
+ * out, and the caller frees the tree it is given.  The interior needs no
+ * such treatment -- trcopy()'s parents take a reference on what they link,
+ * so PP_mkfnode()'s release decrements rather than frees -- and it is only
+ * the root that is written to afterwards, by parse-bison.y's pn_name and
+ * by ft_evaluate()'s rename of the vector it carries.  So the node is
+ * duplicated and the subtree beneath it is shared under a count, which is
+ * the same rule doc/claude/decisions/0014-single-node-define-body.md drew
+ * for a body shared out of udfuncs.  doc/codex/issues/0054.
+ */
+
+static struct pnode *
+copy_arg_root(struct pnode *tree)
+{
+    struct pnode *pn;
+
+    if (tree->pn_value)
+        return copy_value_node(tree);
+
+    pn = alloc_pnode();
+
+    /* pn_func and pn_op are pointers to a global constant struct */
+    pn->pn_func = tree->pn_func;
+    pn->pn_op = tree->pn_op;
+
+    pn->pn_left = tree->pn_left;
+    if (pn->pn_left)
+        pn->pn_left->pn_use++;
+
+    pn->pn_right = tree->pn_right;
+    if (pn->pn_right)
+        pn->pn_right->pn_use++;
 
     return pn;
 }
