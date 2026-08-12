@@ -19,7 +19,7 @@ before and after `0053`'s repair and unchanged by it:
 - **(a)** `define d(x,y) x` / `print d(2,3)` printed no value and two
   `Internal Error: bad node` lines. One call exited **0**; two aborted at
   **134**.
-- **(b)** `define f(x) 5` leaked **64 B per call** — `127,936 bytes in 1,999
+- **(b)** `define f(x) 5` leaked **64 B per call** — `128,000 bytes in 2,000
   blocks` over 2000 calls.
 - **(c)** `define c(x) 5` / `undefine c`, no call between, lost
   `170 (160 direct, 10 indirect) bytes`.
@@ -107,7 +107,7 @@ eleven-shape set, each deck in its own process, `--batch`, no `casemode`:
 | --- | --- | --- | --- |
 | **L1** delete `free_pnode(arg)` | fixed | **unfixed** | leaks 64 B per call at *every* arity: `d(x,y) x` ×3 → 192 B, `d(x,y) x+0` ×2 → 128 B, `t(x,y,z) y` ×1 → 64 B, all 0 today |
 | **L2** unconditional `free_pnode(arg)`, no count | unfixed | fixed | `p(x) x` → **134**, `sq(x) x*x` → **SIGSEGV 139**, `print vm(1)` → **SIGSEGV 139**, and the `0053` chain deck prints `4` where `16` is right |
-| **L3** = candidate (i), `trcopy()` bumps `ntharg()`'s return | fixed | **unfixed** | leaks on every shape that *uses* its formals: `d(x,y) x+0` ×2 → 128 B, `sq(x) x*x` ×3 → 128 B, **`print vm(1)` ×3 → 192 B**, all 0 today |
+| **L3** = candidate (i), `trcopy()` bumps `ntharg()`'s return | fixed | **unfixed** | leaks on every shape that *uses* its formals: `d(x,y) x+0` ×2 → 128 B, `sq(x) x*x` ×3 → 128 B (that shape leaks 64×(N−1), not 64×N: measured 0, 64, 128, 192 at N = 1, 2, 3, 4), **`print vm(1)` ×3 → 192 B**, all 0 today |
 | **L4** half 1 without half 2 | **unfixed** | fixed | `p(x) x` → **134**, newly broken |
 | **chosen** = half 1 + half 2 | fixed | fixed | see Evidence |
 
@@ -138,7 +138,7 @@ half 1's reference and *p* for a parent link in the result tree:
 
 ## Evidence
 
-Ten shapes plus the two the acceptance table adds, each in its own process
+Eleven shapes -- the acceptance table's ten plus `define d(x,y) x` ×2 -- each in its own process
 because class (a) corrupts the heap and a second probe after it measures
 rubble. `HEAD` is `6ac4dc733`. Both binaries were run from the **same** path,
 `build-ver_50/src/ngspice`, because a binary copied elsewhere resolves a
@@ -166,9 +166,16 @@ At scale, 2000 events in a `while` loop:
 
 | deck | HEAD | fixed |
 | --- | --- | --- |
-| `define c(x) 5` called ×2000 | `127,936 bytes in 1,999 blocks`, RSS 15,084 kB | **0 lost**, RSS 15,088 kB |
+| `define c(x) 5` called ×2000 | `128,000 bytes in 2,000 blocks`, RSS 15,084 kB | **0 lost**, RSS 15,088 kB |
 | `define d(x,y) x` called ×2000 | exit **134** | exit 0, 0 lost, RSS 15,092 kB |
 | `define c(x) 5` / `undefine c` ×2000 | `319,840 bytes in 1,999 blocks`, RSS 15,312 kB | **0 lost**, RSS 15,060 kB |
+
+The class (c) row is **path sensitive**, which is worth knowing before it is
+re-measured: the same pre-fix binary run from a scratch directory instead of
+`build-ver_50/src/ngspice` reports `320,000 bytes in 2,000 blocks`, one dvec
+more, because it resolves a different `spinit`. Both figures are stable across
+three runs; the one tabulated is the sanctioned path. The class (b) row is not
+sensitive -- 128,000 either way.
 
 The per-call leak is gone at no measurable RSS cost — the copy is one node,
 and for a value root one `vec_copy()`, against an argument evaluation that
@@ -204,6 +211,35 @@ exit 0, **1 valgrind error, 0 bytes lost**, and `a`, `b` and `v(1)` are intact
 afterwards. The same deck at `HEAD` is exit **134**,
 `malloc_consolidate(): unaligned fastbin chunk detected`, 48 errors and 320 B
 lost.
+
+### What the copy got wrong the first time
+
+The root copy shipped in `00446226e` was **not faithful**, and an adversarial
+review of that commit caught it. `copy_value_node()` builds the copy with
+`vec_copy()`, which clears `v_link2` on what it returns
+(`src/frontend/vectors.c`). But a name can resolve to a *list* of vectors —
+`all`, `@dev[all]`, a cross-plot wildcard like `all.v(1)` — and `PP_mksnode()`
+deliberately links that list through `v_link2`. Returning the argument node
+had carried the whole chain; copying it took only the head:
+
+| deck | `6ac4dc733` | `00446226e` | repaired |
+| --- | --- | --- | --- |
+| `define p(x) x` / `print p(all)` | 2 vectors | **1** | 2 |
+| `define p(x) x` / `print p(@r1[all])` | 21 vectors | **1** | 21 |
+| `define d(x,y) x` / `print d(all,1)` | abort 134 | **1** | 2 |
+
+Silent, exit 0, no diagnostic — 20 of 21 values simply vanished. At arity 1
+that is a straight regression on a shape the deck's own header calls "always
+worked, must stay working"; at arity ≥ 2 it turned the abort into a wrong
+answer rather than a right one. The repair walks the chain and rebuilds it the
+way `PP_mksnode()` does. 200 calls with a 21-vector argument lose 0 bytes, so
+the rebuilt chain is collected by the plot exactly as the parser's is.
+
+The lesson is narrow and worth keeping: **`vec_copy()` is not a copy of a
+dvec, it is a copy of one link of one.** The `0053` repair has the same call
+and was never exposed, because a *stored body* cannot hold a chain — measured,
+`define q() all` prints nothing on both binaries — so this only became
+reachable when the same helper started serving arguments.
 
 ### Classes (b) and (c) get no deck, deliberately
 

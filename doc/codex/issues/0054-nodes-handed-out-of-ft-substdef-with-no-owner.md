@@ -220,17 +220,26 @@ by the caller, which is why glibc reports `double free or corruption
    arity 1 is byte-identical to before, valgrind included. The trap was
    avoided: the deck calls three times and asserts the **values**.
 2. Met. `define c(x) 5+0` ×3 goes from `192 bytes in 3 blocks` to 0, and
-   ×2000 from `127,936 bytes in 1,999 blocks` to 0, at unchanged peak RSS.
+   ×2000 from `128,000 bytes in 2,000 blocks` to 0, at unchanged peak RSS.
 3. Met. `define c(x) 5` / `undefine c` goes from
    `170 (160 direct, 10 indirect) bytes` to 0. **At scale this class is larger
    than Impact above estimates**: 2000 define/undefine cycles in a `while`
-   loop lose `319,840 bytes in 1,999 blocks`, against 127,936 for class (b) at
+   loop lose `319,840 bytes in 1,999 blocks`, against 128,000 for class (b) at
    the same count, and the repair recovers 252 kB of peak RSS. "Once per
    `undefine`, which is not a loop" holds for a human at the prompt but not for
    a control deck that redefines a helper — and `com_define()`'s replacement
    path will reach the same free once `doc/codex/issues/0051` criterion 4
    lands. (c) is the largest of the three at scale, not the smallest.
-4. Met. `tests/regression/misc/define-formal-body.cir`, six shapes, beside
+1b. The first repair of (a) was itself lossy and a third commit fixes it.
+   `copy_value_node()` copies with `vec_copy()`, which clears `v_link2`, so an
+   argument that resolves to a LIST of vectors — `all`, `@dev[all]`,
+   `all.v(1)` — reached the caller as its head alone. `define p(x) x` /
+   `print p(@r1[all])` printed 21 values at `6ac4dc733` and **1** after
+   `00446226e`, silently and at exit 0. The chain is now walked and rebuilt as
+   `PP_mksnode()` builds it; the deck covers both arities and 200 calls with a
+   21-vector argument lose 0 bytes. Found by an adversarial review of the first
+   two commits, not by the deck — which is why the deck now has the shape.
+4. Met. `tests/regression/misc/define-formal-body.cir`, eight shapes, beside
    `define-const-body.cir`. Its assertion is **not** the `Internal Error`
    lines — those go to stderr, which `tests/bin/check.sh` does not capture,
    and its filter drops every line matching `Error` regardless. What the
