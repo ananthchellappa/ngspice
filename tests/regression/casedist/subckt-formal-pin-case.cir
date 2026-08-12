@@ -1,0 +1,206 @@
+* a subcircuit formal pin under casemode=distinguish: two spellings, two nets
+* doc/codex/issues/0049, acceptance criterion 3.
+*
+* gettrans() (src/frontend/subckt.c) resolves a node name inside a .subckt
+* body against the formal pin list.  Under preserve that lookup is now case
+* insensitive, because two spellings of one pin are one pin there; under
+* distinguish it stays byte-exact, because two spellings are two names.  This
+* deck is the second half of that claim, and it is a guard rather than a RED:
+* the fix is provably a no-op here, since eq_substr_id() reduces to
+* eq_substr() whenever inp_case_exact_ids() is true and distinguish is one of
+* the two modes for which it is.  What is RED here is the diagnostic.
+*
+* PART 1, no sub-deck: the two spellings really are two nets.
+*
+*   .subckt div A B / ra A B 1k / rb b 0 3k
+*
+* 'b' is not the pin 'B'.  It becomes the subcircuit-local net x1.b, so the
+* 3k resistor is inside the subcircuit and the caller's node 2 sees only the
+* 1k of ra and the 1k of r2: v(2) = 4 * 1k/2k = 2.0, and x1.b exists as a
+* vector of its own with nothing driving it.  Under preserve the same deck is
+* 4 * (3k||1k)/(1k + 3k||1k) = 1.714..., so the number is not shared with the
+* other mode by accident.  x1.b appearing at all is the two-nets evidence;
+* v(2) is what makes it a number rather than a spelling.
+*
+* PART 2, the near-miss diagnostic, and the silences it owes.  Decision 2 of
+* doc/claude/decisions/0001-distinguish.md asks a resolution that misses
+* beside a case variant to report and a definition to stay quiet.  A body node
+* that misses the pin list is scoped to the instance rather than rejected, so
+* the miss is invisible; that is what this reports.
+*
+*   NEARMISS  body 'b' misses the pin list, pin 'B' is there  -> reported
+*   INTERNAL  body 'm' misses the pin list, no variant of it  -> silent.
+*             This is the silence that matters: every ordinary internal node
+*             of every subcircuit in every deck takes this path, so a report
+*             here would fire on correct decks and on nothing else.
+*   EXACT     body 'B' is the pin 'B'                         -> silent
+*
+* The check runs during netlist expansion, before the first line of any
+* .control block, so there is no command to attach a redirect to.  Each case
+* therefore writes its circuit out with echo and sources it from inside this
+* deck's control block: 'source' re-enters inp_spsource(), so the whole parse
+* including inp_subcktexpand() runs again with the wrapper's '>&' redirect in
+* force.  '>&' sets cp_err as well as cp_out (src/frontend/streams.c), which
+* is why the diagnostic is written to cp_err and not to stderr.  The sub-deck
+* names are lower case because the reader lower cases a control line unless
+* its first word is on a fixed exempt list, and 'fopen' is not on it; that
+* asymmetry is doc/codex/issues/0038.  The sfp_* files are cleaned by
+* CLEANFILES.
+*
+* The cost of the lower-case names, which this deck shares with
+* bsource-node-case-report.cir, sens-node-case-report.cir and the two XSPICE
+* report decks: the uppercased copy doc/claude/scripts/case_differential_sweep.py
+* makes of this deck does not run.  The sweep leaves a 'source' line alone,
+* because its first token names a file, and uppercases the 'echo' line beside
+* it, so the sub-deck is written as SFP_NEAR.CIR and sourced as sfp_near.cir.
+* The sweep reports that copy as
+* "sfp_near.cir: no such file or directory", which is collateral and not
+* evidence about this deck either way -- the sweep never runs distinguish, so
+* it was never going to be.
+*
+* The phrase scanned for is "no subcircuit pin named".  It is deliberately
+* not the shared tail "differs only in case", which the parser's check and
+* both XSPICE checks also write, and it is deliberately not "no node named",
+* which is the parser's noun: a deck asserting either of those would pass on
+* the wrong warning.  The NEARMISS case asserts that the parser's noun is
+* absent as well, so the two diagnostics cannot be confused for each other.
+* Every echoed token is upper case, because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error' from both sides of the comparison.
+*
+* Each silence case also echoes a CAPTURE-READ token, set by finding the
+* sub-deck's own 'Circuit:' line in the capture.  Without it an assertion
+* about an absence passes when the capture was never read at all.  NEARMISS
+* needs no such token: its two assertions share one pass over the capture,
+* and the first of them is about a presence, so a capture that was never read
+* reports PIN-NEARMISS-SILENT and fails before the absence is reached.
+.OPTIONS noacct
+v1 1 0 dc 4
+x1 1 2 div
+r2 2 0 1k
+.subckt div A B
+ra A B 1k
+rb b 0 3k
+.ends
+.control
+op
+print v(2)
+print v(x1.b)
+* --- NEARMISS: the body spells a formal pin in the other case
+echo "* a subcircuit body node that misses a formal pin by case alone" > sfp_near.cir
+echo ".OPTIONS noacct" >> sfp_near.cir
+echo "v1 1 0 dc 4" >> sfp_near.cir
+echo "x1 1 2 div" >> sfp_near.cir
+echo "r2 2 0 1k" >> sfp_near.cir
+echo ".subckt div A B" >> sfp_near.cir
+echo "ra A B 1k" >> sfp_near.cir
+echo "rb b 0 3k" >> sfp_near.cir
+echo ".ends" >> sfp_near.cir
+echo ".end" >> sfp_near.cir
+source sfp_near.cir >& sfp_near.txt
+set found1 = 0
+set node1 = 0
+set n1 = 1
+fopen f1 sfp_near.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no subcircuit pin named 'b'; 'B'"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr q1 "_$capline" "no node named"
+  if $q1 >= 0
+    set node1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo PIN-NEARMISS-REPORTED
+else
+  echo PIN-NEARMISS-SILENT
+end
+if $node1 > 0
+  echo PIN-NEARMISS-ALSO-NODE-NOUN
+else
+  echo PIN-NEARMISS-PIN-NOUN-ONLY
+end
+* --- INTERNAL: an ordinary internal node, which every correct subcircuit has
+echo "* a subcircuit body node that is simply internal to the subcircuit" > sfp_int.cir
+echo ".OPTIONS noacct" >> sfp_int.cir
+echo "v1 1 0 dc 4" >> sfp_int.cir
+echo "x1 1 2 div" >> sfp_int.cir
+echo "r2 2 0 1k" >> sfp_int.cir
+echo ".subckt div A B" >> sfp_int.cir
+echo "ra A m 1k" >> sfp_int.cir
+echo "rb m B 1k" >> sfp_int.cir
+echo ".ends" >> sfp_int.cir
+echo ".end" >> sfp_int.cir
+source sfp_int.cir >& sfp_int.txt
+set found2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 sfp_int.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no subcircuit pin named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo PIN-INTERNAL-REPORTED
+else
+  echo PIN-INTERNAL-SILENT
+end
+if $read2 > 0
+  echo PIN-INTERNAL-CAPTURE-READ
+else
+  echo PIN-INTERNAL-CAPTURE-EMPTY
+end
+* --- EXACT: the body spells every pin exactly as the .subckt card does
+echo "* a subcircuit whose body spells every formal pin exactly" > sfp_exact.cir
+echo ".OPTIONS noacct" >> sfp_exact.cir
+echo "v1 1 0 dc 4" >> sfp_exact.cir
+echo "x1 1 2 div" >> sfp_exact.cir
+echo "r2 2 0 1k" >> sfp_exact.cir
+echo ".subckt div A B" >> sfp_exact.cir
+echo "ra A B 1k" >> sfp_exact.cir
+echo "rb B 0 3k" >> sfp_exact.cir
+echo ".ends" >> sfp_exact.cir
+echo ".end" >> sfp_exact.cir
+source sfp_exact.cir >& sfp_exact.txt
+set found3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 sfp_exact.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no subcircuit pin named"
+  if $p3 >= 0
+    set found3 = 1
+  end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo PIN-EXACT-REPORTED
+else
+  echo PIN-EXACT-SILENT
+end
+if $read3 > 0
+  echo PIN-EXACT-CAPTURE-READ
+else
+  echo PIN-EXACT-CAPTURE-EMPTY
+end
+.endc
+.end

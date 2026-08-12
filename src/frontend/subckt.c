@@ -116,6 +116,8 @@ static NGHASHPTR glonodes = NULL;
 static struct tab {
     char *t_old;
     char *t_new;
+    bool t_reported;        /* this formal pin has had its case near miss
+                               reported once for this expansion */
 } *table;
 
 
@@ -1658,6 +1660,18 @@ eq_substr(const char *str, const char *end, const char *cstring)
 }
 
 
+/* eq_substr() ignoring case */
+
+static int
+eq_substr_ci(const char *str, const char *end, const char *cstring)
+{
+    while (str < end)
+        if (tolower_c(*str++) != tolower_c(*cstring++))
+            return 0;
+    return (*cstring == '\0');
+}
+
+
 /* eq_substr() under the current identifier case policy, for the substrings
    that are subcircuit names or subcircuit formal pins rather than arbitrary
    text.  Byte-exact under fold, where the reader lower cased both sides, and
@@ -1671,10 +1685,44 @@ eq_substr_id(const char *str, const char *end, const char *cstring)
     if (inp_case_exact_ids())
         return eq_substr(str, end, cstring);
 
-    while (str < end)
-        if (tolower_c(*str++) != tolower_c(*cstring++))
-            return 0;
-    return (*cstring == '\0');
+    return eq_substr_ci(str, end, cstring);
+}
+
+
+/* Under distinguish the formal pin lookup below is byte-exact, which is the
+   right answer -- two spellings are two names -- but a miss is invisible:
+   translate_node_name() scopes the name to the instance instead, so the body
+   quietly gets a net of its own where it meant the caller's node.  Decision 2
+   of doc/claude/decisions/0001-distinguish.md asks a resolution that misses
+   beside a case variant to report, and this is such a resolution.
+
+   A miss with no case variant is an ordinary internal node -- every internal
+   node of every subcircuit takes this path -- and stays silent, which is the
+   half of the rule that keeps the mode usable.
+
+   Reported once per formal pin per expansion, so a body that spells one pin
+   wrongly on ten cards says so once; a second body spelling of the same pin
+   is reported only after the first is fixed. */
+
+static void
+report_pin_case_miss(const char *name, const char *name_end)
+{
+    int i;
+
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return;
+
+    for (i = 0; table[i].t_old; i++) {
+        if (table[i].t_reported)
+            continue;
+        if (!eq_substr_ci(name, name_end, table[i].t_old))
+            continue;
+        table[i].t_reported = TRUE;
+        fprintf(cp_err,
+                "Warning: no subcircuit pin named '%.*s'; '%s' differs only in case (casemode=distinguish)\n",
+                (int) (name_end - name), name, table[i].t_old);
+        return;
+    }
 }
 
 
@@ -1710,6 +1758,8 @@ gettrans(const char *name, const char *name_end, bool *isglobal)
             *isglobal = FALSE;
             return table[i].t_new;
         }
+
+    report_pin_case_miss(name, name_end);
 
     return (NULL);
 }
