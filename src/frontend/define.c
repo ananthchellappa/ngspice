@@ -230,6 +230,18 @@ com_define(wordlist *wlist)
         udfuncs = udf;
     }
 
+    /* udfuncs is this tree's parent from here on, so it takes the reference
+     * every other frame that links a node takes.  Without it the stored root
+     * rests at the count of a node nobody holds, and free_pnode_x() frees
+     * pn_value only at pn_use == 1 -- so com_undefine() freed the root and
+     * abandoned the vector savetree() had copied for it.  The count is read
+     * by free_pnode_x() and by nothing else, and this is the only frame that
+     * frees a root which owns its vector: an evaluated root's vector has been
+     * handed to a caller, which is what that guard is there to protect.
+     * doc/codex/issues/0054.
+     */
+    names->pn_use++;
+
     udf->ud_text = names;
     udf->ud_name = b;
     udf->ud_arity = arity;
