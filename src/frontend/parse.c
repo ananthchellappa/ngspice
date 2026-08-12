@@ -25,18 +25,26 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 static bool checkvalid(struct pnode *pn);
 
 #ifdef OLD_BISON
-extern int PPparse(char **, struct pnode **);
+extern int PPparse(char **, struct pnode **, const char * const *);
 #endif
 
 void db_print_pnode_tree(struct pnode *p, char *print);
 
-struct pnode *ft_getpnames_from_string(const char *sz, bool check)
+/* Parse sz, telling the parser which identifiers in it are probes: names the
+ * caller already has another meaning for, whose lookup is expected to miss and
+ * so must not report a case near miss.  probes is NULL, or a NULL terminated
+ * array of names matched byte exactly.  It is per token deliberately -- every
+ * other identifier in the same expression is being resolved and keeps the
+ * report.  doc/claude/decisions/0010-probe-category.md,
+ * doc/codex/issues/0045. */
+static struct pnode *getpnames_from_string(const char *sz, bool check,
+                                           const char * const *probes)
 {
     struct pnode *pn;
 
     /* The first argument to PPparse is not const char **, but it does not
      * appear to modify the string that is being parsed */
-    if (PPparse((char **) &sz, &pn) != 0) {
+    if (PPparse((char **) &sz, &pn, probes) != 0) {
         return (struct pnode *) NULL;
     }
 
@@ -50,12 +58,19 @@ struct pnode *ft_getpnames_from_string(const char *sz, bool check)
     }
 
     return pn;
+} /* end of function getpnames_from_string */
+
+
+
+struct pnode *ft_getpnames_from_string(const char *sz, bool check)
+{
+    return getpnames_from_string(sz, check, NULL);
 } /* end of function ft_getpnames_from_string */
 
 
 
 struct pnode *
-ft_getpnames(const wordlist *wl, bool check)
+ft_getpnames_probe(const wordlist *wl, bool check, const char * const *probes)
 {
     /* Validate input */
     if (!wl) {
@@ -65,10 +80,18 @@ ft_getpnames(const wordlist *wl, bool check)
 
     /* Convert the list to a string, then parse the string */
     const char * const sz = wl_flatten(wl);
-    struct pnode * const pn = ft_getpnames_from_string(sz, check);
+    struct pnode * const pn = getpnames_from_string(sz, check, probes);
     txfree((void *) sz);
 
     return pn; /* Return the parsed result */
+} /* end of function ft_getpnames_probe */
+
+
+
+struct pnode *
+ft_getpnames(const wordlist *wl, bool check)
+{
+    return ft_getpnames_probe(wl, check, NULL);
 } /* end of function ft_getpnames */
 
 
@@ -98,7 +121,8 @@ static bool has_arith_char(char* tstr)
    automatically place "" around, like V("2p"). Returns the parse tree. Multiple
    v() may occur in a row. Remove "" again after the tree is set up.
 */
-struct pnode* ft_getpnames_quotes(wordlist* wl, bool check)
+struct pnode* ft_getpnames_quotes_probe(wordlist* wl, bool check,
+                                        const char * const *probes)
 {
     struct pnode* names = NULL, * tmpnode = NULL;
     char* sz = wl_flatten(wl);
@@ -206,7 +230,7 @@ struct pnode* ft_getpnames_quotes(wordlist* wl, bool check)
         }
 
         char* newline = ds_get_buf(&ds1);
-        names = ft_getpnames_from_string(newline, check);
+        names = getpnames_from_string(newline, check, probes);
         ds_free(&ds1);
         tfree(nsz);
         /* restore the old node name after parsing */
@@ -231,10 +255,17 @@ struct pnode* ft_getpnames_quotes(wordlist* wl, bool check)
         }
     }
     else {
-        names = ft_getpnames_from_string(sz, check);
+        names = getpnames_from_string(sz, check, probes);
     }
     tfree(sz);
     return names;
+}
+
+
+
+struct pnode* ft_getpnames_quotes(wordlist* wl, bool check)
+{
+    return ft_getpnames_quotes_probe(wl, check, NULL);
 }
 
 
@@ -507,7 +538,9 @@ struct pnode *PP_mkfnode(const char *func, struct pnode *arg)
             return (struct pnode *) NULL;
         }
         /* (void) strcpy(buf, d->v_name); XXX */
-        return PP_mksnode(buf);
+        /* No probes: the lookup just above found buf, so the one PP_mksnode()
+         * makes cannot miss and cannot report anything. */
+        return PP_mksnode(buf, NULL);
     }
     else if (f->fu_name == NULL) {
         fprintf(cp_err, "Error: no function as %s with that arity.\n",
@@ -565,14 +598,36 @@ struct pnode *PP_mknnode(double number)
 
 
 
+/* Is this identifier one of the caller's probes -- a token it already has
+ * another meaning for, so that a lookup which misses is the answer it asked
+ * for rather than a failure?  Matched byte exactly: the caller passes the
+ * spellings it will itself recognise, and com_define() matches its formal
+ * parameters with eq() while plotit() collects the 'vs' spellings its own
+ * wordlist holds.  doc/claude/decisions/0010-probe-category.md. */
+static bool is_probe_name(const char *string, const char * const *probes)
+{
+    if (!probes)
+        return FALSE;
+
+    for (; *probes; probes++)
+        if (eq(*probes, string))
+            return TRUE;
+
+    return FALSE;
+}
+
+
 /* String node. */
-struct pnode *PP_mksnode(const char *string)
+struct pnode *PP_mksnode(const char *string, const char * const *probes)
 {
     struct dvec *v, *nv, *vs, *newv = NULL, *end = NULL;
     struct pnode *p;
 
     p = alloc_pnode();
-    v = vec_get(string);
+    /* A probe's miss is expected, so it must not report a case near miss;
+     * every other identifier here is being resolved and keeps the report,
+     * whatever the enclosing command asked for.  doc/codex/issues/0045. */
+    v = is_probe_name(string, probes) ? vec_get_quiet(string) : vec_get(string);
     if (v == NULL) {
         nv = dvec_alloc(copy(string),
                         SV_NOTYPE,

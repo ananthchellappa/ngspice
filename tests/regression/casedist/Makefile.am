@@ -16,7 +16,7 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-rawfile-scale-case.cir vector-diff-pairing-case.cir \
 	vector-diff-wrapper-case.cir vector-diff-branch-case.cir \
 	bsource-node-case-report.cir sens-node-case-report.cir \
-	vector-let-report.cir
+	vector-let-report.cir vector-probe-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -40,9 +40,16 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # a different reason: 'let' is on control.c's noredirect[] list, because
 # 'let a = b > c' needs '>' as an operator, so the only way to put a 'let'
 # under a redirect is to source a deck whose control block runs it.
+# vector-probe-report.cir writes sub-decks for the same reason -- 'define' is
+# on that list too -- and one of its cases writes an SVG, because the only way
+# to reach plotit()'s 'vs' separator in batch mode is 'hardcopy': 'plot' is
+# refused there.  Its sub-decks are named in UPPER CASE, which the deck's own
+# header explains: it is the only spelling the differential sweep's uppercaser
+# leaves agreeing with the 'source' line that reads them.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
-	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir
+	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir \
+	vpr_*.txt vpr_*.svg VPR_*.CIR
 
 EXTRA_DIST = \
 	$(TESTS) \

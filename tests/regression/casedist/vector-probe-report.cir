@@ -1,0 +1,199 @@
+* a probe must not report a case near miss, but only for the token it probes
+* doc/codex/issues/0045.  PP_mksnode() (src/frontend/parse.c) resolves every
+* bare identifier in every expression through vec_get(), and on a miss builds a
+* zero-length placeholder dvec carrying the name.  Two callers then use that
+* placeholder as a NAME rather than as a failure -- com_define() matches it
+* against the formal parameters of the function being defined, and plotit()
+* recognises the 'vs' separator by testing for exactly that placeholder
+* (v_length == 0 && eqc(v_name, "vs")).  For those two tokens the miss is the
+* answer the caller asked for, so under casemode=distinguish a deck with a net
+* named X or VS warned about a correct 'define f(x)' or 'plot a vs b'.  That is
+* the failure decision 2 of doc/claude/decisions/0001-distinguish.md rejects:
+* it trains users to ignore the warning that matters.
+*
+* The fix is per TOKEN, not per parse, and this deck is mostly about that
+* boundary: every OTHER identifier in the same expression is being resolved,
+* and its miss is a real failure that keeps the near miss.  A definition body's
+* vector reference is resolved once, at definition time -- the tree is frozen
+* there, so a name that misses now can never be resolved later -- and a plot
+* argument that misses is reported by ft_evaluate() as 'no such vector'.  Both
+* still report, in the same captures as the silences.
+*
+* The diagnostic goes to cp_err, which tests/bin/check.sh does not capture, so
+* this deck redirects it.  'define' cannot take the redirect itself: it is on
+* control.c's noredirect[] list (src/frontend/control.c:62) beside 'if', 'let',
+* 'stop' and 'circbyline', so 'define f(x) x*2 >& f.txt' parses the redirect
+* into the function body and dies with a PPerror.  Each case is therefore
+* written out with echo and sourced, the shape vector-let-report.cir uses:
+* 'source' re-enters inp_spsource(), which sets cp_curout/cp_curerr to the
+* redirect targets for the whole of the sourced deck (src/frontend/inp.c), so
+* the sub-deck's own control block runs with the wrapper's redirect in force.
+* '>&' sets cp_err as well as cp_out (src/frontend/streams.c) and the capture
+* is read back with fopen/fread/strstr.  Every token echoed is upper case
+* because check.sh's filter drops any line containing 'Warning' or 'Error'.
+*
+* The sub-deck names are UPPER CASE and the capture names are lower case, and
+* that asymmetry is deliberate.  doc/claude/scripts/case_differential_sweep.py
+* runs every deck a third time through a mechanical uppercaser that leaves
+* 'source' lines alone -- it would rewrite 'echo ... > vpr_defn.cir' and not
+* the 'source vpr_defn.cir' that reads it, so the source would fail, and here
+* that failure is fatal and truncates the rawfile the sweep compares: a
+* NUM-DIFF, which is the one verdict that tool must never produce for a reason
+* that is not a number.  An upper-case name is a fixed point of the uppercaser
+* and both lines agree in every mode.  The captures cannot do the same,
+* because 'fopen' is not on the reader's fold-exemption list
+* (doc/codex/issues/0038) and a lower-case name is a fixed point of THAT.
+*
+* Every silence is asserted beside something in the SAME capture that must be
+* reported, so it cannot pass on a capture that was never written, never read,
+* or read from the wrong file: doc/claude/decisions/
+* 0006-diagnostic-deck-coverage.md decision 5.
+*
+*   DEFN   'define f(x) x*2' beside a node X -> silent, and the function still
+*          works: 'print f(2)' is 4 in the wrapper, after the sourced deck that
+*          defined it returned.  In the same capture, 'define g(y) y*Zzz'
+*          beside a ZZZ -> reported, because the body reference is a resolution
+*          and is the token this fix must NOT silence, and 'print OUt' beside
+*          an Out -> reported, which is the same PP_mksnode() reached with the
+*          check flag true and is what a bad threading of that flag breaks
+*   VS     'hardcopy ... v(X) vs v(in)' beside a node VS -> silent, and the
+*          plot is really written.  In the SAME capture and the SAME parse,
+*          'hardcopy ... NNN vs v(in)' beside an Nnn -> the separator is silent
+*          and NNN is reported, which is the per-token boundary in one command
+*   ALTER  'alter R1 = RVAL' beside a vector Rval -> REPORTED.  This is the
+*          third caller doc/codex/issues/0045 names as a probe, on the strength
+*          of a grep, and it is not one: com_alterparam() (src/frontend/
+*          device.c) parses with check false only so that it can fall back to
+*          the 'alter @vin[pulse] = [ ... ]' numeric-list path, and hands the
+*          placeholder to ft_evaluate(), which fails with 'no such vector
+*          RVAL'.  The near miss is the half of that pair that says why, so it
+*          must survive.  Nothing else in this deck would notice a future
+*          change that threaded the check flag down to the lookup, which is
+*          exactly what that issue's criterion 3 asks for
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+.control
+op
+* DEFN: the formal parameter of a user-defined function is not a vector.
+echo "* DEFN a formal parameter beside a net spelled the same but for case" > VPR_DEFN.CIR
+echo ".OPTIONS noacct" >> VPR_DEFN.CIR
+echo "V1 in 0 dc 1.5" >> VPR_DEFN.CIR
+echo "R1 in X 1k" >> VPR_DEFN.CIR
+echo "R2 X Out 1k" >> VPR_DEFN.CIR
+echo "R3 Out 0 1k" >> VPR_DEFN.CIR
+echo ".control" >> VPR_DEFN.CIR
+echo "op" >> VPR_DEFN.CIR
+echo "let ZZZ = 5" >> VPR_DEFN.CIR
+echo "define f(x) x*2" >> VPR_DEFN.CIR
+echo "define g(y) y*Zzz" >> VPR_DEFN.CIR
+echo "print OUt" >> VPR_DEFN.CIR
+echo ".endc" >> VPR_DEFN.CIR
+echo ".end" >> VPR_DEFN.CIR
+source VPR_DEFN.CIR >& vpr_defn.txt
+set prb1 = 0
+set body1 = 0
+set rslv1 = 0
+set n1 = 1
+fopen f1 vpr_defn.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named 'x'"
+  if $p1 >= 0
+    set prb1 = 1
+  end
+  strstr q1 "_$capline" "no vector named 'Zzz'"
+  if $q1 >= 0
+    set body1 = 1
+  end
+  strstr r1 "_$capline" "no vector named 'OUt'"
+  if $r1 >= 0
+    set rslv1 = 1
+  end
+end
+fclose $f1
+if $prb1 > 0
+  echo PROBE-DEFN-REPORTED
+else
+  echo PROBE-DEFN-SILENT
+end
+if $body1 > 0
+  echo PROBE-BODY-REPORTED
+else
+  echo PROBE-BODY-SILENT
+end
+if $rslv1 > 0
+  echo PROBE-RESOLVE-REPORTED
+else
+  echo PROBE-RESOLVE-SILENT
+end
+print f(2)
+* VS: the separator of a plot argument list is not a vector, but every other
+* word in the same list still is.
+echo "* VS the plot separator beside a net spelled the same but for case" > VPR_VS.CIR
+echo ".OPTIONS noacct" >> VPR_VS.CIR
+echo "V1 in 0 PULSE(0 1 0 1n 1n 5u 10u)" >> VPR_VS.CIR
+echo "R1 in X 1k" >> VPR_VS.CIR
+echo "R2 X 0 1k" >> VPR_VS.CIR
+echo "R3 in VS 1k" >> VPR_VS.CIR
+echo "R4 VS 0 1k" >> VPR_VS.CIR
+echo ".tran 1u 10u" >> VPR_VS.CIR
+echo ".control" >> VPR_VS.CIR
+echo "run" >> VPR_VS.CIR
+echo "let Nnn = 3" >> VPR_VS.CIR
+echo "hardcopy vpr_ok.svg v(X) vs v(in)" >> VPR_VS.CIR
+echo "hardcopy vpr_bad.svg NNN vs v(in)" >> VPR_VS.CIR
+echo ".endc" >> VPR_VS.CIR
+echo ".end" >> VPR_VS.CIR
+source VPR_VS.CIR >& vpr_vs.txt
+set prb2 = 0
+set arg2 = 0
+set n2 = 1
+fopen f2 vpr_vs.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no vector named 'vs'"
+  if $p2 >= 0
+    set prb2 = 1
+  end
+  strstr q2 "_$capline" "no vector named 'NNN'"
+  if $q2 >= 0
+    set arg2 = 1
+  end
+end
+fclose $f2
+if $prb2 > 0
+  echo PROBE-VS-REPORTED
+else
+  echo PROBE-VS-SILENT
+end
+if $arg2 > 0
+  echo PROBE-ARG-REPORTED
+else
+  echo PROBE-ARG-SILENT
+end
+* ALTER: the third check == FALSE caller is a resolution, and stays one.
+let Rval = 2000
+alter R1 = RVAL >& vpr_alter.txt
+set rslv3 = 0
+set n3 = 1
+fopen f3 vpr_alter.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "no vector named 'RVAL'"
+  if $p3 >= 0
+    set rslv3 = 1
+  end
+end
+fclose $f3
+if $rslv3 > 0
+  echo PROBE-ALTER-REPORTED
+else
+  echo PROBE-ALTER-SILENT
+end
+.endc
+.end

@@ -45,6 +45,7 @@ com_define(wordlist *wlist)
     wordlist *wl;
     struct pnode *names;
     struct udfunc *udf;
+    const char **probes;
 
     /* If there's nothing then print all the definitions. */
     if (wlist == NULL) {
@@ -102,20 +103,9 @@ com_define(wordlist *wlist)
             return;
         }
 
-    /* Parse the rest of it. We can't know if there are the right
-     * number of undefined variables in the expression.
+    /* Format the name properly and add to the list. This has to happen before
+     * the parse below, which needs the formal parameter names.
      */
-    if ((names = ft_getpnames(wl, FALSE)) == NULL)
-        return;
-
-    /* This is a pain -- when things are garbage-collected, any
-     * vectors that may have been mentioned here will be thrown
-     * away. So go down the tree and save any vectors that aren't
-     * formal parameters.
-     */
-    savetree(names);
-
-    /* Format the name properly and add to the list. */
     b = copy(buf);
     for (s = b; *s; s++) {
         if (*s == '(') {
@@ -129,6 +119,43 @@ com_define(wordlist *wlist)
             arity++;
         }
     }
+
+    /* The formal parameters are not vectors. trcopy() below finds them by
+     * matching their names against the zero-length placeholder a failed lookup
+     * leaves behind, so a miss is the mechanism rather than a failure, and
+     * under casemode=distinguish 'define f(x) x*2' on a deck with a net X used
+     * to warn about a definition that is correct. They are named as probes, so
+     * the parse does not report a case near miss for them -- and for nothing
+     * else: every other identifier in the body IS resolved here, once and for
+     * good, because the tree is frozen at definition time and a name that
+     * misses now can never be resolved later. doc/codex/issues/0045.
+     */
+    {
+        const char **p = probes = TMALLOC(const char *, arity + 1);
+        char *arg = strchr(b, '\0') + 1;
+        while (*arg) {
+            *p++ = arg;
+            arg = strchr(arg, '\0') + 1;
+        }
+        *p = NULL;
+    }
+
+    /* Parse the rest of it. We can't know if there are the right
+     * number of undefined variables in the expression.
+     */
+    names = ft_getpnames_probe(wl, FALSE, probes);
+    tfree(probes);
+    if (names == NULL) {
+        tfree(b);
+        return;
+    }
+
+    /* This is a pain -- when things are garbage-collected, any
+     * vectors that may have been mentioned here will be thrown
+     * away. So go down the tree and save any vectors that aren't
+     * formal parameters.
+     */
+    savetree(names);
 
     for (udf = udfuncs; udf; udf = udf->ud_next)
         if (prefix(b, udf->ud_name) && (arity == udf->ud_arity))

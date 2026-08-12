@@ -291,6 +291,7 @@ bool plotit(wordlist *wl, const char *hcopy, const char *devname)
     bool gfound = FALSE, pfound = FALSE, oneval = FALSE, contour2d = FALSE, digitop = FALSE;
     double ylims[2], xlims[2];
     struct pnode *pn, *names = NULL;
+    const char **probes = NULL;
     struct dvec *d = NULL, *vecs = NULL, *lv = NULL, *lastvs = NULL;
     char *xn;
     int i, xt;
@@ -791,7 +792,34 @@ bool plotit(wordlist *wl, const char *hcopy, const char *devname)
          * node is a dummy node.
          */
 
-        names = ft_getpnames_quotes(wl->wl_next, FALSE);
+        /* The bare word "vs" is this command's own separator, not a vector:
+         * the loop below finds it by testing for exactly the zero-length
+         * placeholder a failed lookup leaves behind.  So its lookup is a probe
+         * -- the miss is the answer -- and under casemode=distinguish it must
+         * not report a case near miss on a deck that merely has a net named
+         * VS, which is every 'plot a vs b' on such a deck.  Only the
+         * separators this wordlist actually holds are named: every other word
+         * here is a vector being resolved, and its miss is a real failure that
+         * keeps the report.  doc/codex/issues/0045.
+         */
+        {
+            wordlist *wlv;
+            int nvs = 0;
+            for (wlv = wl->wl_next; wlv; wlv = wlv->wl_next)
+                if (eqc(wlv->wl_word, "vs"))
+                    nvs++;
+            if (nvs > 0) {
+                int iv = 0;
+                probes = TMALLOC(const char *, nvs + 1);
+                for (wlv = wl->wl_next; wlv; wlv = wlv->wl_next)
+                    if (eqc(wlv->wl_word, "vs"))
+                        probes[iv++] = wlv->wl_word;
+                probes[iv] = NULL;
+            }
+        }
+
+        names = ft_getpnames_quotes_probe(wl->wl_next, FALSE, probes);
+        tfree(probes);
         if (names == (struct pnode*)NULL) {
             goto quit1;
         }

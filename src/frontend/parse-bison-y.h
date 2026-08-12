@@ -8,7 +8,7 @@ extern struct pnode *PP_mkunode(int op, struct pnode *arg);
 extern struct pnode *PP_mkfnode(const char *func, struct pnode *arg);
 extern struct pnode *PP_mknnode(double number);
 extern struct pnode *PP_mkbnode(int opnum, struct pnode *arg1, struct pnode *arg2);
-extern struct pnode *PP_mksnode(const char *string);
+extern struct pnode *PP_mksnode(const char *string, const char * const *probes);
 
 
 #if defined (_MSC_VER)

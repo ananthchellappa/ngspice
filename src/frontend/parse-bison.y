@@ -26,7 +26,8 @@
        }                                                                 \
      while (0)
 
-  static void PPerror (YYLTYPE *locp, char **line, struct pnode **retval, char const *);
+  static void PPerror (YYLTYPE *locp, char **line, struct pnode **retval,
+                       const char * const *probes, char const *);
 
   static char *keepline;
 %}
@@ -43,6 +44,14 @@
 %lex-param   {char **line}
 
 %parse-param {struct pnode **retval}
+
+/* The identifiers in this expression whose lookup is a probe rather than a
+ * resolution -- the caller already has another meaning for exactly those
+ * tokens, so a miss is the answer it asked for and must not be reported as a
+ * case near miss.  NULL, or a NULL terminated array of names; it is threaded
+ * down to PP_mksnode() because the caller that knows is two frames up.
+ * doc/claude/decisions/0010-probe-category.md. */
+%parse-param {const char * const *probes}
 
 %union {
   double num;
@@ -126,7 +135,7 @@ one_exp:
 
 exp:
     TOK_NUM                           { $$ = PP_mknnode($1); }
-  | TOK_STR                           { $$ = PP_mksnode($1); txfree($1); }
+  | TOK_STR                           { $$ = PP_mksnode($1, probes); txfree($1); }
 
   | exp ',' exp                       { $$ = PP_mkbnode(PT_OP_COMMA,  $1, $3); }
   | exp '+' exp                       { $$ = PP_mkbnode(PT_OP_PLUS,   $1, $3); }
@@ -168,11 +177,13 @@ exp:
 
 /* Called by yyparse on error.  */
 static void
-PPerror (YYLTYPE *locp, char **line, struct pnode **retval, char const *s)
+PPerror (YYLTYPE *locp, char **line, struct pnode **retval,
+         const char * const *probes, char const *s)
 {
   NG_IGNORE(locp);
   NG_IGNORE(line);
   NG_IGNORE(retval);
+  NG_IGNORE(probes);
   char *tmpstr = strstr(keepline, *line);
   int len = (int)strlen(keepline);
   fprintf (stderr, "%s: %s in line segment\n   %s\nnear\n   %*s\n",

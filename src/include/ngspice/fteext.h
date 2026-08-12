@@ -274,6 +274,15 @@ extern struct func ft_funcs[];
 extern struct func func_not;
 extern struct func func_uminus;
 extern struct pnode *ft_getpnames(const wordlist *wl, bool check);
+/* ft_getpnames() for a caller that has another meaning for some of the
+ * identifiers it is about to parse -- a formal parameter, a separator keyword.
+ * probes is a NULL terminated array of those spellings; their lookup is a
+ * probe, so a miss is the answer the caller asked for and is not reported as a
+ * case near miss.  Every other identifier in the same expression is still a
+ * resolution and still reports.  doc/codex/issues/0045,
+ * doc/claude/decisions/0010-probe-category.md. */
+extern struct pnode *ft_getpnames_probe(const wordlist *wl, bool check,
+                                        const char * const *probes);
 struct pnode *ft_getpnames_from_string(const char *sz, bool check);
 extern struct pnode *alloc_pnode(void);
 #define free_pnode(ptr)                         \
@@ -283,6 +292,9 @@ extern struct pnode *alloc_pnode(void);
     } while(0)
 extern void free_pnode_x(struct pnode *t);
 extern struct pnode* ft_getpnames_quotes(wordlist* wl, bool check);
+/* ft_getpnames_quotes() with ft_getpnames_probe()'s probe list. */
+extern struct pnode* ft_getpnames_quotes_probe(wordlist* wl, bool check,
+                                               const char * const *probes);
 
 /* plotcurve.c */
 
@@ -357,9 +369,11 @@ extern struct dvec *vec_fromplot(char *word, struct plot *plot);
 extern struct dvec *vec_copy(struct dvec *v);
 extern struct dvec *vec_get(const char *word);
 /* vec_get() for a caller whose lookup is allowed to miss -- it is defining the
- * name rather than resolving it -- so the case near-miss report is suppressed
- * and nothing else is.  doc/codex/issues/0034,
- * doc/claude/decisions/0001-distinguish.md decision 2. */
+ * name rather than resolving it, or it is probing to find out what kind of
+ * token the word is -- so the case near-miss report is suppressed and nothing
+ * else is.  doc/codex/issues/0034, doc/codex/issues/0045,
+ * doc/claude/decisions/0001-distinguish.md decision 2 and
+ * doc/claude/decisions/0010-probe-category.md. */
 extern struct dvec *vec_get_quiet(const char *word);
 extern struct dvec *vec_mkfamily(struct dvec *v);
 extern struct plot *plot_cur;
