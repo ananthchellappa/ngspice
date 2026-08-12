@@ -2,7 +2,7 @@
 
 ## Status
 
-Open. Found while measuring what remains on
+Closed. Found while measuring what remains on
 `doc/claude/specs/case-sensitive-identifiers.md`'s acceptance list after
 `doc/claude/decisions/0011-identity-lint.md`. It is the "subcircuit formal
 pins" bullet, and it turns out to be a **shipped-mode** defect rather than a
@@ -19,7 +19,7 @@ were also filed under `distinguish` and turned out to move `preserve`.
         if (eq_substr(name, name_end, table[i].t_old)) {   /* subckt.c:1705 */
 ```
 
-Its sibling forty-five lines below, matching a `.subckt` **name**, uses the
+Its sibling twenty-nine lines below, matching a `.subckt` **name**, uses the
 case-aware predicate that `doc/claude/decisions/0001-distinguish.md` decision 3
 introduced for exactly this:
 
@@ -39,9 +39,13 @@ one pin are one pin in that mode.
 
 **Silent wrong topology in a mode that has shipped.** A miss is not an error —
 `translate_node_name()` falls through to prefixing the name with the instance
-scope, so the body's `in` becomes the subcircuit-local net `x1:in` instead of
+scope, so the body's `in` becomes the subcircuit-local net `x1.in` instead of
 the caller's node, and the subcircuit is simply not connected to the outside.
 Nothing is reported.
+
+(This paragraph said `x1:in` as filed. The separator is `.`:
+`translate_node_name()` writes `bxx_putc(buffer, '.')`. Corrected with the
+Resolution.)
 
 Measured at `b48b765d8` on this deck:
 
@@ -108,4 +112,58 @@ untested; `tests/regression/case/` (`preserve`) does not either.
 
 ## Resolution
 
-Not fixed.
+Fixed. `doc/claude/decisions/0012-subcircuit-formal-pin-identity.md` is the
+record; every numbered criterion above is met.
+
+1. `gettrans()`'s formal-pin loop compares with `eq_substr_id()`. The mode that
+   moves is **`preserve`**, and the reduction is the proof rather than an
+   argument: `eq_substr_id()` is `eq_substr()` whenever `inp_case_exact_ids()`
+   is true, and that is true in `fold` and in `distinguish`. The global-node
+   probe above the loop is unchanged, as this criterion said it should be.
+2. `tests/regression/case/subckt-formal-pin-case.cir`, with the
+   consistently-spelled twin `subckt-formal-pin-case-lower.cir` beside it. It
+   carries three witnesses — formals UPPER with a lower-case body, formals
+   lower with an UPPER-case body, so a fix in only one direction does not
+   clear it, and a **nested** subcircuit with both levels' pins spelled the
+   other way, which resolves against a table whose `t_new` column the outer
+   expansion has already rewritten. RED at `b0ae03bc1` with all three voltages
+   **absent**: `Error: no such vector 2`, `4` and `6`, every one of them
+   dropped by `check.sh`'s filter, so the harness compared an empty result
+   against a three-line `.out`. The twin prints `3.0`, `6.0` and `9.0` at the
+   same commit.
+3. `tests/regression/casedist/subckt-formal-pin-case.cir`, the first deck in
+   that directory to touch a subcircuit pin. The two spellings stay two nets —
+   `v(2) = 2.0` with `x1.b` present as a net of its own, against `1.714...`
+   and no `x1.b` under `fold` — and decision 2 of
+   `doc/claude/decisions/0001-distinguish.md` is **implemented**, not
+   deferred: `report_pin_case_miss()` writes
+
+   ```
+   Warning: no subcircuit pin named 'b'; 'B' differs only in case (casemode=distinguish)
+   ```
+
+   to `cp_err`, once per formal pin per expansion. The deferral this issue
+   offered — the parser's end-of-parse scan — was measured and cannot work:
+   after expansion the body's `b` is the node `x1.b`, defined by the card that
+   mentions it, with no case variant anywhere, so `INPtermCaseCheck()` sees
+   neither half of what it looks for. The deck asserts the report and the two
+   silences that make the rule usable, of which the internal-node one is the
+   load-bearing case.
+4. The `.subckt`-name row is symmetric and already correct: `preserve` matches
+   in both directions and `distinguish` refuses in both, **loudly**, with
+   `Error: unknown subckt` at `subckt.c:391` and a stopped run. That contrast —
+   one instance card, two lookups, one loud and one silent — is what decided
+   criterion 3 in favour of implementing rather than recording the silence.
+   `settrans()` needs no edit: it is positional, pairing `gettok(&formal)` with
+   `gettok(&actual)` one row per token, and nothing in it compares a formal
+   against a formal. Its one comparison, `ng_ideq(table[i].t_new, subname)`, is
+   already case-aware and is the row that ends the loop.
+5. `make check` **279 PASS / 0 FAIL**, against 276 / 0 at the parent — the
+   three decks added here and nothing lost. The lint's baseline entry for the
+   replaced call was deleted by hand rather than regenerated, 274 → 273
+   comparisons. The sweep and the three-mode differ are in `0012`'s Evidence.
+
+Two things this did not do, both named in `0012`'s closing list: the
+**rawfile** half of the spec's acceptance bullet is still untested, and a body
+reference that misses a `.global` by case alone is still silent, because the
+probe is a hash lookup with no sibling chain to walk.

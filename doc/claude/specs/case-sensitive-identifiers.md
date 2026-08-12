@@ -399,7 +399,18 @@ fold. It is not repeated here.
   asserted by `tests/regression/casedist/node-case-split.cir` and
   `instance-case-split.cir`; `.model` names and `.param` names are too, asserted
   by `model-case-split.cir` and `param-case-split.cir`. Subcircuit formal pins
-  and the rawfile are untested.
+  are too since `doc/codex/issues/0049`, asserted by
+  `subckt-formal-pin-case.cir`, which is the first deck in that directory to
+  touch a pin — and measuring it found the bullet was not a testing gap but a
+  **`preserve`** defect, `gettrans()` matching the pin list byte-exactly, so a
+  body that spelled a pin in the other case got a silently disconnected
+  subcircuit in a mode that has shipped. The `distinguish` half is a
+  diagnostic rather than a number, `no subcircuit pin named`, because two
+  spellings are correctly two nets there;
+  `doc/claude/decisions/0012-subcircuit-formal-pin-identity.md`. **The rawfile
+  is still untested**: no deck asserts that two case-variant vectors are
+  separately present in a `-r` rawfile under `distinguish`, and that is the
+  whole of what remains on this bullet.
 - Every site in "Silent-failure sites that gate `distinguish`" either diagnoses
   or behaves correctly. **Done**: gates 2 and 4 closed the last two,
   `src/xspice/evt/evtcheck_nodes.c:720` and `src/xspice/evt/evttermi.c:304`,
@@ -430,7 +441,18 @@ fold. It is not repeated here.
   from one that is defined, is reported on `cp_err` at the end of the parse,
   asserted by `tests/regression/casedist/bsource-node-case.cir` for the number
   and by `bsource-node-case-report.cir` beside it for the text and for the
-  three silences (`doc/codex/issues/0036`). A reference that misses with **no** case
-  variant present — a plain typo — is still silent in every mode, as are the
-  `.NOISE`/`.SENS`/`.TF`/`.PSS` node references, which have the same
-  create-on-miss shape; `doc/codex/issues/0028`.
+  three silences (`doc/codex/issues/0036`). A reference that misses with **no**
+  case variant present — a plain typo — was still silent in every mode when
+  this bullet was written, as were the `.NOISE`/`.SENS`/`.TF`/`.PSS` node
+  references, which have the same create-on-miss shape.
+  **`doc/codex/issues/0028` closed both gaps on 2026-08-11**, at `17e429993`
+  and `7b18264c4`, and is recorded in
+  `doc/claude/decisions/0008-undefined-node-diagnostic.md`.
+  `INPtermCaseCheck()` is now one scan with two reports: the near-miss half
+  keeps its `distinguish` guard, and the plain-typo half —
+  `no node named '%s'; it is referenced but no card defines it` — is **mode
+  independent**, which makes it the one row of this feature that is not about
+  case. All nine other create-on-miss reference sites take
+  `INPtermInsertRef()`, so a `.SENS v(...)` on a manufactured node no longer
+  clears the bit and suppresses the report; `sens-node-case-report.cir` is the
+  guard and was RED before that change.
