@@ -4,6 +4,10 @@ How to use this repo's build to run an ngspice deck in which every identifier
 may be written in whatever case you like. Everything below was measured
 against `build-ver_50/src/ngspice`.
 
+If you are a **client program** (Xschem, a test harness, a wrapper script)
+rather than a person writing a deck, skip to §9 — the question you have is
+capability detection, and it has a one-line answer.
+
 ## 1. The command
 
 ```sh
@@ -59,6 +63,10 @@ print CaseProbe caseprobe
 
 This is the only check that survives every failure route: wrong binary,
 `.spiceinit` override, and setting the mode too late.
+
+The three-way reading depends on the `.control` text having been through the
+reader, so it holds **in a deck only**. Fed to `ngspice -p` on stdin the fold
+and preserve rows collapse; see §9.
 
 ## 3. What the mode actually means
 
@@ -162,6 +170,111 @@ SPICE_SCRIPTS=. $NG --batch -n -D casemode=distinguish deck.cir
 ```
 
 Only the `codemodel` lines are needed in that file.
+
+## 9. For a client program (Xschem, harnesses, wrappers)
+
+### Ask the right question
+
+Do not ask *"is this feature compiled in?"* Ask **"will the run I am about to
+launch be case-sensitive?"** They differ — the mode can be present but
+overridden by a `spinit`, a `.spiceinit`, or a missing flag — and only the
+second question has an actionable answer. One probe answers it correctly
+whatever the cause.
+
+**The version string is not the signal.** This build reports `ngspice-46+`
+and the featureless one `ngspice-46`, but `+` only means "a development
+build"; it is not a capability claim, and no other build advertises the
+feature in its banner.
+
+### The probe: one spawn, no temp file, ~10 ms
+
+Pipe mode takes commands on stdin and needs no netlist at all:
+
+```sh
+printf 'let CaseProbe = 1\nlet caseprobe = 2\nprint CaseProbe\nquit\n' \
+  | ngspice -p -n -D casemode=distinguish 2>/dev/null \
+  | grep -q '^CaseProbe = 1' && echo distinguish || echo folded
+```
+
+Two vectors are created whose names differ only in case. Under `distinguish`
+they are two vectors and `CaseProbe` still holds 1; otherwise the second
+assignment overwrote the first and the reply is `caseprobe = 2`. The `grep`
+is anchored because pipe mode echoes its own input back to stdout — an
+unanchored match would find the probe's own text and always succeed.
+
+Measured, using the same flags you will use for the real run:
+
+| binary | flag | result |
+| --- | --- | --- |
+| this build | `-D casemode=distinguish` | `distinguish` |
+| this build | `-D casemode=fold` or `preserve` | `folded` |
+| this build | no flag | `folded` |
+| ngspice-46 | `-D casemode=distinguish` | `folded` |
+
+The probe tests *identity* — whether two names differing only in case are two
+vectors — which is why it works in pipe mode at all, and why it is unaffected
+by how output is labelled. It answers exactly one question: **is `distinguish`
+in effect.** `preserve` reports `folded`, correctly, because `preserve` does
+not change identity.
+
+**It cannot distinguish `fold` from `preserve`,** and no pipe-mode probe can:
+`print` labels its output with the name as *typed*, and stdin is never folded
+because it is not a netlist read, so both modes reply `CaseProbe = 2`. (§2's
+three-way table works only from inside a deck, where the `.control` text has
+itself been through the reader.) To confirm `preserve` from a client, run one
+throwaway deck and look at the raw file — see the table below, which is the
+property you actually care about anyway.
+
+The featureless binary accepts the flag and reports `folded`, which is the
+correct answer to the question as posed. Run the probe with the *exact*
+argument vector you intend to use for simulations, so it inherits the same
+`spinit`/`.spiceinit` situation; then the answer is about your real runs and
+not about the binary in the abstract.
+
+### What actually changes for a schematic tool: the raw file
+
+This is the payoff, and it does not need `distinguish`. Net `MidNode`,
+instance `Vs`:
+
+| mode | raw-file `Variables:` |
+| --- | --- |
+| fold *(default, and ngspice-46)* | `v(in)`, `v(midnode)`, `i(vs)` |
+| **preserve** | `v(In)`, `v(MidNode)`, `i(Vs)` |
+| **distinguish** | `v(In)`, `v(MidNode)`, `i(Vs)` |
+
+So back-annotation labels match the schematic as drawn under either `preserve`
+or `distinguish`. If your back-annotation currently lower-cases names to match,
+that step has to become conditional — under both non-fold modes the raw file
+carries the capitals.
+
+### Which mode a schematic tool should ask for
+
+**`preserve` is very probably what you want.** It is the safe half of the
+feature: labels keep their capitals everywhere, while *identity* still folds,
+so none of §5's silent traps can fire. Measured on a deck with nets `Out`/`OUT`
+and devices `Rm`/`RM`:
+
+| mode | result |
+| --- | --- |
+| fold | rc=1, `device already exists, bail out` |
+| **preserve** | rc=1, `device already exists, bail out` — identical to fold |
+| distinguish | rc=0, two nets and two devices |
+
+Choose `distinguish` only when the user genuinely wants `Out` and `OUT` to be
+*different nets*. It is the mode that lets a schematic contain two nets
+differing only in case — and it is also the mode in which a mis-cased
+subcircuit parameter silently takes its default and a mis-cased `.global`
+silently floats, with rc=0 either way. A GUI that emits netlists
+programmatically is well placed to be consistent, but it inherits the user's
+libraries, and library names are not yours to case (§3).
+
+### If you offer it as a setting
+
+Probe once at startup with the user's configured ngspice command; if the
+result is `NGCASE=folded` when they asked for `distinguish`, say so rather
+than proceeding — that is the state in which everything looks fine and the
+numbers are quietly folded. Do not gate on exit status: rc=0 covers every
+silent trap in §5.
 
 ## Worked example
 
