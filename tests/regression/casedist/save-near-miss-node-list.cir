@@ -1,0 +1,275 @@
+* what the save near-miss report searches, and what it refuses to report
+* doc/codex/issues/0057 criterion 3.  Under distinguish a .save whose token
+* differs from a name this run has only in case is answered with decision 2's
+* words, naming the twin.  Two things have to hold together for that line to
+* be printed -- the resolution failed AND a case variant exists -- and this
+* deck is the five-way test of the second one, because the report is nothing
+* but that condition: a token that is merely absent is silent.
+*
+* NOISE and COLUMN are the two search sets, and a deck needs both.  The scan
+* walks dataNames[], the column list of the analysis that is opening a plot,
+* and then falls back to ckt->CKTnodes.  For op, dc, ac and tran the two are
+* nearly the same list, but noise, disto, sens and tf build their own columns
+* and hold none of the circuit's node voltages, so each list holds names the
+* other does not:
+*
+*   NOISE   the twin is a NODE the noise analysis has no column for, so only
+*           ckt->CKTnodes has it.  This is the fallback, and without it a
+*           noise-only deck one card away from working is told nothing.
+*           NOISE also counts the lines.  ".noise ... 1" opens two plots for
+*           one card and each plot walks the save list, so the memory that
+*           makes the unit one simulation rather than one plot is what keeps
+*           the count at 1; ".save all" is on the card so that the run
+*           survives the miss and the second plot is really opened.
+*   COLUMN  the twin is a noise COLUMN, onoise_RLoad, which carries the deck's
+*           spelling of a device name and is on no node list at all.  Only
+*           dataNames[] has it.
+*
+* NOTWIN, BOTH and SELF are the three ways the condition can fail, and each
+* is a report that must not be printed:
+*
+*   NOTWIN  no case variant anywhere.  This is the whole of what 0057 first
+*           shipped and then withdrew -- a general unresolved-name report --
+*           and it is silent.
+*   BOTH    the circuit has BOTH spellings and the save asks for one of them
+*           exactly.  Nothing is wrong with the deck; the noise analysis
+*           simply has no column for a node.  ckt_knows_name()
+*           (src/frontend/outitf.c) is what answers it, and without it the
+*           twin scan offers the other spelling of a name the deck got right.
+*   SELF    ".save all" is in force, so the named save entry is never marked
+*           used and its column is in the run anyway.  The twin scan reaches
+*           a column whose name is the token, and a scan that asked only
+*           "equal ignoring case?" would tell the deck that onoise_spectrum
+*           differs only in case from onoise_spectrum.  case_twin_p()
+*           excludes the token from its own twin scan.
+*
+*   NOISE   .save v(out) against the node Out, noise only     -> the twin is
+*                                                                named, once
+*   COLUMN  .save onoise_rload against onoise_RLoad           -> the twin is
+*                                                                named
+*   NOTWIN  .save v(nosuchnode), no case variant anywhere     -> silent
+*   BOTH    the circuit has out and OUT, .save v(out)         -> silent
+*   SELF    .save all beside .save onoise_spectrum            -> silent
+*
+* Deck shape and the reason for it are save-undef-report.cir's: the report
+* goes to cp_err, which tests/bin/check.sh neither captures nor would let
+* through its filter, so each case is a sub-deck sourced under a redirect and
+* reduced to one upper-case token on stdout.  Each silence is asserted beside
+* a positive read of the same capture, so none of them can pass on a capture
+* that was never written.
+.OPTIONS noacct
+.control
+* --- NOISE: the circuit has Out, the save asks for out, and under this mode
+* --- they are two names.  The noise analysis has neither as a column.
+echo "* NOISE a mis-cased save beside an analysis with its own columns" > snm_noise.cir
+echo ".OPTIONS noacct" >> snm_noise.cir
+echo "v1 in 0 dc 0 ac 1" >> snm_noise.cir
+echo "r1 in Out 1k" >> snm_noise.cir
+echo "r2 Out 0 1k" >> snm_noise.cir
+echo ".save all" >> snm_noise.cir
+echo ".save v(out)" >> snm_noise.cir
+echo ".noise v(Out) v1 dec 2 1 100 1" >> snm_noise.cir
+echo ".control" >> snm_noise.cir
+echo "run" >> snm_noise.cir
+echo ".endc" >> snm_noise.cir
+echo ".end" >> snm_noise.cir
+source snm_noise.cir >& snm_noise.txt
+set twin1 = 0
+let tlines = 0
+set n1 = 1
+fopen f1 snm_noise.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "'Out' differs only in case"
+  if $p1 >= 0
+    set twin1 = 1
+    let tlines = tlines + 1
+  end
+end
+fclose $f1
+if $twin1 > 0
+  echo NOISE-TWIN-NAMED
+else
+  echo NOISE-TWIN-MISSED
+end
+print tlines
+* --- COLUMN: the twin is a column of the noise analysis and not a node of
+* --- the circuit at all.  onoise_RLoad carries the deck's spelling of the
+* --- device name, so only dataNames[] can answer this one.
+echo "* COLUMN a mis-cased save of a column named after a device" > snm_col.cir
+echo ".OPTIONS noacct" >> snm_col.cir
+echo "v1 in 0 dc 0 ac 1" >> snm_col.cir
+echo "RLoad in out 1k" >> snm_col.cir
+echo "r2 out 0 1k" >> snm_col.cir
+echo ".save all" >> snm_col.cir
+echo ".save onoise_rload" >> snm_col.cir
+echo ".noise v(out) v1 dec 2 1 100 1" >> snm_col.cir
+echo ".control" >> snm_col.cir
+echo "run" >> snm_col.cir
+echo ".endc" >> snm_col.cir
+echo ".end" >> snm_col.cir
+source snm_col.cir >& snm_col.txt
+set twin5 = 0
+set n5 = 1
+fopen f5 snm_col.txt r
+while $n5 >= 0
+  set capline = "no_line_read"
+  fread capline $f5 n5
+  strstr p5 "_$capline" "'onoise_RLoad' differs only in case"
+  if $p5 >= 0
+    set twin5 = 1
+  end
+end
+fclose $f5
+if $twin5 > 0
+  echo COLUMN-TWIN-NAMED
+else
+  echo COLUMN-TWIN-MISSED
+end
+* --- NOTWIN: the same analysis, a token with no case variant anywhere.  The
+* --- fallback must find a twin, not merely fail to find a column.
+echo "* NOTWIN a save with no case variant beside the same analysis" > snm_notwin.cir
+echo ".OPTIONS noacct" >> snm_notwin.cir
+echo "v1 in 0 dc 0 ac 1" >> snm_notwin.cir
+echo "r1 in Out 1k" >> snm_notwin.cir
+echo "r2 Out 0 1k" >> snm_notwin.cir
+echo ".save v(nosuchnode)" >> snm_notwin.cir
+echo ".noise v(Out) v1 dec 2 1 100" >> snm_notwin.cir
+echo ".control" >> snm_notwin.cir
+echo "run" >> snm_notwin.cir
+echo ".endc" >> snm_notwin.cir
+echo ".end" >> snm_notwin.cir
+source snm_notwin.cir >& snm_notwin.txt
+set said2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 snm_notwin.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "nosuchnode"
+  if $p2 >= 0
+    set said2 = 1
+  end
+  strstr r2 "_$capline" "a save with no case variant"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $said2 > 0
+  echo NOTWIN-TOKEN-NAMED
+else
+  echo NOTWIN-SILENT
+end
+if $read2 > 0
+  echo NOTWIN-CAPTURE-READ
+else
+  echo NOTWIN-CAPTURE-EMPTY
+end
+* --- BOTH: the circuit has out and OUT, and the save asks for out exactly.
+* --- The deck is right and the analysis simply has no column for a node.
+echo "* BOTH a save spelled as one of two nets that differ only in case" > snm_both.cir
+echo ".OPTIONS noacct" >> snm_both.cir
+echo "v1 in 0 dc 0 ac 1" >> snm_both.cir
+echo "r1 in out 1k" >> snm_both.cir
+echo "r2 out 0 1k" >> snm_both.cir
+echo "r3 in OUT 2k" >> snm_both.cir
+echo "r4 OUT 0 2k" >> snm_both.cir
+echo ".save all" >> snm_both.cir
+echo ".save v(out)" >> snm_both.cir
+echo ".noise v(out) v1 dec 2 1 100" >> snm_both.cir
+echo ".control" >> snm_both.cir
+echo "run" >> snm_both.cir
+echo ".endc" >> snm_both.cir
+echo ".end" >> snm_both.cir
+source snm_both.cir >& snm_both.txt
+set said3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 snm_both.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "differs only in case"
+  if $p3 >= 0
+    set said3 = 1
+  end
+  strstr r3 "_$capline" "a save spelled as one of two nets"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $said3 > 0
+  echo BOTH-TWIN-NAMED
+else
+  echo BOTH-SILENT
+end
+if $read3 > 0
+  echo BOTH-CAPTURE-READ
+else
+  echo BOTH-CAPTURE-EMPTY
+end
+* --- SELF: ".save all" leaves the named entry unmarked and its column in the
+* --- run, so the twin scan meets the token itself.  That is not a near miss.
+echo "* SELF a named save beside a save of everything" > snm_self.cir
+echo ".OPTIONS noacct" >> snm_self.cir
+echo "v1 in 0 dc 0 ac 1" >> snm_self.cir
+echo "r1 in out 1k" >> snm_self.cir
+echo "r2 out 0 1k" >> snm_self.cir
+echo ".save all" >> snm_self.cir
+echo ".save onoise_spectrum" >> snm_self.cir
+echo ".noise v(out) v1 dec 2 1 100 1" >> snm_self.cir
+echo ".control" >> snm_self.cir
+echo "run" >> snm_self.cir
+echo "setplot noise1" >> snm_self.cir
+echo "let ospk = maximum(onoise_spectrum)" >> snm_self.cir
+echo "if ospk > 0" >> snm_self.cir
+echo "  echo spectrumresolved" >> snm_self.cir
+echo "end" >> snm_self.cir
+echo ".endc" >> snm_self.cir
+echo ".end" >> snm_self.cir
+source snm_self.cir >& snm_self.txt
+set said4 = 0
+set vec4 = 0
+set n4 = 1
+fopen f4 snm_self.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "differs only in case"
+  if $p4 >= 0
+    set said4 = 1
+  end
+  strstr q4 "_$capline" "spectrumresolved"
+  if $q4 >= 0
+    set vec4 = 1
+  end
+end
+fclose $f4
+if $said4 > 0
+  echo SELF-TWIN-NAMED
+else
+  echo SELF-SILENT
+end
+if $vec4 > 0
+  echo SELF-VECTOR-PRESENT
+else
+  echo SELF-VECTOR-ABSENT
+end
+* Batch mode runs the analyses of whichever circuit is current when this block
+* ends, and every sub-deck above carries one, so the last thing sourced is a
+* circuit with no analysis in it.  save-undef-report.cir's reason.
+echo "* END a circuit with no analysis in it" > snm_end.cir
+echo ".OPTIONS noacct" >> snm_end.cir
+echo "v9 tail 0 dc 1" >> snm_end.cir
+echo "r9 tail 0 1k" >> snm_end.cir
+echo ".end" >> snm_end.cir
+source snm_end.cir
+op
+print v(tail)
+destroy all
+.endc
+.end

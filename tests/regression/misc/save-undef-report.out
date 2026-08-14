@@ -1,0 +1,68 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * an unresolved .save name is not named, and that is the decided contract
+
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+SAVE-OK-SILENT
+SAVE-OK-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+SAVE-TOTAL-NOT-NAMED
+SAVE-TOTAL-RUN-ERROR
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+SAVE-PARTIAL-NOT-NAMED
+SAVE-PARTIAL-CAPTURE-READ
+plen = 1.000000e+00
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+SAVE-ALL-SILENT
+SAVE-ALL-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+SAVE-ALLMISS-NOT-NAMED
+SAVE-ALLMISS-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+
+Circuit: * end a circuit with no analysis in it
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+v(tail) = 1.000000e+00
+Note: Simulation executed from .control section 

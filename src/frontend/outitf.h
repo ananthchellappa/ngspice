@@ -54,6 +54,7 @@ int OUTpData(runDesc *plotPtr, IFvalue *refValue, IFvalue *valuePtr);
 int OUTendPlot(runDesc *plotPtr);
 int OUTattributes(runDesc *plotPtr, IFuid varName, int param, IFvalue *value);
 int OUTstopnow(void);
+void OUTsaveMissClear(void);
 void OUTerror(int flags, char *format, IFuid *names);
 
 #ifdef __GNUC__

@@ -1,0 +1,158 @@
+* a save naming an XSPICE event node is not a missing vector
+* doc/codex/issues/0057, in the DEFAULT case mode.  A mixed-signal deck that
+* saves an event node is correct: the node exists, the analog analysis simply
+* has no column for it, and stock ngspice-46 says nothing.  The report 0057
+* first shipped -- every unresolved .save token, in every mode -- said
+* 'Warning: no vector named 'dout'; a save asks for it but the analysis has no
+* such variable' on exactly this deck, with rc 0 and eprint returning full
+* event data for the same name in the same run.  That was the third false
+* positive of the same shape, and the answer was to re-condition the report
+* rather than to add a third guard: it now fires only when the resolution
+* fails AND a name differing from the token only in case is among the ones the
+* run has, which is decision 2 of doc/claude/decisions/0001-distinguish.md at
+* :76-78.
+*
+* In this mode the reader lowercases every card, so no two names in the deck
+* can differ only in case and nothing here can produce the report at all.
+* That is what the deck asserts, for both a name the circuit has and a name it
+* does not: the two shipped modes print what they have always printed.  The
+* mode where the report exists is distinguish, and the mixed-signal half of it
+* is tests/xspice/casedist/save-event-node-case-split.cir, which has the
+* event-node cases with an analog case variant beside them.
+*
+* The report goes to cp_err, which tests/bin/check.sh neither captures nor
+* would let through its filter, so each case is a sub-deck sourced under a
+* redirect and reduced to one upper-case token on stdout -- the shape
+* tests/regression/misc/save-multianalysis-report.cir uses and for the same
+* reason.  EVENT asserts a silence, so it also asserts two positive things
+* about the same capture: that eprint found the node, and that the capture
+* holds the sub-deck's own title line.  Without the second, a silence
+* assertion passes on a capture that was never written.
+*
+*   EVENT   a save naming an event node        -> silent, and the node is there
+*   ABSENT  a save naming nothing at all       -> silent too
+.OPTIONS noacct
+.control
+* --- EVENT: dout is an event node, driven by the inverter and read by the
+* --- output bridge.  The tran analysis has no column for it, and that is not
+* --- a mistake by anybody.
+echo "* EVENT a save naming an event node of this circuit" > sen_evt.cir
+echo ".OPTIONS noacct" >> sen_evt.cir
+echo "v1 in 0 dc 0 pulse(0 1 0 1n 1n 5n 10n)" >> sen_evt.cir
+echo "abridge1 [in] [din] adc" >> sen_evt.cir
+echo ".model adc adc_bridge(in_low=0.3 in_high=0.7)" >> sen_evt.cir
+echo "ainv din dout inv" >> sen_evt.cir
+echo ".model inv d_inverter(rise_delay=1n fall_delay=1n)" >> sen_evt.cir
+echo "abridge2 [dout] [aout] dac" >> sen_evt.cir
+echo ".model dac dac_bridge(out_low=0 out_high=1)" >> sen_evt.cir
+echo "rl aout 0 1k" >> sen_evt.cir
+echo ".save v(aout) v(dout)" >> sen_evt.cir
+echo ".tran 1n 20n" >> sen_evt.cir
+echo ".control" >> sen_evt.cir
+echo "run" >> sen_evt.cir
+echo "eprint dout" >> sen_evt.cir
+echo ".endc" >> sen_evt.cir
+echo ".end" >> sen_evt.cir
+source sen_evt.cir >& sen_evt.txt
+set found1 = 0
+set node1 = 0
+set read1 = 0
+set n1 = 1
+fopen f1 sen_evt.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr q1 "_$capline" "is not an event node"
+  if $q1 >= 0
+    set node1 = 1
+  end
+  strstr r1 "_$capline" "a save naming an event node"
+  if $r1 >= 0
+    set read1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo EVENT-SAVE-REPORTED
+else
+  echo EVENT-SAVE-SILENT
+end
+if $node1 > 0
+  echo EVENT-NODE-ABSENT
+else
+  echo EVENT-NODE-PRESENT
+end
+if $read1 > 0
+  echo EVENT-CAPTURE-READ
+else
+  echo EVENT-CAPTURE-EMPTY
+end
+* --- ABSENT: the same circuit, a name it does not have anywhere -- not on the
+* --- node list and not in the event node table.  There is no case variant of
+* --- it either, so there is nothing for this diagnostic to say.
+echo "* ABSENT a save naming nothing this circuit has" > sen_abs.cir
+echo ".OPTIONS noacct" >> sen_abs.cir
+echo "v1 in 0 dc 0 pulse(0 1 0 1n 1n 5n 10n)" >> sen_abs.cir
+echo "abridge1 [in] [din] adc" >> sen_abs.cir
+echo ".model adc adc_bridge(in_low=0.3 in_high=0.7)" >> sen_abs.cir
+echo "ainv din dout inv" >> sen_abs.cir
+echo ".model inv d_inverter(rise_delay=1n fall_delay=1n)" >> sen_abs.cir
+echo "abridge2 [dout] [aout] dac" >> sen_abs.cir
+echo ".model dac dac_bridge(out_low=0 out_high=1)" >> sen_abs.cir
+echo "rl aout 0 1k" >> sen_abs.cir
+echo ".save all" >> sen_abs.cir
+echo ".save v(nosuchnode)" >> sen_abs.cir
+echo ".tran 1n 20n" >> sen_abs.cir
+echo ".control" >> sen_abs.cir
+echo "run" >> sen_abs.cir
+echo ".endc" >> sen_abs.cir
+echo ".end" >> sen_abs.cir
+source sen_abs.cir >& sen_abs.txt
+set found2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 sen_abs.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "nosuchnode"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr r2 "_$capline" "a save naming nothing this circuit has"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo ABSENT-NAME-REPORTED
+else
+  echo ABSENT-NAME-SILENT
+end
+if $read2 > 0
+  echo ABSENT-CAPTURE-READ
+else
+  echo ABSENT-CAPTURE-EMPTY
+end
+* Batch mode runs the analyses of whichever circuit is current when this block
+* ends, and both sub-decks above carry one, so the last thing sourced is a
+* circuit with no analysis in it.  save-multianalysis-report.cir's reason:
+* 'remcirc' segfaults with a rawfile requested, doc/codex/issues/0042, and
+* this directory's harness always requests one.  The plots are destroyed so
+* that nothing is written from them.
+echo "* END a circuit with no analysis in it" > sen_end.cir
+echo ".OPTIONS noacct" >> sen_end.cir
+echo "v9 tail 0 dc 1" >> sen_end.cir
+echo "r9 tail 0 1k" >> sen_end.cir
+echo ".end" >> sen_end.cir
+source sen_end.cir
+op
+print v(tail)
+destroy all
+.endc
+.end

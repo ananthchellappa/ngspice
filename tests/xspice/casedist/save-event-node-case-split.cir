@@ -1,0 +1,188 @@
+* what a mixed-signal circuit's second node list does to the save near miss
+* doc/codex/issues/0057 criterion 3, in casemode=distinguish, which is the
+* only mode the report exists in.  A .save token that misses is answered only
+* when a name differing from it only in case is among the ones this run has;
+* a mixed-signal circuit has two lists of such names and they are not asked
+* the same way.
+*
+* TWIN is the one that needs code.  ckt->CKTnodes carries the analog node
+* DOUT and ckt->evt->info.node_table carries the event node dout, and the
+* save asks for dout, which the circuit HAS.  Nothing is wrong with the deck,
+* and the tran analysis simply has no column for an event node.  The event
+* table is asked through Evt_Ckt_Has_Node() (src/xspice/evt/evtplot.c) from
+* ckt_knows_name() (src/frontend/outitf.c); with only CKTnodes asked, the
+* twin scan finds DOUT and offers it as the case variant of a name the deck
+* spelled exactly right.
+*
+* SPLIT is the stated gap.  DOUT against the event node dout, with no analog
+* node of either spelling, is a real case mistake and is NOT reported here:
+* the twin scan walks the analog node list only, because the event table
+* answers to Evt_Node_Name_Eq() and a folding scan of it would be a second
+* lookup shape over the same table.  An event node with a case variant has
+* its own diagnostic, EVTnode_case_check() (src/xspice/evt/evttermi.c,
+* doc/claude/decisions/0003), which fires for an event node nothing drives --
+* dout is driven, so nothing speaks.  The deck asserts the silence so that
+* the gap is a measured fact rather than an assumption, and so that closing
+* it later is a visible change.
+*
+* NEAR is the control: the same mixed-signal circuit, a save that misses an
+* ANALOG node by case, reported.  Without it every assertion in this file
+* would be a silence and the deck would pass against a report that had been
+* deleted.
+*
+*   TWIN    .save v(dout), event dout beside analog DOUT -> silent
+*   SPLIT   .save v(DOUT), event dout, no analog twin    -> silent (gap)
+*   NEAR    .save v(AOUT), the analog node is aout       -> names 'aout'
+*
+* Deck shape is save-event-node.cir's, and for its reason: the report goes to
+* cp_err, which tests/bin/check.sh neither captures nor would let through its
+* filter, so each case is a sub-deck sourced under a redirect and reduced to
+* one upper-case token on stdout.  Each silence is asserted beside a positive
+* read of the same capture.
+.OPTIONS noacct
+.control
+* --- TWIN: the analog node DOUT and the event node dout are two names here,
+* --- and the save asks for the one the event table has
+echo "* TWIN a save of an event node beside an analog node spelled the other way" > ses_twin.cir
+echo ".OPTIONS noacct" >> ses_twin.cir
+echo "v1 in 0 dc 0 pulse(0 1 0 1n 1n 5n 10n)" >> ses_twin.cir
+echo "abridge1 [in] [din] adc" >> ses_twin.cir
+echo ".model adc adc_bridge(in_low=0.3 in_high=0.7)" >> ses_twin.cir
+echo "ainv din dout inv" >> ses_twin.cir
+echo ".model inv d_inverter(rise_delay=1n fall_delay=1n)" >> ses_twin.cir
+echo "abridge2 [dout] [aout] dac" >> ses_twin.cir
+echo ".model dac dac_bridge(out_low=0 out_high=1)" >> ses_twin.cir
+echo "rl aout 0 1k" >> ses_twin.cir
+echo "v2 DOUT 0 dc 1" >> ses_twin.cir
+echo "rx DOUT 0 2k" >> ses_twin.cir
+echo ".save v(aout) v(dout)" >> ses_twin.cir
+echo ".tran 1n 20n" >> ses_twin.cir
+echo ".control" >> ses_twin.cir
+echo "run" >> ses_twin.cir
+echo ".endc" >> ses_twin.cir
+echo ".end" >> ses_twin.cir
+source ses_twin.cir >& ses_twin.txt
+set found1 = 0
+set read1 = 0
+set n1 = 1
+fopen f1 ses_twin.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr r1 "_$capline" "a save of an event node beside an analog node"
+  if $r1 >= 0
+    set read1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo TWIN-SAVE-REPORTED
+else
+  echo TWIN-SAVE-SILENT
+end
+if $read1 > 0
+  echo TWIN-CAPTURE-READ
+else
+  echo TWIN-CAPTURE-EMPTY
+end
+* --- SPLIT: DOUT is not dout here, and the twin that would say so is on the
+* --- event list, which this scan does not walk.  The recorded gap.
+echo "* SPLIT a save spelled DOUT against the event node dout" > ses_split.cir
+echo ".OPTIONS noacct" >> ses_split.cir
+echo "v1 in 0 dc 0 pulse(0 1 0 1n 1n 5n 10n)" >> ses_split.cir
+echo "abridge1 [in] [din] adc" >> ses_split.cir
+echo ".model adc adc_bridge(in_low=0.3 in_high=0.7)" >> ses_split.cir
+echo "ainv din dout inv" >> ses_split.cir
+echo ".model inv d_inverter(rise_delay=1n fall_delay=1n)" >> ses_split.cir
+echo "abridge2 [dout] [aout] dac" >> ses_split.cir
+echo ".model dac dac_bridge(out_low=0 out_high=1)" >> ses_split.cir
+echo "rl aout 0 1k" >> ses_split.cir
+echo ".save v(aout) v(DOUT)" >> ses_split.cir
+echo ".tran 1n 20n" >> ses_split.cir
+echo ".control" >> ses_split.cir
+echo "run" >> ses_split.cir
+echo ".endc" >> ses_split.cir
+echo ".end" >> ses_split.cir
+source ses_split.cir >& ses_split.txt
+set found2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 ses_split.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "no vector named"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr r2 "_$capline" "a save spelled DOUT"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo SPLIT-SAVE-REPORTED
+else
+  echo SPLIT-SAVE-SILENT
+end
+if $read2 > 0
+  echo SPLIT-CAPTURE-READ
+else
+  echo SPLIT-CAPTURE-EMPTY
+end
+* --- NEAR: the same circuit, a save that misses an analog node by case.  The
+* --- report is alive in a mixed-signal deck, which is what makes the two
+* --- silences above assertions and not accidents.
+echo "* NEAR a save spelled AOUT against the analog node aout" > ses_near.cir
+echo ".OPTIONS noacct" >> ses_near.cir
+echo "v1 in 0 dc 0 pulse(0 1 0 1n 1n 5n 10n)" >> ses_near.cir
+echo "abridge1 [in] [din] adc" >> ses_near.cir
+echo ".model adc adc_bridge(in_low=0.3 in_high=0.7)" >> ses_near.cir
+echo "ainv din dout inv" >> ses_near.cir
+echo ".model inv d_inverter(rise_delay=1n fall_delay=1n)" >> ses_near.cir
+echo "abridge2 [dout] [aout] dac" >> ses_near.cir
+echo ".model dac dac_bridge(out_low=0 out_high=1)" >> ses_near.cir
+echo "rl aout 0 1k" >> ses_near.cir
+echo ".save v(aout) v(AOUT)" >> ses_near.cir
+echo ".tran 1n 20n" >> ses_near.cir
+echo ".control" >> ses_near.cir
+echo "run" >> ses_near.cir
+echo ".endc" >> ses_near.cir
+echo ".end" >> ses_near.cir
+source ses_near.cir >& ses_near.txt
+set found3 = 0
+set n3 = 1
+fopen f3 ses_near.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "'aout' differs only in case"
+  if $p3 >= 0
+    set found3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo NEAR-SAVE-NEARMISS
+else
+  echo NEAR-SAVE-NO-NEARMISS
+end
+* Batch mode runs the analyses of whichever circuit is current when this block
+* ends, and every sub-deck above carries one, so the last thing sourced is a
+* circuit with no analysis in it.  save-event-node.cir's reason.
+echo "* END a circuit with no analysis in it" > ses_end.cir
+echo ".OPTIONS noacct" >> ses_end.cir
+echo "v9 tail 0 dc 1" >> ses_end.cir
+echo "r9 tail 0 1k" >> ses_end.cir
+echo ".end" >> ses_end.cir
+source ses_end.cir
+op
+print v(tail)
+destroy all
+.endc
+.end

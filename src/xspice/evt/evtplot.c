@@ -67,6 +67,41 @@ bool Evt_Node_Name_Eq(const char *query, const char *stored)
 }
 
 
+/* Does this circuit have an event node by this name?  A membership test and
+ * nothing more: no member qualifier is parsed, no index is returned and no
+ * string is allocated, because the one caller -- ckt_knows_name() in
+ * src/frontend/outitf.c, deciding whether an unresolved .save token names
+ * something this circuit has -- asks about the name and not about the data.
+ * It takes the circuit rather than reading g_mif_info.ckt so that the answer
+ * is about the circuit the run belongs to.  Evt_Node_Name_Eq() keeps it on
+ * the same case rule as Evt_Parse_Node() below, which is the point: under
+ * 'distinguish' a save spelled DOUT does not name the node dout, and must
+ * still be reported.  doc/codex/issues/0057.
+ */
+
+bool Evt_Ckt_Has_Node(CKTcircuit *ckt, const char *name)
+{
+    Evt_Ckt_Data_t   *evt;
+    Evt_Node_Info_t **node_table;
+    int               i, num_nodes;
+
+    if (!ckt)
+        return FALSE;
+    evt = ckt->evt;
+    if (!evt || !evt->info.node_table)
+        return FALSE;
+
+    node_table = evt->info.node_table;
+    num_nodes = evt->counts.num_nodes;
+
+    for (i = 0; i < num_nodes; i++)
+        if (Evt_Node_Name_Eq(name, node_table[i]->name))
+            return TRUE;
+
+    return FALSE;
+}
+
+
 /* Parse member qualifier from node name and find node index.
  * The node name may be qualified by a member name for nodes with
  * composite values such as Digital_t, as in "node_name(state)".

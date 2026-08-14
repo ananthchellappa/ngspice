@@ -1,0 +1,278 @@
+* an unresolved .save name is not named, and that is the decided contract
+* doc/codex/issues/0057, in the DEFAULT case mode.  This deck is the record of
+* a report that was written, measured, and withdrawn.
+*
+* 0057 was filed because a .save that cannot resolve a name says nothing
+* anywhere about which name.  The first fix reported every unresolved save
+* token, in every mode, whether or not a case variant existed.  Three rounds
+* of adversarial verification each found another CORRECT deck that report
+* fired on -- a multi-analysis deck, a .noise column of the plot the analysis
+* opens second, an XSPICE event node, a token gettoks() had already reduced to
+* a fragment, and two shipped decks under examples/ -- and each round answered
+* with another guard.  A condition that needs a new guard per round is the
+* wrong condition, so the report was re-conditioned on the one thing the tree
+* had already decided: decision 2 of doc/claude/decisions/0001-distinguish.md
+* at :76-78 warns when a resolution fails AND a name differing only in case
+* exists.  Both halves, together.
+*
+* What that leaves in this mode is the behaviour ngspice has always had, and
+* every case below asserts it.  The circuit's names are all lower case here
+* and the reader folds every card anyway, so no case variant of anything can
+* exist, so nothing this deck does can produce the report at all.  That is the
+* point: a correct deck and a deck with a typo in a .save both stay silent in
+* the two shipped modes, and re-widening the condition fails every case here.
+* The near miss, which is the report that survived, is
+* tests/regression/casedist/save-undef-report.cir.
+*
+* The run-level error at src/frontend/outitf.c is unchanged and is not this
+* diagnostic: it names the analysis, it is raised only when EVERY save name
+* missed, and it says nothing about a token.  TOTAL's capture holds it and
+* PARTIAL's does not, which is the asymmetry the issue is about and which this
+* fix does not close.
+*
+*   OK       every save name resolves                  -> silent
+*   TOTAL    the only save name misses                 -> the token is not named
+*   PARTIAL  one resolves, one misses, the run ends 0  -> the token is not named
+*   ALL      a named save beside ".save all"           -> silent, it is saved
+*   ALLMISS  an absent name beside ".save all"         -> the token is not named
+*
+* Deck shape and the reason for it are dotcard-undef-node-report.cir's, and
+* doc/claude/decisions/0006-diagnostic-deck-coverage.md decision 2: the report
+* would go to cp_err, which tests/bin/check.sh neither captures nor would let
+* through its filter, so each case is a sub-deck sourced under a redirect and
+* reduced to one upper-case token on stdout.  Every case asserts a SILENCE, so
+* every case also asserts something positive about the same capture -- a
+* phrase from its own title line, which the default reader has lower cased --
+* so that it cannot pass on a capture that was never read.  The sur_* names
+* are lower case for that same fold.
+.OPTIONS noacct
+.control
+* --- OK: the save list resolves, so nothing is reported
+echo "* OK a save list that resolves" > sur_ok.cir
+echo ".OPTIONS noacct" >> sur_ok.cir
+echo "v1 in 0 dc 1" >> sur_ok.cir
+echo "r1 in out 1k" >> sur_ok.cir
+echo "r2 out 0 1k" >> sur_ok.cir
+echo ".save v(out)" >> sur_ok.cir
+echo ".dc v1 1 1 1" >> sur_ok.cir
+echo ".control" >> sur_ok.cir
+echo "run" >> sur_ok.cir
+echo ".endc" >> sur_ok.cir
+echo ".end" >> sur_ok.cir
+source sur_ok.cir >& sur_ok.txt
+set found1 = 0
+set read1 = 0
+set n1 = 1
+fopen f1 sur_ok.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr r1 "_$capline" "a save list that resolves"
+  if $r1 >= 0
+    set read1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo SAVE-OK-REPORTED
+else
+  echo SAVE-OK-SILENT
+end
+if $read1 > 0
+  echo SAVE-OK-CAPTURE-READ
+else
+  echo SAVE-OK-CAPTURE-EMPTY
+end
+* --- TOTAL: the only save name misses.  The run-level error is raised and
+* --- names the analysis; nothing names the token.
+echo "* TOTAL a save of a name no card defines" > sur_total.cir
+echo ".OPTIONS noacct" >> sur_total.cir
+echo "v1 in 0 dc 1" >> sur_total.cir
+echo "r1 in out 1k" >> sur_total.cir
+echo "r2 out 0 1k" >> sur_total.cir
+echo ".save v(nosuchnode)" >> sur_total.cir
+echo ".dc v1 1 1 1" >> sur_total.cir
+echo ".control" >> sur_total.cir
+echo "run" >> sur_total.cir
+echo ".endc" >> sur_total.cir
+echo ".end" >> sur_total.cir
+source sur_total.cir >& sur_total.txt
+set found2 = 0
+set err2 = 0
+set n2 = 1
+fopen f2 sur_total.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "nosuchnode"
+  if $p2 >= 0
+    set found2 = 1
+  end
+  strstr q2 "_$capline" "no data saved"
+  if $q2 >= 0
+    set err2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo SAVE-TOTAL-NAMED
+else
+  echo SAVE-TOTAL-NOT-NAMED
+end
+if $err2 > 0
+  echo SAVE-TOTAL-RUN-ERROR
+else
+  echo SAVE-TOTAL-NO-RUN-ERROR
+end
+* --- PARTIAL: one name resolves and one does not.  The analysis runs, the
+* --- process ends 0, and this is the shape the issue was filed for: every
+* --- channel a consumer has says the run was fine and a signal is missing.
+echo "* PARTIAL one save name resolves and one does not" > sur_part.cir
+echo ".OPTIONS noacct" >> sur_part.cir
+echo "v1 in 0 dc 1" >> sur_part.cir
+echo "r1 in out 1k" >> sur_part.cir
+echo "r2 out 0 1k" >> sur_part.cir
+echo ".save v(out) v(nosuchnode)" >> sur_part.cir
+echo ".dc v1 1 1 1" >> sur_part.cir
+echo ".control" >> sur_part.cir
+echo "run" >> sur_part.cir
+echo ".endc" >> sur_part.cir
+echo ".end" >> sur_part.cir
+source sur_part.cir >& sur_part.txt
+set found3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 sur_part.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "nosuchnode"
+  if $p3 >= 0
+    set found3 = 1
+  end
+  strstr r3 "_$capline" "one save name resolves and one does not"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo SAVE-PARTIAL-NAMED
+else
+  echo SAVE-PARTIAL-NOT-NAMED
+end
+if $read3 > 0
+  echo SAVE-PARTIAL-CAPTURE-READ
+else
+  echo SAVE-PARTIAL-CAPTURE-EMPTY
+end
+* read off the plot the sourced deck left current
+let plen = 0
+let plen = length(v(out))
+print plen
+* --- ALL: ".save all" saves everything, so the named save beside it is in the
+* --- plot even though no pass ever marked it used
+echo "* ALL a named save beside a save of everything" > sur_all.cir
+echo ".OPTIONS noacct" >> sur_all.cir
+echo "v1 in 0 dc 1" >> sur_all.cir
+echo "r1 in out 1k" >> sur_all.cir
+echo "r2 out 0 1k" >> sur_all.cir
+echo ".save all" >> sur_all.cir
+echo ".save v(out)" >> sur_all.cir
+echo ".dc v1 1 1 1" >> sur_all.cir
+echo ".control" >> sur_all.cir
+echo "run" >> sur_all.cir
+echo ".endc" >> sur_all.cir
+echo ".end" >> sur_all.cir
+source sur_all.cir >& sur_all.txt
+set found4 = 0
+set read4 = 0
+set n4 = 1
+fopen f4 sur_all.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "no vector named"
+  if $p4 >= 0
+    set found4 = 1
+  end
+  strstr r4 "_$capline" "a named save beside a save of everything"
+  if $r4 >= 0
+    set read4 = 1
+  end
+end
+fclose $f4
+if $found4 > 0
+  echo SAVE-ALL-REPORTED
+else
+  echo SAVE-ALL-SILENT
+end
+if $read4 > 0
+  echo SAVE-ALL-CAPTURE-READ
+else
+  echo SAVE-ALL-CAPTURE-EMPTY
+end
+* --- ALLMISS: ".save all" does not make an absent name exist, and the absent
+* --- name is not named here either
+echo "* ALLMISS an absent name beside a save of everything" > sur_allmiss.cir
+echo ".OPTIONS noacct" >> sur_allmiss.cir
+echo "v1 in 0 dc 1" >> sur_allmiss.cir
+echo "r1 in out 1k" >> sur_allmiss.cir
+echo "r2 out 0 1k" >> sur_allmiss.cir
+echo ".save all" >> sur_allmiss.cir
+echo ".save v(nosuchnode)" >> sur_allmiss.cir
+echo ".dc v1 1 1 1" >> sur_allmiss.cir
+echo ".control" >> sur_allmiss.cir
+echo "run" >> sur_allmiss.cir
+echo ".endc" >> sur_allmiss.cir
+echo ".end" >> sur_allmiss.cir
+source sur_allmiss.cir >& sur_allmiss.txt
+set found5 = 0
+set read5 = 0
+set n5 = 1
+fopen f5 sur_allmiss.txt r
+while $n5 >= 0
+  set capline = "no_line_read"
+  fread capline $f5 n5
+  strstr p5 "_$capline" "nosuchnode"
+  if $p5 >= 0
+    set found5 = 1
+  end
+  strstr r5 "_$capline" "an absent name beside a save of everything"
+  if $r5 >= 0
+    set read5 = 1
+  end
+end
+fclose $f5
+if $found5 > 0
+  echo SAVE-ALLMISS-NAMED
+else
+  echo SAVE-ALLMISS-NOT-NAMED
+end
+if $read5 > 0
+  echo SAVE-ALLMISS-CAPTURE-READ
+else
+  echo SAVE-ALLMISS-CAPTURE-EMPTY
+end
+* Batch mode runs the analyses of whichever circuit is current when this block
+* ends, and every sub-deck above carries one; the last thing sourced is
+* therefore a circuit with no analysis in it, and the op and print below are
+* what say that source worked.  dotcard-undef-node-report.cir's reason, and
+* its warning too: 'remcirc' segfaults with a rawfile requested,
+* doc/codex/issues/0042.  The plots are destroyed so that no rawfile is
+* written from them.
+echo "* END a circuit with no analysis in it" > sur_end.cir
+echo ".OPTIONS noacct" >> sur_end.cir
+echo "v9 tail 0 dc 1" >> sur_end.cir
+echo "r9 tail 0 1k" >> sur_end.cir
+echo ".end" >> sur_end.cir
+source sur_end.cir
+op
+print v(tail)
+destroy all
+.endc
+.end

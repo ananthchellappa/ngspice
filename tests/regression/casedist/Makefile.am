@@ -18,7 +18,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	bsource-node-case-report.cir sens-node-case-report.cir \
 	vector-let-report.cir vector-probe-report.cir \
 	vector-pyplot-probe-report.cir subckt-formal-pin-case.cir \
-	udf-name-case.cir save-name-case.cir
+	udf-name-case.cir save-name-case.cir save-undef-report.cir \
+	save-near-miss-node-list.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -53,7 +54,16 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # subckt-formal-pin-case.cir writes its sub-decks and captures for
 # bsource-node-case-report.cir's reason: the near-miss it asserts on is
 # written during inp_subcktexpand(), before any control line runs.
+# save-undef-report.cir writes its sub-decks and captures for
+# bsource-node-case-report.cir's reason, except that its diagnostic is written
+# during the run rather than during the parse: the redirect has to be in force
+# across the 'source' that runs the sub-deck carrying the .save card.
+# save-near-miss-node-list.cir has save-undef-report.cir's shape and its
+# reason, for the twin scan's fallback to the circuit's node list: the deck it
+# needs has an analysis that builds its own column list, so the miss cannot be
+# reached from the outer deck's own circuit.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
+	sur_*.txt sur_*.cir snm_*.txt snm_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
 	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir \
 	vpr_*.txt vpr_*.svg VPR_*.CIR vpp_*.txt sfp_*.txt sfp_*.cir

@@ -1,0 +1,197 @@
+* a save name the running analysis has no column for is not a mistake
+* doc/codex/issues/0057, in the DEFAULT case mode, beside
+* save-undef-report.cir.  These are the three deck shapes that falsified the
+* wider report 0057 first shipped, kept as cases because a re-widening would
+* fire on all three again.
+*
+* .save is a global card: it applies to every analysis in the deck, and the
+* analyses do not all produce the same variables.  op, dc, ac and tran output
+* the circuit's node list entire, but noise, disto, sens and tf build their
+* own column list and none of the circuit's node voltages are in it.  So
+* ".save v(out)" beside ".noise" is a correct deck that runs to completion,
+* and the first implementation answered it with two warnings -- two, because
+* the noise analysis opens two plots.  NOISE is that deck.
+*
+* COUNT is the same analysis asking for a name that really is absent.  It is
+* not named either: an unresolved save name has been silent since before
+* casemode existed, and the report that survived 0057 is conditioned on a case
+* variant existing, which cannot happen in a mode whose reader folds every
+* card.  The count is what a consumer would read, and it is zero.  The unit
+* the report counts in, when it does report, is asserted in
+* tests/regression/casedist/save-near-miss-node-list.cir instead, where the
+* line exists to be counted.
+*
+* EXPR is the input class the token is not a name in.  gettoks()
+* (src/frontend/dotcards.c) and copynode() (src/frontend/breakp2.c) reduce an
+* expression argument to a fragment of itself: ".save v(out)-v(in)" arrives
+* at the save list as "in)", and so does ".print dc v(out)-v(in)".  Quoting
+* that back at the user, as either a missing vector or an unparsable token,
+* asserts something about a string no deck wrote; the .save route says
+* nothing about it, which is what stock ngspice-46 does and what this tree
+* does again.  ("can't parse '%s': ignored" survives at
+* src/frontend/outitf.c on its original gate, saves[i].analysis, so the
+* .print route still says it -- and no deck in this tree can reach that
+* route, which doc/codex/issues/0057 records.)
+*
+* Deck shape and the reason for it are save-undef-report.cir's: the report
+* goes to cp_err, which tests/bin/check.sh neither captures nor would let
+* through its filter, so each case is a sub-deck sourced under a redirect and
+* reduced to one upper-case token on stdout.  Every case asserts a SILENCE and
+* so also asserts something positive about the same capture, and cannot pass
+* on a capture that was never read.
+*
+*   NOISE   a node saved beside a noise sweep     -> silent
+*   COUNT   an absent name, two noise plots       -> no line at all
+*   EXPR    an expression as a save argument      -> neither named as a
+*                                                    missing vector nor as an
+*                                                    unparsable token
+.OPTIONS noacct
+.control
+* --- NOISE: the save names a node this circuit has and the noise analysis
+* --- has no column for.  Nothing was dropped by mistake and nothing is said.
+echo "* NOISE a node saved beside a frequency sweep of the source" > smr_noise.cir
+echo ".OPTIONS noacct" >> smr_noise.cir
+echo "v1 in 0 dc 0 ac 1" >> smr_noise.cir
+echo "r1 in out 1k" >> smr_noise.cir
+echo "r2 out 0 1k" >> smr_noise.cir
+echo ".save v(out)" >> smr_noise.cir
+echo ".noise v(out) v1 dec 2 1 100" >> smr_noise.cir
+echo ".control" >> smr_noise.cir
+echo "run" >> smr_noise.cir
+echo ".endc" >> smr_noise.cir
+echo ".end" >> smr_noise.cir
+source smr_noise.cir >& smr_noise.txt
+set found1 = 0
+set read1 = 0
+set n1 = 1
+fopen f1 smr_noise.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr r1 "_$capline" "a node saved beside a frequency sweep"
+  if $r1 >= 0
+    set read1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo SAVE-NOISE-REPORTED
+else
+  echo SAVE-NOISE-SILENT
+end
+if $read1 > 0
+  echo SAVE-NOISE-CAPTURE-READ
+else
+  echo SAVE-NOISE-CAPTURE-EMPTY
+end
+* --- COUNT: an absent name really is absent, and is still not named.  The
+* --- save list here carries ".save all" so that the run survives the miss
+* --- and both noise plots are actually opened.
+echo "* COUNT an absent name beside a save of everything" > smr_count.cir
+echo ".OPTIONS noacct" >> smr_count.cir
+echo "v1 in 0 dc 0 ac 1" >> smr_count.cir
+echo "r1 in out 1k" >> smr_count.cir
+echo "r2 out 0 1k" >> smr_count.cir
+echo ".save all" >> smr_count.cir
+echo ".save v(nosuchnode)" >> smr_count.cir
+echo ".noise v(out) v1 dec 2 1 100" >> smr_count.cir
+echo ".control" >> smr_count.cir
+echo "run" >> smr_count.cir
+echo ".endc" >> smr_count.cir
+echo ".end" >> smr_count.cir
+source smr_count.cir >& smr_count.txt
+let nlines = 0
+set read2 = 0
+set n2 = 1
+fopen f2 smr_count.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "nosuchnode"
+  if $p2 >= 0
+    let nlines = nlines + 1
+  end
+  strstr r2 "_$capline" "an absent name beside a save of everything"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+print nlines
+if $read2 > 0
+  echo SAVE-COUNT-CAPTURE-READ
+else
+  echo SAVE-COUNT-CAPTURE-EMPTY
+end
+* --- EXPR: the save argument is an expression, so the token that reaches the
+* --- save list is a fragment of it and not a name anybody wrote
+echo "* EXPR an expression given as a save argument" > smr_expr.cir
+echo ".OPTIONS noacct" >> smr_expr.cir
+echo "v1 in 0 dc 1" >> smr_expr.cir
+echo "r1 in out 1k" >> smr_expr.cir
+echo "r2 out 0 1k" >> smr_expr.cir
+echo ".save v(out) v(out)-v(in)" >> smr_expr.cir
+echo ".dc v1 1 1 1" >> smr_expr.cir
+echo ".control" >> smr_expr.cir
+echo "run" >> smr_expr.cir
+echo ".endc" >> smr_expr.cir
+echo ".end" >> smr_expr.cir
+source smr_expr.cir >& smr_expr.txt
+set parse3 = 0
+set named3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 smr_expr.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "parse 'in)'"
+  if $p3 >= 0
+    set parse3 = 1
+  end
+  strstr q3 "_$capline" "no vector named"
+  if $q3 >= 0
+    set named3 = 1
+  end
+  strstr r3 "_$capline" "an expression given as a save argument"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $parse3 > 0
+  echo SAVE-EXPR-UNPARSABLE
+else
+  echo SAVE-EXPR-NOT-NAMED
+end
+if $named3 > 0
+  echo SAVE-EXPR-CALLED-A-VECTOR
+else
+  echo SAVE-EXPR-NOT-CALLED-A-VECTOR
+end
+if $read3 > 0
+  echo SAVE-EXPR-CAPTURE-READ
+else
+  echo SAVE-EXPR-CAPTURE-EMPTY
+end
+* Batch mode runs the analyses of whichever circuit is current when this block
+* ends, and every sub-deck above carries one, so the last thing sourced is a
+* circuit with no analysis in it.  save-undef-report.cir's reason, and its
+* warning too: 'remcirc' segfaults with a rawfile requested,
+* doc/codex/issues/0042.  The plots are destroyed so that no rawfile is
+* written from them.
+echo "* END a circuit with no analysis in it" > smr_end.cir
+echo ".OPTIONS noacct" >> smr_end.cir
+echo "v9 tail 0 dc 1" >> smr_end.cir
+echo "r9 tail 0 1k" >> smr_end.cir
+echo ".end" >> smr_end.cir
+source smr_end.cir
+op
+print v(tail)
+destroy all
+.endc
+.end

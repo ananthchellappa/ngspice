@@ -1,0 +1,142 @@
+* a save that one plot of an analysis resolves is not a miss in the next
+* doc/codex/issues/0057, in the DEFAULT case mode.  An analysis is not one
+* plot: noisean.c opens two for one .noise card and distoan.c up to six for
+* one .disto, and the plots do not carry the same columns.  ".noise ... 1"
+* opens 'Noise Spectral Density Curves', whose columns include
+* onoise_spectrum, and then 'Integrated Noise', whose columns are the
+* onoise_total family and do not include it.  So ".save onoise_spectrum" is a
+* correct deck -- the vector is produced, and print shows it -- and the save
+* list is walked once per plot, so the second walk found no column of that
+* name.  The report 0057 first shipped named it, which stock ngspice-46 does
+* not do: its .save route was gated on saves[i].analysis and said nothing at
+* all here.
+*
+* This was the third false positive of the same shape found by verification,
+* and the answer was not a fourth guard.  The report is now conditioned on a
+* case near miss -- the resolution failed AND a name differing only in case is
+* among the ones the run has, which is decision 2 of
+* doc/claude/decisions/0001-distinguish.md at :76-78 -- and onoise_spectrum
+* has no case variant among the integrated-noise columns, so the silence here
+* is structural.  There is nothing about noise, or about multiple plots, in
+* the condition.
+*
+* TOTAL is the same analysis asked for a name no plot of it produces.  It is
+* not named either, because an unresolved save name has been silent since
+* before casemode existed; the pair is here so that the deck says which of the
+* two silences is a decision and which is the status quo, and so that a
+* re-widening fails both.
+*
+*   CROSS   a save resolved by the first plot, absent from the second
+*           -> silent, and the vector is there
+*   TOTAL   a save no plot of the analysis resolves -> not named
+*
+* Deck shape is save-multianalysis-report.cir's, and for its reason: the
+* report goes to cp_err, which tests/bin/check.sh neither captures nor would
+* let through its filter, so each case is a sub-deck sourced under a redirect
+* and reduced to one upper-case token on stdout.  CROSS asserts a silence, so
+* it also asserts that the same run reduced the vector to a positive number
+* and said so, which a run that never got the vector cannot do.  The word the
+* sub-deck echoes is lower case because the reader lower cases the outer
+* deck's strstr line in this mode, and an equals sign cannot appear in a
+* strstr pattern at all -- 'ospk =' matches nothing where 'ospk' matches.
+.OPTIONS noacct
+.control
+* --- CROSS: onoise_spectrum is a column of the spectral density plot and not
+* --- of the integrated one.  Nothing was dropped and nothing is said.
+echo "* CROSS a save resolved by one plot of a two plot analysis" > scr_cross.cir
+echo ".OPTIONS noacct" >> scr_cross.cir
+echo "v1 in 0 dc 0 ac 1" >> scr_cross.cir
+echo "r1 in out 1k" >> scr_cross.cir
+echo "r2 out 0 1k" >> scr_cross.cir
+echo ".save onoise_spectrum" >> scr_cross.cir
+echo ".noise v(out) v1 dec 2 1 100 1" >> scr_cross.cir
+echo ".control" >> scr_cross.cir
+echo "run" >> scr_cross.cir
+echo "setplot noise1" >> scr_cross.cir
+echo "let ospk = maximum(onoise_spectrum)" >> scr_cross.cir
+echo "if ospk > 0" >> scr_cross.cir
+echo "  echo spectrumresolved" >> scr_cross.cir
+echo "end" >> scr_cross.cir
+echo ".endc" >> scr_cross.cir
+echo ".end" >> scr_cross.cir
+source scr_cross.cir >& scr_cross.txt
+set found1 = 0
+set vec1 = 0
+set n1 = 1
+fopen f1 scr_cross.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "no vector named"
+  if $p1 >= 0
+    set found1 = 1
+  end
+  strstr q1 "_$capline" "spectrumresolved"
+  if $q1 >= 0
+    set vec1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo CROSS-SAVE-REPORTED
+else
+  echo CROSS-SAVE-SILENT
+end
+if $vec1 > 0
+  echo CROSS-VECTOR-PRESENT
+else
+  echo CROSS-VECTOR-ABSENT
+end
+* --- TOTAL: the same analysis, a column name no plot of it has
+echo "* TOTAL a save no plot of the analysis resolves" > scr_total.cir
+echo ".OPTIONS noacct" >> scr_total.cir
+echo "v1 in 0 dc 0 ac 1" >> scr_total.cir
+echo "r1 in out 1k" >> scr_total.cir
+echo "r2 out 0 1k" >> scr_total.cir
+echo ".save all" >> scr_total.cir
+echo ".save nosuchspectrum" >> scr_total.cir
+echo ".noise v(out) v1 dec 2 1 100 1" >> scr_total.cir
+echo ".control" >> scr_total.cir
+echo "run" >> scr_total.cir
+echo ".endc" >> scr_total.cir
+echo ".end" >> scr_total.cir
+source scr_total.cir >& scr_total.txt
+let mlines = 0
+set read2 = 0
+set n2 = 1
+fopen f2 scr_total.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "nosuchspectrum"
+  if $p2 >= 0
+    let mlines = mlines + 1
+  end
+  strstr r2 "_$capline" "a save no plot of the analysis resolves"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+print mlines
+if $read2 > 0
+  echo TOTAL-CAPTURE-READ
+else
+  echo TOTAL-CAPTURE-EMPTY
+end
+* Batch mode runs the analyses of whichever circuit is current when this block
+* ends, and both sub-decks above carry one, so the last thing sourced is a
+* circuit with no analysis in it.  save-multianalysis-report.cir's reason:
+* 'remcirc' segfaults with a rawfile requested, doc/codex/issues/0042.  The
+* plots are destroyed so that no rawfile is written from them.
+echo "* END a circuit with no analysis in it" > scr_end.cir
+echo ".OPTIONS noacct" >> scr_end.cir
+echo "v9 tail 0 dc 1" >> scr_end.cir
+echo "r9 tail 0 1k" >> scr_end.cir
+echo ".end" >> scr_end.cir
+source scr_end.cir
+op
+print v(tail)
+destroy all
+.endc
+.end

@@ -7,7 +7,8 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	gnd-command-text.cir diff-pairing-case.cir \
 	bsource-undef-node-report.cir dotcard-undef-node-report.cir \
 	define-const-body.cir define-const-body-listing.cir \
-	define-formal-body.cir
+	define-formal-body.cir save-undef-report.cir \
+	save-multianalysis-report.cir save-crossplot-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 
@@ -23,7 +24,16 @@ EXTRA_DIST = \
 # bsource-undef-node-report.cir and dotcard-undef-node-report.cir write the
 # sub-decks they source, because the diagnostic they assert is written during
 # the parse and 'source' is the only command a redirect can be attached to.
+# save-undef-report.cir writes sub-decks for a related reason: its diagnostic
+# is written during the run, so the redirect has to be in force across the
+# 'source' that runs the sub-deck whose .save cards are the subject.
+# save-multianalysis-report.cir is the same shape and asserts the cases that
+# report must stay silent about, one of which needs a noise analysis and so
+# needs a sub-deck of its own.
+# save-crossplot-report.cir is the same shape again for the silence one plot
+# of an analysis owes a name an earlier plot of it already resolved.
 CLEANFILES = PrintTail.txt dpc_*.raw dpc_*.txt bun_*.cir bun_*.txt \
-	dun_*.cir dun_*.txt
+	dun_*.cir dun_*.txt sur_*.cir sur_*.txt smr_*.cir smr_*.txt \
+	scr_*.cir scr_*.txt
 
 MAINTAINERCLEANFILES = Makefile.in

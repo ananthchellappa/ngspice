@@ -23,7 +23,8 @@ TESTS = harness-alive.cir event-node-lookup-case-split.cir \
 	auto-bridge-vcc-param-ambiguous.cir \
 	auto-bridge-vcc-nested-subckt-case.cir \
 	auto-bridge-vcc-param-subckt-name.cir \
-	auto-bridge-node-case-report.cir event-node-case-report.cir
+	auto-bridge-node-case-report.cir event-node-case-report.cir \
+	save-event-node-case-split.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -31,8 +32,11 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdi
 # diagnostic.  Both are written during the parse, before any .control block
 # runs, so each deck writes the circuits it is about with echo and sources
 # them with '>&' to capture cp_err.  The sub-decks and the captures land in
-# the build directory.
-CLEANFILES = abr_*.txt abr_*.cir enr_*.txt enr_*.cir
+# the build directory.  save-event-node-case-split.cir has the same shape for
+# a diagnostic written during the run rather than during the parse: the
+# redirect has to be in force across the 'source' that runs the sub-deck
+# carrying the .save card.
+CLEANFILES = abr_*.txt abr_*.cir enr_*.txt enr_*.cir ses_*.txt ses_*.cir
 
 EXTRA_DIST = \
 	$(TESTS) \

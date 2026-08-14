@@ -20,6 +20,7 @@ Modified: 2000 AlansFixes
 
 #include "circuits.h"
 #include "completion.h"
+#include "outitf.h"
 #include "runcoms.h"
 #include "variable.h"
 #include "spiceif.h"
@@ -216,6 +217,14 @@ static int dosim(
     char buf[BSIZE_SP];
     struct circ *ct;
     int err = 0;
+
+    /* A simulation begins here, so the save names beginPlot() reported as
+       unresolved during the previous one are forgotten and may be reported
+       again.  One analysis can open several plots and beginPlot() runs once
+       per plot, so without a memory the report would count plots instead of
+       mistakes: doc/codex/issues/0057 criterion 6. */
+    OUTsaveMissClear();
+
     /* set file type to binary or to what is given by environmental
        variable SPICE_ASCIIRAWFILE in ivars.c */
     bool ascii = AsciiRawFile;

@@ -1,0 +1,199 @@
+* the near-miss report for a save that misses a variable only by case
+* doc/codex/issues/0057.  Under casemode=distinguish two spellings are two
+* names, so a ".save v(midnode)" against a net the deck wrote as MidNode
+* genuinely misses and must go on missing -- tests/regression/case/
+* save-name-case.cir is that guard.  What this deck is about is what the miss
+* says: decision 2 of doc/claude/decisions/0001-distinguish.md, at a
+* resolution site its table never listed, in its own words.
+*
+* The report fires on the near miss and on nothing else.  It is conditioned on
+* two things together, which is decision 2's own condition at :76-78: the
+* resolution failed AND a name differing from the token only in case is among
+* the ones this run has.  0057 first shipped a wider report -- every
+* unresolved .save token, in every mode -- and it was withdrawn, because three
+* rounds of verification each found another correct deck it fired on.  NOTWIN
+* is the withdrawal: a name that is merely absent has always been silent here
+* and is silent again.
+*
+* The wording is duplicated rather than shared, and the reason is measured:
+* vec_warn_case_near_miss() (src/frontend/vectors.c) takes the plot's lookup
+* table, and at the point beginPlot() (src/frontend/outitf.c) gives up there
+* is no plot -- plotInit() is fourteen lines further down.  The search set is
+* the run's own dataNames[], which Pass 1 has just walked.  That is the same
+* conclusion doc/codex/issues/0032 reached for rawfile.c's scale= reference,
+* for the same reason.
+*
+* Deck shape is bsource-node-case-report.cir's and the reason is
+* doc/claude/decisions/0006-diagnostic-deck-coverage.md decision 2: the report
+* goes to cp_err, which tests/bin/check.sh neither captures nor would let
+* through its filter, so each case is a sub-deck sourced under a redirect and
+* reduced to one upper-case token on stdout.  The sub-decks carry their own
+* .control/run because a .dc card with no .print beside it never runs from a
+* sourced deck at all, and the sur_* file names are lower case for
+* bsource-node-case-report.cir's reason.  Every case that asserts a SILENCE
+* also asserts something positive about the same capture -- a phrase from its
+* own title line -- so that it cannot pass on a capture that was never read.
+*
+* The phrase scanned for the near miss names the twin -- "'MidNode' differs
+* only in case" -- rather than the shared tail, so a report about some other
+* name cannot satisfy it.
+*
+*   NODE     .save v(midnode), the net is MidNode      -> names 'MidNode'
+*   BRANCH   .save i(vs), the source is Vs             -> names 'Vs#branch',
+*            which is half constructed: copynode() folds the accessor letter
+*            and the simulator appends #branch, so only the middle of the
+*            string is the deck's
+*   NOTWIN   .save v(nosuchnode), no variant exists    -> silent
+*   OK       .save v(In), spelled as the deck wrote it -> silent
+.OPTIONS noacct
+.control
+* --- NODE: a save that misses a net only by case
+echo "* a save of a net spelled in the other case" > sur_node.cir
+echo ".OPTIONS noacct" >> sur_node.cir
+echo "Vs In 0 DC 3" >> sur_node.cir
+echo "Rl In MidNode 1k" >> sur_node.cir
+echo "Rg MidNode 0 3k" >> sur_node.cir
+echo ".save v(midnode)" >> sur_node.cir
+echo ".dc Vs 3 3 1" >> sur_node.cir
+echo ".control" >> sur_node.cir
+echo "run" >> sur_node.cir
+echo ".endc" >> sur_node.cir
+echo ".end" >> sur_node.cir
+source sur_node.cir >& sur_node.txt
+set found1 = 0
+set n1 = 1
+fopen f1 sur_node.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "'MidNode' differs only in case"
+  if $p1 >= 0
+    set found1 = 1
+  end
+end
+fclose $f1
+if $found1 > 0
+  echo SAVE-NODE-NEARMISS
+else
+  echo SAVE-NODE-NO-NEARMISS
+end
+* --- BRANCH: the same miss on a branch current
+echo "* a save of a branch current spelled in the other case" > sur_branch.cir
+echo ".OPTIONS noacct" >> sur_branch.cir
+echo "Vs In 0 DC 3" >> sur_branch.cir
+echo "Rl In 0 1k" >> sur_branch.cir
+echo ".save i(vs)" >> sur_branch.cir
+echo ".dc Vs 3 3 1" >> sur_branch.cir
+echo ".control" >> sur_branch.cir
+echo "run" >> sur_branch.cir
+echo ".endc" >> sur_branch.cir
+echo ".end" >> sur_branch.cir
+source sur_branch.cir >& sur_branch.txt
+set found2 = 0
+set n2 = 1
+fopen f2 sur_branch.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "'Vs#branch' differs only in case"
+  if $p2 >= 0
+    set found2 = 1
+  end
+end
+fclose $f2
+if $found2 > 0
+  echo SAVE-BRANCH-NEARMISS
+else
+  echo SAVE-BRANCH-NO-NEARMISS
+end
+* --- NOTWIN: no case variant exists, so there is no case defect to report and
+* --- the run keeps the silence it has had since before casemode existed.  The
+* --- run-level "no data saved" error is still raised, and is not this
+* --- diagnostic; nothing names the token.
+echo "* a save of a name nothing defines" > sur_notwin.cir
+echo ".OPTIONS noacct" >> sur_notwin.cir
+echo "Vs In 0 DC 3" >> sur_notwin.cir
+echo "Rl In MidNode 1k" >> sur_notwin.cir
+echo "Rg MidNode 0 3k" >> sur_notwin.cir
+echo ".save v(nosuchnode)" >> sur_notwin.cir
+echo ".dc Vs 3 3 1" >> sur_notwin.cir
+echo ".control" >> sur_notwin.cir
+echo "run" >> sur_notwin.cir
+echo ".endc" >> sur_notwin.cir
+echo ".end" >> sur_notwin.cir
+source sur_notwin.cir >& sur_notwin.txt
+set found3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 sur_notwin.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "nosuchnode"
+  if $p3 >= 0
+    set found3 = 1
+  end
+  strstr r3 "_$capline" "a save of a name nothing defines"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $found3 > 0
+  echo SAVE-NOTWIN-NAMED
+else
+  echo SAVE-NOTWIN-SILENT
+end
+if $read3 > 0
+  echo SAVE-NOTWIN-CAPTURE-READ
+else
+  echo SAVE-NOTWIN-CAPTURE-EMPTY
+end
+* --- OK: the spelling the deck wrote resolves and says nothing
+echo "* a save spelled as the deck wrote the net" > sur_ok.cir
+echo ".OPTIONS noacct" >> sur_ok.cir
+echo "Vs In 0 DC 3" >> sur_ok.cir
+echo "Rl In MidNode 1k" >> sur_ok.cir
+echo "Rg MidNode 0 3k" >> sur_ok.cir
+echo ".save v(In)" >> sur_ok.cir
+echo ".dc Vs 3 3 1" >> sur_ok.cir
+echo ".control" >> sur_ok.cir
+echo "run" >> sur_ok.cir
+echo ".endc" >> sur_ok.cir
+echo ".end" >> sur_ok.cir
+source sur_ok.cir >& sur_ok.txt
+set found4 = 0
+set read4 = 0
+set n4 = 1
+fopen f4 sur_ok.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "no vector named"
+  if $p4 >= 0
+    set found4 = 1
+  end
+  strstr r4 "_$capline" "a save spelled as the deck wrote the net"
+  if $r4 >= 0
+    set read4 = 1
+  end
+end
+fclose $f4
+if $found4 > 0
+  echo SAVE-OK-REPORTED
+else
+  echo SAVE-OK-SILENT
+end
+if $read4 > 0
+  echo SAVE-OK-CAPTURE-READ
+else
+  echo SAVE-OK-CAPTURE-EMPTY
+end
+* The OK sub-deck is the last one sourced and it is the one whose analysis
+* runs when this block ends, which is deliberate: it is the only one of the
+* four that produces data.  Its plot is destroyed so that no rawfile is
+* written from it.
+print v(In)
+destroy all
+.endc
+.end

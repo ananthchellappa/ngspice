@@ -174,6 +174,13 @@ int Evt_Parse_Node(const char *node, struct node_parse *result);
 
 bool Evt_Node_Name_Eq(const char *query, const char *stored);
 
+/* Does this circuit have an event node by this name?  Membership only, for a
+ * caller that has a name and needs to know whether the circuit knows it --
+ * an event node is not on ckt->CKTnodes, so walking that list alone answers
+ * "no" for every event node in the deck.  doc/codex/issues/0057. */
+
+bool Evt_Ckt_Has_Node(CKTcircuit *ckt, const char *name);
+
 /* Internal utility functions. */
 
 void Evt_purge_free_outputs(void);

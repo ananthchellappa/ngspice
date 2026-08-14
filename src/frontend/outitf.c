@@ -31,6 +31,12 @@ Modified: 2000 AlansFixes, 2013/2015 patch by Krzysztof Blaszkowski
 #include "plotting/graf.h"
 #include "../misc/misc_time.h"
 
+#ifdef XSPICE
+/* Evt_Ckt_Has_Node(): the event half of ckt_knows_name()'s question. */
+#include "ngspice/evt.h"
+#include "ngspice/evtproto.h"
+#endif
+
 extern char *spice_analysis_get_name(int index);
 extern char *spice_analysis_get_description(int index);
 extern int EVTsetup_plot(CKTcircuit* ckt, char* plotname);
@@ -64,6 +70,11 @@ static void plotEnd(runDesc *run);
 static bool parseSpecial(char *name, char *dev, char *param, char *ind);
 static bool name_eq(char *n1, char *n2);
 static bool name_eq_query(char *typed, char *stored);
+static bool ckt_knows_name(CKTcircuit *ckt, char *name);
+static bool case_twin_p(const char *token, const char *stored);
+static char *ckt_case_twin(CKTcircuit *ckt, char *name);
+static bool save_miss_first_time(char *name);
+static bool report_save_case_miss(runDesc *run, char *name, int numNames, char **dataNames);
 static bool getSpecial(dataDesc *desc, runDesc *run, IFvalue *val);
 static void freeRun(runDesc *run);
 static int InterpFileAdd(runDesc *plotPtr, IFvalue *refValue, IFvalue *valuePtr);
@@ -416,6 +427,12 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
                 continue;
 
             if (!parseSpecial(saves[i].name, namebuf, parambuf, depbuf)) {
+                /* The near miss, and nothing wider than it: a token that
+                   simply does not resolve is left to the silence it has
+                   always had.  doc/codex/issues/0057 Resolution 1. */
+                if (report_save_case_miss(run, saves[i].name, numNames,
+                                          dataNames))
+                    continue;
                 if (saves[i].analysis)
                     fprintf(cp_err, "Warning: can't parse '%s': ignored\n",
                             saves[i].name);
@@ -1408,6 +1425,194 @@ name_eq_query(char *typed, char *stored)
         return FALSE;
 
     return vec_name_eq(stored, typed);
+}
+
+
+/* Does the circuit itself know this name, exactly as the token spells it?
+   Only the near miss below asks, and it asks because a circuit that has the
+   token has no case mistake in it to report: a run whose columns are only
+   part of the circuit -- noise, disto, sens and tf build their own column
+   list holding none of the node voltages -- would otherwise offer the twin
+   of a name the deck spelled correctly.  Branch currents are on the analog
+   list too, under the '<name>#branch' that copynode()
+   (src/frontend/breakp2.c) has already produced.
+
+   A mixed-signal circuit has two node lists, and an XSPICE event node is on
+   only the second: EVTinit() builds ckt->evt->info.node_table and puts
+   nothing on ckt->CKTnodes.  The second is asked through Evt_Ckt_Has_Node()
+   (src/xspice/evt/evtplot.c), which is Evt_Node_Name_Eq()'s case rule -- the
+   event side of the same question vec_name_eq() answers here.
+   doc/codex/issues/0057 criterion 3. */
+
+static bool
+ckt_knows_name(CKTcircuit *ckt, char *name)
+{
+    CKTnode *n;
+
+    if (!ckt)
+        return FALSE;
+
+    for (n = ckt->CKTnodes; n; n = n->next)
+        if (n->name && vec_name_eq(n->name, name))
+            return TRUE;
+
+#ifdef XSPICE
+    if (Evt_Ckt_Has_Node(ckt, name))
+        return TRUE;
+#endif
+
+    return FALSE;
+}
+
+
+/* A name this circuit has that differs from the token only in case, or NULL.
+   The '!eq' is the whole of the test's meaning and not a micro-optimisation:
+   a name equal ignoring case AND equal byte for byte is the token itself,
+   which is not a near miss.  Reachable with ".save all" in force, where a
+   named save entry is never marked used and its column is in the run all the
+   same -- without the exclusion that deck is told 'onoise_spectrum' differs
+   only in case from 'onoise_spectrum'.
+
+   The event node table is deliberately not searched: an event node with a
+   case variant has its own diagnostic in EVTnode_case_check()
+   (src/xspice/evt/evttermi.c, doc/claude/decisions/0003), and reaching the
+   event table here would need a second lookup shape -- this scan folds,
+   Evt_Node_Name_Eq() does not.  So a save spelled DOUT against the event
+   node dout is silent from this site; that is a stated gap, recorded in
+   doc/codex/issues/0057 criterion 3. */
+
+static bool
+case_twin_p(const char *token, const char *stored)
+{
+    /* case-lint: neither - the deliberate case-insensitive twin scan of decision 2, not an identity test */
+    if (!cieq(token, stored))
+        return FALSE;
+
+    /* case-lint: neither - excludes the token itself from its own twin scan */
+    return eq(token, stored) ? FALSE : TRUE;
+}
+
+
+static char *
+ckt_case_twin(CKTcircuit *ckt, char *name)
+{
+    CKTnode *n;
+
+    if (!ckt)
+        return NULL;
+
+    for (n = ckt->CKTnodes; n; n = n->next)
+        if (n->name && case_twin_p(name, n->name))
+            return n->name;
+
+    return NULL;
+}
+
+
+/* The tokens this simulation has already reported, emptied by dosim()
+   (src/frontend/runcoms.c) when the next one starts.  beginPlot() runs once
+   per plot and one analysis may open several -- noise opens two, disto up to
+   six -- so without a memory the report would count plots instead of
+   mistakes and a consumer counting lines would read one mistake as two or
+   six.  That is doc/codex/issues/0046's hazard and doc/codex/issues/0058's,
+   and refusing it is doc/codex/issues/0057 criterion 6, whose unit is one
+   line per token per simulation. */
+
+static wordlist *save_miss_reported = NULL;
+
+
+void
+OUTsaveMissClear(void)
+{
+    wl_free(save_miss_reported);
+    save_miss_reported = NULL;
+}
+
+
+static bool
+save_miss_first_time(char *name)
+{
+    wordlist *wl;
+
+    for (wl = save_miss_reported; wl; wl = wl->wl_next)
+        /* case-lint: neither - a token against a remembered copy of itself, a dedup and not an identity test */
+        if (eq(wl->wl_word, name))
+            return FALSE;
+
+    save_miss_reported = wl_cons(copy(name), save_miss_reported);
+
+    return TRUE;
+}
+
+
+/* A save name that missed AND has a case variant among the names this run
+   does have.  Both halves are required, which is the whole of this report's
+   contract: decision 2 of doc/claude/decisions/0001-distinguish.md, ":76-78",
+   conditions the near-miss warning on exactly that pair, and the wider report
+   0057 first shipped -- every unresolved save name, in every mode -- was
+   withdrawn because a name that is merely absent is not a case defect and is
+   not this diagnostic's business.  An unresolved .save has always been silent
+   here and is silent again; what is new is only the case near miss, at a
+   resolution site decision 2's table did not list.  Returns TRUE when it
+   spoke, so that a .print-derived token gets this message instead of, and not
+   beside, "can't parse".
+
+   Structurally this fires only under distinguish, and the mode test says so
+   rather than relying on the argument: under fold and preserve the resolution
+   in Pass 1 folds (name_eq_query(), doc/codex/issues/0056), so a token with a
+   case variant among the run's columns cannot reach here at all.  The two
+   shipped modes are therefore byte identical to what they printed before,
+   which is the claim the withdrawal is worth making.
+
+   The wording is decision 2's, duplicated rather than reused because
+   vec_warn_case_near_miss() (src/frontend/vectors.c) needs a plot's lookup
+   table and there is no plot here yet -- plotInit() is below.  That is
+   doc/codex/issues/0032's conclusion for rawfile.c's scale= reference, for
+   the same reason. */
+
+static bool
+report_save_case_miss(runDesc *run, char *name, int numNames, char **dataNames)
+{
+    char buf[BSIZE_SP];
+    char *stored;
+    int j;
+
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return FALSE;
+
+    if (ckt_knows_name(run->circuit, name))
+        return FALSE;
+
+    stored = NULL;
+
+    for (j = 0; j < numNames; j++) {
+        char *column = name_unwrap(dataNames[j], buf);
+        if (column && case_twin_p(name, column)) {
+            stored = dataNames[j];
+            break;
+        }
+    }
+
+    /* dataNames[] is the column list of the analysis opening this plot, and
+       for op, dc, ac and tran that is the circuit's node list entire; noise,
+       disto, sens and tf build their own, holding none of the node voltages,
+       so a deck whose only analysis is one of those needs the node list
+       asked as well.  dataNames[] is searched first, so the twin named is
+       the one the run would have produced when it has one. */
+    if (!stored)
+        stored = ckt_case_twin(run->circuit, name);
+
+    if (!stored)
+        return FALSE;
+
+    if (!save_miss_first_time(name))
+        return TRUE;
+
+    fprintf(cp_err,
+            "Warning: no vector named '%s'; '%s' differs only in case (casemode=distinguish)\n",
+            name, stored);
+
+    return TRUE;
 }
 
 

@@ -1,0 +1,40 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * the near-miss report for a save that misses a variable only by case
+
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+SAVE-NODE-NEARMISS
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+SAVE-BRANCH-NEARMISS
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+SAVE-NOTWIN-SILENT
+SAVE-NOTWIN-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+SAVE-OK-SILENT
+SAVE-OK-CAPTURE-READ
+v(In) = 3.000000e+00
+Note: Simulation executed from .control section 
