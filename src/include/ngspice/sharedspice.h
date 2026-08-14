@@ -97,6 +97,16 @@ the next netlist read and survives ngSpice_Reset(), because it is re-read
 every time. Note that control variable names are matched case sensitively, so
 the name must be sent in lower case.
 
+Because it takes effect only on the next netlist read, 'casemode' reports what
+was asked for and not what the session is doing: between the command above and
+the next ngSpice_Circ() the two disagree. The mode actually in force is the
+read-only variable 'curcasemode', which answers 'fold', 'preserve' or
+'distinguish' at the moment it is read:
+    ngSpice_Command("echo $curcasemode");
+A build without this feature has no such variable and answers
+'Error: curcasemode: no such variable.' on stderr, which is how a caller can
+detect the capability before committing to it. Writing it is refused.
+
 ***************** If XSPICE is enabled *************************************
 **
 ngCM_Input_Path(const char*)

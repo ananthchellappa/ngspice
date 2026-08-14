@@ -1,0 +1,66 @@
+* the effective identifier case mode is readable, and a late write cannot move it
+* doc/codex/issues/0060, acceptance criteria 1, 3 (first bullet) and 5.
+* 'casemode' is the request and 'curcasemode' is the effect.  The request is an
+* ordinary writable control variable, because it is the only selector and a
+* libngspice caller has no argv (src/include/ngspice/sharedspice.h); the effect
+* is the static ng_case_mode (src/frontend/inpcom.c), latched once per netlist
+* read by set_case_mode() and never again until the next one.  Nothing couples
+* them after that instant, so a 'set casemode=' typed in a .control block moves
+* the request while the run keeps behaving the way it was read -- and before
+* this issue the only readable one of the two was the request.
+*
+* This deck is the first of criterion 3's four divergence shapes: a write from
+* inside a .control block, after the deck it belongs to has already been read.
+* The whole directory runs under '-D casemode=preserve'
+* (tests/regression/case/Makefile.am), so the effect here is 'preserve' from
+* the first line of the block to the last, whatever the block asks for.
+*
+* Note what the last of these is NOT: 'harness-alive.cir' in this directory
+* echoes $casemode and its .out asserts 'preserve', and that assertion is
+* satisfied by a binary with no casemode support at all, because there the
+* -D flag just makes a control variable and the echo reads it back.  The
+* CURCASEMODE tokens below cannot be satisfied that way: on a binary without
+* the feature the read is an error and the token is echoed bare.  That is
+* criterion 4, and it is the property that makes this a capability probe.
+*
+* The refusal on the last check is a diagnostic, and tests/bin/check.sh
+* captures stdout only and drops any line containing 'Error', so it is
+* redirected to a file with '>&' and read back with fopen/fread/strstr --
+* the shape tests/regression/casedist/vector-unlet-report.cir uses.  cap1 is
+* preseeded so that an empty capture cannot be mistaken for a read line, and
+* every token is upper case for the same filter's sake.
+*
+* Out and OUT are two nets under 'distinguish' and one net under this
+* directory's 'preserve', where the stored spelling is the first one the deck
+* wrote: the closing print is the liveness end of the deck, and it also says
+* which mode really ran.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 OUT 0 1k
+.control
+op
+echo CURCASEMODE-AT-ENTRY $curcasemode
+
+* a write after the deck was read: the request moves, the effect does not
+set casemode=fold
+echo CASEMODE-REQUEST-NOW $casemode
+echo CURCASEMODE-AFTER-LATE-SET $curcasemode
+
+* and the effect is not writable in its own name either
+set cap1 = "no_line_read"
+set curcasemode=distinguish >& cce_set.txt
+fopen f1 cce_set.txt r
+fread cap1 $f1 n1
+fclose $f1
+strstr p1 "_$cap1" "read-only variable"
+if $p1 < 0
+  echo SET-CURCASEMODE-ACCEPTED
+else
+  echo SET-CURCASEMODE-REFUSED
+end
+echo CURCASEMODE-AFTER-OWN-SET $curcasemode
+
+print v(Out)
+.endc
+.end

@@ -62,7 +62,7 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	bsource-forward-ref-case.cir bsource-forward-ref-case-lower.cir \
 	subckt-formal-pin-case.cir subckt-formal-pin-case-lower.cir \
 	udf-name-case.cir udf-name-case-lower.cir \
-	show-device-letter-case.cir
+	show-device-letter-case.cir curcasemode-effect.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 
@@ -72,6 +72,8 @@ EXTRA_DIST = \
 
 # write-roundtrip.cir writes a rawfile into the build directory, and
 # plot-scale-name-twin.cir the capture it reads its assertion back out of.
-CLEANFILES = casewrite.raw pst_*.txt
+# curcasemode-effect.cir writes the capture its read-only refusal is read back
+# out of: the refusal is on cp_err, which check.sh does not capture.
+CLEANFILES = casewrite.raw pst_*.txt cce_*.txt
 
 MAINTAINERCLEANFILES = Makefile.in

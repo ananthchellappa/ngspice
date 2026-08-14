@@ -212,6 +212,9 @@ enum {
     NG_CASE_DISTINGUISH   /* R1 != r1, spelling as typed; experimental */
 };
 extern int inp_case_mode(void);
+/* the mode in force, spelled 'fold', 'preserve' or 'distinguish'; this is what
+   the read-only 'curcasemode' control variable answers. doc/codex/issues/0060 */
+extern const char *inp_case_mode_name(void);
 /* is the reader lowercasing the card? ask this about a language keyword */
 extern bool inp_case_folding(void);
 /* should two identifiers be compared byte for byte? ask this about a name the

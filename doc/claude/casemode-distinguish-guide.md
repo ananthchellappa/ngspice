@@ -44,10 +44,43 @@ a wrapper that sets it and then `source`s the real file.
 
 ## 2. Confirm it actually took
 
-Do not trust `echo $casemode` — it reports the variable, which is set in
-exactly the cases that fail. Do not count the `experimental` banner on stderr
-either; it is neither necessary nor sufficient (a run that folds can still
-print two). Put this in the deck's `.control` block:
+```
+echo $curcasemode
+```
+
+answers `fold`, `preserve` or `distinguish` — the mode actually **in force**,
+read from the latch at the moment you ask, wherever you ask it: a `.control`
+block, the interactive prompt, `ngspice -p`, `ngSpice_Command()`. It is
+read-only; `set curcasemode=…` is refused with
+`Error: curcasemode is a read-only variable.`
+
+Do not trust `echo $casemode` — that is the *request*, an ordinary writable
+variable, and it is set in exactly the cases that fail. The two are separate
+objects and they drift in both directions: a `set casemode=fold` in a
+`.control` block moves the request while the deck keeps running the way it was
+read, and `-D casemode=distinguish` followed by a `set casemode=fold` at the
+prompt leaves the run distinguishing while `$casemode` says `fold`. Measured,
+in a session that reads no deck:
+
+```
+$ printf 'set casemode=distinguish\necho req $casemode eff $curcasemode\nquit\n' \
+    | ngspice -p -n 2>/dev/null | grep '^req'
+req distinguish eff fold
+```
+
+Do not count the `experimental` banner on stderr either; it is neither
+necessary nor sufficient (a run that folds can still print two).
+
+`$curcasemode` is also the capability probe: a binary without the feature has
+no such variable, so the read *fails* rather than answering — `ngspice-46`
+replies `Error: curcasemode: no such variable.` on stderr and echoes nothing,
+where `$casemode` there happily reports back whatever `-D` put in it. That is
+the one probe that separates all three modes *and* both binaries from a
+session with no deck in it; see §9.
+
+The deck probe below stays as the portable fallback — it works on binaries
+that predate `$curcasemode`, and it tests the *behaviour* rather than the
+binary's report of itself. Put it in the deck's `.control` block:
 
 ```
 let CaseProbe = 1
@@ -188,7 +221,30 @@ feature in its banner.
 
 ### The probe: one spawn, no temp file, ~10 ms
 
-Pipe mode takes commands on stdin and needs no netlist at all:
+Ask the binary directly. `$curcasemode` is read-only and computed from the
+latch on every read, so it answers for the run this very process would do:
+
+```sh
+printf 'echo MODE $curcasemode\nquit\n' \
+  | ngspice -p -n -D casemode=distinguish 2>/dev/null \
+  | sed -n 's/^MODE //p'
+```
+
+| binary | flag | stdout | stderr |
+| --- | --- | --- | --- |
+| this build | `-D casemode=distinguish` | `distinguish` | — |
+| this build | `-D casemode=preserve` | `preserve` | — |
+| this build | no flag | `fold` | — |
+| ngspice-46 | any or none | *(nothing)* | `Error: curcasemode: no such variable.` |
+
+That is all three modes plus the featureless binary from one spawn, and it is
+the only probe that sees `preserve` from a session with no deck in it. The
+empty stdout on the last row is the capability answer: treat "no line" as "no
+support", not as "fold".
+
+The identity probe below predates `$curcasemode` and remains useful against
+older binaries, and because it tests behaviour rather than the binary's own
+report. Pipe mode takes commands on stdin and needs no netlist at all:
 
 ```sh
 printf 'let CaseProbe = 1\nlet caseprobe = 2\nprint CaseProbe\nquit\n' \
@@ -217,13 +273,15 @@ by how output is labelled. It answers exactly one question: **is `distinguish`
 in effect.** `preserve` reports `folded`, correctly, because `preserve` does
 not change identity.
 
-**It cannot distinguish `fold` from `preserve`,** and no pipe-mode probe can:
-`print` labels its output with the name as *typed*, and stdin is never folded
-because it is not a netlist read, so both modes reply `CaseProbe = 2`. (§2's
-three-way table works only from inside a deck, where the `.control` text has
-itself been through the reader.) To confirm `preserve` from a client, run one
-throwaway deck and look at the raw file — see the table below, which is the
-property you actually care about anyway.
+**It cannot distinguish `fold` from `preserve`,** and no *identity*-based
+pipe-mode probe can: `print` labels its output with the name as *typed*, and
+stdin is never folded because it is not a netlist read, so both modes reply
+`CaseProbe = 2`. (§2's three-way table works only from inside a deck, where
+the `.control` text has itself been through the reader.) `$curcasemode` above
+does see `preserve`, because it reports the latch instead of testing a
+behaviour; on a binary too old to have it, run one throwaway deck and look at
+the raw file — see the table below, which is the property you actually care
+about anyway.
 
 The featureless binary accepts the flag and reports `folded`, which is the
 correct answer to the question as posed. Run the probe with the *exact*

@@ -1038,6 +1038,32 @@ int inp_case_mode(void)
     return ng_case_mode;
 }
 
+/* The name of the mode in force, in the spelling set_case_mode() accepts and
+   the diagnostics print, so the three spellings live in one file and cannot
+   drift apart. This is the read side of the 'casemode' control variable, and
+   the two are deliberately separate objects: 'casemode' holds what was asked
+   for and has to stay writable because it is the only selector and a
+   libngspice caller has no argv, while what is in force is the static above,
+   which moves only at a netlist read. The user reaches this through the
+   read-only 'curcasemode' variable in cp_enqvar() (src/frontend/options.c),
+   which calls it on every read rather than caching the answer: any subsequent
+   inp_readall() re-latches, and a 'source' is one of those where an '.include'
+   is not, so no cache could be invalidated on the right event without
+   duplicating that distinction. doc/codex/issues/0060, and 0058 for the
+   distinction. */
+
+const char *inp_case_mode_name(void)
+{
+    switch (ng_case_mode) {
+    case NG_CASE_PRESERVE:
+        return "preserve";
+    case NG_CASE_DISTINGUISH:
+        return "distinguish";
+    default:
+        return "fold";
+    }
+}
+
 bool inp_case_folding(void)
 {
     return ng_case_mode == NG_CASE_FOLD;

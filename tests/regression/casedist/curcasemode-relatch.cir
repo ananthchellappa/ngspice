@@ -1,0 +1,63 @@
+* the effective case mode is read from the latch, not from a copy of it
+* doc/codex/issues/0060, acceptance criteria 1 and 2.
+* 'curcasemode' must answer inp_case_mode() (src/frontend/inpcom.c) at the
+* moment of the read.  A cached copy taken when the mode was latched would be
+* wrong for the rest of the run, because the latch is not a one-shot: every
+* inp_readall() calls set_case_mode() again, so a mode set in a .control block
+* takes effect on the next netlist read and the enum moves under any reader
+* that cached it.
+*
+* The distinction that makes the cache unfixable is doc/codex/issues/0058's:
+* a 'source' is an inp_readall() and re-latches, while an '.include' and a
+* '.lib' are not, because they recurse inside inp_read() one level below it.
+* No invalidation hook can tell those two apart without duplicating that
+* distinction, which is why the read consults the enum instead.  This deck
+* asserts the moving half -- a 'source' really does change the answer -- and
+* tests/regression/casedist/casemode-announce-report.cir already asserts the
+* counting half, that an '.include' adds no latch.
+*
+* The directory runs under '-D casemode=distinguish'
+* (tests/regression/casedist/Makefile.am), so the mode this deck was read
+* under is 'distinguish' and the sub-deck's read moves it to 'preserve'.  The
+* sub-deck is written out with echo and sourced from inside this control
+* block, which is doc/claude/decisions/0006-diagnostic-deck-coverage.md
+* decision 2 and casemode-announce-report.cir's shape; ccr_* is cleaned by
+* CLEANFILES.
+*
+* The last check is the one that separates "reads the enum" from "reads the
+* request": a 'set casemode=' with no netlist read after it must leave the
+* answer where the sub-deck's read left it.  Without it a deck that simply
+* echoed $casemode under another name would pass every line above.
+*
+* Every token is upper case because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error'.
+.OPTIONS noacct
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 Out 0 1k
+.control
+op
+echo CURCASEMODE-AT-ENTRY $curcasemode
+print v(Out)
+
+echo "* a sub-deck sourced after the mode was changed" > ccr_inner.cir
+echo ".OPTIONS noacct" >> ccr_inner.cir
+echo "V2 In2 0 dc 3" >> ccr_inner.cir
+echo "R3 In2 Mid 1k" >> ccr_inner.cir
+echo "R4 Mid 0 3k" >> ccr_inner.cir
+echo ".end" >> ccr_inner.cir
+
+* the request has moved and nothing has been read yet
+set casemode=preserve
+echo CURCASEMODE-BEFORE-SOURCE $curcasemode
+
+* 'source' is an inp_readall(): the latch fires again and the answer moves
+source ccr_inner.cir
+echo CURCASEMODE-AFTER-SOURCE $curcasemode
+
+* the request moves back, with no read behind it: the answer must not follow
+set casemode=distinguish
+echo CURCASEMODE-AFTER-SECOND-SET $curcasemode
+echo CASEMODE-REQUEST-NOW $casemode
+.endc
+.end

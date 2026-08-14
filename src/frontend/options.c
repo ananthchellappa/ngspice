@@ -41,8 +41,8 @@ static struct variable *cp_enqvec_as_var(const char *vec_name,
  *
  * Note that if tbfreed is set to 1 that any changes will have no effect
  * on the original variable. The variables that are copied are as follows:
- *      "curplotname", "curplottitle", "curplotdate", "curplot", and
- *      "plots".
+ *      "curplotname", "curplottitle", "curplotdate", "curplot",
+ *      "plots", and "curcasemode".
  *
  * The $&v notation returns the values of a real vector v or the real part
  * of a complex vector v. If there is only a single element, it is returned
@@ -53,6 +53,22 @@ struct variable *cp_enqvar(const char *word, int *tbfreed)
 {
     if (*word == '&') { /* The variable is a vector */
         return cp_enqvec_as_var(word + 1, tbfreed);
+    }
+
+    /* The identifier case mode actually in force, as against the 'casemode'
+       variable, which holds what was asked for and stops being authoritative
+       the moment the deck is read. Computed here on every read and never
+       cached, because the enum moves at any subsequent netlist read; the
+       three spellings are inp_case_mode_name()'s (src/frontend/inpcom.c).
+       Answered ahead of the current plot's environment below, not after it: a
+       rawfile's 'Option:' line is parsed straight into that environment
+       (src/frontend/rawfile.c), so a file could otherwise answer this read
+       with the mode of some other run. doc/codex/issues/0060, criteria 2
+       and 6; the write is refused in cp_usrset() below. */
+    if (eqc(word, "curcasemode")) {
+        *tbfreed = 1;
+        return var_alloc_string(copy(word),
+                copy(inp_case_mode_name()), NULL);
     }
 
     if (plot_cur) { /* a current plot is defined */
@@ -267,8 +283,8 @@ inp_getoptsc(char *line, struct card *options)
 }
 
 
-/* The one variable that we consider read-only so far is plots.  The ones
- * that are 'dontrecord' are curplottitle, curplotname, and curplotdate.
+/* The variables that we consider read-only are plots and curcasemode.  The
+ * ones that are 'dontrecord' are curplottitle, curplotname, and curplotdate.
  * Also things already in the plot env are 'dontrecord'.
  */
 
@@ -408,6 +424,11 @@ cp_usrset(struct variable *var, bool isset)
             fprintf(cp_err, "Error: can't set plot date\n");
         return (US_DONTRECORD);
     } else if (eqc(var->va_name, "plots")) {
+        return (US_READONLY);
+    } else if (eqc(var->va_name, "curcasemode")) {
+        /* Computed in cp_enqvar(), never stored, and not the selector:
+           'casemode' is what a caller writes to ask for a mode, and this
+           reports the one in force. doc/codex/issues/0060 criterion 5. */
         return (US_READONLY);
     }
 
