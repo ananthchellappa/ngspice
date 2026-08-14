@@ -1,0 +1,72 @@
+* a node spelled like the reference vector survives beginPlot's exclusion
+* doc/codex/issues/0056 criterion 2, in casemode=preserve, which is the only
+* mode this can be asserted in.
+*
+* When the save list is empty beginPlot() (src/frontend/outitf.c) takes every
+* column the analysis offers and skips exactly one: the column whose name is
+* the reference vector's, because the reference has already been added.  The
+* comparison there is name_eq(), and it is the ONE comparison in that function
+* that 0056 left byte exact.  Its two operands are names this run produced --
+* an entry of dataNames[] against refName -- so the question is which column
+* this is, not whether two spellings of a deck's identifier are one name; it
+* is Class A of doc/claude/decisions/0001-distinguish.md decision 3 read the
+* other way round, and the exception recorded at the end of its Class C
+* section.
+*
+* The measurement behind that claim is this deck.  A transient run's reference
+* vector is called 'time'.  Under preserve a deck may call a net Time, the
+* reader leaves the spelling alone, and the two are two columns.  Fold the
+* comparison and the net matches the reference, is skipped as a duplicate of
+* it, and is silently absent from the plot -- a vector the deck asked for by
+* writing a circuit, deleted by a name collision with a vector ngspice made
+* up.  This deck fails with name_eq() replaced by vec_name_eq(), which is what
+* it is for; in fold the reader lowercases the net into the reference's
+* spelling before any of this, and in distinguish vec_name_eq() is exact, so
+* neither mode can tell the two comparisons apart.
+*
+* The assertion is on the plot's contents and not on a value, deliberately.
+* Reading the net back by name cannot decide anything here: findvec()
+* (src/frontend/vectors.c) folds its query under preserve, so 'Time' resolves
+* to whichever of the two hashed first and answers with a number either way.
+* 'display' names every vector of the current plot with the spelling it is
+* stored under, and the capital T is in exactly one of them.  Nothing else in
+* the capture carries that spelling -- the title line above is the deck's, and
+* it does not use the word -- so a hit is the net and only the net.
+.OPTIONS noacct
+V1 In 0 DC 0 PULSE(0 1 0 1n 1n 5n 10n)
+R1 In Time 1k
+R2 Time 0 1k
+.tran 1n 20n
+.control
+run
+display >& pst_cap.txt
+set found = 0
+set read = 0
+set n = 1
+fopen f pst_cap.txt r
+while $n >= 0
+  set capline = "no_line_read"
+  fread capline $f n
+  strstr p "_$capline" "Time"
+  if $p >= 0
+    set found = 1
+  end
+  strstr r "_$capline" "V1#branch"
+  if $r >= 0
+    set read = 1
+  end
+end
+fclose $f
+if $found > 0
+  echo SCALE-TWIN-KEPT
+else
+  echo SCALE-TWIN-DROPPED
+end
+if $read > 0
+  echo SCALE-TWIN-CAPTURE-READ
+else
+  echo SCALE-TWIN-CAPTURE-EMPTY
+end
+destroy all
+.endc
+.end

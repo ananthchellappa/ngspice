@@ -1,0 +1,43 @@
+* .save must go on refusing a case-variant spelling under distinguish
+* doc/codex/issues/0056.  Making name_eq() (src/frontend/outitf.c) fold was a
+* fix for casemode=preserve, where two spellings of a name are one name.  Here
+* they are two names, the lookup genuinely misses, and the miss is the right
+* answer: this deck is the guard that says the loosening stopped at the mode
+* boundary.  It is not a RED test -- it passes at the parent commit too, which
+* is the whole point of it.
+*
+* The card saves three names, one the deck wrote and two it did not:
+*
+*   v(In)       spelled as the card that defines the net spells it -> resolves
+*   v(midnode)  the net is MidNode                                 -> misses
+*   i(vs)       the source is Vs, so this asks for vs#branch       -> misses
+*
+* v(In) resolving is what makes the two absences mean something: without it a
+* deck whose save list resolved nothing at all would pass this file, and that
+* is the shape of the defect, not of the fix.  One name resolving also keeps
+* the analysis running, so the run ends rc=0 and the two misses have to be
+* read as absences from the plot -- which is exactly the partial-miss shape
+* doc/codex/issues/0057 is about, seen from the mode where it is correct.
+*
+* nmid and nbr are seeded to 0 and then read with length(): a vector that
+* never reached the plot leaves the seed in place, because the failing 'let'
+* does not assign.  The names are fixed, so the printed labels carry no
+* spelling of the deck's.
+.OPTIONS noacct
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.save v(In) v(midnode) i(vs)
+.control
+op
+let vin = 0
+let vin = v(In)
+let nmid = 0
+let nmid = length(v(MidNode))
+let nbr = 0
+let nbr = length(Vs#branch)
+print vin
+print nmid
+print nbr
+.endc
+.end

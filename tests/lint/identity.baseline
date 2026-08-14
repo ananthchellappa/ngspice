@@ -40,6 +40,26 @@
 #       ng_ideq() now.
 #       Removed 2026-08-11 with doc/claude/decisions/0013.  268 records.
 #
+#   src/frontend/outitf.c  strcmp(n1, n2)
+#       name_eq(), beginPlot()'s answer to "is this the name the save list
+#       asked for?", and doc/codex/issues/0056: byte exact in every mode, so
+#       a `.save v(midnode)` against a net the deck wrote as MidNode missed
+#       under preserve and killed the run, while `print v(midnode)` beside it
+#       resolved.  Its four query callers call name_eq_query() now, which is
+#       vec_name_eq(); the fifth caller compares two names the run itself
+#       produced and keeps this comparison, classified where it stands,
+#       because folding it deletes a node called Time.
+#
+#   src/frontend/outitf.c  strcmp(varName, d->v_name)
+#   src/frontend/outitf.c  strcmp(varName, run->data[i].name)
+#       OUTattributes()'s two arms, triaged with it: varName is an IFuid, so
+#       both are the analysis's own name for a column against the name the run
+#       stored for it -- name_eq()'s question, not the save list's -- and both
+#       are unreachable today because every caller in the tree passes NULL.
+#       Classified where they stand rather than left frozen, since the
+#       interface is public.
+#       Removed 2026-08-13 with doc/codex/issues/0056.  265 records.
+#
 # Format: <path><TAB><the call, whitespace collapsed>.  The line number is
 # deliberately absent: keying on it would make every edit above a site look
 # like a new comparison, and a contributor who learns to regenerate a baseline
@@ -193,9 +213,6 @@ src/frontend/options.c	eq(tv->va_name, var->va_name)
 src/frontend/options.c	eq(vv->va_name, word)
 src/frontend/options.c	eq(vv->va_name, word)
 src/frontend/outitf.c	cieq(saves[i].analysis, an_name)
-src/frontend/outitf.c	strcmp(n1, n2)
-src/frontend/outitf.c	strcmp(varName, d->v_name)
-src/frontend/outitf.c	strcmp(varName, run->data[i].name)
 src/frontend/parse.c	eq(*probes, string)
 src/frontend/parse.c	eqc(f->fu_name, buf)
 src/frontend/parser/complete.c	eq(first, al->al_name)

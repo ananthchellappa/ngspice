@@ -147,9 +147,21 @@ them apart, so you have to say which:
                     if (eq(a, b))   /* $marker keyword - both are command names */
 
 The marker suppresses the call on its own line and the call on the line
-directly below it, and nothing else.  A site that is neither of the two --
-a comparator's own definition, a sort, free text -- takes the same marker
-with that reason.
+directly below it, and nothing else.  Nothing checks the reason word; it is
+written for the reviewer, so it has to say which question the site is asking
+and the answer has to be readable beside the call.  The reason words the
+tree uses, beyond 'keyword':
+
+  helper     -- the call IS one of the identity helpers, or the mode arm of
+                one.  src/frontend/define.c.
+  stored     -- both operands are names the simulator itself holds for one
+                run, so the question is which column this is and not whether
+                two spellings are one name.  These stay byte-exact for a
+                measured reason, which the marker has to name.
+                src/frontend/outitf.c.
+  neither    -- a comparator's own definition, a sort, a deliberate
+                case-insensitive scan, free text.
+                tests/lint/selftest/silent.c.
 
 Adding the line to the baseline instead is for a comparison that is a
 genuine identity test and cannot be fixed yet; such an entry must name the

@@ -1,0 +1,48 @@
+* a .save card that spells a saved name in another case must still resolve
+* doc/codex/issues/0056.  Under casemode=preserve two spellings of a name are
+* one name, and every other resolution site honours that: print, findvec(),
+* unlet, diff and the vector table all fold the query.  .save did not.  Its
+* names are matched against the run's variable-name array by name_eq()
+* (src/frontend/outitf.c), whose final compare was a bare strcmp, so
+* ".save v(midnode)" against a net the deck wrote as MidNode missed, and
+* ".save i(vs)" against a source it wrote as Vs missed with it.
+*
+* When every name on the card misses, the run has no data descriptors left
+* and the operating point is never solved:
+*
+*   Error: no data saved for D.C. Operating point analysis; analysis not run
+*
+* That diagnostic is on stderr, which tests/bin/check.sh does not capture, and
+* its filter drops every line containing 'Error' anyway, so the evidence has
+* to be a number.  vprobe and iprobe read the two saved vectors back out of
+* the plot after the analysis; if the analysis did not run they do not exist
+* and the two print lines are absent from stdout entirely.  Both names are
+* probed because both spellings are witnesses of the same comparison and a
+* deck carrying only one would not document the pair -- the node name reaches
+* name_eq() as 'midnode' and the branch current as 'vs#branch', copynode()
+* (src/frontend/breakp2.c) having already stripped the v()/i() wrapper.
+*
+* The probe names vprobe and iprobe are fixed, so the printed labels do not
+* carry the deck's spelling and the twin .out files stay byte identical.
+* The probes are spelled the way the deck stores the names, not the way the
+* card spells them, so what is asserted is the .save resolution alone and not
+* findvec()'s fold as well.
+*
+* save-name-case-lower.cir is the all-lower-case twin: there the card and the
+* cards that define the names agree byte for byte, which is the spelling that
+* resolved in every mode before this fix and must go on resolving after it.
+*
+* Vs 3V over Rl 1k + Rg 3k: v(MidNode) = 2.25, i(Vs) = -7.5e-04.
+.OPTIONS noacct
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.save v(midnode) i(vs)
+.control
+op
+let vprobe = v(MidNode)
+let iprobe = i(Vs)
+print vprobe
+print iprobe
+.endc
+.end

@@ -63,6 +63,7 @@ static void plotAddComplexValue(dataDesc *desc, IFcomplex value);
 static void plotEnd(runDesc *run);
 static bool parseSpecial(char *name, char *dev, char *param, char *ind);
 static bool name_eq(char *n1, char *n2);
+static bool name_eq_query(char *typed, char *stored);
 static bool getSpecial(dataDesc *desc, runDesc *run, IFvalue *val);
 static void freeRun(runDesc *run);
 static int InterpFileAdd(runDesc *plotPtr, IFvalue *refValue, IFvalue *valuePtr);
@@ -283,7 +284,7 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
         if (refName) {
             addDataDesc(run, refName, refType, -1, initmem);
             for (i = 0; i < numsaves; i++)
-                if (!savesused[i] && name_eq(saves[i].name, refName)) {
+                if (!savesused[i] && name_eq_query(saves[i].name, refName)) {
                     savesused[i] = TRUE;
                     saves[i].used = 1;
                 }
@@ -297,7 +298,7 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
             for (i = 0; i < numsaves; i++) {
                 if (!savesused[i]) {
                     for (j = 0; j < numNames; j++) {
-                        if (name_eq(saves[i].name, dataNames[j])) {
+                        if (name_eq_query(saves[i].name, dataNames[j])) {
                             addDataDesc(run, dataNames[j], dataType, j, initmem);
                             savesused[i] = TRUE;
                             saves[i].used = 1;
@@ -424,12 +425,12 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
             /* Now, if there's a dep variable, do we already have it? */
             if (*depbuf) {
                 for (j = 0; j < run->numData; j++)
-                    if (name_eq(depbuf, run->data[j].name))
+                    if (name_eq_query(depbuf, run->data[j].name))
                         break;
                 if (j == run->numData) {
                     /* Better add it. */
                     for (j = 0; j < numNames; j++)
-                        if (name_eq(depbuf, dataNames[j]))
+                        if (name_eq_query(depbuf, dataNames[j]))
                             break;
                     if (j == numNames) {
                         fprintf(cp_err,
@@ -868,10 +869,19 @@ OUTattributes(runDesc *plotPtr, IFuid varName, int param, IFvalue *value)
     else
         return E_UNSUPP;
 
+    /* Both comparisons below ask name_eq()'s question rather than the save
+       list's -- an analysis's own IFuid for a column against the name this
+       run stored for it -- and stay byte exact for name_eq()'s reason: the
+       search includes the scale, and a deck may call a node Time.  Every
+       caller in the tree passes varName as NULL, so neither arm is reachable
+       today; the interface is public, which is why they are classified rather
+       than left frozen.  doc/codex/issues/0056 criterion 7. */
+
     if (run->writeOut) {
         if (varName) {
             int i;
             for (i = 0; i < run->numData; i++)
+                /* case-lint: stored - both operands are names this run holds, see above */
                 if (!strcmp(varName, run->data[i].name))
                     run->data[i].gtype = type;
         } else {
@@ -880,6 +890,7 @@ OUTattributes(runDesc *plotPtr, IFuid varName, int param, IFvalue *value)
     } else {
         if (varName) {
             for (d = run->runPlot->pl_dvecs; d; d = d->v_next)
+                /* case-lint: stored - both operands are names this run holds, see above */
                 if (!strcmp(varName, d->v_name))
                     d->v_gridtype = type;
         } else if (param == PLOT_COMB) {
@@ -1332,30 +1343,71 @@ parseSpecial(char *name, char *dev, char *param, char *ind)
 }
 
 
-/* This routine must match two names with or without a V() around them. */
+/* Reduce a name with a V() around it to the name inside, in buf.  Returns
+   NULL on an opening parenthesis that is never closed, which both callers
+   below report as "not the same name". */
+
+static char *
+name_unwrap(char *n, char *buf)
+{
+    char *s;
+
+    if ((s = strchr(n, '(')) != NULL) {
+        strcpy(buf, s);
+        if ((s = strchr(buf, ')')) == NULL)
+            return NULL;
+        *s = '\0';
+        return buf;
+    }
+
+    return n;
+}
+
+
+/* This routine must match two names with or without a V() around them.
+   Both operands are names this run produced -- a variable name out of
+   dataNames[] and the reference vector's name -- so the question is which
+   column of the run this is, not whether two spellings are one name.  It
+   stays byte exact in every mode, and folding it would delete a vector: a
+   deck whose mid node is called Time keeps that node beside the constructed
+   scale vector 'time' under preserve only because this compare is exact.
+   doc/codex/issues/0056 criterion 2. */
 
 static bool
 name_eq(char *n1, char *n2)
 {
-    char buf1[BSIZE_SP], buf2[BSIZE_SP], *s;
+    char buf1[BSIZE_SP], buf2[BSIZE_SP];
 
-    if ((s = strchr(n1, '(')) != NULL) {
-        strcpy(buf1, s);
-        if ((s = strchr(buf1, ')')) == NULL)
-            return FALSE;
-        *s = '\0';
-        n1 = buf1;
-    }
+    if ((n1 = name_unwrap(n1, buf1)) == NULL)
+        return FALSE;
 
-    if ((s = strchr(n2, '(')) != NULL) {
-        strcpy(buf2, s);
-        if ((s = strchr(buf2, ')')) == NULL)
-            return FALSE;
-        *s = '\0';
-        n2 = buf2;
-    }
+    if ((n2 = name_unwrap(n2, buf2)) == NULL)
+        return FALSE;
 
+    /* case-lint: stored - both operands are names this run holds, see above */
     return (strcmp(n1, n2) ? FALSE : TRUE);
+}
+
+
+/* The same match for a name the caller asked for -- a .save card's token or a
+   'save' command's -- against a name this run stores.  That is the frontend's
+   Class C question and vec_name_eq() is its one answer: case insensitive
+   under fold and preserve, exact only under distinguish.
+   doc/claude/decisions/0001-distinguish.md decision 3, doc/codex/issues/0056
+   criterion 1. */
+
+static bool
+name_eq_query(char *typed, char *stored)
+{
+    char buf1[BSIZE_SP], buf2[BSIZE_SP];
+
+    if ((typed = name_unwrap(typed, buf1)) == NULL)
+        return FALSE;
+
+    if ((stored = name_unwrap(stored, buf2)) == NULL)
+        return FALSE;
+
+    return vec_name_eq(stored, typed);
 }
 
 

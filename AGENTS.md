@@ -28,7 +28,7 @@ Follow the edited file's style. C generally uses four-space indentation, same-li
   if (eq(a, b))   /* case-lint: keyword - both operands are command names */
   ```
 
-  The marker suppresses the call on its own line and the call on the line directly below it, and nothing else.
+  The marker suppresses the call on its own line and the call on the line directly below it, and nothing else. Nothing checks the reason word — it is written for the reviewer — so it has to say which question the site is asking. Beyond `keyword` the tree uses `helper` (the call *is* an identity helper, or a mode arm of one), `stored` (both operands are names the simulator holds for one run, so the question is which column this is; these stay byte-exact and the marker names the measured reason) and `neither` (a comparator's own definition, a sort, a deliberate case-insensitive scan, free text). `tests/bin/identity_lint.sh` prints the same list when it fails.
 
 Adding the line to `tests/lint/identity.baseline` is the third option and is for a comparison that is a genuine identity test and cannot be fixed yet; such an entry must name the issue that will fix it. The lint also fails on a baseline entry it can no longer find, so a rewrite of an existing comparison means deleting its line — `make check` prints exactly which.
 

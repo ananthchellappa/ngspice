@@ -312,8 +312,24 @@ what first brings `V(1)` and `v(1)` onto one chain for
 `vec_wrapped_name_eq()` to judge.
 
 That leaves the frontend with two folded-key tables filtered by the same
-predicate and no vector-name matcher outside them, which is the state the
-build-enforced lint of item 7 of `0005`'s closing list would freeze.
+predicate, which is the state the build-enforced lint of item 7 of `0005`'s
+closing list would freeze. This paragraph also said "and no vector-name
+matcher outside them" until 2026-08-13, and that half was false as written:
+`name_eq()` (`src/frontend/outitf.c`) is exactly such a matcher — in
+`src/frontend/`, outside both tables, deciding whether a `.save` token and a
+name the run stores are one name — and it was a bare `strcmp` in all three
+modes, so `.save` was the frontend's one resolution site that answered only to
+the stored spelling. `doc/codex/issues/0056`. Its four query callers call
+`name_eq_query()` now, which is `vec_name_eq()`, so the rule is this section's
+after all; what is not is the fifth caller, `beginPlot()`'s "is this data name
+the reference vector's name?", which compares two names the run itself
+produced rather than a query against a stored name and therefore stays byte
+exact in every mode — decision 3's rule unchanged, and measured: folding it
+deletes a node a deck called `Time` from a `tran` plot under `preserve`.
+**Guarded** since 2026-08-13 by `tests/regression/case/plot-scale-name-twin.cir`,
+which asserts the node's presence in the plot rather than a value, because
+`findvec()` folds under `preserve` and answers a read of either spelling with
+a number.
 
 The mechanism keeps the plan's rule intact. The fold at `:71` and `:184` and
 the `nghash_unique(pl_lookup_table, FALSE)` at `:61` are all unchanged; what

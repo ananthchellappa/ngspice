@@ -55,6 +55,8 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	builtin-func-case.cir builtin-func-case-lower.cir \
 	numnodes-letter-case.cir numnodes-letter-case-lower.cir \
 	save-alli-case.cir save-alli-case-lower.cir \
+	save-name-case.cir save-name-case-lower.cir \
+	plot-scale-name-twin.cir \
 	alter-rebin-case.cir alter-rebin-case-lower.cir \
 	alter-rebin-param-case.cir alter-rebin-param-case-lower.cir \
 	bsource-forward-ref-case.cir bsource-forward-ref-case-lower.cir \
@@ -68,7 +70,8 @@ EXTRA_DIST = \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
 
-# write-roundtrip.cir writes a rawfile into the build directory
-CLEANFILES = casewrite.raw
+# write-roundtrip.cir writes a rawfile into the build directory, and
+# plot-scale-name-twin.cir the capture it reads its assertion back out of.
+CLEANFILES = casewrite.raw pst_*.txt
 
 MAINTAINERCLEANFILES = Makefile.in

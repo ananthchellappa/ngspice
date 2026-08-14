@@ -1,0 +1,23 @@
+* lower case twin of save-name-case.cir
+* Byte identical to save-name-case.cir except that the net, the source and the
+* references to them are lower case, so the .save card and the cards that
+* define the names agree byte for byte.  That spelling resolved in every mode
+* before doc/codex/issues/0056 and must go on resolving after it, which is
+* what makes this twin the reduction: the fix loosens the comparison and this
+* deck says nothing that used to match stopped matching.  Its .out is
+* identical.
+*
+* doc/codex/issues/0056
+.OPTIONS noacct
+vs in 0 dc 3
+rl in midnode 1k
+rg midnode 0 3k
+.save v(midnode) i(vs)
+.control
+op
+let vprobe = v(midnode)
+let iprobe = i(vs)
+print vprobe
+print iprobe
+.endc
+.end
