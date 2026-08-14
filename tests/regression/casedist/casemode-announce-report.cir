@@ -1,0 +1,277 @@
+* the casemode announcement fires on a change of outcome, not once per read
+* doc/codex/issues/0058, acceptance criteria 1, 3 and 4.  set_case_mode()
+* (src/frontend/inpcom.c) does two jobs: it establishes the identifier case
+* policy for one netlist read, and in two of its four arms it announces it -
+* the experimental banner for 'distinguish' and the unknown-value warning for
+* anything it does not recognise.  Its only caller is inp_readall(), which
+* reads every input file, so both announcements used to be emitted once per
+* file read: the same deck under the same flag said it 1, 2 or 3 times
+* depending on whether the invoking user happens to have a spinit and a
+* .spiceinit, and once more again for every 'source', every
+* 'altermod <model> file', and every XSPICE auto-bridge deck that ngspice
+* wrote itself.  A consumer scraping the log for the mode in force therefore
+* read a number set by the reader's file layout rather than by the run.
+*
+* The establishment cannot move: inp_read() asks inp_case_folding() whether to
+* lowercase each card, and that runs for a command file too, so a spinit card
+* really is folded or not according to the mode.  Only the announcement is
+* movable, and it cannot be "say it once" either, because a single process can
+* legitimately hold two modes - a deck read under one mode whose .control
+* block sets another and sources a second deck - and the run that changes into
+* 'distinguish' half way has something new to say.  Nor can it be keyed on the
+* mode alone: an unrecognised value establishes NG_CASE_FOLD, which is byte
+* identical to the fold already in force, and that warning must still be
+* printed.  So the key is the whole outcome of the call - the mode established
+* together with the unrecognised value string when there was one - and this
+* deck asserts the two halves of that rule plus the silence it buys.
+*
+* The announcement is written before the first line of any .control block
+* runs, so there is no command in the deck itself to attach a redirect to.
+* This deck therefore uses doc/claude/decisions/0006-diagnostic-deck-coverage.md
+* decision 2: each sub-deck is written out with echo and sourced from inside
+* this control block, because 'source' re-enters inp_spsource() and so
+* inp_readall(), with the wrapper's redirect in force.  '>&' sets cp_err as
+* well as cp_out (src/frontend/streams.c), which is why 0058 criterion 3 moves
+* both announcements from a literal stderr to cp_err: on stderr no deck can
+* see them at all, and every case below would read zero.  The cma_* files are
+* cleaned by CLEANFILES; their names are lower case for the reason
+* bsource-node-case-report.cir's header gives (doc/codex/issues/0038), and
+* this deck therefore carries that header's collateral too: the uppercased
+* copy doc/claude/scripts/case_differential_sweep.py makes of it does not run,
+* so the sweep reports it as a preserve-UPPER DIFF beside its five siblings.
+* Measured, and it is the same 'cma_inherit.cir: no such file or directory'
+* shape, not a numeric one.
+*
+* The assertion is a COUNT and not a presence, and the silent halves are the
+* ones that matter: an announcement that fires twice is exactly what this
+* issue is about, so a deck that only asked "was it announced?" would pass on
+* the defect.  Each silence case also echoes a CAPTURE-READ token, found from
+* the sub-deck's own 'Circuit:' line, because an assertion about an absence is
+* vacuously true when the capture was never opened.
+*
+* Every token is upper case because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error'.
+*
+*   INHERIT   sub-deck read under the outer deck's own mode  -> 0 announcements
+*   BOGUS     sub-deck read after 'set casemode=bogus'       -> 1, the value is
+*             new even though the mode it establishes, fold, is not
+*   REPEAT    the same sub-deck sourced again, value unchanged -> 0
+*   BACK      sub-deck read after 'set casemode=distinguish' -> 1, the outcome
+*             changed back and the banner is owed again
+*   VIA       sub-deck read after 'set casemode=preserve'    -> 0, preserve is
+*             one of the two silent arms
+*   RETURN    sub-deck read after 'set casemode=distinguish' -> 1, the outcome
+*             is new against the preserve VIA read even though the same
+*             outcome was announced earlier in this run
+*
+* VIA and RETURN together are the pair that pins which rule the latch
+* implements, and they are the only pair in this deck that does: the outcome
+* is compared against the previous READ, not against the last thing announced,
+* so returning to 'distinguish' from a silent detour is announced again.
+* doc/claude/decisions/0016-case-mode-announcement-latch.md has the argument
+* and the alternative it rejects.
+.OPTIONS noacct
+.control
+* --- INHERIT: nothing changed the mode, so the sub-deck's read is silent
+echo "* a sub-deck read under the mode the outer deck was read under" > cma_inherit.cir
+echo ".OPTIONS noacct" >> cma_inherit.cir
+echo "v1 in 0 dc 1.5" >> cma_inherit.cir
+echo "r1 in mid 1k" >> cma_inherit.cir
+echo "r2 mid 0 1k" >> cma_inherit.cir
+echo ".end" >> cma_inherit.cir
+source cma_inherit.cir >& cma_inherit.txt
+set n1 = 1
+set read1 = 0
+let cnt1 = 0
+fopen f1 cma_inherit.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "is experimental"
+  if $p1 >= 0
+    let cnt1 = cnt1 + 1
+  end
+  strstr r1 "_$capline" "Circuit:"
+  if $r1 >= 0
+    set read1 = 1
+  end
+end
+fclose $f1
+if cnt1 = 0
+  echo CASEMODE-INHERIT-SILENT
+else
+  echo CASEMODE-INHERIT-ANNOUNCED
+end
+if $read1 > 0
+  echo CASEMODE-INHERIT-CAPTURE-READ
+else
+  echo CASEMODE-INHERIT-CAPTURE-EMPTY
+end
+* --- BOGUS: a misspelled value establishes fold, which is NOT the mode in
+* --- force, but the outcome carries the value string and is new either way
+set casemode=bogus
+echo "* a sub-deck read after the control block misspelled the casemode" > cma_bogus.cir
+echo ".OPTIONS noacct" >> cma_bogus.cir
+echo "v1 in 0 dc 1.5" >> cma_bogus.cir
+echo "r1 in mid 1k" >> cma_bogus.cir
+echo "r2 mid 0 1k" >> cma_bogus.cir
+echo ".end" >> cma_bogus.cir
+source cma_bogus.cir >& cma_bogus.txt
+set n2 = 1
+let cnt2 = 0
+fopen f2 cma_bogus.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "unknown casemode 'bogus'"
+  if $p2 >= 0
+    let cnt2 = cnt2 + 1
+  end
+end
+fclose $f2
+if cnt2 = 1
+  echo CASEMODE-BOGUS-ONCE
+else
+  if cnt2 = 0
+    echo CASEMODE-BOGUS-NONE
+  else
+    echo CASEMODE-BOGUS-REPEATED
+  end
+end
+* --- REPEAT: the same value again, so the outcome is the one already
+* --- announced and the second read says nothing
+source cma_bogus.cir >& cma_repeat.txt
+set n3 = 1
+set read3 = 0
+let cnt3 = 0
+fopen f3 cma_repeat.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "unknown casemode"
+  if $p3 >= 0
+    let cnt3 = cnt3 + 1
+  end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if cnt3 = 0
+  echo CASEMODE-REPEAT-SILENT
+else
+  echo CASEMODE-REPEAT-ANNOUNCED
+end
+if $read3 > 0
+  echo CASEMODE-REPEAT-CAPTURE-READ
+else
+  echo CASEMODE-REPEAT-CAPTURE-EMPTY
+end
+* --- BACK: into distinguish again from the fold the misspelling established,
+* --- so the mode's warranty is owed a second time
+set casemode=distinguish
+echo "* a sub-deck read after the control block changed the mode back" > cma_back.cir
+echo ".OPTIONS noacct" >> cma_back.cir
+echo "v1 in 0 dc 1.5" >> cma_back.cir
+echo "r1 in mid 1k" >> cma_back.cir
+echo "r2 mid 0 1k" >> cma_back.cir
+echo ".end" >> cma_back.cir
+source cma_back.cir >& cma_back.txt
+set n4 = 1
+let cnt4 = 0
+fopen f4 cma_back.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "is experimental"
+  if $p4 >= 0
+    let cnt4 = cnt4 + 1
+  end
+end
+fclose $f4
+if cnt4 = 1
+  echo CASEMODE-BACK-ONCE
+else
+  if cnt4 = 0
+    echo CASEMODE-BACK-NONE
+  else
+    echo CASEMODE-BACK-REPEATED
+  end
+end
+* --- VIA: a detour through 'preserve', one of the two silent arms.  The read
+* --- itself says nothing, and what it changes is the outcome the next read is
+* --- compared against
+set casemode=preserve
+echo "* a sub-deck read after the control block detoured through preserve" > cma_via.cir
+echo ".OPTIONS noacct" >> cma_via.cir
+echo "v1 in 0 dc 1.5" >> cma_via.cir
+echo "r1 in mid 1k" >> cma_via.cir
+echo "r2 mid 0 1k" >> cma_via.cir
+echo ".end" >> cma_via.cir
+source cma_via.cir >& cma_via.txt
+set n5 = 1
+set read5 = 0
+let cnt5 = 0
+fopen f5 cma_via.txt r
+while $n5 >= 0
+  set capline = "no_line_read"
+  fread capline $f5 n5
+  strstr p5 "_$capline" "is experimental"
+  if $p5 >= 0
+    let cnt5 = cnt5 + 1
+  end
+  strstr r5 "_$capline" "Circuit:"
+  if $r5 >= 0
+    set read5 = 1
+  end
+end
+fclose $f5
+if cnt5 = 0
+  echo CASEMODE-VIA-SILENT
+else
+  echo CASEMODE-VIA-ANNOUNCED
+end
+if $read5 > 0
+  echo CASEMODE-VIA-CAPTURE-READ
+else
+  echo CASEMODE-VIA-CAPTURE-EMPTY
+end
+* --- RETURN: back into distinguish from that detour.  The outcome differs
+* --- from the one the previous read established, so the banner is owed, and
+* --- it is owed whether or not the same banner was already printed earlier in
+* --- this run: a latch keyed on the last ANNOUNCEMENT would leave this read
+* --- silent, which is the reading this case rules out
+set casemode=distinguish
+echo "* a sub-deck read after the control block returned to distinguish" > cma_return.cir
+echo ".OPTIONS noacct" >> cma_return.cir
+echo "v1 in 0 dc 1.5" >> cma_return.cir
+echo "r1 in mid 1k" >> cma_return.cir
+echo "r2 mid 0 1k" >> cma_return.cir
+echo ".end" >> cma_return.cir
+source cma_return.cir >& cma_return.txt
+set n6 = 1
+let cnt6 = 0
+fopen f6 cma_return.txt r
+while $n6 >= 0
+  set capline = "no_line_read"
+  fread capline $f6 n6
+  strstr p6 "_$capline" "is experimental"
+  if $p6 >= 0
+    let cnt6 = cnt6 + 1
+  end
+end
+fclose $f6
+if cnt6 = 1
+  echo CASEMODE-RETURN-ONCE
+else
+  if cnt6 = 0
+    echo CASEMODE-RETURN-NONE
+  else
+    echo CASEMODE-RETURN-REPEATED
+  end
+end
+op
+print v(mid)
+.endc
+.end

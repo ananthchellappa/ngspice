@@ -1,0 +1,40 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * the casemode announcement fires on a change of outcome, not once per read
+
+
+Note: No compatibility mode selected!
+
+CASEMODE-INHERIT-SILENT
+CASEMODE-INHERIT-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+CASEMODE-BOGUS-ONCE
+
+Note: No compatibility mode selected!
+
+CASEMODE-REPEAT-SILENT
+CASEMODE-REPEAT-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+CASEMODE-BACK-ONCE
+
+Note: No compatibility mode selected!
+
+CASEMODE-VIA-SILENT
+CASEMODE-VIA-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+CASEMODE-RETURN-ONCE
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+v(mid) = 7.500000e-01
+Note: Simulation executed from .control section

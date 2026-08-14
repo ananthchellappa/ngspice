@@ -19,7 +19,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-let-report.cir vector-probe-report.cir \
 	vector-pyplot-probe-report.cir subckt-formal-pin-case.cir \
 	udf-name-case.cir save-name-case.cir save-undef-report.cir \
-	save-near-miss-node-list.cir
+	save-near-miss-node-list.cir \
+	casemode-announce-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -62,10 +63,15 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # reason, for the twin scan's fallback to the circuit's node list: the deck it
 # needs has an analysis that builds its own column list, so the miss cannot be
 # reached from the outer deck's own circuit.
+# casemode-announce-report.cir writes its sub-decks and captures for
+# bsource-node-case-report.cir's reason as well: set_case_mode() announces the
+# case policy during inp_readall(), so 'source' is the only command a redirect
+# can be attached to.  It is also the deck that asserts how many times the
+# announcement is made, which is doc/codex/issues/0058.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
 	sur_*.txt sur_*.cir snm_*.txt snm_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
-	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir \
+	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir cma_*.txt cma_*.cir \
 	vpr_*.txt vpr_*.svg VPR_*.CIR vpp_*.txt sfp_*.txt sfp_*.cir
 
 EXTRA_DIST = \

@@ -1076,6 +1076,85 @@ bool ng_ideq(const char *a, const char *b)
     return inp_case_exact_ids() ? (strcmp(a, b) == 0) : (cieq(a, b) != 0);
 }
 
+/* The outcome of the last set_case_mode() call: the mode it established,
+   together with the unrecognised casemode value when the value was one. The
+   two announcements below are made when the outcome differs from this pair
+   and not otherwise, which is what makes them once per run rather than once
+   per input file read.
+
+   Establishing the mode has to happen on every read - inp_read() asks
+   inp_case_folding() whether to lowercase each card, and that runs for a
+   command file too, so whether a spinit card is folded really does follow the
+   mode - but announcing it does not, and inp_readall() reads every input
+   file: the system spinit, a .spiceinit, the deck, every 'source', every
+   'altermod <model> file', and the deck the XSPICE auto-bridge writes itself.
+   Before this latch the same deck under the same flag announced 1, 2 or 3
+   times depending on which init files the invoking user happened to have.
+
+   The key is the whole outcome and not the mode, and neither half is
+   negotiable. It cannot be "say it once", because one process can hold two
+   modes in turn - a deck read under one, a .control block that sets another
+   and sources a second deck - and the read that changes into 'distinguish'
+   owes the banner. It cannot be keyed on the mode alone either, because an
+   unrecognised value establishes NG_CASE_FOLD: under a misspelling the mode
+   is byte identical to a plain fold run, and that warning must still be
+   printed. The initial value is the outcome ng_case_mode's own initialiser
+   above describes, so a plain fold run stays silent.
+
+   set_compat_mode() / print_compat_mode() (src/frontend/inpcompat.c) is the
+   same split one line away in inp_readall(); it gates on comfile, which is
+   once per deck rather than once per run. doc/codex/issues/0058. */
+
+static int ng_case_last_outcome = NG_CASE_FOLD;
+static char *ng_case_last_unknown = NULL;
+
+/* Clear the latch, so that a host program which resets the simulator and
+   re-loads a 'distinguish' circuit is told the mode's warranty again rather
+   than once per process lifetime. Called from totalreset()
+   (src/sharedspice.c); ng_case_mode itself needs no reset because every
+   inp_readall() rewrites it from cp_getvar(). */
+
+void inp_case_announce_reset(void)
+{
+    ng_case_last_outcome = NG_CASE_FOLD;
+    tfree(ng_case_last_unknown);
+}
+
+/* Is this outcome different from the one the previous read established?
+   Latches it either way, announcing or not, so that the comparison is always
+   against the previous read and never against the last thing printed. The two
+   readings differ on one shape only - a run that leaves 'distinguish' for a
+   silent mode and returns to it - and
+   doc/claude/decisions/0016-case-mode-announcement-latch.md decision 1 is why
+   this is the one; tests/regression/casedist/casemode-announce-report.cir
+   cases VIA and RETURN are where it is asserted.
+
+   The two unrecognised values are compared byte for byte because they are
+   casemode values - words the control language defines, matched with cieq()
+   below - and not names a deck wrote, and because the question being asked is
+   whether the warning would print the same text: 'bogus' and 'Bogus' are two
+   different messages and each is owed once. */
+
+static bool case_outcome_is_new(int mode, const char *unknown)
+{
+    bool is_new;
+
+    if (mode != ng_case_last_outcome)
+        is_new = TRUE;
+    else if ((unknown == NULL) != (ng_case_last_unknown == NULL))
+        is_new = TRUE;
+    else if (unknown == NULL)
+        is_new = FALSE;
+    else /* case-lint: keyword - two casemode values, see above */
+        is_new = (strcmp(unknown, ng_case_last_unknown) != 0);
+
+    ng_case_last_outcome = mode;
+    tfree(ng_case_last_unknown);
+    ng_case_last_unknown = copy(unknown);
+
+    return is_new;
+}
+
 /* Establish the case mode for one netlist read. Called from inp_readall()
    next to set_compat_mode(), so the last writer before the deck is read wins:
    .spiceinit is sourced after the -D getopt loop and therefore overrides it,
@@ -1085,18 +1164,28 @@ bool ng_ideq(const char *a, const char *b)
 static void set_case_mode(void)
 {
     char mode[64];
+    const char *unknown = NULL;
 
     ng_case_mode = NG_CASE_FOLD;
 
-    if (!cp_getvar("casemode", CP_STRING, mode, sizeof(mode) - 1))
+    if (cp_getvar("casemode", CP_STRING, mode, sizeof(mode) - 1)) {
+        if (cieq(mode, "fold"))
+            ng_case_mode = NG_CASE_FOLD;
+        else if (cieq(mode, "preserve"))
+            ng_case_mode = NG_CASE_PRESERVE;
+        else if (cieq(mode, "distinguish"))
+            ng_case_mode = NG_CASE_DISTINGUISH;
+        else
+            unknown = mode;
+    }
+
+    if (!case_outcome_is_new(ng_case_mode, unknown))
         return;
 
-    if (cieq(mode, "fold"))
-        ng_case_mode = NG_CASE_FOLD;
-    else if (cieq(mode, "preserve"))
-        ng_case_mode = NG_CASE_PRESERVE;
-    else if (cieq(mode, "distinguish")) {
-        ng_case_mode = NG_CASE_DISTINGUISH;
+    if (unknown)
+        fprintf(cp_err,
+                "Warning: unknown casemode '%s', using 'fold'\n", unknown);
+    else if (ng_case_mode == NG_CASE_DISTINGUISH) {
         /* doc/codex/issues/0032 is closed, and with it this clause has run
            out of open defects to name - 0029, 0027 and 0032 were the last
            three. What replaces them is not a fourth defect but the mode's own
@@ -1114,7 +1203,7 @@ static void set_case_mode(void)
            doc/claude/decisions/0005-scale-vector-identity.md decision 5 has
            that argument and the reasons the word 'experimental' does not rest
            on this clause alone; 0004 decision 6 is where those started. */
-        fprintf(stderr,
+        fprintf(cp_err,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
                 "identity is case sensitive, and a vector, a B source V() "
                 "reference or an XSPICE node whose resolution misses by case "
@@ -1122,9 +1211,6 @@ static void set_case_mode(void)
                 "a deck with two nets and nothing says so, because both "
                 "spellings are definitions.\n");
     }
-    else
-        fprintf(stderr,
-                "Warning: unknown casemode '%s', using 'fold'\n", mode);
 }
 
 

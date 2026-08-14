@@ -219,6 +219,10 @@ extern bool inp_case_folding(void);
    three modes; doc/claude/decisions/0001-distinguish.md decision 3 */
 extern bool inp_case_exact_ids(void);
 extern bool ng_ideq(const char *a, const char *b);
+/* forget the case-mode outcome the last read established, so that a
+   simulator reset re-announces it; doc/codex/issues/0058 and
+   doc/claude/decisions/0016-case-mode-announcement-latch.md */
+extern void inp_case_announce_reset(void);
 
 extern struct card *line_nconc(struct card *head, struct card *rest);
 extern struct card *line_reverse(struct card *head);

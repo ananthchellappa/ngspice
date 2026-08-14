@@ -2593,6 +2593,13 @@ static int totalreset(void)
     spice_destroy_devices();
     unset_all();
     cp_resetcontrol(FALSE);
+    /* the case mode itself is re-read from the variable on every netlist
+       read, but the record of the outcome the last read established is not,
+       and a caller that resets and re-loads a 'distinguish' circuit is owed
+       the experimental banner again; doc/codex/issues/0058 and
+       doc/claude/decisions/0016-case-mode-announcement-latch.md, whose
+       decision 3 records the shared-build probe for this line */
+    inp_case_announce_reset();
     sh_delete_myvec();
 
 #ifdef THREADS
