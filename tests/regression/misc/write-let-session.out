@@ -1,0 +1,22 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * a nutmeg session writes the vectors it built with 'let'
+
+ASCII raw file "wls_bare.raw"
+WRITE-LET-BARE-PRESENT
+WRITE-LET-BARE-HOLDS-X
+WRITE-LET-BARE-HOLDS-Y
+ASCII raw file "wls_all.raw"
+WRITE-LET-ALL-PRESENT
+ASCII raw file "wls_named.raw"
+WRITE-LET-NAMED-PRESENT
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+v(out) = 5.000000e-01
+Note: Simulation executed from .control section

@@ -8,7 +8,8 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	bsource-undef-node-report.cir dotcard-undef-node-report.cir \
 	define-const-body.cir define-const-body-listing.cir \
 	define-formal-body.cir save-undef-report.cir \
-	save-multianalysis-report.cir save-crossplot-report.cir
+	save-multianalysis-report.cir save-crossplot-report.cir \
+	write-let-session.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 
@@ -32,8 +33,10 @@ EXTRA_DIST = \
 # needs a sub-deck of its own.
 # save-crossplot-report.cir is the same shape again for the silence one plot
 # of an analysis owes a name an earlier plot of it already resolved.
+# write-let-session.cir writes the three rawfiles it asserts on and reads one
+# of them back, so the files it wrote have to survive the run.
 CLEANFILES = PrintTail.txt dpc_*.raw dpc_*.txt bun_*.cir bun_*.txt \
 	dun_*.cir dun_*.txt sur_*.cir sur_*.txt smr_*.cir smr_*.txt \
-	scr_*.cir scr_*.txt
+	scr_*.cir scr_*.txt wls_*.raw
 
 MAINTAINERCLEANFILES = Makefile.in

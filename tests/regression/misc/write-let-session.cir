@@ -1,0 +1,118 @@
+* a nutmeg session writes the vectors it built with 'let'
+* doc/codex/issues/0059.  The constants plot is not only where the twelve
+* physical constants live.  It is also where a session's OWN vectors land: it
+* is plot_cur from the static initialiser at src/frontend/plotting/plotting.c
+* onwards, so every 'let' typed before an analysis has run creates a permanent
+* vector in it.  A deck that computes with 'let' and writes the result -- the
+* data-processing workflow nutmeg and 'ngspice -p' exist for -- therefore
+* writes the constants plot, and must be allowed to.
+*
+* This deck exists because a guard added for 0059 refused exactly that.  It
+* keyed on the plot ("the constants plot was never chosen, so writing it is a
+* mistake"), which is false whenever the plot holds the deck's own work, and
+* the deck below is the counter-example: it lost both its bare write and its
+* spelled write and produced no file at all, where every released ngspice
+* writes one.  0059's Resolution records why the guard was withdrawn rather
+* than narrowed again.
+*
+*   BARE      'let' x and y, then 'write f'      -> written, and holds x and y
+*   ALL       the same request spelled 'all'     -> written
+*   NAMED     the same vectors named             -> written
+*
+* The file is written as ASCII so the deck can read its own vectors back out
+* of it: the assertion is not just that a file appeared but that the file is
+* the deck's data.  A guard that refused the write leaves no file and fails
+* BARE-PRESENT; a guard that wrote some other plot instead would leave a file
+* and fail BARE-HOLDS-X.  Reading is the fopen/fread/strstr idiom of
+* save-undef-report.cir, reduced to one upper-case token per assertion.
+*
+* Mode independent: every name here is lower case and none is looked up across
+* a case boundary.
+*
+* The netlist below carries no analysis card and the 'op' is the last thing in
+* the control block, so every assertion above it is made with plot_cur still
+* on the constants plot -- which is the state under test.
+.OPTIONS noacct
+v1 in 0 dc 1
+r1 in out 1k
+r2 out 0 1k
+.control
+set silent_fileio
+set filetype=ascii
+shell rm -f wls_bare.raw wls_all.raw wls_named.raw
+
+let wls_x = vector(5)
+let wls_y = wls_x * 2
+
+* --- BARE: no analysis has run, so the current plot is the constants plot
+* --- and the two vectors above are what this session put in it
+write wls_bare.raw
+fopen f1 wls_bare.raw
+if $f1 < 0
+  echo WRITE-LET-BARE-ABSENT
+else
+  fclose $f1
+  echo WRITE-LET-BARE-PRESENT
+end
+
+* --- the file has to be the deck's data, not merely a file.  The read is
+* --- inside 'if $c1 >= 0' because fread on a handle fopen never opened
+* --- returns without moving the count and the loop would not terminate
+set gotx = 0
+set goty = 0
+fopen c1 wls_bare.raw r
+if $c1 >= 0
+  set n1 = 1
+  while $n1 >= 0
+    set capline = "no_line_read"
+    fread capline $c1 n1
+    strstr px "_$capline" "wls_x"
+    if $px >= 0
+      set gotx = 1
+    end
+    strstr py "_$capline" "wls_y"
+    if $py >= 0
+      set goty = 1
+    end
+  end
+  fclose $c1
+end
+if $gotx > 0
+  echo WRITE-LET-BARE-HOLDS-X
+else
+  echo WRITE-LET-BARE-MISSING-X
+end
+if $goty > 0
+  echo WRITE-LET-BARE-HOLDS-Y
+else
+  echo WRITE-LET-BARE-MISSING-Y
+end
+
+* --- ALL: com_write() substitutes the one-word list { "all" } when no vector
+* --- list is given, so this is the same request typed out
+write wls_all.raw all
+fopen f2 wls_all.raw
+if $f2 < 0
+  echo WRITE-LET-ALL-ABSENT
+else
+  fclose $f2
+  echo WRITE-LET-ALL-PRESENT
+end
+
+* --- NAMED: naming the vectors asks for the same two
+write wls_named.raw wls_x wls_y
+fopen f3 wls_named.raw
+if $f3 < 0
+  echo WRITE-LET-NAMED-ABSENT
+else
+  fclose $f3
+  echo WRITE-LET-NAMED-PRESENT
+end
+
+* --- run the netlist last, so that batch mode has a simulation to account for
+* --- and every assertion above was made with plot_cur still on the constants
+* --- plot, which is the state this deck is about
+op
+print v(out)
+.endc
+.end
