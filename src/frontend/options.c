@@ -73,12 +73,17 @@ struct variable *cp_enqvar(const char *word, int *tbfreed)
 
     if (plot_cur) { /* a current plot is defined */
         struct variable *vv;
-        for (vv = plot_cur->pl_env; vv; vv = vv->va_next) {
-            if (eq(vv->va_name, word)) {
-                *tbfreed = 0;
-                return vv;
-            }
-        } /* end of loop over variables of the current plot */
+
+        /* What this function computes, it answers itself: the two arms below
+           come before the scan of the current plot's environment, not after
+           it.  That environment is filled from the 'Option:' line of a raw
+           header (src/frontend/rawfile.c) and from nowhere else, so a file
+           could otherwise return its own string where a caller expects a
+           name this session computed -- and on these five that was not a
+           wrong answer but a fault, because cp_usrvars() below asks for
+           exactly them and its three callers free what it hands back.
+           doc/codex/issues/0065; the same order is why 'curcasemode' is
+           answered above it (doc/codex/issues/0060). */
 
         *tbfreed = 1;
         /* Look for the variables beginning with curplot:
@@ -111,6 +116,14 @@ struct variable *cp_enqvar(const char *word, int *tbfreed)
                         copy(pl->pl_typename), list);
             return var_alloc_vlist(copy(word), list, NULL);
         }
+
+        /* and every other name the plot's own environment may answer for */
+        for (vv = plot_cur->pl_env; vv; vv = vv->va_next) {
+            if (eq(vv->va_name, word)) {
+                *tbfreed = 0;
+                return vv;
+            }
+        } /* end of loop over variables of the current plot */
     } /* end of case that a current plot is defined */
 
     *tbfreed = 0;
@@ -195,36 +208,50 @@ static struct variable *cp_enqvec_as_var(const char *vec_name,
 
 
 
+/* Put one cp_enqvar() answer on the front of the list cp_usrvars() builds.
+
+   Only an owned answer goes on it.  cp_enqvar()'s contract above is that
+   tbfreed == 0 marks a node borrowed from a plot's or a circuit's
+   environment, which the caller may neither free nor modify -- and this list
+   is modified, by the va_next assignment that links it, and freed, by every
+   one of cp_usrvars()' three callers (cp_getvar(), cp_remvar() and
+   cp_vprint(), all in src/frontend/variable.c, each ending in
+   free_struct_variable() which walks va_next to the end).  Linking a
+   borrowed node therefore re-points the environment it belongs to at a
+   temporary chain and then frees a node that environment still holds.
+
+   Dropping it loses no answer, because every one of those three callers
+   reaches both environments by its own path anyway: cp_getvar() scans them
+   after this list, cp_vprint() prints them as their own section, and
+   cp_remvar() unlinks from them directly.  The rule is about ownership and
+   not about which names are involved -- it holds for any name cp_enqvar()
+   ever learns to answer from an environment.  doc/codex/issues/0065. */
+
+static struct variable *usrvar_push(const char *name, struct variable *list)
+{
+    int tbfreed = 0;
+    struct variable * const tv = cp_enqvar(name, &tbfreed);
+
+    if (!tv || !tbfreed)
+        return list;
+
+    tv->va_next = list;
+    return tv;
+}
+
+
 /* Return $plots, $curplot, $curplottitle, $curplotname, and
  * $curplotdate as a linked list of variables in that order */
 struct variable *
 cp_usrvars(void)
 {
-    struct variable *v, *tv;
-    int tbfreed;
+    struct variable *v = (struct variable *) NULL;
 
-    v = (struct variable *) NULL;
-
-    if ((tv = cp_enqvar("plots", &tbfreed)) != NULL) {
-        tv->va_next = v;
-        v = tv;
-    }
-    if ((tv = cp_enqvar("curplot", &tbfreed)) != NULL) {
-        tv->va_next = v;
-        v = tv;
-    }
-    if ((tv = cp_enqvar("curplottitle", &tbfreed)) != NULL) {
-        tv->va_next = v;
-        v = tv;
-    }
-    if ((tv = cp_enqvar("curplotname", &tbfreed)) != NULL) {
-        tv->va_next = v;
-        v = tv;
-    }
-    if ((tv = cp_enqvar("curplotdate", &tbfreed)) != NULL) {
-        tv->va_next = v;
-        v = tv;
-    }
+    v = usrvar_push("plots", v);
+    v = usrvar_push("curplot", v);
+    v = usrvar_push("curplottitle", v);
+    v = usrvar_push("curplotname", v);
+    v = usrvar_push("curplotdate", v);
 
     return v;
 } /* end of function cp_usrvars */
