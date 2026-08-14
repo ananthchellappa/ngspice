@@ -198,6 +198,13 @@ extern void inp_casefix(char *string);
 extern void inp_list(FILE *file, struct card *deck, struct card *extras, int type);
 struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
         bool comfile, bool intfile, bool *expr_w_temper_p);
+/* is a file being turned into cards right now?  A plot's environment does
+   not answer a variable read taken inside that window, because the reads
+   the reader makes are policy for the file in hand; doc/codex/issues/0061 */
+extern bool inp_reading_netlist(void);
+/* forget a read in progress, for the paths that leave inp_readall() by a
+   longjmp rather than by returning */
+extern void inp_netlist_read_reset(void);
 extern FILE *inp_pathopen(const char *name, const char *mode);
 extern char *search_identifier(char *str, const char *identifier, char *str_begin);
 extern char *find_assignment(const char *s);

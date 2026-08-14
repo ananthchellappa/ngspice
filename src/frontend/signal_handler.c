@@ -66,6 +66,11 @@ ft_sigintr_cleanup(void)
     (void) rl_reset_after_signal();
 #endif /* defined(HAVE_GNUREADLINE) || defined(HAVE_BSDEDITLINE) */
 
+    /* An interrupt during a 'source' longjmps out of inp_readall(), which
+       therefore never lowers its own guard; this is where that jump lands.
+       doc/codex/issues/0061 */
+    inp_netlist_read_reset();
+
     /* To restore screen after an interrupt to a plot for instance */
     cp_interactive = TRUE;
     cp_resetcontrol(TRUE);

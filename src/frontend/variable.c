@@ -700,7 +700,20 @@ cp_getvar(char *name, enum cp_types type, void *retval, size_t rsize)
             if (eq(name, v->va_name))
                 break;
 
-    if (!v && plot_cur)
+    /* The current plot's environment answers a read taken on behalf of the
+       session, and not one taken while a file is being turned into cards.
+       A rawfile's 'Option:' line is parsed into that environment
+       (src/frontend/rawfile.c), so this link is the one place in the chain
+       where a data file can answer, and inp_readall()'s reads are policy for
+       the file in hand: whichever of them a loaded plot answered, it would
+       be answering about some other run.  The pair stays filed and stays
+       readable through $name and through 'set' -- both take cp_enqvar()
+       (src/frontend/options.c), which is not narrowed -- so a header can
+       still be read back, which is what the client asking for this wanted
+       from it.
+       doc/codex/issues/0061; inp_reading_netlist() is src/frontend/inpcom.c. */
+
+    if (!v && plot_cur && !inp_reading_netlist())
         for (v = plot_cur->pl_env; v; v = v->va_next)
             if (eq(name, v->va_name))
                 break;

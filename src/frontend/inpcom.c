@@ -1240,6 +1240,86 @@ static void set_case_mode(void)
 }
 
 
+/* Is a file being turned into cards right now?
+
+   A plot's environment is the one variable namespace a data file can write
+   into: the 'Option:' line of a raw header is parsed straight into
+   plot_cur->pl_env (src/frontend/rawfile.c) and nothing else in the tree
+   puts anything there.  cp_getvar() (src/frontend/variable.c) answers from
+   that environment for any name at all, which is right for a question about
+   the session and wrong for a question about a file being read: what the
+   reader asks for is policy -- which case mode this deck is parsed under,
+   which compatibility dialect, where an .include comes from -- and the
+   subject of those questions is the file in hand, not a plot somebody
+   loaded an hour ago.  So a plot's environment does not answer a read taken
+   while a netlist read is in progress, and this is the flag that says when
+   that is.  doc/codex/issues/0061.
+
+   The window is the whole of inp_readall() rather than a list of variable
+   names, and that is the point.  set_case_mode() and set_compat_mode() are
+   the two policy reads the reader makes today; both are covered without
+   being named, as are the reads made further down (no_auto_gnd,
+   addcontrol, sourcepath) and the next one somebody adds.  A predicate that
+   knew the name 'casemode' would have to learn 'ngbehavior' next, and then
+   the one after that.
+
+   A count rather than a flag, so that a nested read cannot lower the guard
+   on its way out.  There is no nesting today, and all three callers were
+   traced to be sure of it: inp_spsource() (src/frontend/inp.c:532),
+   com_alter_mod() loading a model file (src/frontend/device.c:1598), and the
+   XSPICE auto-bridge (src/xspice/evt/evtcheck_nodes.c:232).  None of the
+   three runs inside another's window.  The auto-bridge looks like the one
+   that might, because it reads a deck ngspice writes itself, but it does not:
+   Evtcheck_nodes() is called from if_inpdeck() (src/frontend/spiceif.c:185)
+   under inp_dodeck(), which inp_spsource() reaches at inp.c:1095, long after
+   the inp_readall() at inp.c:532 has returned.  Nor does anything a user
+   types at the prompt land inside the window -- an .include is read by
+   inp_read() below rather than by a second inp_readall(), and a .control
+   block is executed by inp_spsource() after this function has returned.  So
+   the count buys nothing that a flag would not buy today; it costs an int,
+   and it is the shape that is still correct on the day a nested caller does
+   appear. */
+
+static int inp_netlist_read_depth = 0;
+
+bool inp_reading_netlist(void)
+{
+    return inp_netlist_read_depth > 0;
+}
+
+/* Forget any read in progress.  For the paths that leave inp_readall()
+   without returning through it, of which there are two:
+
+   - the interrupt longjmp in the standalone binary, which lands in
+     ft_sigintr_cleanup() (src/frontend/signal_handler.c);
+   - and a host that resets the simulator, which lands in totalreset()
+     (src/sharedspice.c).
+
+   Both are places where nothing of ours is running. */
+
+void inp_netlist_read_reset(void)
+{
+    inp_netlist_read_depth = 0;
+}
+
+static struct card *inp_readall_cards(FILE *fp, const char *dir_name,
+        const char* file_name, bool comfile, bool intfile,
+        bool *expr_w_temper_p);
+
+struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
+        bool comfile, bool intfile, bool *expr_w_temper_p)
+{
+    struct card *cc;
+
+    inp_netlist_read_depth++;
+    cc = inp_readall_cards(fp, dir_name, file_name, comfile, intfile,
+            expr_w_temper_p);
+    inp_netlist_read_depth--;
+
+    return cc;
+}
+
+
 /*-------------------------------------------------------------------------
   Read the entire input file and return  a pointer to the first line of
   the linked list of 'card' records in data.  The pointer is stored in
@@ -1247,6 +1327,8 @@ static void set_case_mode(void)
   Called from fcn inp_spsource() in inp.c to load circuit or command files.
   Called from fcn com_alter_mod() in device.c to load model files.
   Called from here to load .library or .include files.
+  Entered through inp_readall() above, which raises the netlist-read guard
+  for the whole of this function.
 
   Procedure:
   read in all lines & put them in the struct cc
@@ -1277,8 +1359,9 @@ static void set_case_mode(void)
   remove the 'level' entries from each card
   *-------------------------------------------------------------------------*/
 
-struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
-        bool comfile, bool intfile, bool *expr_w_temper_p)
+static struct card *inp_readall_cards(FILE *fp, const char *dir_name,
+        const char* file_name, bool comfile, bool intfile,
+        bool *expr_w_temper_p)
 {
     struct card *cc;
     struct inp_read_t rv;

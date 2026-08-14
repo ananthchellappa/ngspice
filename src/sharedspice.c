@@ -2600,6 +2600,11 @@ static int totalreset(void)
        doc/claude/decisions/0016-case-mode-announcement-latch.md, whose
        decision 3 records the shared-build probe for this line */
     inp_case_announce_reset();
+    /* and the reader's guard, for the read a reset abandons: a netlist read
+       that does not return through inp_readall() never lowers it on its own,
+       and from then on plot_cur->pl_env would answer no cp_getvar() at all;
+       doc/codex/issues/0061 */
+    inp_netlist_read_reset();
     sh_delete_myvec();
 
 #ifdef THREADS
