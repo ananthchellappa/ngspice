@@ -2169,6 +2169,28 @@ ATTRIBUTE_NORETURN void shared_exit(int status)
         tfree(outsend);
     }
 #endif
+
+    /* This function never returns, and every route out of it below discards
+       the whole C stack of the call it was reached from -- including any
+       inp_readall() frames on it, which therefore never lower the reader's
+       guard on their own.  A fatal netlist read (a missing .include, say)
+       reaches here through controlled_exit() (src/frontend/error.c), so
+       without this line one bad deck leaves the guard raised for the rest of
+       the host process and plot_cur->pl_env stops answering cp_getvar()
+       permanently.  doc/codex/issues/0066; doc/codex/issues/0061 is where the
+       guard came from.
+
+       Here rather than at the two setjmp() landing sites, because there are
+       three routes out and only two of them land: the pthread_exit() just
+       below leaves a background thread ('bg_source badinc.cir') without
+       returning to any of them, and it was measured raising the guard exactly
+       as the other two do.  This is the last point common to all three.  It
+       is after the printsend flush above so no output is lost, and the guard
+       being down across the bgtr()/ngexit() callbacks that follow is correct:
+       by then nothing of ours is reading. */
+
+    inp_netlist_read_reset();
+
     // if we are in a worker thread, we exit it here
     // detaching then has to be done explicitely by the caller
     if (fl_running && !fl_exited) {
@@ -2600,10 +2622,11 @@ static int totalreset(void)
        doc/claude/decisions/0016-case-mode-announcement-latch.md, whose
        decision 3 records the shared-build probe for this line */
     inp_case_announce_reset();
-    /* and the reader's guard, for the read a reset abandons: a netlist read
-       that does not return through inp_readall() never lowers it on its own,
-       and from then on plot_cur->pl_env would answer no cp_getvar() at all;
-       doc/codex/issues/0061 */
+    /* and the reader's guard, for a host that resets while a read is in
+       progress for reasons of its own.  A read abandoned because it failed
+       has already cleared this in shared_exit() above, which is the path that
+       needed it and doc/codex/issues/0066 is why; this call covers the rest
+       and is what doc/codex/issues/0061 originally added it for */
     inp_netlist_read_reset();
     sh_delete_myvec();
 

@@ -1288,14 +1288,21 @@ bool inp_reading_netlist(void)
 }
 
 /* Forget any read in progress.  For the paths that leave inp_readall()
-   without returning through it, of which there are two:
+   without returning through it, of which there are three:
 
    - the interrupt longjmp in the standalone binary, which lands in
      ft_sigintr_cleanup() (src/frontend/signal_handler.c);
+   - a read that ends fatally in a shared build, where controlled_exit()
+     (src/frontend/error.c) calls shared_exit() (src/sharedspice.c) and that
+     never returns -- the count is cleared there rather than at either of the
+     two setjmp()s it can jump to, because a background thread leaves through
+     a pthread_exit() that lands at neither, doc/codex/issues/0066;
    - and a host that resets the simulator, which lands in totalreset()
      (src/sharedspice.c).
 
-   Both are places where nothing of ours is running. */
+   All three are places where nothing of ours is running.  In the standalone
+   binary only the first exists: controlled_exit() there calls exit() and the
+   process is gone, so no state of ours outlives a fatal read. */
 
 void inp_netlist_read_reset(void)
 {
