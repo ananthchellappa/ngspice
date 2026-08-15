@@ -1,0 +1,22 @@
+diff --git a/src/frontend/options.c b/src/frontend/options.c
+index 3f08209d5..f4b4d8851 100644
+--- a/src/frontend/options.c
++++ b/src/frontend/options.c
+@@ -401,7 +401,16 @@ cp_usrset(struct variable *var, bool isset)
+         return (US_DONTRECORD);
+     } else if (eq(var->va_name, "curplotdate")) {
+         if (plot_cur && (var->va_type == CP_STRING)) {
+-            FREE(plot_cur->pl_date);
++            /* The two arms above guard the built-in 'constants' plot, whose
++               three strings are the static initialisers of constantplot
++               (src/frontend/plotting/plotting.c); this one does not, and its
++               date is Spice_Build_Date.  So setting or unsetting curplotdate
++               before any analysis has run hands a string constant to free().
++               The test is the pointer and not the text, because the date is
++               the only one of the three whose value a session can reproduce
++               by accident. */
++            if (plot_cur->pl_date != Spice_Build_Date) /* not malloced! */
++                FREE(plot_cur->pl_date);
+             plot_cur->pl_date = copy(var->va_string);
+         }
+         else

@@ -1,0 +1,115 @@
+To: ngspice-devel@lists.sourceforge.net
+Subject: [PATCH 0/2] cp_remvar(): unset aborts or segfaults in six ordinary cases
+
+Hello,
+
+Two patches against master (2f9c8ad47) for a pre-existing crash in
+cp_remvar().  Six short sessions kill ngspice; all six are things a user or a
+generated deck does routinely.  Both patches are small and independent of any
+feature work.
+
+Reproducer
+----------
+
+Each line below is a complete session.  "-p" is pipe mode, "-n" skips
+.spiceinit.  I measured these on released ngspice-46 and on master built from
+2f9c8ad47 -- identical results on both:
+
+  $ printf 'set curplotdate=hello\nquit 0\n'          | ngspice -p -n   rc=134
+  $ printf 'unset curplotdate\nquit 0\n'              | ngspice -p -n   rc=134
+  $ printf 'unset curplot\nquit 0\n'                  | ngspice -p -n   rc=134
+  $ printf 'unset plots\nquit 0\n'                    | ngspice -p -n   rc=134
+  $ printf 'source d.cir\nset temp=27\nunset temp\nquit 0\n'
+                                                      | ngspice -p -n   rc=134
+  $ printf 'load f.raw\nunset myopt\ndisplay\nquit 0\n'
+                                                      | ngspice -p -n   rc=139
+
+rc=134 is SIGABRT from glibc's allocator ("double free or corruption"), rc=139
+is SIGSEGV.  Both dump core.
+
+The last one needs a raw file whose header carries any "Option:" line, e.g.
+
+  Plotname: Operating Point
+  Option: myopt = seven
+
+The key name does not matter -- it is not tied to any particular variable.
+
+Cause
+-----
+
+cp_remvar() searches four lists for the name, runs one of five cp_usrset()
+arms, and then frees the node unconditionally:
+
+    v->va_next = NULL;
+    free_struct_variable(v);
+
+Three of those five arms dispose of the node some other way.  US_DONTRECORD
+and US_READONLY decline to remove it and leave it linked; US_SIMVAR unlinks
+the circuit's copy, which is not always the node the search found.  So the
+tail truncates a list at a node that is still referenced and leaves a dangling
+pointer behind it.  The next walk of that list reads freed memory or frees it
+again.
+
+US_SIMVAR has a second problem the unconditional free was masking: it reuses
+"p" to walk ft_curckt->ci_vars, so the slot found by the original search is
+lost and a later unlink can go through the wrong list.
+
+Patch 1 (src/frontend/variable.c) replaces the unconditional free with an
+ownership rule: free the node only when nothing points at it any more --
+because the function manufactured it, because the arm unlinked it, or because
+the arm meant the tail to dispose of it.  A bool carries that, and a saved
+slot pointer fixes the US_SIMVAR aliasing.  It also replaces the
+"cp_remvar: Internal Error: var %d" message in the US_DONTRECORD arm, which
+fired on the ordinary path and printed the first byte of the name as an
+integer, with "Error: <name> cannot be unset."
+
+Patch 2 (src/frontend/options.c) is a second, independent free() of memory
+that was never malloced, and it is what the first two reproducers hit.  The
+curplotdate arm of cp_usrset() does
+
+    FREE(plot_cur->pl_date);
+
+but before any analysis has run, plot_cur is the built-in "constants" plot,
+whose pl_date is the static string Spice_Build_Date.  The two neighbouring
+arms, curplotname and curplottitle, already guard against exactly this; this
+one does not.  The patch adds the same guard, testing the pointer rather than
+the text.
+
+Validation
+----------
+
+Applied to a clean worktree of master at 2f9c8ad47:
+
+  - git apply --check: both patches apply cleanly
+  - ./autogen.sh && ../configure && make -j12: exit 0, no new warnings in
+    either file
+  - all six reproducers above: rc=0
+  - make check: 58 tests, 0 failures, exit 0, across 42 test directories
+
+Notes
+-----
+
+I found this while working on a branch of my own, but neither patch depends on
+anything in it, and I have deliberately left my branch's other changes to
+these two files out.  In particular I am NOT proposing the removal of the
+pl_env scan in cp_usrset() that answers US_READONLY for any name a loaded
+plot's environment carries.  That is a behaviour change rather than a crash
+fix, and I verified the distinction rather than assuming it: with the
+ownership rule applied and that scan left intact, the sixth reproducer returns
+rc=0 and prints "Error: myopt is read-only." -- which is the existing intent,
+executed correctly.
+
+The sixth case is the one I care about most, because it means any raw file
+carrying an Option: line is a latent crash for a released ngspice that opens
+it and later unsets that key.  A data file should not be able to do that.
+
+Happy to rework either patch in whatever form suits you -- split further,
+comments trimmed, or regenerated against a different base.  I can also supply
+the ASCII raw file used in the sixth reproducer if that is useful.
+
+Thanks,
+Ananth Chellappa
+
+ src/frontend/options.c  | 11 +++++++-
+ src/frontend/variable.c | 69 ++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 61 insertions(+), 19 deletions(-)

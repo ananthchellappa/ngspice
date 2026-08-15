@@ -1,0 +1,128 @@
+diff --git a/src/frontend/variable.c b/src/frontend/variable.c
+index 058ef194f..b11dae687 100644
+--- a/src/frontend/variable.c
++++ b/src/frontend/variable.c
+@@ -574,11 +574,26 @@ free_struct_variable(struct variable *v)
+ } /* end of function free_struct_variable */
+ 
+ 
++/* Remove a variable.
++
++   The four searches below stop in whichever list holds the node, so that the
++   arm that runs can unlink it through *p.  What the arms do with it differs,
++   and the rule the tail keeps is one of ownership: this function may free the
++   node only when nothing points at it any more -- because it manufactured the
++   node itself, because the arm that ran unlinked it, or because the arm that
++   ran was going to free it and left that to the tail.  Three of the five arms
++   dispose of the node some other way: US_DONTRECORD and US_READONLY decline to
++   remove it and leave it linked, and US_SIMVAR takes it out of the circuit's
++   list itself.  A tail that freed unconditionally therefore truncated a list
++   at a node it then handed back, and the next walk of that list read or freed
++   the same block a second time.*/
++
+ void cp_remvar(char *varname)
+ {
+-    struct variable *v, **p;
++    struct variable *v, **p, **vp;
+     struct variable *uv1;
+     int i;
++    bool v_free = FALSE;    /* TRUE when v is the tail's to free */
+ 
+     uv1 = cp_usrvars();
+ 
+@@ -614,9 +629,14 @@ void cp_remvar(char *varname)
+ 
+     v = *p;
+ 
++    /* The slot the search stopped in, saved because US_SIMVAR below walks
++       another list with p.  NULL when no list holds the name at all. */
++    vp = v ? p : NULL;
++
+     /* make up an auxiliary struct variable for cp_usrset() */
+     if (!v) {
+         v = var_alloc_num(copy(varname), 0, NULL);
++        v_free = TRUE;      /* nothing but this call ever saw it */
+     }
+ 
+     /* Update options that depend on variables */
+@@ -625,40 +645,52 @@ void cp_remvar(char *varname)
+     switch (i = cp_usrset(v, FALSE)) {
+ 
+     case US_OK:
+-        /* Normal case. */
+-        if (*p) {
+-            *p = v->va_next;
++        /* Normal case: the list gives the node up, so the tail frees it. */
++        if (vp) {
++            *vp = v->va_next;
++            v_free = TRUE;
+         }
+         break;
+ 
+     case US_DONTRECORD:
+-        /* 'curplot' 'curplotname' 'curplottitle' 'curplotdate' */
+-        /* Do nothing... */
+-        if (*p)
+-            fprintf(cp_err, "cp_remvar: Internal Error: var %d\n", *varname);
++        /* 'curplot' 'curplotname' 'curplottitle' 'curplotdate'.  cp_enqvar()
++           computes these from the current plot on every read and nothing
++           stores them, so there is nothing here to remove: the node the
++           search found is the one cp_usrvars() manufactured for this call,
++           and that chain is freed at the end.  Say so and leave it alone.
++           The 'internal error' this arm used to print instead was neither --
++           it fired on the ordinary path, and it printed the first byte of
++           the name as a number.*/
++        fprintf(cp_err, "Error: %s cannot be unset.\n", v->va_name);
+         break;
+ 
+     case US_READONLY:
+-        /* 'plots' and any var in plot_cur->pl_env */
+-        /* Badness... */
++        /* 'plots', and any name the current plot's environment carries.
++           Refusing is the whole of the arm; the node stays where it was
++           found, so the tail below must not free it. */
+         fprintf(cp_err, "Error: %s is read-only.\n", v->va_name);
+-        if (*p)
+-            fprintf(cp_err, "cp_remvar: Internal Error: var %d\n", *varname);
+         break;
+ 
+     case US_SIMVAR:
+-        /* variables processed by if_option(ft_curckt->ci_ckt, ...) */
+-        fprintf(stderr, "it's a US_SIMVAR!\n");
++        /* variables processed by if_option(ft_curckt->ci_ckt, ...).  The
++           circuit's copy is a different node from the one found above unless
++           the search ended in that list; drop whichever of the two the
++           circuit holds, and let the tail free v once. */
+         if (ft_curckt) {
+             for (p = &ft_curckt->ci_vars; *p; p = &(*p)->va_next)
+                 if (eq(varname, (*p)->va_name))
+                     break;
+-            if (*p) {
++            if (*p && *p != v) {
+                 struct variable *u = *p;
+                 *p = u->va_next;
+-                tfree(u);
++                u->va_next = NULL;
++                free_struct_variable(u);
+             }
+         }
++        if (vp) {
++            *vp = v->va_next;
++            v_free = TRUE;
++        }
+         break;
+ 
+     case US_NOSIMVAR:
+@@ -668,8 +699,10 @@ void cp_remvar(char *varname)
+         break;
+     }
+ 
+-    v->va_next = NULL;
+-    free_struct_variable(v);
++    if (v_free) {
++        v->va_next = NULL;
++        free_struct_variable(v);
++    }
+ 
+     free_struct_variable(uv1);
+ } /* end of function cp_remvar */
