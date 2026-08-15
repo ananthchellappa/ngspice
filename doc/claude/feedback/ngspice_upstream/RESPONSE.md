@@ -9,9 +9,15 @@ corrected in §1**.
 Every line below was **re-measured 2026-08-14** against
 `build-ver_50/src/ngspice` (`ngspice-46+`, build stamp
 `Fri Aug 14 20:52:09 UTC 2026`) with `/usr/local/bin/ngspice` (`ngspice-46`) as
-the featureless baseline. Round 1's work is committed through `58496a8dc`;
-round 2's two shipped changes — the header line and the collision warning — are
-in the same working tree and are not yet committed.
+the featureless baseline. §2's caveats were **re-measured 2026-08-15** against
+build stamp `Sat Aug 15 15:34:32 UTC 2026`; the transcripts above them keep
+their 2026-08-14 stamp and are otherwise unchanged. Round 1's work is committed
+through `58496a8dc`; round 2's two shipped changes are committed too —
+`9e341a8b7` (the header line) and `4e738fc3e` (the collision warning). One
+defect found in the header line after those landed — a copy of a loaded plot
+taking the copying session's mode — is fixed by `eb0b96c8c`
+(`doc/codex/issues/0070`, with `7b5884249` beside it), and §2's caveats
+describe the header **as fixed**, not as first shipped.
 All six of your findings reproduce here — we ran your
 `repro2/run_round2.sh` unmodified before touching anything.
 
@@ -155,8 +161,8 @@ deck that saves exactly one signal writes **two** variables today.
 
 ## 2. `Option: casemode=<mode>` ships — question 1, answered yes, opt-in
 
-It is in the working tree and measured. **You have to ask for it: `set
-casemodewrite` before the `write`.** One word in the `.control` block your
+It is committed — `9e341a8b7`, with `eb0b96c8c` on top of it — and measured.
+**You have to ask for it: `set casemodewrite` before the `write`.** One word in the `.control` block your
 generator already writes:
 
 ```
@@ -213,7 +219,7 @@ EFFECTIVE=fold                        <- the session's truth, separately labelle
 So the file can be read back by the binary you already ship against, and a file
 cannot steer the session that reads it (`doc/codex/issues/0061`).
 
-**Three caveats, all of them ours to state rather than yours to discover.**
+**The caveats, all of them ours to state rather than yours to discover.**
 
 - **The `-r` batch path does not carry it.** `ngspice -r out.raw deck.cir` is a
   different writer and writes no `Option:` line. Measured. If your generated
@@ -222,26 +228,47 @@ cannot steer the session that reads it (`doc/codex/issues/0061`).
   §1.)
 - **Absence is not `fold`.** Any older ngspice, and the `-r` path above. Treat
   a missing line as *unknown* and fall back to the probe.
-- **Match the `Option:` key, not the line number.** The writer's own line is
-  under `Plotname:` and reads `Option: casemode=preserve`. A value that came
-  out of a file the session had loaded is re-emitted further down the header
-  and reads `Option: casemode = preserve` — same key, same value, spaces
-  around the `=` because that is the spelling the option round-trip has always
-  used. Scan every `Option:` line, split on the first `=`, trim both halves;
-  that is what ngspice's own reader does. Your `read_dataset` branch is on the
+- **Match the `Option:` key, not the line number.** Two writers can put this
+  line in one header, and they put it in two different *places*: the session's
+  own line goes immediately under `Plotname:`, while a value kept from a file
+  the session had loaded is re-emitted further down, after `No. Points:`. The
+  **spelling** is the same in both — `Option: casemode=preserve`, closed up —
+  so a load-and-write-again is byte-identical in that line. Measured: a
+  `preserve` file written with the gate set, loaded by a folding session and
+  written straight back out, gives `Option: casemode=preserve` at header line
+  8, `diff`-clean against the original's line 5. Scan every `Option:` line,
+  split on the first `=`, trim both halves; that is what ngspice's own reader
+  does, and the trim still earns its keep, because a *foreign* option value
+  whose first character is `,`, or which begins `<=` or `>=`, is deliberately
+  re-emitted with spaces around the `=` (those two shapes are the only ones
+  that do not survive being closed up). No mode name can reach that arm, so
+  your `casemode` line is always closed. Your `read_dataset` branch is on the
   key already, so this costs you nothing, but a line-5 check would miss the
-  second shape.
+  second place.
 - **A loaded-then-rewritten file keeps the mode its own file recorded**, and
-  does not take the re-writing session's — corrected 2026-08-14, and the
-  opposite of what the first version of this section said. Load a `preserve`
-  file in a folding session, `write` it back out, and the copy carries one
-  `casemode` line saying `preserve`, above variables still spelled `v(In)` and
-  `v(MidNode)`. That is the case a "load, tidy, re-write" tool hits, and it now
-  behaves. Two edges remain: a file that recorded *nothing* (the default, and
-  every older ngspice) leaves nothing to keep, so a re-write with
-  `casemodewrite` set records the re-writing session — "absence is not fold",
-  one step on; and if you want provenance to survive a copy, write the
-  original with the variable set.
+  never takes the re-writing session's. Load a `preserve` file in a folding
+  session, `write` it back out, and the copy carries one `casemode` line saying
+  `preserve`, above variables still spelled `v(In)` and `v(MidNode)`. That is
+  the case a "load, tidy, re-write" tool hits, and it behaves. **A file that
+  recorded nothing yields a copy that records nothing** — that is the default
+  file, and every file an older ngspice wrote. Re-writing one with
+  `casemodewrite` set does *not* stamp the re-writing session's mode on it;
+  that it used to was the defect `doc/codex/issues/0070`, fixed by `eb0b96c8c`,
+  and what made it one is that the stamp described the copier and not the names
+  under it — under `fold`, over capitals a folding run cannot spell. So
+  "absence is not `fold`" survives a copy: unknown copies as unknown. If you
+  want provenance to survive at all, write the original with the variable set.
+- **Provenance survives a copy, not a transform.** A plot *derived* from a
+  loaded one — `linearize`, `cutout`, `fft`, `psd`, `spec` — records no mode at
+  all, even with `casemodewrite` set and even when the file it came from
+  recorded one: the derived plot inherits the came-from-a-file mark but not the
+  file's `Option:` pair, so the writer has nothing true to say and says
+  nothing. Measured in one folding session on a `preserve` file carrying the
+  line — `linearize`, `cutout`, `fft`, `psd` and `spec` each wrote a header
+  with zero `casemode` lines, while re-writing the loaded plot itself wrote
+  `Option: casemode=preserve`. A transform of a plot the session *simulated*
+  does carry the line, because there the mode in force is the truth. If you
+  transform before writing, carry the mode across yourself.
 - **`Option: casemodewrite` in a header does not turn the writer on.** The
   variable is this session's request about what it writes, and a file the user
   loaded does not get to answer it — `doc/codex/issues/0061`, whose rule is
@@ -334,7 +361,7 @@ with a permanent warning — is the plan we would have recommended.
 
 ## 4. A case collision is now reported, in all three modes — question 3
 
-Shipped, in the working tree, and it is the answer to the finding you called
+Shipped and committed — `4e738fc3e` — and it is the answer to the finding you called
 *"the one signal a schematic editor could relay to a user who drew `Out` and
 `OUT` and got one net"*. Deck:
 
@@ -550,7 +577,8 @@ will not drift apart from the issues.
 | **probe with the real run's argv *and* its cwd** | `.spiceinit` is searched beside the deck, a `-p` probe searches cwd |
 | probe with `echo $curcasemode` | the only thing that sees `preserve`; fails loudly on old binaries |
 | read `Option: casemode=` from the raw header | now written; also cross-checks the probe. Absent ≠ `fold`, and the `-r` path does not write it |
-| match it as an `Option:` **key**, anywhere in the header | the writer's line is under `Plotname:`; a value kept from a loaded file is re-emitted lower down, spelled `key = value` |
+| match it as an `Option:` **key**, anywhere in the header | same spelling, two places: the session's own line is under `Plotname:`, a value kept from a loaded file is re-emitted after `No. Points:` |
+| treat a copy with no `casemode` line as unknown, not as `fold` | a copy of a file that recorded nothing records nothing, and so does any `linearize`/`cutout`/`fft`/`psd`/`spec` of loaded data |
 | `set casemodewrite` in the deck, never as an `Option:` in a file | the gate is the session's request; a loaded header cannot open it |
 | keep `Plotname: constants` and build-stamp-`Date:` checks | still the only two signals for the artefact, still not sufficient alone |
 | expect n+1 variables when the deck saves exactly one | `doc/codex/issues/0064`, open |

@@ -384,11 +384,16 @@ Read it however you already read the header — but read it as an `Option:`
 *key*, not as a line number. Scan the header for lines beginning `Option:`,
 split the rest on the first `=`, and trim the spaces around both halves; that
 is what ngspice's own reader does, and it is what makes the paragraph below
-work. The line the writer puts under `Plotname:` is spelled
-`Option: casemode=preserve`; a value that came out of a file the session
-loaded is re-emitted lower down in the header and spelled
-`Option: casemode = preserve`. Same key, same value, two spellings and two
-places.
+work. One key, one spelling, **two places**: the line this session writes goes
+under `Plotname:`, while a value that came out of a file the session loaded is
+re-emitted lower down, after `No. Points:`. Both are spelled
+`Option: casemode=preserve`, closed up, so a file loaded and written straight
+back out is byte-identical in that line — a reader keyed to line 5 alone would
+still miss the second one. The trim is worth keeping even so: an option value
+out of somebody else's file whose first character is `,`, or which begins `<=`
+or `>=`, is re-emitted with spaces around the `=` on purpose, those two shapes
+being the only ones that do not survive being closed up. No case mode name can
+reach that arm, so the `casemode` line itself is always closed.
 
 Inside ngspice, `load` files the pair into the loaded plot's environment, so
 `echo $casemode` after a `load` answers what the file recorded, and an
@@ -397,25 +402,40 @@ parses, which is why the mode did not get a header key of its own. A key it
 does *not* know aborts the whole load with `Error: strange line in rawfile`,
 so do not invent one either.
 
-Three caveats. **Absence is not `fold`** — a file written by any older ngspice
+Four caveats. **Absence is not `fold`** — a file written by any older ngspice
 has no such line, nor has one written by the `-r` batch path, which is a
 different writer that does not carry it yet, nor has one this build wrote
 with `casemodewrite` unset, which is every file until somebody sets it; treat
 a missing line as unknown and fall back to the probe below.
 
 **A plot that was loaded and then written back out keeps the mode its own file
-recorded**, and does not acquire the re-writing session's. That is what you
-want from a tool that loads, tidies and re-writes: the header goes on
-describing the names under it. The writer never adds a line of its own over the
-file's, so a file that came in with one `casemode` line goes out with one. The
-corollary is the previous paragraph:
-in a re-written file the line sits where the re-emitted options sit, after
-`No. Points:`, so a reader that looked at line 5 alone would miss it. And if
-the file it was loaded from recorded *nothing* — the default, and every older
-ngspice — then there is nothing to keep, and a re-write with `casemodewrite`
-set stamps the re-writing session's mode; that case is still "absence is not
-fold" one step on, so if provenance matters to you, write the original with
-the variable set.
+recorded**, and never acquires the re-writing session's. That is what you want
+from a tool that loads, tidies and re-writes: the header goes on describing the
+names under it. The writer never adds a line of its own over the file's, so a
+file that came in with one `casemode` line goes out with one, spelled the same
+and sitting where the re-emitted options sit, after `No. Points:`.
+
+And if the file it was loaded from recorded *nothing* — the default, and every
+older ngspice — then there is nothing to keep and **the copy records nothing
+either**, whatever `casemodewrite` says in the copying session. It used to
+stamp the re-writing session's mode there, which was wrong in the way that
+matters most: it described the copier rather than the data, and a folding
+session stamping `fold` over preserved capitals said something the names on the
+next line contradict. `doc/codex/issues/0070`, fixed 2026-08-15. So "absence is
+not `fold`" holds one step on as well: unknown copies as unknown. If provenance
+matters to you, write the original with the variable set.
+
+**A derived plot claims nothing.** `linearize`, `cutout`, `fft`, `psd` and
+`spec` build a new plot from a loaded one, and that plot carries the
+came-from-a-file mark without the file's `Option:` pair — so it records no mode
+at all, even with `casemodewrite` set and even when the file it came from
+recorded one. Measured in a folding session on a `preserve` file carrying the
+line: `linearize`, `cutout`, `fft`, `psd` and `spec` each wrote a header with
+no `casemode` line, while re-writing the loaded plot itself wrote
+`Option: casemode=preserve`. The same transforms applied to a plot *this*
+session simulated do carry the line, because there the mode in force is the
+truth about the names. A tool that transforms before writing has to carry the
+mode across itself.
 
 **`Option: casemodewrite` in a header does nothing to the session that reads
 it.** The variable is a request this session makes about what it writes, not
