@@ -10,7 +10,8 @@ TESTS = alter-1.cmd flow-keyword-case.cmd \
 	xspice-keyword-case.cmd shell-keyword-case.cmd \
 	define-const-body.cmd save-name-case.cmd \
 	curcasemode-effect.cmd rawfile-option-parse-policy.cmd \
-	rawfile-option-computed-name.cmd
+	rawfile-option-computed-name.cmd unset-computed-name.cmd \
+	unset-readonly-name.cmd unset-simvar-name.cmd
 
 TESTS_ENVIRONMENT = \
 	SPICE_SCRIPTS=$(top_srcdir)/tests/bin \
@@ -37,6 +38,7 @@ CLEANFILES = \
 	ccp_*.cir ccp_*.raw \
 	rop_*.cir rop_*.raw \
 	rcn_*.raw rcn_*.txt \
+	unc_*.cir uns_*.cir \
 	filesource.txt
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -2,8 +2,12 @@
 
 ## Status
 
-Open. Pre-existing and upstream; nothing in the case-mode batch caused it,
-touched it, or is needed to reproduce it. Filed because
+Closed 2026-08-14 by the ownership rule under **Resolution**: `cp_remvar()`
+frees the node only when no list still points at it. All three arms, measured
+before and after, with a deck each. Pre-existing and upstream; nothing in the
+case-mode batch caused it, touched it, or is needed to reproduce it — what the
+batch did was make the third arm reachable from any file this build writes,
+which is why it was fixed here and not left upstream. Filed because
 `doc/codex/issues/0065` closed with two loose ends in its **Left** section that
 are the same defect seen from two lists, and because that issue's criterion 6
 called `cp_remvar()` "correct with no change of its own" while its own Left
@@ -28,6 +32,34 @@ this batch" is a measurement and not a claim:
   to `720c8743a`, configured and built in a scratch copy outside the repo.
   This is the batch's own starting point.
 - **STOCK** — `/usr/local/bin/ngspice`, `ngspice-46`, no `casemode` support.
+
+**Confirmed independently 2026-08-14, by the client, on both binaries.** The
+xschem session ran the `US_SIMVAR` sequence as **R6** of
+`doc/claude/feedback/reply_from_xschem_session/REPLY.md` and got `rc=134`
+(`SIGABRT`, core dumped) from `build-ver_50/src/ngspice` **and** from stock
+`/usr/local/bin/ngspice`:
+
+```
+$ printf 'source deck.cir\nset temp=27\nunset temp\nquit 0\n' | ngspice -p -n
+  ver_50            rc=134 (SIGABRT, core dumped)
+  stock ngspice-46  rc=134 (SIGABRT, core dumped)
+```
+
+Re-run here from their `repro2/run_round2.sh` against the same two binaries:
+`rc=134` from both, on a two-resistor divider. That matters more than an extra
+transcript. `doc/claude/feedback/ngspice_upstream/RESPONSE.md` had flagged this
+as the newest item in the batch and therefore the least scrutinised, so an
+outside party reproducing it — on a released binary, from a deck they wrote,
+without being handed this file's decks — is the scrutiny that flag asked for.
+It confirms both halves of the Status paragraph below: pre-existing and
+upstream, and not caused by anything in the case-mode batch.
+
+They have adopted a client-side rule — never emit a `set` and an `unset` of the
+same simulator variable into a generated `.control` block — which is a
+mitigation and not a fix, and their generator did not do it before. That is
+worth recording because it is the shape of a deck a *tool* writes, and this
+issue's other two arms (`unset curplot`, `load` + `unset <key>`) are shapes a
+tool writes too.
 
 **Corrected 2026-08-13**, after this issue was first written, and the
 correction is not cosmetic. The `US_READONLY` symptom was described here as
@@ -319,6 +351,203 @@ the name is in `pl_env`, which is where `p` found it.
    precedent and already builds the rawfiles this needs with `echo` and a
    redirect.
 7. `make check` unchanged in all three modes.
+
+## Resolution
+
+Closed 2026-08-14 on branch `ver_50`.
+
+**The rule, and it is a rule about ownership rather than a list of arms.**
+`cp_remvar()` may free the node only when nothing points at it any more. It
+owns the node in exactly three situations: it manufactured the node itself
+because no list held the name; the arm that ran unlinked it; or the arm that
+ran meant to dispose of it and left the freeing to the tail. Everything else
+belongs to the list it was found in, and the tail must not touch it. That is
+`cp_vset()`'s `if (v_free)` idea (`variable.c:171`, `:182`) read the other way
+round, as criterion 3 asked.
+
+Three production edits.
+
+- **`src/frontend/variable.c`, `cp_remvar()`** (`:591`). A `bool v_free`,
+  false until something makes the node ours, and a `struct variable **vp`
+  holding the slot the search stopped in — saved because the `US_SIMVAR` arm
+  walks a second list with `p` and the old code then unlinked through the
+  wrong one. The tail is `if (v_free) { v->va_next = NULL;
+  free_struct_variable(v); }` (`:702`). `US_OK` unlinks through `vp` and sets
+  `v_free`. `US_DONTRECORD` and `US_READONLY` set neither: they decline to
+  remove, so the node stays where it was and the chain `cp_usrvars()` built
+  is freed once, at `:707`, as it always was. `US_SIMVAR` drops the circuit's
+  copy if that is a *different* node — with `free_struct_variable()` rather
+  than the bare `tfree()` it used, which leaked the name and the string —
+  and then unlinks `v` through `vp` and lets the tail free it once. That last
+  clause is why the arm needed rewriting rather than an early `break`: the
+  node the search found is not always the node in `ft_curckt->ci_vars`. A
+  variable set before a circuit was loaded lives in the global list and gets
+  `US_SIMVAR` once one is, and the old arm unlinked the circuit's copy while
+  the tail freed the global one out from under `variables`.
+- **`src/frontend/options.c`, `cp_usrset()`'s `curplotdate` arm** (`:447`).
+  Criterion 1's first sentence is about a session with nothing loaded, and
+  there the current plot is the built-in `constants` one, whose three strings
+  are the static initialisers of `constantplot`
+  (`src/frontend/plotting/plotting.c:7`). The `curplotname` and `curplottitle`
+  arms have always guarded their `FREE()` with a `/* not malloced! */` test
+  and this one never did, so `unset curplotdate` — or a `set` of it — before
+  any analysis handed `Spice_Build_Date` to `free()`: `free(): invalid size`,
+  `rc=134`, a second and independent abort standing behind the one this issue
+  is about. Guarded now by the pointer and not by the text, because the date
+  is the one of the three whose value a session could reproduce by accident.
+  This is not `cp_remvar()`'s defect and it is inside criterion 1's sentence,
+  so it is fixed and named here rather than filed as a fourth thing.
+- **`src/frontend/options.c`, the `plot_cur->pl_env` scan that answered
+  `US_READONLY`** — deleted. That belongs to `doc/codex/issues/0061`, whose
+  addendum records the decision and the measurement; it appears here because
+  it removes the third and largest source of this arm. Every key a rawfile's
+  `Option:` line filed used to arrive at `US_READONLY`; now such a key is an
+  ordinary name and `unset` of it takes the `US_OK` path, which unlinks it
+  from `pl_env` and frees it once — the one arm whose contract with the tail
+  was always coherent. Either edit closes the reported `SIGSEGV` on its own;
+  the four-way matrix under criterion 6 says which deck each one is needed
+  for, and neither is redundant.
+
+Five decks, all in `tests/regression/pipe/` — the one directory that can see
+an exit status, which criterion 6 asks for — plus their `TESTS` and
+`CLEANFILES` entries in that directory's `Makefile.am`:
+`unset-computed-name.cmd`, `unset-readonly-name.cmd`, `unset-simvar-name.cmd`,
+`unset-rawfile-option-key.cmd`, and `rawfile-option-set-policy.cmd`, the last
+being `doc/codex/issues/0061`'s. No `.out` file was added or edited — this
+directory has none. `tests/lint/identity.baseline` loses one line, the deleted
+`pl_env` scan's `eq(tv->va_name, var->va_name)`; the lint reports 264 sites
+where it reported 265.
+
+**Criterion by criterion.**
+
+1. *The five names, and a simulator option, leave the process alive.* Every
+   row is three runs, taken with no tool underneath, on
+   `build-ver_50/src/ngspice`. The RED column is the same tree with only
+   `src/frontend/variable.c` and `src/frontend/options.c` reverted to
+   `58496a8dc` and rebuilt, so it is this batch's binary in every other
+   respect:
+
+   | sequence | before | after |
+   |---|---|---|
+   | `unset curplot` | rc=134 | rc=0 |
+   | `unset plots` | rc=134 | rc=0 |
+   | `unset curplotdate` (fresh session) | rc=134 | rc=0 |
+   | `source` + `set temp=27` + `unset temp` | rc=134 | rc=0 |
+   | `load <raw this build wrote>` + `unset casemode` + `display` | rc=139 | rc=0 |
+
+   The four computed names are refused and unchanged afterwards, on the
+   constants plot and on a plot an analysis made; `temp`, `gmin`, `trtol` and
+   `abstol` are removed, `$?name` answering 0 where it answered 1, and the
+   circuit still runs.
+2. *The rawfile shape, as an exit status first.* `display`, `set` and `write`
+   after the `unset` are each `rc=0` where each was `rc=139`, and the loaded
+   plot keeps its title, its current-plot identity and its vectors —
+   `unset-rawfile-option-key.cmd` asserts all four. The second half, under
+   `valgrind`, is now clean on all three arms: no invalid read, no invalid
+   write, no invalid free, for `unset curplot`, for `unset plots` + `set`,
+   for `source` + `set temp` + `unset temp`, and for `load` + `unset` +
+   `display` + `set` + `write`. Both halves were taken, in that order, for
+   the reason the Summary gives.
+3. *Stated as a rule about ownership.* Above. The word `US_DONTRECORD` does
+   not appear in the tail; what appears is `if (v_free)`.
+4. *What each arm does about the user's `unset`, decided.* `US_DONTRECORD`
+   prints `Error: <name> cannot be unset.` — the four `curplot*` names are
+   computed on every read and nothing stores them, so there is nothing to
+   remove and saying so is the whole of the arm. `US_READONLY` keeps its
+   `Error: <name> is read-only.`, which now covers only `plots` and
+   `curcasemode`, both computed. `US_SIMVAR` removes the option, and its
+   `fprintf(stderr, "it's a US_SIMVAR!\n")` — debug output on the ordinary
+   path — is gone. A key a loaded rawfile carried is removed rather than
+   refused, which is `doc/codex/issues/0061`'s decision and not this one's.
+5. *`Internal Error: var %d` prints the name or goes away.* Gone, from both
+   arms. It was not an internal error: `cp_usrvars()` manufactures those five
+   names on every call, so `*p` is always non-NULL for them by the time the
+   switch runs, and `cp_usrset()` returned `US_READONLY` for a `pl_env` name
+   *because* it was in `pl_env`, which is where `p` found it. It fired on the
+   ordinary path, and it printed a character's ordinal. The two remaining
+   `cp_remvar: Internal Error: US val %d` prints are untouched; the
+   `US_NOSIMVAR` one is also reachable from an ordinary `unset gmin` in a
+   session with no circuit, which is a separate wart and is left alone.
+6. *A deck asserts it, and asserts the command after the `unset`.* Five, one
+   per arm plus the rawfile shape plus 0061's. RED, each deck run against the
+   reverted build described above:
+
+   ```
+   unset-computed-name.cmd        rc=134
+   unset-readonly-name.cmd        rc=134
+   unset-simvar-name.cmd          rc=134
+   unset-rawfile-option-key.cmd   rc=139
+   rawfile-option-set-policy.cmd  rc=1
+     ERROR: a loaded rawfile made casemode read-only for the session
+   ```
+
+   GREEN, all five `rc=0`. Each deck also passes under `-D casemode=fold`,
+   `-D casemode=preserve` and `-D casemode=distinguish`: they compare a value
+   against one the same session computed, or against a mode they set
+   themselves, so none of them keys on a spelling.
+
+   **And each deck was measured against each half of the change on its own**,
+   because two files moved and a deck that passes either way is guarding
+   nothing. Four builds, the same five decks:
+
+   | deck | neither | `variable.c` only | `options.c` only | both |
+   |---|---|---|---|---|
+   | `unset-computed-name` | 134 | **134** | 134 | 0 |
+   | `unset-readonly-name` | 134 | 0 | 134 | 0 |
+   | `unset-simvar-name` | 134 | 0 | 134 | 0 |
+   | `unset-rawfile-option-key` | 139 | **1** | 0 | 0 |
+   | `rawfile-option-set-policy` | 1 | 1 | 0 | 0 |
+
+   The two bold cells are the ones worth reading. `unset-computed-name`
+   survives the ownership rule and still aborts, because its first round runs
+   on the constants plot and that is the `curplotdate` free — the deck holds
+   the second edit as well as the first. `unset-rawfile-option-key` stops
+   crashing under the ownership rule and then fails on its assertion,
+   `ERROR: unset left the key in the loaded plot's environment`, which is the
+   `US_READONLY` refusal still in place; it is a guard on the reported
+   sequence and not the ownership rule's witness. The rule's witnesses are
+   the three arm decks, and the `options.c`-only column is what says so: with
+   `cp_remvar()` unrepaired they abort, whatever the plot environment does.
+7. *`make check` unchanged.* Every cached `*.log`/`*.trs` deleted first. The
+   recursion aborts at `tests/regression/case`, so the directories after it
+   were run one at a time: 206 pass in the main recursion, then `casedist`
+   29, `case-lt` 8, `case-pspice` 8, `xspice` 47, `lint` 2 — 300 pass. The
+   `pipe` directory is 27 of 27, the four decks above and
+   `rawfile-option-set-policy.cmd` among them. Two failures, and they are one
+   deck in its two copies: `node-case-collision-report.cir`, which another
+   crew was writing in this tree while this ran —
+   `src/spicelib/parser/inpsymt.c` was edited a minute before the run and the
+   deck a minute before that. It is not this fix's: with
+   `src/frontend/variable.c` and `src/frontend/options.c` reverted to
+   `58496a8dc` and the tree rebuilt, that deck fails identically, `pair5` 1
+   where the reference says 0. Identity lint 264 comparisons, baseline
+   matches — one fewer than before, which is the deleted `pl_env` scan and is
+   the only frozen file this change moves.
+
+**Left.**
+
+- **A released binary cannot be fixed from here, and this is the residue that
+  matters.** `/usr/local/bin/ngspice`, `ngspice-46`, still segfaults on
+  `load <a raw this build writes>` + `unset casemode` + `display`, 3 runs of
+  3, because the defect is in its own `cp_remvar()`. The control is the
+  byte-identical file with the `Option:` line stripped, which exits 0. So for
+  as long as this build writes that line, a user of an older ngspice who
+  unsets the key gets that crash; the fix above closes it for this build and
+  for anyone who rebuilds, and closes nothing on a binary already installed.
+  Whether that is a reason to reconsider the header line is `raw_write()`'s
+  question and not this issue's — it is recorded in
+  `doc/codex/issues/0061`'s addendum, where the line was decided.
+- `cp_remvar: Internal Error: US val 5` on `unset gmin` in a session with no
+  circuit, from the `US_NOSIMVAR` arm. `if_option(NULL, …)` answers 1 for any
+  simulator option and prints its own two lines, so the arm is on an ordinary
+  path and its message is as wrong about itself as the two that were removed.
+  Not touched: nothing frees anything twice there, the aux node is the only
+  node involved, and the message has been printing since the arm was written.
+- `unset` of a `US_SIMVAR` name no longer leaves the circuit's copy behind,
+  but nothing tells the simulator to go back to the default the option had
+  before the `set` — `if_option()` was called on the way in and is not called
+  on the way out. That is what `unset` of a simulator option has always done
+  and this issue does not change it.
 
 ## Related
 

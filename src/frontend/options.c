@@ -312,7 +312,10 @@ inp_getoptsc(char *line, struct card *options)
 
 /* The variables that we consider read-only are plots and curcasemode.  The
  * ones that are 'dontrecord' are curplottitle, curplotname, and curplotdate.
- * Also things already in the plot env are 'dontrecord'.
+ *
+ * A name the current plot's environment happens to carry is neither, and the
+ * note further down -- where the scan that made it read-only used to be --
+ * says why.
  */
 
 int
@@ -444,7 +447,16 @@ cp_usrset(struct variable *var, bool isset)
         return (US_DONTRECORD);
     } else if (eqc(var->va_name, "curplotdate")) {
         if (plot_cur && (var->va_type == CP_STRING)) {
-            FREE(plot_cur->pl_date);
+            /* The two arms above guard the built-in 'constants' plot, whose
+               three strings are the static initialisers of constantplot
+               (src/frontend/plotting/plotting.c); this one did not, and its
+               date is Spice_Build_Date.  So 'unset curplotdate' -- or a set
+               of it -- before any analysis has run handed a string constant
+               to free().  The test is the pointer and not the text, because
+               the date is the only one of the three whose value a session can
+               reproduce by accident.  doc/codex/issues/0067 criterion 1. */
+            if (plot_cur->pl_date != Spice_Build_Date) /* not malloced! */
+                FREE(plot_cur->pl_date);
             plot_cur->pl_date = copy(var->va_string);
         }
         else
@@ -459,10 +471,22 @@ cp_usrset(struct variable *var, bool isset)
         return (US_READONLY);
     }
 
-    if (plot_cur)
-        for (tv = plot_cur->pl_env; tv; tv = tv->va_next)
-            if (eq(tv->va_name, var->va_name))
-                return (US_READONLY);
+    /* A name carried by the current plot's environment used to be answered
+       US_READONLY here, which made the session unable to set or unset it for
+       as long as that plot was current.  Nothing a simulation does fills that
+       environment: the 'Option:' line of a raw header is the only writer
+       (src/frontend/rawfile.c), so every name it can hold is a name that
+       arrived in a file the user merely loaded -- and since this build
+       records the case mode there, every raw file it writes carries one.
+       doc/codex/issues/0061 settled the reading half of that: a loaded plot
+       describes a plot and does not answer a question asked on behalf of the
+       session.  The writing half is the same rule.  A file may not decide
+       what the user is allowed to set, so the scan is gone and 'set' writes
+       the global list, which is ahead of the plot environment in cp_getvar()
+       and in cp_enqvar() alike; 'unset' correspondingly takes the key back
+       out of the environment it was found in.  The plot keeps whatever the
+       file said until somebody says otherwise, which is what makes the
+       header readable in the first place. */
 
     /*
       if (ft_curckt)
