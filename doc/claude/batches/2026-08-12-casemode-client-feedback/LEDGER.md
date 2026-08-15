@@ -565,6 +565,53 @@ new one. Nothing under `src/` or `tests/` changed in this stage: the diff is
   right — and it is annotated there. `0018` decision 3 now states both numbers
   so the next reader does not have to re-derive them.
 
+## Stage 14 — round 2 committed and audited
+
+Five commits on `ver_50` above `58496a8dc`, one committer and one independent
+auditor. Verdict **SIGN**. Receipt: `receipts/stage14-commit-round2.md`.
+
+| SHA | subject |
+| --- | --- |
+| `8c3fc233a` | docs: the client's round-2 reply and its repro set |
+| `ac1819ff8` | fix: cp_remvar frees a node only when nothing points at it |
+| `4e738fc3e` | feat: report two spellings of one node name |
+| `9e341a8b7` | feat: record the case mode in the raw header, opt-in |
+| `f829c9191` | docs: round 2's issues, guide and client reply |
+
+Each commit's **staged** tree was materialised into its own worktree,
+configured and built from scratch, and put through a full `make check` there —
+305 → 308 → 311 → 317 → 317 PASS, 0 FAIL throughout, each step's PASS set the
+previous set plus exactly the decks it adds, diffed by name. `--enable-oldapps`
+was built separately at R3 and `ngsconvert` links, which closes the breakage
+standing at `58496a8dc`.
+
+**The ordering constraint held**: `0067` (`ac1819ff8`) precedes the raw header
+line (`9e341a8b7`). Reversed, history would hold a commit at which every raw
+file the build writes is a crash trigger for released `ngspice-46`.
+
+- [x] **Two disclosed departures from the proposed split.** R2 needed four
+  source files the brief omitted (`inpcom.c`, `inpdefs.h`, `inppas2.c`,
+  `evtcheck_nodes.c`) or it does not compile. Two of `0067`'s five decks moved
+  R1 → R3 because they write a raw file and load it back, so they cannot pass
+  before the writer exists; they would have been a red R1.
+- [x] **The auditor's problem 1, fixed in a following commit.**
+  `casedist/rawfile-casemode-header.cir:37` justified the unset-before-load
+  order by a read-only rule that `ac1819ff8` had just deleted. The replacement
+  is measured, not asserted: a file written under `preserve` and read by a
+  session requesting `distinguish` reads `preserve` in **both** orders. The
+  deck's other stated reason is the true one. Deck re-run: PASS.
+- [D] **The auditor's problem 2, accepted as committed.** `ac1819ff8` carries
+  `options.c`'s `pl_env` scan deletion, which is `0061`/`0019` work, not
+  `0067`. Decision `0019` ships in the same commit, so the record travels with
+  the code; splitting further would have separated them.
+- [D] **The auditor's problem 3, noted not repaired.** The pre-commit backup
+  omits the four gitignored `.out` files, so the backup cannot witness their
+  byte-identity. The R2/R3 suites pin them instead.
+
+**A vacuous instruction this batch repeated for stages**: "clear the cached
+`*.log`/`*.trs`". `configure.ac:37` sets `serial-tests`, which writes neither.
+Nothing was ever cleared by it. It is struck from any future brief.
+
 ## Log
 
 | when | event |
