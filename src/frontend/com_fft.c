@@ -143,6 +143,10 @@ com_fft(wordlist *wl)
     plot_cur->pl_title = copy((plot_cur->pl_next)->pl_title);
     plot_cur->pl_name = copy("Spectrum");
     plot_cur->pl_date = copy(datestring());
+    /* The vectors below are named after the ones being transformed, so this
+       plot is spelled the way they are and describes the run that produced
+       them, not this one.  doc/codex/issues/0070. */
+    plot_cur->pl_fromfile = vec_fromfile(vlist, ngood);
 
     f = dvec_alloc(copy("frequency"),
                    SV_FREQUENCY,
@@ -376,6 +380,8 @@ com_psd(wordlist *wl)
     plot_cur->pl_title = copy((plot_cur->pl_next)->pl_title);
     plot_cur->pl_name = copy("PSD");
     plot_cur->pl_date = copy(datestring());
+    /* As in com_fft() above.  doc/codex/issues/0070. */
+    plot_cur->pl_fromfile = vec_fromfile(vlist, ngood);
 
     f = dvec_alloc(copy("frequency"),
                    SV_FREQUENCY,

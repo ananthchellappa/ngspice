@@ -14,7 +14,8 @@ TESTS = alter-1.cmd flow-keyword-case.cmd \
 	rawfile-option-set-policy.cmd unset-computed-name.cmd \
 	unset-readonly-name.cmd unset-simvar-name.cmd \
 	unset-rawfile-option-key.cmd rawfile-casemode-rewrite.cmd \
-	rawfile-casemode-gate-key.cmd
+	rawfile-casemode-gate-key.cmd rawfile-casemode-foreign.cmd \
+	rawfile-casemode-keysyntax.cmd rawfile-casemode-derived.cmd
 
 TESTS_ENVIRONMENT = \
 	SPICE_SCRIPTS=$(top_srcdir)/tests/bin \
@@ -43,6 +44,9 @@ CLEANFILES = \
 	rcn_*.raw rcn_*.txt \
 	rch_*.cir rch_*.raw rch_*.txt \
 	rcw_*.cir rcw_*.raw rcw_*.txt \
+	rcf_*.cir rcf_*.raw rcf_*.txt \
+	rcd_*.cir rcd_*.raw rcd_*.txt \
+	rck_*.cir rck_*.raw rck_*.txt \
 	rcg_*.cir rcg_*.raw \
 	rsp_*.cir rsp_*.raw \
 	unc_*.cir uns_*.cir uro_*.cir uro_*.raw \

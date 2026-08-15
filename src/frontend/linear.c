@@ -96,6 +96,13 @@ com_linearize(wordlist *wl)
     new->pl_name = tprintf("%s (linearized)", old->pl_name);
     new->pl_title = copy(old->pl_title);
     new->pl_date = copy(old->pl_date);
+    /* Where the data came from travels with it: the names in here are the
+       names in 'old', resampled, so if those were read out of a file this
+       plot is no more a product of this session than that one was.  A raw
+       header records the case mode of the run that produced the names, and
+       this run produced none of them.  raw_write() (src/frontend/rawfile.c),
+       doc/codex/issues/0070. */
+    new->pl_fromfile = old->pl_fromfile;
     new->pl_next = plot_list;
     plot_new(new);
     plot_setcur(new->pl_typename);
@@ -245,6 +252,9 @@ com_cutout(wordlist* wl)
         new->pl_name = tprintf("%s (cut out)", old->pl_name);
     new->pl_title = copy(old->pl_title);
     new->pl_date = copy(old->pl_date);
+    /* As in com_linearize() above: a copy of somebody else's data is still
+       somebody else's data.  doc/codex/issues/0070. */
+    new->pl_fromfile = old->pl_fromfile;
     new->pl_next = plot_list;
     plot_new(new);
     plot_setcur(new->pl_typename);

@@ -1297,6 +1297,30 @@ vec_eq(struct dvec *v1, struct dvec *v2)
 }
 
 
+/* TRUE if any of the first n vectors on this v_link2 list came out of a file
+ * rather than out of something this session ran.  A plot derived from them is
+ * named after them and spelled the way they are spelled, so it inherits the
+ * answer: the case mode a raw header records is a property of the run that
+ * produced the names, and a run that only transformed them produced none.
+ * pl_fromfile in plot.h, raw_write() in rawfile.c, doc/codex/issues/0070.
+ *
+ * The count is the caller's, not a NULL, because the callers build these
+ * lists by writing v_link2 as they go and never terminate the last one -- a
+ * dvec that was on a longer list earlier in the session still points at
+ * whatever followed it then.  Every other walk of these lists counts for the
+ * same reason (com_fft.c, spec.c).
+ */
+
+bool
+vec_fromfile(struct dvec *v, int n)
+{
+    for (; v && n > 0; v = v->v_link2, n--)
+        if (v->v_plot && v->v_plot->pl_fromfile)
+            return TRUE;
+    return FALSE;
+}
+
+
 /* Return the name of the vector with the plot prefix stripped off.  This
  * is no longer trivial since '.' doesn't always mean 'plot prefix'.
  */

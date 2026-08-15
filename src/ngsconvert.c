@@ -180,6 +180,11 @@ oldread(char *name)
         return (NULL);
     }
     pl = TMALLOC(struct plot, 1);
+    /* Everything in here comes off disk, so it is nobody's idea of a plot
+       this run produced.  raw_write() reads the flag before it stamps a case
+       mode on a header; this program cannot open that gate today, and the
+       mark costs nothing if it ever can.  doc/codex/issues/0070. */
+    pl->pl_fromfile = TRUE;
     tfread(buf, 1, 80, fp);
     buf[80] = '\0';
     for (i = (int) strlen(buf) - 1; (i > 1) && (buf[i] == ' '); i--)

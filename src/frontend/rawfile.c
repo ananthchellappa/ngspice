@@ -173,20 +173,34 @@ void raw_write(char *name, struct plot *pl, bool app, bool binary)
 
        The last condition is provenance: the mode in force describes this plot
        only if this session produced it, so the line is not written for a plot
-       that arrived carrying an environment of its own.  That environment is
-       some file's header, filed by raw_read() and by nothing else in the
-       tree, so a plot that has one came out of a file and is described by
-       what that file said -- re-emitted unchanged by the pl_env loop below,
-       because a pair the file carried is data the user may want kept and is
-       the only record of that run's mode there is.  Without the test, a plot
+       that came out of a file.  pl_fromfile is that record -- raw_read() sets
+       it on every plot it builds, and the plots derived from one carry it
+       with them -- and it is a field of its own because the state of pl_env,
+       which this test used to read, cannot answer the question.  An
+       environment is filed by raw_read() and by nothing else in the tree, so
+       a plot that has one did come out of a file; the converse is what the
+       writer needs and it is false.  A file carrying no 'Option:' line at all
+       leaves the loaded plot's environment empty, which is exactly the state
+       a plot this session simulated is in.  Every raw file every released
+       ngspice has written is such a file, and so is every file this build
+       writes with the gate below unset, so the conflated case was not a
+       corner but very nearly every file that exists: loading one and writing
+       it out stamped the copy with the copying session's mode, over data that
+       session never produced.  Under 'fold' the stamp is not merely
+       unsupported but self-contradictory, since the names under it are
+       capitals a folding run cannot spell.  doc/codex/issues/0070,
+       tests/regression/pipe/rawfile-casemode-foreign.cmd.
+
+       What a plot that did come from a file says about its mode is what that
+       file said, re-emitted unchanged by the pl_env loop below, because a
+       pair the file carried is data the user may want kept and is the only
+       record of that run's mode there is.  Without the provenance test a plot
        loaded from a 'preserve' file and written out again by a folding
        session came out with two casemode lines, the copying session's first
        and the file's own second, and a reader's own lookup answers with the
-       first: the header described the copier and not the names under it.  The
-       test is provenance and not a name -- a plot this session produced
-       carries no environment at all, so nothing here has to know which key is
-       which.  tests/regression/pipe/rawfile-casemode-rewrite.cmd. */
-    if (!pl->pl_env &&
+       first: the header described the copier and not the names under it.
+       tests/regression/pipe/rawfile-casemode-rewrite.cmd. */
+    if (!pl->pl_fromfile &&
             cp_getvar_policy("casemodewrite", CP_BOOL, NULL, 0))
         fprintf(fp, "Option: casemode=%s\n", inp_case_mode_name());
     fprintf(fp, "Flags: %s%s\n",
@@ -208,7 +222,48 @@ void raw_write(char *name, struct plot *pl, bool app, bool binary)
             fprintf(fp, "Option: %s\n", vv->va_name);
         }
         else {
-            fprintf(fp, "Option: %s = ", vv->va_name);
+            /* 'name=value' and not 'name = value', so that this writer and
+               the casemode one above spell a pair the same way.  Both put an
+               'Option:' line in the same header, and a file that carries one
+               and is written out again comes back through here, so the two
+               spellings meant a copy was not a copy: the line this build
+               wrote as 'casemode=preserve' came back as 'casemode = preserve'
+               and a copy of that copy stayed that way.  ngspice reads either,
+               because the reader hands the text to cp_lexer() and
+               cp_setparse() -- '=' is not a word-breaking character there, so
+               'name=value' arrives as one word and cp_setparse() splits it,
+               and 'name=( a b )' still opens a list -- but the consumer this
+               line exists for matches the key literally, and a reader that
+               fails on a file ngspice itself wrote is the whole complaint.
+               The closed form is the one the ask and every write-up quote.
+               doc/codex/issues/0070,
+               tests/regression/pipe/rawfile-casemode-keysyntax.cmd.
+
+               The exception keeps the spaces for the two value shapes that
+               do not survive being closed up, and only those.  cp_lexer()
+               drops a ',' that ends a word but keeps one that starts a word,
+               so 'k = ,b' reads back as ',b' and 'k=,b' reads back as 'b';
+               a value that is a bare ',' is worse than lossy, since
+               cp_setparse() then finds nothing after the '=' and throws the
+               whole line away.  And '<=' or '>=' is held together only at
+               the start of a word (lexical.c), so 'k = <=y' reads back
+               whole while 'k=<=y' comes apart into a '<' and a stray '=y'
+               that parses as a second variable with an empty name.  Nothing
+               else in the character table is asymmetric -- ';', '&' and a
+               lone '<' or '>' each read back the same from either spelling,
+               measured, so widening this test would put spaces back for no
+               gain and reopen the two-spellings gap it exists to close.
+
+               The point of closing the gap is that a copy is a copy, so a
+               spelling that makes a copy lossy is not one to prefer.  No
+               mode name starts with a ',' or a '<', so the casemode pair is
+               always closed up; only a value out of somebody else's file can
+               take this arm at all. */
+            fprintf(fp, "Option: %s%s", vv->va_name,
+                    (vv->va_type != CP_LIST && wl && wl->wl_word &&
+                     (wl->wl_word[0] == ',' ||
+                      ((wl->wl_word[0] == '<' || wl->wl_word[0] == '>') &&
+                       wl->wl_word[1] == '='))) ? " = " : "=");
             if (vv->va_type == CP_LIST) {
                 fprintf(fp, "( ");
             }
@@ -470,6 +525,16 @@ raw_read(char *name) {
             curpl->pl_title = title;
             curpl->pl_xdim2d = -1;
             curpl->pl_ydim2d = -1;
+            /* Provenance, recorded here because here is where it is known:
+               this is the only place in the tree that builds a plot out of a
+               file, so a plot without the mark was made by something this
+               session ran.  It is set for every plot this loop builds and not
+               only for one that carries an 'Option:' line, which is the whole
+               point -- the writer used to infer the same fact from a non-empty
+               pl_env and got it wrong for every file that has no options,
+               which is very nearly every file there is.  raw_write()
+               (above), doc/codex/issues/0070. */
+            curpl->pl_fromfile = TRUE;
             date = NULL;
             title = NULL;
             flags = VF_PERMANENT;

@@ -23,6 +23,7 @@ struct plot {
     struct variable *pl_env;	/* The 'environment' for this plot. */
     struct ccom *pl_ccom;	/* The ccom struct for this plot. */
     bool pl_written;		/* Some or all of the vecs have been saved. */
+    bool pl_fromfile;		/* Read from a file, not produced here. */
     bool pl_lookup_valid;	/* vector lookup table valid */
     int pl_ndims;		/* Number of dimensions */
     int pl_xdim2d;		/* 2D Cider plot x dimension */

@@ -198,6 +198,10 @@ com_spec(wordlist *wl)
     plot_cur->pl_title = copy((plot_cur->pl_next)->pl_title);
     plot_cur->pl_name = copy("Spectrum");
     plot_cur->pl_date = copy(datestring());
+    /* As in com_fft() (src/frontend/com_fft.c): the transformed vectors keep
+       the names they were given, so the plot they land in is described by the
+       run that produced them.  doc/codex/issues/0070. */
+    plot_cur->pl_fromfile = vec_fromfile(vlist, ngood);
 
     f = dvec_alloc(copy("frequency"),
                    SV_FREQUENCY,

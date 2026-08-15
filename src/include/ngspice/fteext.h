@@ -373,6 +373,9 @@ extern int ft_typnum(char *);
 
 extern bool vec_iszero(const struct dvec *v);
 extern bool vec_eq(struct dvec *v1, struct dvec *v2);
+/* TRUE if any of these vectors was read from a file, so that a plot derived
+ * from them can say so too.  doc/codex/issues/0070. */
+extern bool vec_fromfile(struct dvec *v, int n);
 /* The frontend's one answer to "are these two vector names the same name?":
  * cieq() under fold and preserve, exact under distinguish.  It is findvec()'s
  * rule, and every name matcher outside the lookup table shares it.

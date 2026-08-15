@@ -116,20 +116,34 @@ if probe < 2.2
 end
 
 * The file written after the unset is still a rawfile the reader accepts, and
-* it still records the mode: the plot's own copy of the key is what the unset
-* removed, while the line raw_write() puts under 'Plotname:' is the writing
-* session's and is written afresh every time.  So the round trip survives the
-* unset, which is what a tool that loads, tidies and re-writes needs.
+* it records no mode at all.  Both halves matter.  The plot being written is
+* a loaded one, so the mode in force describes the session and not the data,
+* and the unset took away the one record of that data's mode there was: a
+* writer that filled the gap from the session would be claiming, about names
+* it never spelled, whatever this session happens to be set to
+* (doc/codex/issues/0070).  Silence is the answer, and a tool that loads,
+* tidies and re-writes gets a file that asserts nothing rather than one that
+* asserts something untrue.
+*
+* This deck asserted the opposite until 0070, on the reasoning that the line
+* under 'Plotname:' is the writing session's and written afresh every time --
+* which is a description of the defect.  The claim kept here is the one that
+* belongs to 0067: the file survives the unset, is readable, and still
+* carries the data.
 load uro_rewritten.raw
 let k3 = $?casemode
-if k3 <> 1
-  echo "ERROR: the rewritten file records no case mode"
+if k3 <> 0
+  echo "ERROR: the rewritten copy of a loaded plot records a mode it cannot know"
   quit 1
 end
-set c4 = 99
-strcmp c4 "$casemode" "$m0"
-if $c4 <> 0
-  echo "ERROR: the rewritten file records a mode this session was not in"
+let probe2 = 99
+let probe2 = v(mid)
+if probe2 > 2.3
+  echo "ERROR: the rewritten file did not read back with its vectors"
+  quit 1
+end
+if probe2 < 2.2
+  echo "ERROR: the rewritten file did not read back with its vectors"
   quit 1
 end
 
