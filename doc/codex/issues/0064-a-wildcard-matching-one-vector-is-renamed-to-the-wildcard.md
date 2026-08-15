@@ -9,6 +9,13 @@ Pre-existing, upstream and mode independent. It reproduces byte for byte on
 `build-ver_50/src/ngspice`, under no `-D` and under `fold`, `preserve` and
 `distinguish` alike — no name here is looked up across a case boundary.
 
+**Re-measured 2026-08-15**, and the measurement widened the issue: the extra
+column is not wildcard-specific, and the `-r` batch route does not have it at
+all. See *Re-measured 2026-08-15* below. Nothing here is withdrawn — the
+wildcard rename is still real and still the sharpest symptom — but the scope of
+a fix is now a decision for the repo owner and is stated at the end of
+*Resolution*. Status stays Open, unfixed, and now also unscoped.
+
 Filed because it is visible in the client-facing evidence base:
 `doc/claude/feedback/ngspice_upstream/repro/run_all.sh` section 2 prints the
 variable list of `save_lower.raw`, and the second line of it is this defect. The
@@ -96,6 +103,138 @@ rawfile. This defect means the floor cannot be a simple equality against the
 number of tokens the deck saved: a one-signal deck writes two variables. Until
 this is fixed, a count check has to expect n, or n+1 when n is 1.
 
+That rule of thumb is **wrong**, and the 2026-08-15 measurement below is what
+corrects it. The floor depends on the analysis and on what the `write` names,
+not on the saved count: a `.tran` deck that saves one signal writes two
+variables *correctly*, and an `.op` deck that saves two and writes both by name
+writes three. The corrected advice is in the same section.
+
+### Re-measured 2026-08-15: the shape is wider than this file described
+
+Measured against `build-ver_50/src/ngspice`, build stamp
+`Sat Aug 15 15:34:32 UTC 2026`, default `casemode=fold`, `set filetype=ascii`,
+in a scratch directory outside the repo. One netlist throughout —
+`Vs In 0`, `R1 In MidNode 1k`, `R2 MidNode 0 3k`, the source `DC 3` where only
+an operating point is run and `pulse(0 3 0 1n 1n 1u 2u)` where a sweep is —
+varying only the analysis card, the `.save` card and the `write` argument list.
+`write` runs inside `.control` after `run` unless the row says `-r`. Only the
+column count and the names are read; the values are not at issue and are
+correct in every row.
+
+`No. Vars` is the file's `No. Variables:`; `rows` is the variable table.
+
+| analysis | `.save` | `write` argument | No. Vars | rows |
+|---|---|---|---|---|
+| `.op` | `v(In)` | *(none — bare `write f.raw`)* | 2 | `v(in)` `v(all)` |
+| `.op` | `v(In)` | *(no filename either — bare `write`)* | 2 | `v(in)` `v(all)` |
+| `.op` | `v(In)` | `all` | 2 | `v(in)` `v(all)` |
+| `.op` | `v(In)` | `allv` | 2 | `v(in)` `v(allv)` |
+| `.op` | `v(In)` | `v(In)` | 2 | `v(in)` `v(In)` |
+| `.op` | `v(In)` | `v(in)` | 2 | `v(in)` `v(in)` |
+| `.op` | `v(In)` | `in` | **1** | `v(in)` |
+| `.op` | `v(In)` | `v(In)+0` | 2 | `v(in)` `v(In)+0` |
+| `.op` | `v(In)` | `set plainwrite`, then `in` | **1** | `v(in)` |
+| `.op` | `v(In)` | `set plainwrite`, then bare | **1** | `v(in)` |
+| `.op` | `v(In) v(MidNode)` | *(bare)* | 2 | `v(in)` `v(midnode)` |
+| `.op` | `v(In) v(MidNode)` | `all` | 2 | `v(in)` `v(midnode)` |
+| `.op` | `v(In) v(MidNode)` | `allv` | 2 | `v(in)` `v(midnode)` |
+| `.op` | `v(In) v(MidNode)` | `in midnode` | 2 | `v(in)` `v(midnode)` |
+| `.op` | `v(In) v(MidNode)` | `v(In) v(MidNode)` | **3** | `v(in)` `v(In)` `v(MidNode)` |
+| `.op` | `v(In) v(MidNode)` | `v(In)` | 2 | `v(in)` `v(In)` |
+| `.op` | `v(In) v(MidNode)` | `v(MidNode)` | 2 | `v(in)` `v(MidNode)` |
+| `.op` | `v(In) v(MidNode)` | `set plainwrite`, then `midnode` | 2 | `v(in)` `v(midnode)` |
+| `.op` | `v(In)` | `-b -r f.raw`, no `.control` | **1** | `v(in)` |
+| `.op` | `v(In) v(MidNode)` | `-b -r f.raw`, no `.control` | 2 | `v(in)` `v(midnode)` |
+| `.tran 1u 2u` | `v(In)` | *(bare)* | 2 | `time` `v(in)` |
+| `.tran 1u 2u` | `v(In)` | `all` | 2 | `time` `v(in)` |
+| `.tran 1u 2u` | `v(In)` | `allv` | 2 | `time` `v(allv)` |
+| `.tran 1u 2u` | `v(In)` | `ally` | 2 | `time` `v(ally)` |
+| `.tran 1u 2u` | `v(In)` | `v(In)` | 2 | `time` `v(In)` |
+| `.tran 1u 2u` | `v(In)` | `time v(In)` | 2 | `time` `v(In)` |
+| `.tran 1u 2u` | `v(In)` | `set plainwrite`, then `in` | 2 | `time` `v(in)` |
+| `.tran 1u 2u` | `v(In) v(MidNode)` | *(bare)* | 3 | `time` `v(in)` `v(midnode)` |
+| `.tran 1u 2u` | `v(In) v(MidNode)` | `v(In) v(MidNode)` | 3 | `time` `v(In)` `v(MidNode)` |
+| `.tran 1u 2u` | `v(In)` | `-b -r f.raw`, no `.control` | 2 | `time` `v(in)` |
+| `.dc Vs 0 3 1` | `v(In)` | *(bare)* | 2 | `v(v-sweep)` `v(in)` |
+| `.dc Vs 0 3 1` | `v(In)` | `v(In)` | 2 | `v(v-sweep)` `v(In)` |
+| `.ac dec 5 1 1k` | `v(In)` | `v(In)` | 2 | `frequency` `v(In)` |
+
+Four things in that table are new, and each of them changes the issue.
+
+**1. The `-r` batch route is already clean, and the client has not been told.**
+`ngspice -b -r f.raw deck.cir` on the one-save `.op` deck writes
+`No. Variables: 1` and the row `v(in)`. It never reaches `com_write()` —
+`fileInit()`/`fileInit_pass2()` in `src/frontend/outitf.c` write the header
+straight from the analysis's own vector set — so neither mechanism below can
+touch it. **This is a usable workaround today**: a deck that produces its
+rawfile through `-r` instead of through a `.control` `write` sees the invariant
+hold, with no phantom column and no duplicate. Its one known cost is
+`doc/codex/issues/0071`: the `-r` writer emits no `Option: casemode=` line, so
+a consumer that reads the mode out of the header loses it on that route.
+
+**2. The extra column is not wildcard-specific.** `write f.raw v(In)` on the
+one-save `.op` plot writes two variables, and two explicit names on a two-save
+`.op` plot write **three**. No wildcard is typed in either. The summary at the
+top of this file describes one symptom of a mechanism with a wider reach.
+
+**3. Where the deck's own spelling is used, the duplicate cannot be filtered by
+name.** Re-measured across the three modes and on stock, `.op` with
+`.save v(In)` and `write f.raw v(In)`:
+
+```
+fold          -> 0 v(in)   | 1 v(In)
+preserve      -> 0 v(In)   | 1 v(In)
+distinguish   -> 0 v(In)   | 1 v(In)
+ngspice-46    -> 0 v(in)   | 1 v(in)
+```
+
+Under `preserve`, under `distinguish` and on stock the two columns carry a
+**byte-identical name**. The client's stated defence — "we can filter it, but
+only by name" — works against `v(all)` and does not work here. That is a
+consumer-visible escalation of the same defect and it should be in whatever the
+client is told next.
+
+**4. On `.tran`, `.dc` and `.ac` the count is never inflated, but the name is
+still corrupted.** `write f.raw allv` on a one-voltage `.tran` plot writes
+`time` and `v(allv)`: two variables, which is arithmetically what a consumer
+expects for one signal plus its axis, under a name that names nothing. A count
+check passes and the signal browser still shows a phantom.
+
+**The corrected count rule for a consumer**, replacing the "n, or n+1 when n
+is 1" above: for `.tran`, `.dc` and `.ac` a bare `write` gives *n+1* — the
+saved signals plus the analysis axis — for every n. For `.op` a bare `write`
+gives *n*, except that n=1 gives 2. Naming vectors explicitly on the `write`
+line adds one more on an `.op` plot in every case. The `-r` route gives n+1 for
+`.tran`/`.dc`/`.ac` and n for `.op`, with no exception at n=1.
+
+Two side observations from the same session, recorded so they are not
+re-derived:
+
+- `write f.raw ally` on the one-save `.op` plot writes **12 variables** —
+  `yes FALSE TRUE boltz c e echarge i kelvin no pi planck` — because
+  `findvec_ally()` excludes the plot's scale, the `.op` plot's only vector *is*
+  its scale (see mechanism 2 below), the match is therefore empty, and the
+  lookup falls through to the constants plot. That is
+  `doc/codex/issues/0059`'s shape, not this one's, and is recorded here only as
+  corroboration of it.
+- `write f.raw TIME v(In)` under `casemode=distinguish` is refused —
+  `no vector named 'TIME'; 'time' differs only in case` — so there is no row
+  for it. Under `fold` it succeeds and labels the axis column `TIME`, the
+  deck's spelling, which is mechanism 1 acting on the scale itself.
+
+`alle` was **not** measured. By code reading it belongs in the wildcard set:
+`get_all_type()` recognises it (`src/frontend/vectors.c:143-146`), `findvec()`
+dispatches to `findvec_alle()` before any name lookup (`:183-186`), and
+`findvec_alle()` chains its results through `v_link2`
+(`:329-343`) exactly as `FINDVEC_ALL_GEN` does, so it carries the same
+exemption at two or more matches and the same exposure at exactly one. It was
+not run because every XSPICE digital deck in `build-ver_50/tests/xspice/digital`
+segfaults in that tree today: the `*.cm` code models there are stamped
+`Aug 15 08:36` and the binary `Aug 15 09:36`, i.e. the models are stale
+relative to the binary. That is a build-directory artifact, not a product
+defect, and a `make` in that tree is expected to clear it. It was not
+investigated further.
+
 ## Impact
 
 - **A rawfile consumer reads a variable that does not exist**, with a duplicate
@@ -107,6 +246,21 @@ this is fixed, a count check has to expect n, or n+1 when n is 1.
 - Reached by the command's default. A bare `write` substitutes `all`
   (`com_write()`, `src/frontend/postcoms.c`), so a deck need not type a wildcard
   to get here.
+
+Added 2026-08-15, from the re-measurement above:
+
+- **A deck need not type a wildcard at all.** `write f.raw v(In)` inflates the
+  same one-save `.op` plot to 2, and `write f.raw v(In) v(MidNode)` inflates a
+  two-save `.op` plot to 3. The wildcard is one entry point among several.
+- **The duplicate is not always distinguishable by name.** Under `preserve`,
+  under `distinguish` and on stock `ngspice-46`, the two columns of
+  `write f.raw v(In)` carry a byte-identical name. Filtering by name — the
+  client's stated defence — does not reach that case.
+- **The name is corrupted on `.tran`/`.dc`/`.ac` too**, where the count is not
+  inflated. `write f.raw allv` on a one-voltage `.tran` plot writes `time` and
+  `v(allv)`: a count check passes and a phantom signal still reaches the
+  browser.
+- **The `-r` batch route is unaffected**, so a consumer has a workaround today.
 
 ## Root Cause
 
@@ -140,6 +294,61 @@ Two mechanisms in series; the first is the defect.
    `scalefound` stays `FALSE` and the "make sure the default scale is present"
    branch prepends a second copy — this time under the real name.
 
+### Which mechanism produces which row, measured 2026-08-15
+
+The two mechanisms above are **separable, and each of them produces inflated
+rows on its own.** That is the finding that decides whether this is one defect
+or two, so the isolating measurements are given rather than asserted.
+
+**Mechanism 1 — the `ft_evaluate()` rename, `src/frontend/evaluate.c:80-84`.**
+It replaces the *stored* vector name with the *typed* parse-node text on every
+single unchained result, wildcard or not. Three measurements pin it:
+
+- `write f.raw in` on the one-save `.op` plot — the same code path, the same
+  rename, but the typed text `in` happens to equal the stored name — writes
+  **1** variable. `write f.raw v(in)`, differing only in the `v()` wrapper the
+  deck typed, writes **2**. So the trigger is not case, not the wildcard and
+  not the match size: it is the typed text differing from the stored name, and
+  for `v(X)` syntax on a plot whose vectors are stored bare it always does.
+- `set plainwrite` (`src/frontend/postcoms.c:633-650`) takes the `vec_get()`
+  path and never calls `ft_evaluate()`. `set plainwrite` + `write f.raw in`
+  writes **1** variable where the pnode path writes 2, with everything else
+  identical.
+- `write f.raw all` on a **two**-vector `.op` plot writes 2 correct rows: the
+  chain sets `v_link2`, the rename is withheld, the stored names survive and
+  the scale is recognised.
+
+Mechanism 1 is therefore responsible for every row in the table whose name is
+not the stored name: `v(all)`, `v(allv)`, `v(ally)`, `v(In)`, `v(MidNode)`,
+`TIME`. It causes an inflated count only when the requested set contains the
+plot's scale, because that is when hiding a name hides the scale.
+
+**Mechanism 2 — `com_write()`'s scale insurance,
+`src/frontend/postcoms.c:681-696`.** `vec_eq(d, tpl->pl_scale)` compares
+basenames (`vec_eq()` → `vec_basename()` + `vec_name_eq()`,
+`src/frontend/vectors.c:1278-1297`); if the plot's scale is not among what is
+about to be written, the block at `:692-696` prepends a copy of it. On `.tran`,
+`.dc` and `.ac` that is correct and necessary — the scale is `time`,
+`v-sweep` or `frequency`, a real axis the file would be unreadable without.
+
+On an **`.op` plot it is not an axis at all.** `vec_new()`
+(`src/frontend/vectors.c:1122-1124`) makes the *first* `VF_PERMANENT` vector
+created in a plot its default scale, so on an `.op` plot the "scale" is
+whichever saved node voltage happened to be created first. `display` confirms
+it: `in : voltage, real, 1 long [default scale]`. Prepending it adds an
+ordinary signal the `write` line did not name.
+
+The isolating measurement is the row `set plainwrite` + `write f.raw midnode`
+on the two-save `.op` plot: **2** variables, `v(in)` and `v(midnode)`, with the
+rename structurally impossible on that path. One signal asked for, two written,
+mechanism 1 not involved.
+
+**How they compose.** On a one-save `.op` plot both fire: mechanism 1 renames
+the only vector, so mechanism 2 no longer recognises it as the scale and
+prepends a second copy of the same data. That composition — and only that
+composition — produces the duplicate-under-two-names column this issue was
+filed about.
+
 ## Acceptance Criteria
 
 1. A bare `write` of a plot holding exactly one vector produces a rawfile with
@@ -168,3 +377,92 @@ Not to be confused with `doc/codex/issues/0059`, which is about a bare `write`
 producing a file of the *wrong plot*. This one is about the wrong *name* inside
 a file of the right plot, and the two are independent: `0059`'s guards refuse
 before this can happen, and after them this still happens.
+
+### Scope: a decision for the repo owner, 2026-08-15
+
+The measurement above leaves three defensible scopes and no obvious winner. The
+choice is the repo owner's; this section states the options and their costs and
+does not pick.
+
+The acceptance criteria above were written for option (i) and are still correct
+for it. Options (ii) and (iii) would need criteria of their own.
+
+**Option (i) — this issue as filed. Withhold the rename from the wildcard
+tokens only.** `ft_evaluate()` skips the assignment when the node's text is one
+of the set `get_all_type()` recognises.
+
+- *Closes*: every row whose name is `v(all)`, `v(allv)`, `v(ally)` — including
+  the bare-`write` default, which is the shape a generated deck produces, and
+  including the `.tran` name corruption at rows `allv` and `ally`. A bare
+  `write` then gives n on `.op` and n+1 on `.tran`/`.dc`/`.ac`, matching what
+  `-r` already writes.
+- *Leaves*: every row where the deck names vectors explicitly. `.op` +
+  `write f.raw v(In)` still writes 2, and the two columns still carry an
+  identical name under `preserve`, `distinguish` and stock — the case the
+  client cannot filter.
+- *Breaks*: nothing found in the tree. No `.out` reference contains a wildcard
+  as a variable name or a `print` label (grepped). A deck cannot have a real
+  vector named `all`: `findvec()` intercepts the wildcard set at
+  `src/frontend/vectors.c:173-189`, before any name lookup, so such a vector is
+  already unreachable and withholding the rename cannot regress it.
+- *Regression risk*: **low.** `ft_evaluate()` is on the path of every
+  control-language expression, but the guard is a text test on the parse node
+  and fires only for five reserved words that are already special-cased one
+  call deeper. Still wants the full `make check` behind it and a deck of its
+  own, per the note above.
+- *Sufficient for the client?* For their current deck shape, yes — their
+  generated decks use a bare `write`. Not sufficient if they ever name vectors
+  on the `write` line.
+
+**Option (ii) — the wider shape. Make `No. Variables` equal what the deck asked
+for in every case.**
+
+- *First, the invariant as literally stated is not achievable and should not
+  be.* A `.tran` rawfile that carries `v(in)` and no `time` is unplottable, and
+  a consumer that reads it has no abscissa. The rawfile format requires the
+  plot's scale. The defensible restatement is: **the scale is written when it
+  is a real axis, and is never written twice under two names.** The owner
+  should settle the wording before the scope, because the two readings imply
+  very different changes.
+- *What it needs beyond (i)*: the rename has to stop hiding the scale for
+  explicitly named vectors too, or `com_write()` has to stop identifying the
+  scale by name. Two levers exist and neither is designed here — this crew was
+  told not to write the fix. Naming them only so the cost is visible: narrow
+  the rename further (a mechanism-1 change), or give `com_write()` a way to
+  recognise the scale by identity rather than by name before the rename lands
+  (a mechanism-2 change, `src/frontend/postcoms.c:665-696`).
+- *Breaks*: **a client-visible behaviour they may value.** Under `fold` the
+  stored name is `in`, and `write f.raw v(In)` writes the column as `v(In)` —
+  the deck's own spelling — *because of* the rename. Narrowing the rename makes
+  that column `v(in)`. Any consumer relying on getting its own spelling back
+  from a `fold` run would see the spelling change. Measured: `fold`,
+  `.save v(In)`, `write f.raw v(In)` gives `v(in)` `v(In)` today; without the
+  rename it is a single `v(in)`.
+- *Also breaks, potentially*: the `.op` scale prepend is 30-year-old behaviour
+  with a comment in the source doubting itself — "Maybe we shouldn't make sure
+  that the default scale is present if nobody uses it",
+  `src/frontend/postcoms.c:689-691`. Any change there alters the column set of
+  every partial `write` of every `.op` plot, in every consumer downstream of
+  ngspice, not only this client's.
+- *Regression risk*: **high**, and concentrated in `com_write()` and in
+  `ft_evaluate()`'s expression labelling, which `print`, `plot`, `wrs2p`,
+  `fft`, `spec` and `psd` all share.
+
+**Option (iii) — both, sequenced: (i) now, (ii) considered separately.**
+
+- *Cost*: two changes, two test decks and two review passes instead of one,
+  and a client told twice.
+- *Benefit*: (i) is cheap, low-risk, closes the shape the client actually hits,
+  and can ship without settling the argument in (ii). It also removes the only
+  case where the extra column's name is *not* a real net, which is the case a
+  consumer cannot reason about at all.
+- *Risk*: (ii) never happens once (i) has removed the visible pain — the
+  explicit-name rows stay wrong indefinitely, and a consumer that names vectors
+  on the `write` line still gets an unfilterable duplicate.
+
+**One defect or two.** Measured, they are **two**: mechanism 2 inflates an
+`.op` plot's column count on its own, with the rename structurally excluded
+(the `set plainwrite` row). Whether the second one gets its own issue number is
+part of the decision above and has deliberately not been filed — it is only
+worth a number under options (ii) or (iii), and under (i) it stays a recorded
+observation in this file.
