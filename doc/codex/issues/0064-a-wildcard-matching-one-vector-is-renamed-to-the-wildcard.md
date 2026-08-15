@@ -12,6 +12,14 @@ The second mechanism this file measured — `com_write()`'s scale prepend — is
 under its own number by item 5 of
 `doc/claude/batches/2026-08-15-xschem-open-items/PLAN.md`.
 
+**That number is `doc/codex/issues/0073`**, filed 2026-08-15. It re-measures
+this file's table against the fixed tree and supersedes it for the rows
+`com_write()` owns: it confirms the byte-identical-name duplicate, adds the
+`.dc` round-trip case where the pair is identical under `fold` and on stock too,
+and **corrects** this file's statement that `.tran`/`.dc`/`.ac` never inflate
+the count — they do, whenever the deck names the scale itself in the `v()` form
+the rawfile reports.
+
 Pre-existing, upstream and mode independent. It reproduces byte for byte on
 `/usr/local/bin/ngspice` (`ngspice-46`, no `casemode` support) and on
 `build-ver_50/src/ngspice`, under no `-D` and under `fold`, `preserve` and
@@ -465,7 +473,8 @@ was not edited at all. It still adds a column to any *partial* write of an `.op`
 plot: measured after the fix, `.op` + `.save v(in)` + `write f.raw v(In)` still
 writes `No. Variables: 2`, `v(in)` and `v(In)`, and under `preserve`,
 `distinguish` and stock those two columns still carry a byte-identical name. It
-is a separate defect with its own issue number, filed by item 5 of this batch.
+is a separate defect with its own issue number — **`doc/codex/issues/0073`**,
+filed by item 5 of this batch.
 The consequence for a consumer is unchanged from what *Scope* option (i)
 predicted: a bare `write` is now clean, and naming vectors on the `write` line
 is not.
