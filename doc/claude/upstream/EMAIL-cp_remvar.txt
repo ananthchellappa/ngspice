@@ -8,6 +8,10 @@ cp_remvar().  Six short sessions kill ngspice; all six are things a user or a
 generated deck does routinely.  Both patches are small and independent of any
 feature work.
 
+Both are attached to this one message rather than sent as follow-ups, as plain
+unified diffs: "git apply" takes them, they are not git-am mailboxes.  I will
+resend them as a proper format-patch series if you would rather have that.
+
 Reproducer
 ----------
 
@@ -26,6 +30,9 @@ Each line below is a complete session.  "-p" is pipe mode, "-n" skips
 
 rc=134 is SIGABRT from glibc's allocator ("double free or corruption"), rc=139
 is SIGSEGV.  Both dump core.
+
+d.cir in the fifth is any deck with an analysis in it -- a resistor divider
+and a .op will do; the crash is in the "unset", not in the simulation.
 
 The last one needs a raw file whose header carries any "Option:" line, e.g.
 
@@ -84,7 +91,12 @@ Applied to a clean worktree of master at 2f9c8ad47:
   - ./autogen.sh && ../configure && make -j12: exit 0, no new warnings in
     either file
   - all six reproducers above: rc=0
-  - make check: 58 tests, 0 failures, exit 0, across 42 test directories
+  - make check: 58 tests, 0 failures, exit 0
+
+The two defects are independent, but they do not partition the six cases, so
+please take both patches rather than one.  Built separately: patch 1 alone
+leaves reproducers 1 and 2 aborting, patch 2 alone leaves 2 through 6.
+Reproducer 2 reaches both defects and needs both patches.
 
 Notes
 -----
@@ -111,5 +123,5 @@ Thanks,
 Ananth Chellappa
 
  src/frontend/options.c  | 11 +++++++-
- src/frontend/variable.c | 69 ++++++++++++++++++++++++++++++++++-------------
- 2 files changed, 61 insertions(+), 19 deletions(-)
+ src/frontend/variable.c | 70 ++++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 62 insertions(+), 19 deletions(-)

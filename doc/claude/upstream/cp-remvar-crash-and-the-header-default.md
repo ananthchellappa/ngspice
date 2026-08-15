@@ -122,6 +122,10 @@ the built-in `constants` plot whose date field is the static string
 have always guarded against exactly this; this one does not. Handing a string
 constant to `free()` aborts.
 
+Number 1 is that defect on its own. Number 2 reaches it *and* the unconditional
+free in the tail, so it is the one shape that needs both patches; §6 has the
+measured split.
+
 Number 5 is the shape that matters for tool authors: a generated `.control`
 block that sets a simulator variable and unsets it afterwards. The xschem
 integration hit it independently, on both binaries, and adopted a client-side
@@ -222,9 +226,29 @@ The upstream submission is deliberately narrower than our commit.
 **Sent** — two patches, `doc/claude/upstream/`:
 
 - `0001-cp_remvar-ownership.patch` — `src/frontend/variable.c`, the ownership
-  rule. Fixes repros 2–6.
+  rule.
 - `0002-curplotdate-static.patch` — `src/frontend/options.c`, the
-  `Spice_Build_Date` guard. Fixes repro 1.
+  `Spice_Build_Date` guard.
+
+**The two defects do not partition the six shapes**, and the first draft of
+this report said they did — "0001 fixes repros 2–6, 0002 fixes repro 1" — from
+reading the code rather than from a measurement. Measured 2026-08-15 by
+building each patch alone on `2f9c8ad47`:
+
+| repro | neither | `0001` only | `0002` only | both |
+| --- | --- | --- | --- | --- |
+| 1 `set curplotdate` | 134 | 134 | **0** | 0 |
+| 2 `unset curplotdate` | 134 | 134 | 134 | **0** |
+| 3 `unset curplot` | 134 | **0** | 134 | 0 |
+| 4 `unset plots` | 134 | **0** | 134 | 0 |
+| 5 `set`/`unset temp` | 134 | **0** | 134 | 0 |
+| 6 `load` / `unset` | 139 | **0** | 139 | 0 |
+
+`0001` alone clears four, `0002` alone clears one, and **shape 2 reaches both
+defects and needs both patches**: `unset curplotdate` runs the static `free()`
+in `cp_usrset()` *and* the unconditional free in the tail. So a maintainer who
+takes one patch and not the other still has a crashing `unset curplotdate`,
+which is why the mail now asks for both and shows this split.
 
 **Not sent** — the deletion of the `pl_env` read-only scan in `cp_usrset()`.
 That is our own policy decision (`doc/claude/decisions/0019`): we hold that a
@@ -239,10 +263,12 @@ stands on its own; with the scan intact, `unset` on a loaded key is refused
 with `Error: <name> is read-only.` instead of crashing, which is upstream's
 existing intent, correctly executed for the first time.
 
-On that same build, three of our branch's 29 pipe-suite decks fail — the three
-that encode the policy decision, not the crash fix. All three
-`unset-*-name.cmd` crash guards pass. That is the expected split and it is the
-evidence that the two changes are independent.
+On that same build, three of the 29 pipe-suite decks this branch carried at
+`23fee705b` fail — the three that encode the policy decision, not the crash
+fix. All three `unset-*-name.cmd` crash guards pass. That is the expected split
+and it is the evidence that the two changes are independent. The count is
+pinned to that commit on purpose: the suite is 32 decks as of `9a848ff4f`, and
+this split has not been re-measured against the three that `eb0b96c8c` added.
 
 ## 7. Validation of the exact artifact
 
@@ -254,20 +280,35 @@ Both patches were applied to a clean worktree of upstream `master`
 | `git apply --check`, both patches | clean |
 | `./autogen.sh && ../configure && make -j12` | exit 0, no new warnings in either file |
 | all six repros | rc=0, every one |
-| upstream's own `make check` | 58 tests, **0 failures**, exit 0, 42 directories |
+| upstream's own `make check` | 58 tests, **0 failures**, exit 0 |
 
-Patch 1 applied to upstream unmodified. Patch 2 needed regenerating: our tree
-had changed the surrounding `eq()` to `eqc()` as part of casemode work, so the
-context did not match. The version in `doc/claude/upstream/` is the
-upstream-context one, and it is the one validated above.
+Every row was re-run 2026-08-15 against the same ref and came back the same,
+except the last, which was first written as "58 tests, 0 failures, exit 0, 42
+directories". The 58 and the 0 reproduce exactly; the 42 does not and no count
+taken from the run produces it — the recursion enters 21 directories under
+`tests/`, 20 of which run a test. The clause is dropped here and from the mail
+rather than guessed at.
+
+Patch 1's *change* applied to upstream unmodified, but its patch **file** was
+regenerated 2026-08-15 with every content line unchanged: the shipped copy had
+been hand-fitted after a late comment edit and carried an `index` line naming
+this branch's blobs plus a fourth hunk header one line low, which `git apply`
+tolerated and `git apply -3` would not. Patch 2 needed regenerating at the
+first submission for a different reason: our tree had changed the surrounding
+`eq()` to `eqc()` as part of casemode work, so the context did not match. Both
+files in `doc/claude/upstream/` are now byte-for-byte what `git diff` produces
+from the applied upstream worktree, and they are the ones validated above.
 
 ## 8. What to do while the gap is open
 
 - Keep `casemodewrite` off by default. Revisit only when the fix is in a
   released ngspice.
-- Fix `doc/codex/issues/0070` before the default flips. A file that carries the
-  line must not carry a *wrong* mode, and today a plot loaded from a file that
-  recorded nothing is stamped with the copying session's mode.
+- ~~Fix `doc/codex/issues/0070` before the default flips.~~ **Done**, after
+  this report was first written: `eb0b96c8c` gives `struct plot` a
+  `pl_fromfile` flag that `raw_read()` sets, so a plot loaded from a file that
+  recorded nothing is no longer stamped with the copying session's mode, and
+  `7b5884249` repairs the `constantplot` initialiser the new member exposed.
+  The remaining prerequisite for the flip is the release, not this defect.
 - Clients that need the mode today should read `$curcasemode` from a probe
   process rather than the header. It needs no file, and its absence on an older
   build is a clean negative rather than a crash.
