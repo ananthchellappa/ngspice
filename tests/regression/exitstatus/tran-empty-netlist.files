@@ -1,0 +1,4 @@
+# A batch run that never reaches an analysis writes no rawfile.  The driver
+# deletes this path before the run, so the line asserts what this run did and
+# not what some earlier run left behind.
+absent rawspice.raw

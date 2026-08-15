@@ -1,0 +1,12 @@
+* exit status of an analysis card with nothing to analyse
+* Everything between the title line and the dot card is a comment, so the
+* circuit has no non-ground node and the batch run has nothing to do.  ngspice
+* diagnoses that on stderr and returns 1.
+*
+* This deck is here because it is the contrast the argument in
+* doc/codex/issues/0072 rests on -- a deck that fails for a good reason and
+* says so -- and because it is an assertion about ngspice rather than about
+* the driver.  Re-measured on ngspice-46+ (build of Sat Aug 15 18:18:34 UTC
+* 2026): rc=1, the three stderr lines in tran-empty-netlist.err, no rawfile.
+.tran 1n 10n
+.end

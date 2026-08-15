@@ -1,0 +1,12 @@
+* self-test: a deck that runs cleanly, read against a .status that is wrong
+* The netlist is real and the operating point succeeds, so this deck exits 0.
+* selftest-status.status says 3, and selftest-status.mustfail says that the
+* status check is the one that has to fail.  The driver therefore passes this
+* entry only while it is still capable of reporting a status mismatch.
+*
+* tests/lint/ has the same idea in selftest.lint: a directory that never
+* watches its own driver fail is asserting nothing.
+v1 in 0 dc 1
+r1 in 0 1k
+.op
+.end
