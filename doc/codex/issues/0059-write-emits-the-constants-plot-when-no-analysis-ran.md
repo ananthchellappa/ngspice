@@ -37,6 +37,19 @@ commands** — and three rounds of widening had already failed to cover one. Row
 12 also falsifies the sentence the trade in the Resolution rested on; that
 sentence is corrected there.
 
+**Corroborated independently on 2026-08-14, by the client, on stock.** The
+xschem session re-measured the shape from the outside and got the four-row
+table under Impact's *"Independent corroboration"* below: `.save v(nosuchnode)`
+produces `Plotname: constants` in `fold`, `preserve` and `distinguish` **and**
+on `/usr/local/bin/ngspice` with no flag, with zero mentions of the offending
+token on either stream in all four. That does not change the withdrawal and it
+is not a new ask — they say so themselves — but it moves the issue's priority,
+because it settles two things this file had only argued. The failing shape
+needs no `casemode` flag and no unusual command; and the two tells the
+Resolution rests on are, from a consumer's side, the only two signals in
+existence for it. They are implementing both as content checks plus a
+vector-count floor.
+
 Found by a client integration — xschem generating decks, reading the raw
 file and showing the names back to the user — and reported as finding 3 of
 `doc/claude/feedback/ngspice_upstream/FINDINGS.md`. Re-measured here at
@@ -390,6 +403,58 @@ that failed. The three routes of rows 11 to 13 are less covered still — the
 strings `plainwrite` and `appendwrite` do not occur anywhere under `tests/` at
 all, and the two decks that do use `wrdata` name their vectors explicitly, so
 no deck in the tree exercises `com_write()`'s second branch or either variant.
+
+### Independent corroboration, 2026-08-14 — the client, from the outside
+
+Measured by the xschem session as **R2** of
+`doc/claude/feedback/reply_from_xschem_session/REPLY.md` and re-run here from
+their `repro2/run_round2.sh` against `build-ver_50/src/ngspice` (build stamp
+`Fri Aug 14 20:52:09 UTC 2026`) and `/usr/local/bin/ngspice`. Their deck is
+`repro2/absent.cir`: the divider above, `.save v(nosuchnode)` — a token that is
+in no netlist in any casing — an `.op` card, and a `.control` block that `run`s
+and `write`s.
+
+| binary / mode | rc | rawfile | mentions of `nosuchnode`, both streams |
+| --- | --- | --- | --- |
+| ver_50 `-D casemode=fold` | 0 | `Plotname: constants` | 0 |
+| ver_50 `-D casemode=preserve` | 0 | `Plotname: constants` | 0 |
+| ver_50 `-D casemode=distinguish` | 0 | `Plotname: constants` | 0 |
+| **stock `ngspice-46`, no flag** | 0 | `Plotname: constants` | 0 |
+
+Three things this settles that the file above had argued rather than shown from
+a consumer's position.
+
+- **The shape is not a `preserve` consequence and never was.** `preserve`'s
+  strict `.save` was one route in; `doc/codex/issues/0056` closed that route
+  and did not touch the destination. A plain typo in a `.save` card on released
+  ngspice produces exit 0, no diagnostic naming anything, and a well-formed
+  rawfile holding `yes`, `FALSE`, `boltz`.
+- **The rc=0 is this deck's shape, not a contradiction of the rc=1 rows above.**
+  The transcripts in the Summary are the `-r`-less, dot-card-less shape and are
+  rc=1; `absent.cir` carries an `.op` card, so `main()`'s second batch epilogue
+  arm re-runs the analysis with its own save list and exits on *that*.
+  `doc/codex/issues/0069` is that mechanism, filed 2026-08-14 from the same
+  report. The two rc columns are the two arms and both are correct.
+- **The two tells are load bearing for a real consumer.** They are adopting
+  both — reject `Plotname: constants`, reject a `Date:` equal to the build
+  stamp — plus a vector-count floor, because rows 12 and 13 mean neither tell
+  is sufficient alone. Nothing here asks for the withdrawn guard back: their
+  own words are that the withdrawal reasoning is sound and they are not asking
+  for a guard that refuses `let`-built vectors, which is row 10.
+
+What it changes is the priority. The failing shape is not exotic, it needs no
+`casemode` flag, it is reachable from a one-character typo in a deck a tool
+generated, and the whole of a consumer's defence against it is two header
+strings and a count.
+
+**One byte count moved, and it is not this issue moving.** The constants raw is
+**592** bytes on this build where every transcript above says 570, because
+`raw_write()` gained an `Option: casemode=<mode>` line on 2026-08-14
+(`doc/codex/issues/0061`, finding 1 of the client report). Stock is unchanged
+at 569. The bogus file carries that line exactly as a good one does — it
+records the mode, not the health of the run — so it adds nothing to the two
+tells and subtracts nothing from them. Every other number above still
+reproduces.
 
 ## Root Cause
 

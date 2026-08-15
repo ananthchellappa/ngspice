@@ -254,6 +254,316 @@ What the verifiers caught, worst first:
 - [D] F1 record the case mode in the raw header — a format change, so it wants
   a decision doc first. Its obvious carrier is disqualified by 0061: an
   `Option:` line is not inert metadata, it reconfigures the reading session.
+  — **superseded 2026-08-14.** The repo owner decided it, and the carrier was
+  no longer disqualified: 0061's narrowing shipped first, so an `Option:` line
+  no longer reconfigures anything. `raw_write()` writes
+  `Option: casemode=<mode>` after `Plotname:`, valued from
+  `inp_case_mode_name()`. Two decks, `make check` 307 PASS. The measurements
+  are in 0061's addendum and the note at the head of finding 1.
+
+## Stage 10 — the client's round 2
+
+The xschem session replied at
+`doc/claude/feedback/reply_from_xschem_session/REPLY.md` with six findings and
+four questions, all re-measured here against `build-ver_50/src/ngspice` (build
+stamp `Fri Aug 14 20:52:09 UTC 2026`) by running their `repro2/run_round2.sh`
+unmodified. All six reproduce. Documentation and issues only; no `src/` or
+`tests/` in this stage.
+
+The four answers, all the repo owner's:
+
+| question | answer |
+| --- | --- |
+| `Option: casemode=` in the raw header | **yes, shipped** (crew G) |
+| `distinguish` keeps `.save` byte-exact | **yes, permanent contract** — 0001 decision 5's withdrawal list |
+| warn on a case collision | **yes, all three modes, shipped** (crew H, decision 0018) |
+| exit status inside `.control` | **no change** — `$sim_status` instead, measured working on stock |
+
+What each finding got:
+
+- **R1** (rc=0 for the failure inside `.control`) — filed as
+  `doc/codex/issues/0069`. Their diagnosis needed one correction: the variable
+  is `-r`, not `.control`. A `.control`-only deck exits 1; a deck with an
+  analysis dot card *and* a `.control run` runs the analysis twice and exits on
+  the second. The owner's decision and the `$sim_status` guard are the issue's
+  Resolution, measured in their deck shape and on stock.
+- **R2** — corroboration added to `0059`, with their four-row table and the
+  note that its rc=0 rows are 0069's second epilogue arm rather than a conflict
+  with 0059's rc=1 transcripts. Withdrawal untouched; priority raised.
+- **R3** — already `0064`. Their independent reproduction and their sharper
+  isolation of the trigger (the deck's *total* saved-vector count being one)
+  are now in it, plus the interaction with the vector-count floor 0059/0069
+  ask a consumer for.
+- **R4** — recorded in `0057` criterion 6 and Resolution 6 as a known
+  interaction: the five-row table showing lines == simulations, the contract
+  stated plainly, and the one-line deck edit that avoids it. Not fixed; a
+  memory outliving the simulation would silence a deliberate re-run.
+- **R5** — theirs, and ours to document. New subsection of
+  `doc/claude/casemode-distinguish-guide.md` §9 and an addendum to `0060`
+  confirming both properties they relied on are intended. The payoff nobody had
+  seen: the new header line catches a wrong-cwd probe after the fact.
+- **R6** — independent confirmation noted in `0067`, which is the scrutiny
+  RESPONSE.md's own "least-scrutinised" flag asked for.
+
+`doc/claude/feedback/ngspice_upstream/RESPONSE.md` rewritten as the round-2
+reply. It opens by **correcting round 1's own advice** — "`rc` and a
+vector-count sanity check are still worth having", and "`rc` — the obvious
+defence" — which R1 falsifies for their deck shape. The vector-count and
+header checks are kept, because those do still hold.
+
+## Stage 11 — crew H's residuals (crew L)
+
+Crew H shipped the node-name collision report in all three modes and its
+verifier signed the mechanism. Three residuals and one question for the owner
+went to crew L. No behaviour changed in this stage: the diff under `src/` is
+comments only.
+
+- [x] **P1 — decision 0018 decision 3 was wrong about its own cause, and the
+  gap is three times the stated size.** Item 3 blamed `card_word_boundary()`
+  for leaving `+ - * /` inside words. Falsified twice: `(` and `)` **are**
+  boundaries, so `card_spelling()` compiled out of `inpsymt.c` verbatim
+  returns `VFreq` from the exact line of `examples/various/FFT_Leakage.cir`
+  the item cites; and the silence survives on `B1 mid 0 I = 1m`, where the
+  second spelling is a plain node field with no expression anywhere near it.
+  The real cause is `inp_bsource_compat()` (`src/frontend/inpcom.c`), which
+  comments **every** B card out and inserts a replacement built by
+  `insert_new_line()` — no `line_case`, so no node named anywhere on a B card
+  can supply a spelling under `fold`, terminals included. `inp_compat()` does
+  the same to an expression-valued `E`, `G`, `R`, `C` or `L`; measured one
+  deck per shape, with a plain linear `E` as the control that still reports.
+  **236 B cards in 53 of the 875 decks.** A fourth gap was found while
+  re-deriving: `[` and `]` are not boundaries either, so an XSPICE `a` card
+  written `[in1 in2]` yields no spelling where `[ in1 in2 ]` yields one — no
+  corpus deck is affected, and it is recorded rather than fixed.
+- [x] **P2 — acceptance criterion 5 was marked Met with nothing testing it.**
+  Confirmed: with both `t_unclaimed` guards deleted from `INPtermCaseCheck()`
+  and the tree rebuilt, `tests/regression/case` (118) and
+  `tests/regression/casedist` (30) both passed in full. Three cases added —
+  NMDEF and NMREF in `casedist/node-case-collision-report.cir`, NMPAIR in
+  `case/node-case-collision-report.cir` — each asserting a count rather than a
+  presence. Against the same mutation each directory now fails on exactly the
+  one deck, and each guard was then deleted **on its own** and rebuilt to show
+  neither case is redundant: outer-only fails NMDEF and NMPAIR and leaves
+  NMREF passing, inner-only fails NMREF alone. Two cases under `distinguish`
+  rather than one because the bucket chain is prepended to, so interning order
+  decides which of the two guards is asked. ~~Nothing is owed by
+  `tests/regression/misc`: `t_unclaimed` is set only from a B source
+  expression and a B card has no `line_case`, so under `fold` the guards are
+  unreachable — a consequence of P1's gap.~~ **Struck 2026-08-14 by stage 12,
+  see below: that sentence is false and `fold` was the one mode the criterion
+  had no guard in at all.**
+- [x] **P3 — three `.out` files need `git add -f`.** `tests/.gitignore` line 3
+  is `*.out`; the 117 / 28 / 34 already tracked in `case` / `casedist` / `misc`
+  were force-added. See the handoff list below.
+- [x] **The question for the owner: one line per instantiation, measured.**
+  Under `preserve` and `distinguish` a single two-way spelling in one
+  `.subckt` body is reported once per instantiation. On
+  `examples/klu/Circuits/85/c1355/c1355.net`, spelling the `nand2` body's one
+  internal node `sig3` as `SIG3` on a single card produces **416 warning
+  lines**, one per instantiation; **454** on `c5315.net` and **1028** on
+  `c7552.net`, the largest multi-instance deck in `examples/` this tree can
+  parse. `not1` is instantiated 1410 times in that netlist and in each of its
+  three PDK variants. A formal *pin* spelled two ways is silent — it is a
+  body's internal node, which the expander scopes rather than substitutes,
+  that multiplies.
+  Every line is true; the question is whether the diagnostic should be one per
+  *pair* or one per *mistake*. Three options and their costs are written up in
+  `doc/codex/issues/0068` under "Open question for the owner"; `0018` decision
+  1 costed "one line per pair" and never considered that one mistake can be
+  many pairs, so the answer belongs there as an amendment.
+
+### The nine tracked decks that now emit a line in the DEFAULT mode
+
+`casemode=fold` is what ships. Every line is true — each deck really does
+spell one node two ways — and a reviewer should see the list rather than a
+count:
+
+`examples/hicum2/hic2_ft.sp` (`c`/`C`, `b`/`B`) ·
+`examples/hicum2/hic2_gain.sp` (`c`/`C`, `b`/`B`) ·
+`examples/noise/baker-252-gain.cir` (`Vplus`, `Vplusa`) ·
+`examples/p-to-n-examples/switch-oscillators.cir` (`VDD`) ·
+`examples/p-to-n-examples/switch-oscillators_inc.cir` (`VDD`) ·
+`examples/soi/Inv_chain.sp` (`out0`…`out3`, four pairs) ·
+`examples/tclspice/tcl-testbench3/FB14.cir` (four pairs) ·
+`examples/xspice/see/CMOSComparator/Fig27_12_see.sp` (`VDD`) ·
+`tests/vbic/noise_scale_test.cir` (`VOUT`).
+
+**`make check` stays green, and that is not evidence.** `tests/bin/check.sh`
+captures stdout only (`>$testname.test`) while the report goes to `cp_err`,
+and its `egrep -v` filter then drops every line containing `Warning` from both
+sides of the diff. The suite would not have gone red if the report were wrong
+on any of these decks either. `tests/vbic/noise_scale_test.cir` is the only
+one of the nine the suite runs at all. Everything the suite says about this
+diagnostic comes from the three guard decks, which reach it only by
+re-entering the parse under a `>&` redirect.
+
+### Handoff, as stage 11 left it — superseded by stage 12's table below
+
+| file | why |
+| --- | --- |
+| `tests/regression/misc/node-case-collision-report.out` | `tests/.gitignore:3` is `*.out` |
+| `tests/regression/case/node-case-collision-report.out` | same — **updated by this stage** with NMPAIR's two lines |
+| `tests/regression/casedist/node-case-collision-report.out` | same — **updated by this stage** with NMDEF's and NMREF's four lines |
+
+A fourth ignored `.out` is on disk in the same directory —
+`tests/regression/casedist/rawfile-casemode-header.out`, from crew G's rawfile
+header work, not this stage's. It needs `git add -f` for the same reason and is
+named here so the commit does not lose it.
+
+### The sweep, re-run independently
+
+875 decks × 3 modes, re-measured on the same tree rather than taken from crew
+H's receipt. `fold` 28 lines / 19 files, `preserve` 38 / 25, `distinguish`
+29 / 16 — crew H's table reproduces exactly. `fold` and `distinguish` are each
+a strict subset of `preserve`, confirmed line by line. **Ten** `preserve`
+reports have no `fold` twin, not the nine the issue said: four are gap 1
+(subcircuit body), three gap 2 (`X` card actual), three gap 3 (rebuilt card).
+The "nine" was the `distinguish` side's number, which is right.
+
+## Stage 12 — the sentence that closed criterion 5 was false (crew N)
+
+Crew L's verifier falsified the one sentence crew L used to close acceptance
+criterion 5 of `doc/codex/issues/0068`, and the sentence had already shipped in
+four places. Nothing about the diagnostic's behaviour changed in this stage:
+the diff under `src/` is one comment.
+
+- [x] **P1 — the false claim, reproduced and corrected in four places.** The
+  claim was that `t_unclaimed` is set only by `mkvnode()` (B source only), that
+  a B card has no `line_case`, and that under `fold` both pair-report guards are
+  therefore unreachable and `tests/regression/misc` owes nothing. `mkvnode()` is
+  one of **seven** callers of `INPtermInsertRef()`: `INPgetValue()`
+  (`src/spicelib/parser/inpgval.c`, an `IF_NODE` value) and `dot_noise()`,
+  `dot_tf()`, `dot_sens()`, `dot_pss()` and `dot_hb()`
+  (`src/spicelib/parser/inp2dot.c`) are the others, and a dot card is the deck's
+  own text, so it carries `line_case` and answers `card_spelling()` like any
+  other card. The verifier's deck reproduces on this tree ~~in all three
+  modes~~ (**imprecise, corrected by stage 13 below**: the one-entry shape the
+  guard holds is `fold` and `preserve`; under `distinguish` the two spellings
+  are two entries and the deck reaches the pair line only when *both* guards
+  go):
+
+  ```
+  .options noacct rshunt=1e9
+  V1 in 0 dc 0 ac 1
+  R1 in 0 1k
+  .noise v(MISS) V1 dec 10 1 100
+  .tf v(Miss) V1
+  ```
+
+  Shipped, one undefined-node line. With the outer guard deleted, that line
+  **and** `node names 'MISS' and 'Miss' differ only in case and name one node
+  (casemode=fold)` — the double diagnostic criterion 5 forbids, under the
+  default mode. (True as written, for `fold`; the sentence stage 12 put in
+  `0018` decision 3 generalised it to all three modes and stage 13 corrects
+  that.) Corrected in `doc/codex/issues/0068` criterion 5,
+  `doc/claude/decisions/0018` (twice — the decision-2 paragraph and the gap-3
+  consequence), this ledger's stage 11 P2 bullet (struck), and the
+  `term_insert()` header comment in `src/spicelib/parser/inpsymt.c`, which
+  carried the same "Only mkvnode() does that" sentence. Crew L wrote no receipt
+  file; stage 11's record is this ledger's section, so there was no receipt to
+  annotate — see crew N's receipt.
+- [x] **P2 — criterion 5 actually closed for `fold`.** Measured first: with
+  both guards deleted and the tree rebuilt, `tests/regression/case` and
+  `tests/regression/casedist` fail on their one deck each and
+  `tests/regression/misc` **passes in full** — `fold` had no guard at all.
+  `NMPAIR` added to `tests/regression/misc/node-case-collision-report.cir`: two
+  `.tf` cards naming one undefined node `MISS` / `Miss`, asserting
+  undefined-node ×1 and pair ×0. RED against the mutation (`pair5 = 1` where the
+  reference says `0`), GREEN on the shipped binary. Each guard deleted on its
+  own: outer-only now fails all three directories, inner-only still fails
+  `casedist` alone, because the chain scan the inner guard sits in is
+  `distinguish`-only and `fold` returns before it. The deck uses two `.tf` cards
+  rather than the falsifier's `.noise` + `.tf` because a `.noise` whose output
+  node does not exist aborts the run, and `remcirc` after the `source` so that
+  `--batch` does not run the sub-deck's two transfer-function analyses after
+  `.endc`.
+- [x] **P3 — litter removed.** `preserve.txt` at the repo root (19 lines of raw
+  sweep output, in no crew's residual list), and
+  `examples/xspice/table/bsim4p-2d-1.table` and
+  `examples/xspice/table/qinn-clc409-2d-1.table`, both untracked byproducts of
+  the generator decks in that directory. See crew N's receipt for the evidence
+  that each was untracked and deck-written before it was deleted.
+
+### Handoff — files that a plain `git add` will not stage
+
+Updated by stage 12. `tests/.gitignore` line 3 is `*.out`, and every `.out`
+already tracked under `tests/` was force-added. All four need `git add -f` **by
+name** at commit time, or the commit ships tests with no reference output and
+every one of them fails on a fresh clone. The matching `.cir` decks are
+untracked but *visible*, so a plain `git add` stages those — which is the
+failure mode: the deck lands and its reference does not.
+
+| file | why |
+| --- | --- |
+| `tests/regression/misc/node-case-collision-report.out` | `tests/.gitignore:3` is `*.out` — **updated by stage 12** with NMPAIR's two lines |
+| `tests/regression/case/node-case-collision-report.out` | same — updated by stage 11 with NMPAIR's two lines |
+| `tests/regression/casedist/node-case-collision-report.out` | same — updated by stage 11 with NMDEF's and NMREF's four lines |
+| `tests/regression/casedist/rawfile-casemode-header.out` | same — crew G's rawfile header work, not this stage's, named here so the commit does not lose it |
+
+## Stage 13 — the correction of stage 12's correction, and stage 11's missing receipt (crew Q)
+
+Stage 12 removed a false claim from `doc/claude/decisions/0018` decision 3 and
+put a new one in the paragraph it wrote to remove it. Its verifier caught the
+new one. Nothing under `src/` or `tests/` changed in this stage: the diff is
+`doc/` only.
+
+- [x] **P1 — `0018` decision 3's gap-3 consequence paragraph, re-measured in
+  all three modes and corrected.** The sentence "with the outer guard deleted
+  it prints that line and the pair line both, in `fold` as in the other two
+  modes" is false for `distinguish`. Re-measured on the verifier's own deck,
+  one build per column, `-D casemode=` selecting the mode:
+
+  | mode | shipped | outer deleted | inner deleted | both deleted |
+  | --- | --- | --- | --- | --- |
+  | `fold` | 1 undefined-node line | + the pair line | unchanged | + the pair line |
+  | `preserve` | 1 undefined-node line | + the pair line | unchanged | + the pair line |
+  | `distinguish` | **2** undefined-node lines | **unchanged** | unchanged | + the pair line |
+
+  Under `fold` and `preserve` the two spellings share one entry, so
+  `t_casetwin` holds them and the outer guard is the only thing in the way.
+  Under `distinguish` they are two entries with no `t_casetwin` between them,
+  and the only route to the pair line is the chain scan, whose own
+  `!u->t_unclaimed` rejects the other unclaimed entry — both guards have to go.
+  The same asymmetry is why `distinguish` prints the plain undefined-node line
+  twice rather than the near miss once. The guards *are* load-bearing in every
+  mode; what shows that under `distinguish` is `casedist`'s NMDEF and NMREF,
+  not this deck. Verified by re-running stage 12's mutation matrix: outer-only
+  fails `misc`, `case` and `casedist` (the last on NMDEF's `pair5`),
+  inner-only fails `casedist` alone (on NMREF's `pair6`).
+- [x] **P2 — the same claim did not travel.** `doc/codex/issues/0068`
+  criterion 5 scoped its outer-guard sentence to `fold` and is not wrong; it
+  gained a paragraph making the `distinguish` column explicit, because the
+  ambiguity in "it was measured in all three modes" is what the `0018` sentence
+  read as a licence to generalise. This ledger's stage 12 P1 bullet is
+  annotated in the same place for the same reason. Stage 12's receipt was
+  already correct — it measured *both* guards deleted.
+- [x] **P3 — the rest of decision 3 re-read and re-measured, since it has now
+  been corrected twice in two days.** Nothing else is stale. Reproduced on this
+  tree: the six-row `B`/`E`/`G`/`R` table including the plain linear `E`
+  control (5 silent under `fold`, all 6 reported under `preserve`); gap 4's
+  spaced-versus-tight XSPICE `a` card (spaced reports under `fold`, tight does
+  not, both report under `preserve`); `line_case` last in `struct card`; the
+  auto-bridge clearing it in `evtcheck_nodes.c`; and every deck citation in
+  gaps 1 and 2 (`Fig27_12_see.sp` `Vr`/`x1.vr`, `FB14.cir` `Vcc`/`vcc`,
+  `switch-oscillators.cir`'s `.subckt invertern In Out …` over a body using
+  `out`, `global-node-case.cir` and `name-lookup-case.cir` `vss`/`VSS`). The
+  "236 B cards in 53 of 875 decks" size is the right order — a looser regex
+  over the same trees gives 74 files of 892 — and the text already says it is
+  syntactic rather than exact.
+- [x] **P4 — `receipts/stage11-crewL.md` written, marked reconstructed.** Crew
+  L left no receipt; `receipts/` ran stage1 → stage10 plus `stage9-crewF` and
+  then jumped to stage 12. The new file is assembled from this ledger's stage
+  11 section and the shipped text of `0018` and `0068`, and its first paragraph
+  says so in those words. It records P2's closing sentence only as the thing
+  that was struck, per crew N's residual. What could not be reconstructed —
+  crew L's commands, its RED/GREEN hunks, whether each `.out` was hand-written
+  before first green, and its own residuals — is listed as such.
+- [x] **P5 — "seven call sites" corrected where it was written.**
+  `INPtermInsertRef()` has seven *calling functions* and *ten* call sites;
+  `dot_noise()`, `dot_tf()` and `dot_sens()` call it twice each. The wrong noun
+  is `stage12-crewN.md` only — every shipped document says "callers", which is
+  right — and it is annotated there. `0018` decision 3 now states both numbers
+  so the next reader does not have to re-derive them.
 
 ## Log
 
@@ -282,6 +592,9 @@ What the verifiers caught, worst first:
 | stage 9 | 2 agents. 0066 filed and closed, 0067 filed, two doc corrections, one behaviour claim falsified. Verifier NEEDS_WORK on 0067's severity. 305 PASS, 0 FAIL. |
 | stage 9b | 0067's severity corrected in place against a re-measurement with no tool underneath; 0065's Left bullet and both receipts corrected with it. |
 | closeout | this pass: C1 re-materialised under `/tmp` and rebuilt (291 PASS), the suite re-run (305 PASS), 0067's corrected numbers re-measured independently, `LEDGER.md` and `CLOSEOUT.md` brought to stage 9. |
+| stage 11 | crew L on crew H's three residuals and the owner's question. Decision 0018 gap 3 re-derived and corrected (the named cause was not the cause, and the gap is the whole card rather than the expression), a fourth gap found, criterion 5 guarded by three new cases proved RED against each guard deletion separately, the `git add -f` list recorded, and the per-instantiation volume measured at 1028 lines from one character on a shipped deck. Sweep re-run independently: 28 / 38 / 29, crew H's table reproduces. `make check` 315 PASS, 0 FAIL from cleared caches; identity lint 264 comparisons, baseline matches. |
+| stage 12 | crew N on crew L's falsified justification. The sentence that closed criterion 5 reproduced false on the verifier's `.noise` + `.tf` deck and corrected in four places — `0068`, `0018` twice, this ledger, and the `term_insert()` comment that carried it too. `mkvnode()` is one of seven callers of `INPtermInsertRef()`; a dot card carries `line_case`, so `fold` reaches the outer guard. Criterion 5 kept **Met** and actually closed: `tests/regression/misc` passed in full under the mutation before this stage, and now carries NMPAIR. Three litter files deleted. Handoff list re-issued with four `.out` files. |
+| stage 13 | crew Q on crew N's own new error. The paragraph crew N wrote to remove a false claim generalised an outer-guard measurement to all three modes; re-measured, `distinguish` needs **both** guards deleted before it says anything, because its two spellings are two entries with no `t_casetwin`. Corrected in `0018` decision 3 with the three-mode table, made explicit in `0068` criterion 5, annotated here. The rest of decision 3 re-read and re-measured after two corrections in two days — nothing else stale. `receipts/stage11-crewL.md` written and plainly marked reconstructed. "Seven call sites" corrected to seven calling functions / ten call sites. `doc/` only; `make check` 315 PASS, 0 FAIL. |
 
 ## Final state at stage 7 (superseded by stage 9, below)
 

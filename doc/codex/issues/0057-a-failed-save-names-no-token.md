@@ -717,6 +717,16 @@ failure in every case it covers, including the ones it already covers today.
    sub-decks that report the same token from three separate runs are gone with
    criterion 1, so the "not coarser than one simulation" half is now argued
    and not measured — recorded as such in Resolution 6.
+
+   **Amended 2026-08-14 with a measurement, not a change of unit.** A deck that
+   carries an analysis dot card *and* a `.control run` is **two** simulations
+   and gets two lines; three `run`s get three. The client read that as the
+   diagnostic doubling, and it is the unit doing exactly what this criterion
+   says. Resolution 6 carries the five-row table, the mechanism
+   (`doc/codex/issues/0069`) and the one-line deck edit that avoids it. The
+   "not coarser than one simulation" half is measured now rather than argued:
+   the three-simulation row is a deck asking the same question three times and
+   being answered three times.
 7. Decks split by mode, and the split is now the other way up from what this
    criterion first asked for. `tests/regression/casedist/` and
    `tests/xspice/casedist/` carry the report, because criterion 3 is the whole
@@ -936,6 +946,59 @@ What the fourth round changed, all in `src/frontend/outitf.c` except the decks:
    three sub-decks that reported one token from three separate runs were
    sub-decks of the withdrawn report. `OUTsaveMissClear()` is still called
    from `dosim()` and nowhere else.
+
+   **Known interaction, recorded 2026-08-14: a deck shape that is two
+   simulations gets two lines, and the contract is holding when it does.**
+   The client reported this as **R4** of
+   `doc/claude/feedback/reply_from_xschem_session/REPLY.md` — one mis-cased
+   `.save` token, two `differs only in case` lines on stderr — beside the two
+   announcements `doc/codex/issues/0058` latched, which now correctly fire
+   once. It is not the same defect as 0058's and it is not
+   `doc/codex/issues/0046`'s double either. It is this criterion's unit meeting
+   a deck that runs its analysis twice.
+
+   Measured, one deck per row, `.save v(midnode)` against a net `MidNode`,
+   `-D casemode=distinguish`, `build-ver_50/src/ngspice` at build stamp
+   `Fri Aug 14 20:52:09 UTC 2026`:
+
+   | deck shape | `Doing analysis` | near-miss lines | rc |
+   | --- | --- | --- | --- |
+   | `.op` card, no `.control`, no `-r` | 1 | 1 | 0 |
+   | `.op` card, no `.control`, `-r out.raw` | 1 | 1 | 1 |
+   | no analysis card; `op` inside `.control` | 1 | 1 | 1 |
+   | **`.op` card *and* `.control run`** | **2** | **2** | 0 |
+   | `.op` card and `.control` with two `run`s | 3 | 3 | 0 |
+
+   The count of lines equals the count of simulations in every row, which is
+   the contract as criterion 6 words it: at most once per token between one
+   `dosim()` and the next. The client's `repro2/ctl_fail.cir` is row 4 — an
+   analysis dot card *and* a `.control run` — and row 4 is two simulations
+   because `main()`'s batch epilogue re-runs the deck's analysis dot cards
+   after the control block has ended (`src/main.c:1577`, `ft_savedotargs()`).
+   That mechanism is `doc/codex/issues/0069`, filed from the same report; the
+   exit-status column above is its subject and this column is ours.
+
+   **Stated plainly, because the sentence a consumer needs is not "once per
+   token":** the unit is one simulation, and a deck controls how many
+   simulations it runs. A tool that counts diagnostics to count mistakes is
+   using the wrong denominator whatever this issue does; the fix on that side
+   is to deduplicate on the quoted token, which the message carries in single
+   quotes for exactly this reason.
+
+   **How a deck avoids it**, and the advice is one line: **do not carry both an
+   analysis dot card and a `.control run`.** Put the analysis command inside the
+   `.control` block (row 3) or keep the dot card and drop the block (row 1).
+   Row 3 is the better of the two for a generated deck, because it also
+   restores rc — 1 instead of 0 — for the same edit. Row 3 is what a deck that
+   needs `.control` for `write` should look like.
+
+   **Not changed here, and the reason is the contract rather than the effort.**
+   Making the memory outlive the simulation would silence the second line, and
+   would also silence the second *run* of a deck that was re-run deliberately
+   after an `alter` — which is a correct deck asking the same question twice
+   and entitled to the same answer twice. That is the "not coarser than one
+   simulation" direction of this criterion, and row 5 above is now the
+   measurement for it that this criterion previously had to argue.
 7. Met, with the split inverted. `tests/regression/casedist/save-undef-report.cir`
    (NODE, BRANCH near misses; NOTWIN silent; OK silent) and
    `tests/regression/casedist/save-near-miss-node-list.cir` (NOISE, COLUMN

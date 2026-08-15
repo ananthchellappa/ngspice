@@ -242,6 +242,44 @@ the only probe that sees `preserve` from a session with no deck in it. The
 empty stdout on the last row is the capability answer: treat "no line" as "no
 support", not as "fold".
 
+### Run the probe from the deck's own directory — `cd` first
+
+This is the one way to make the probe above lie, and it was found by a client
+program, not by us. `.spiceinit` is searched for in the **deck's** directory;
+a `-p` probe has no deck, so it searches **cwd**. Give the probe a different
+cwd from the deck and it answers for a `.spiceinit` situation that is not the
+one your real run will be in. Measured, with a `.spiceinit` holding
+`set casemode=fold` sitting next to the deck and `-D casemode=preserve` on both
+command lines:
+
+| cwd | deck | probe says | the real run writes |
+| --- | --- | --- | --- |
+| `probe/` | `deck.cir` | `fold` | `v(in)`, `v(midnode)` — agree |
+| `repro2/` | `probe/deck.cir` | `preserve` | `v(in)`, `v(midnode)` — **disagree** |
+
+The second row is the trap: the probe is confidently wrong, and it is wrong in
+the direction that matters, claiming capitals you will not get. So the rule is
+not "probe with the real run's argv" but **"probe with the real run's argv
+*and* its cwd"**.
+
+Two things soften it, and one of them is worth building on:
+
+- **The rawfile's own `Option: casemode=` line catches it afterwards**, if you
+  asked for the line — `set casemodewrite`, see below; it is off by default.
+  The disagreeing run above wrote `Option: casemode=fold` while the probe had
+  said `preserve`. If you read that line, a wrong-cwd probe becomes a
+  discrepancy you can detect rather than a silent mislabelling — which is the
+  strongest reason to read the header even when you have probed, and the
+  strongest reason to turn the writer on in your own generator.
+- **`-n` makes the whole question go away**, at the price of the user's own
+  `.spiceinit`. With `-n` on both the probe and the run, the first row's probe
+  answers `preserve` and so does the run.
+
+While you are here: **`write` inside a `.control` block resolves its filename
+against cwd, not against the deck.** In the second row above, `deck.raw` landed
+in `repro2/` and not beside the deck. Running from the deck's directory fixes
+that too, which is one more reason to do it.
+
 The identity probe below predates `$curcasemode` and remains useful against
 older binaries, and because it tests behaviour rather than the binary's own
 report. Pipe mode takes commands on stdin and needs no netlist at all:
@@ -304,6 +342,87 @@ So back-annotation labels match the schematic as drawn under either `preserve`
 or `distinguish`. If your back-annotation currently lower-cases names to match,
 that step has to become conditional — under both non-fold modes the raw file
 carries the capitals.
+
+### The raw file can say which mode wrote it — ask for it with `casemodewrite`
+
+Since 2026-08-14 the header written by the `write` command can carry the mode
+in force, on the line after `Plotname:`. It is **off by default**; one word in
+the `.control` block turns it on:
+
+```
+.control
+  op
+  set casemodewrite
+  write out.raw
+.endc
+```
+
+```
+Plotname: Operating Point
+Option: casemode=preserve
+```
+
+It is there in both the ASCII and the binary format — the header is text in
+both — and the value is the *effective* mode, the one `curcasemode` reports,
+so a `set casemode=` typed in a `.control` block after the deck was read
+cannot make it lie (§2). Unset — the default — the header is byte for byte
+the header every ngspice has ever written, which is what makes turning it on
+your decision and not ours.
+
+**Know this before you hand such a file to somebody else.** Loading it puts a
+`casemode` key into that session's loaded-plot environment, and a *released*
+`ngspice-46` that then does `unset casemode` frees a node it leaves linked:
+the `unset` returns cleanly and the next command — `set`, `display`, `print`,
+`echo $casemode`, another `unset` — segfaults, `rc=139`, in both formats. That
+is `doc/codex/issues/0067`, fixed in this tree and in nothing released, and it
+is the whole reason the line is opt-in. Within one shop it is a non-issue: you
+control the writer and the reader, a reader that parses the key never unsets
+it, and this build does not have the defect. The default flips once the fix
+has been in a release.
+
+Read it however you already read the header — but read it as an `Option:`
+*key*, not as a line number. Scan the header for lines beginning `Option:`,
+split the rest on the first `=`, and trim the spaces around both halves; that
+is what ngspice's own reader does, and it is what makes the paragraph below
+work. The line the writer puts under `Plotname:` is spelled
+`Option: casemode=preserve`; a value that came out of a file the session
+loaded is re-emitted lower down in the header and spelled
+`Option: casemode = preserve`. Same key, same value, two spellings and two
+places.
+
+Inside ngspice, `load` files the pair into the loaded plot's environment, so
+`echo $casemode` after a `load` answers what the file recorded, and an
+unmodified `ngspice-46` does that too: `Option:` is a key its reader already
+parses, which is why the mode did not get a header key of its own. A key it
+does *not* know aborts the whole load with `Error: strange line in rawfile`,
+so do not invent one either.
+
+Three caveats. **Absence is not `fold`** — a file written by any older ngspice
+has no such line, nor has one written by the `-r` batch path, which is a
+different writer that does not carry it yet, nor has one this build wrote
+with `casemodewrite` unset, which is every file until somebody sets it; treat
+a missing line as unknown and fall back to the probe below.
+
+**A plot that was loaded and then written back out keeps the mode its own file
+recorded**, and does not acquire the re-writing session's. That is what you
+want from a tool that loads, tidies and re-writes: the header goes on
+describing the names under it. The writer never adds a line of its own over the
+file's, so a file that came in with one `casemode` line goes out with one. The
+corollary is the previous paragraph:
+in a re-written file the line sits where the re-emitted options sit, after
+`No. Points:`, so a reader that looked at line 5 alone would miss it. And if
+the file it was loaded from recorded *nothing* — the default, and every older
+ngspice — then there is nothing to keep, and a re-write with `casemodewrite`
+set stamps the re-writing session's mode; that case is still "absence is not
+fold" one step on, so if provenance matters to you, write the original with
+the variable set.
+
+**`Option: casemodewrite` in a header does nothing to the session that reads
+it.** The variable is a request this session makes about what it writes, not
+a property a file can carry, and a file the user loaded is not allowed to
+answer it — so putting the key in a header you generate will not make the next
+ngspice record the mode. Say `set casemodewrite` in the deck, which is the
+only thing that turns the writer on.
 
 ### Which mode a schematic tool should ask for
 

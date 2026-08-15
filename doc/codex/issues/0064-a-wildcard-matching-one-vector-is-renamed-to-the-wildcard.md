@@ -14,6 +14,14 @@ Filed because it is visible in the client-facing evidence base:
 variable list of `save_lower.raw`, and the second line of it is this defect. The
 caption there now points at this file.
 
+**Found independently by the client on 2026-08-14, before they were told this
+file existed**, as **R3** of
+`doc/claude/feedback/reply_from_xschem_session/REPLY.md`. That is worth
+recording for two reasons: it is the first item in this batch that a consumer
+hit without being pointed at it, and their reproduction isolates the trigger
+more sharply than the original did. See *Independent reproduction* below. They
+have been told the issue number and the root cause in the round-2 response.
+
 ## Summary
 
 When `all`, `allv`, `alli` or `ally` matches **exactly one** vector, the result
@@ -47,6 +55,46 @@ under its own name.
 
 The plot itself is **not** corrupted — `display` still lists `midnode` before
 and after — because what is renamed is a copy.
+
+### Independent reproduction, 2026-08-14
+
+The client's decks are `repro2/one_save.cir` and `repro2/two_save.cir` under
+`doc/claude/feedback/reply_from_xschem_session/`, and they reach the defect
+from a `.save` card rather than from a `write` of a one-vector plot. Re-run
+here against `build-ver_50/src/ngspice` (build stamp
+`Fri Aug 14 20:52:09 UTC 2026`) and `/usr/local/bin/ngspice`:
+
+```
+.save v(In)                      -> 0 v(In) voltage      | 1 v(all) voltage
+.save v(In) / .save v(MidNode)   -> 0 v(In) voltage      | 1 v(MidNode) voltage
+.save v(In) v(MidNode)           -> 0 v(In) voltage      | 1 v(MidNode) voltage
+stock ngspice-46, .save v(In)    -> 0 v(in) voltage      | 1 v(all) voltage
+```
+
+`No. Variables:` is 2 in every row, which is the sharp form of the defect: the
+count is the same whether the second column is a net or the wildcard's text.
+
+**Their isolation of the trigger is better than this file's and is adopted
+here.** It is not "a `.save` that misses", not "a bare `write`" and not a
+property of any one card: it is the **total count of saved vectors in the deck
+being exactly one**. Two `.save` cards and one `.save` card with two tokens are
+both clean, measured above, which is what makes `!d->v_link2` in the Root Cause
+the whole of the condition — `findvec_all()` chains two or more matches and
+exempts them. A deck that saves one signal is the common shape for a schematic
+tool plotting a single trace, and it is the only shape that reaches this.
+
+Their consumer-side statement of the cost, kept in their words because it is
+the part this file could not have written: the extra column *"reaches a
+consumer as a signal indistinguishable from a net: our signal browser lists
+`v(all)` beside the real trace whenever the user plots exactly one thing. We
+can filter it, but only by name, which is not a defence we like."*
+
+One interaction worth naming, because two issues in this batch push in opposite
+directions. `doc/codex/issues/0059` and `doc/codex/issues/0069` both leave a
+consumer with a vector-count floor as part of its defence against a bogus
+rawfile. This defect means the floor cannot be a simple equality against the
+number of tokens the deck saved: a one-signal deck writes two variables. Until
+this is fixed, a count check has to expect n, or n+1 when n is 1.
 
 ## Impact
 

@@ -3,9 +3,22 @@
 Self-contained. Copy this whole directory into the ngspice working tree (or
 read it where it sits) — nothing here depends on xschem.
 
+- **`RESPONSE.md`** — the reply. **If you are on the xschem side, start here.**
+  Rewritten 2026-08-14 as the **round-2** reply, answering the six findings and
+  four questions that came back in
+  `doc/claude/feedback/reply_from_xschem_session/REPLY.md`. All four questions
+  are answered, two of them by code shipped in round 2 (the raw header's
+  `Option: casemode=` line, and a node-name collision warning that fires in all
+  three modes), and §1 **corrects a piece of advice round 1 gave** — that `rc`
+  is worth keeping as a defence, which is false for the deck shape a schematic
+  tool generates. Round 1's own subject, which of the nine original findings
+  moved, is restated in round-2 form rather than preserved verbatim; the
+  round-1 text is recoverable from this batch's history.
 - **`FINDINGS.md`** — nine findings, ranked, each with the exact deck and the
-  measured output. Start here. The two marked ⭐ are the ones that block
-  `preserve` from being a drop-in for a client program.
+  measured output. The two marked ⭐ are the ones that blocked `preserve` from
+  being a drop-in for a client program; both are now fixed. Findings 2, 3, 4
+  and 7 carry a note at their head saying what changed them, and their
+  transcripts are left as measured rather than rewritten.
 - **`repro/run_all.sh`** — reproduces all nine.
   ```sh
   ./repro/run_all.sh [case-capable-ngspice] [baseline-ngspice]
@@ -21,7 +34,14 @@ read it where it sits) — nothing here depends on xschem.
   beside it that the finding depends on (5 and 7 respectively).
 
 Measured 2026-08-12 against `ngspice-46+`, build stamp
-`Wed Aug 12 19:28:37 UTC 2026`.
+`Wed Aug 12 19:28:37 UTC 2026`. That pin is round 1's and covers `FINDINGS.md`
+and `repro/` only; `RESPONSE.md` carries its own, re-measured 2026-08-14.
+
+Round 2's decks are **not** here — they are the client's, at
+`doc/claude/feedback/reply_from_xschem_session/repro2/`, with their own runner
+(`run_round2.sh`). `repro2/` does not supersede `repro/`; it holds the shapes
+round 1 did not measure, and all six of its findings reproduce against this
+tree.
 
 ## Where this came from
 

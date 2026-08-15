@@ -750,3 +750,66 @@ literal operand, which the lint never reports.
   fallback, §9 gains the one-spawn client probe and its four-row measured
   table, and the guide's *"no pipe-mode probe can [see preserve]"* sentence is
   corrected — it was true only of identity-based probes.
+
+## Addendum 2026-08-14 — the probe answers for its own cwd, and a client found the trap
+
+Reported as **R5** of `doc/claude/feedback/reply_from_xschem_session/REPLY.md`
+by the xschem session, which adopted `$curcasemode` in place of its whole probe
+apparatus and then measured what it costs. Re-measured here against
+`build-ver_50/src/ngspice` (build stamp `Fri Aug 14 20:52:09 UTC 2026`) from
+their `repro2/`. Nothing below is a defect in `curcasemode` and nothing here
+reopens the issue; it is the one usage constraint the Resolution did not state,
+and it is stated now because the variable's whole value is that a client can
+trust it.
+
+**First, the property they are relying on, confirmed as intended and not
+incidental.** They ask whether two things are by design. Both are.
+
+1. *It reports the mode after `.spiceinit` has had its say* — the question a
+   client actually has, "what will *this* run do?", rather than "what was
+   requested". Yes, by construction: `cp_enqvar()` calls
+   `inp_case_mode_name()`, which reads the `ng_case_mode` latch, and the latch
+   is written by `set_case_mode()` from `inp_readall()` — after the `-D` getopt
+   loop and after `.spiceinit` is sourced. That ordering is finding 5 of
+   `doc/claude/feedback/ngspice_upstream/FINDINGS.md`, which is *deliberate*
+   (`src/frontend/inpcom.c:1079`: the last writer before the deck is read
+   wins). `curcasemode` reporting the effect rather than the request is the
+   whole of criterion 2 and criterion 3; it is the reason the variable exists.
+2. *Its absence on an older build is a clean negative* — empty stdout, an error
+   on stderr, rc unchanged. Yes: criterion 4, measured against
+   `/usr/local/bin/ngspice` there and re-measured in their round-2 script.
+   There is no fallback answer, because nothing else in the tree answers the
+   name.
+
+**The constraint.** A `-p` probe has no deck, so it searches **cwd** for
+`.spiceinit`, while the real run searches the **deck's** directory. Probe from
+a different directory and it is confidently wrong. Their measurement, with a
+`.spiceinit` holding `set casemode=fold` beside the deck and
+`-D casemode=preserve` on both command lines, no `-n`:
+
+```
+cwd = probe/  (holds .spiceinit and deck.cir)
+  probe says fold        the real run writes v(in), v(midnode)      agree
+cwd = repro2/ (no .spiceinit), deck at probe/deck.cir
+  probe says preserve    the real run writes v(in), v(midnode)      DISAGREE
+```
+
+So the rule the Resolution should have carried is not *"run the probe with the
+real run's argv"* but *"run the probe with the real run's argv **and** its
+cwd"*. They now `chdir` to the deck's directory before probing.
+`doc/claude/casemode-distinguish-guide.md` §9 gains the table and the rule.
+
+Two notes that came with it, both re-measured here:
+
+- **The raw header catches the trap after the fact.** The disagreeing run above
+  wrote `Option: casemode=fold` — the line `raw_write()` gained on 2026-08-14 —
+  while the probe had said `preserve`. A consumer that reads the header turns a
+  silent mislabelling into a detectable discrepancy. This is an argument for
+  reading the header *even when you have probed*, and it is the best one this
+  batch has produced.
+- **`write` inside `.control` is cwd-relative, not deck-relative.** The
+  disagreeing run's `deck.raw` landed in `repro2/` and not beside the deck.
+  Same fix: run from the deck's directory.
+
+`-n` removes the whole question at the price of the user's own `.spiceinit`,
+which is finding 5's unchanged trade and not something this addendum moves.

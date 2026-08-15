@@ -10,11 +10,19 @@ vector table, is not. This paragraph said "gates 1, 2 and 4 open" long after
 the acceptance bullets below said **Done** for the same sites, and is
 corrected with
 `doc/claude/decisions/0013-user-defined-function-identity.md`. The mode stays
-experimental for a reason that is not a gate and cannot become one: a deck
-that spells one net two ways becomes a deck with two nets, silently, because
-both spellings are *definitions* and decision 2 of
+experimental for a reason that is not a gate and cannot become one.
+
+**Corrected 2026-08-14:** that reason used to be stated as "a deck that spells
+one net two ways becomes a deck with two nets, silently, because both spellings
+are *definitions* and decision 2 of
 `doc/claude/decisions/0001-distinguish.md` deliberately does not warn on a
-definition. `doc/claude/decisions/0004-unlet-vector-identity.md` decision 6
+definition". The silence is gone: `doc/codex/issues/0068` reports a node name
+the deck spells two ways, in all three modes, and
+`doc/claude/decisions/0018-node-name-collision-report.md` amends decision 2.
+What is left of the reason is narrower and still not a gate — a `.model`,
+`.subckt`, `.global` or `.param` name spelled two ways is still two names in
+silence, and under `fold` two spellings inside a subcircuit body are still
+unreported. `doc/claude/decisions/0004-unlet-vector-identity.md` decision 6
 holds the rest of the reasons. The design text below is kept as written except
 where a line is marked **Done**. Companion documents:
 
@@ -445,11 +453,13 @@ fold. It is not repeated here.
   mode experimental, but no longer names any of these sites, and no longer
   names an open defect at all: `doc/codex/issues/0029`, `0027` and `0032` have
   each closed in turn, none of the three a gate, and with `0032` the clause ran
-  out of defects to name. It now names the mode's own limitation instead — a
-  deck that spells one net two ways becomes a deck with two nets, silently,
-  because both spellings are definitions and decision 2 of
-  `doc/claude/decisions/0001-distinguish.md` deliberately does not warn on a
-  definition. That subject cannot be closed, only withdrawn with the feature.
+  out of defects to name. It named the mode's own limitation instead — a deck
+  that spells one net two ways becomes a deck with two nets, silently, because
+  both spellings are definitions — and **that subject closed after all**, with
+  `doc/codex/issues/0068`: the node case is reported in every mode now, and the
+  clause names what is still silent, which is a `.model`, `.subckt`, `.global`
+  or `.param` name written two ways.
+  `doc/claude/decisions/0018-node-name-collision-report.md` is the record.
   `doc/claude/decisions/0005-scale-vector-identity.md` decision 5 records why
   `doc/codex/issues/0034` was rejected as the next subject and why the clause
   was not simply emptied; `doc/claude/decisions/0004-unlet-vector-identity.md`
