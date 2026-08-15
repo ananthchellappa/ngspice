@@ -1,0 +1,31 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * the node-name collision report under preserve, and the silences it owes
+
+
+Note: No compatibility mode selected!
+
+PAIR-REPORTED-ONE-NODE
+plines = 1.000000e+00
+
+Note: No compatibility mode selected!
+
+INST-SILENT
+INST-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+FORMAL-SILENT
+FORMAL-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+BODY-REPORTED-ONE-NODE
+BODY-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+undef5 = 1.000000e+00
+pair5 = 0.000000e+00

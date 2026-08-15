@@ -233,6 +233,23 @@ static struct card *expand_deck(struct card *head)
     card = inp_subcktexpand(card);
     ft_ngdebug = save_debug;
 
+    /* These cards are ngspice's own text, not a deck's.  inp_readall() keeps
+       the pre-fold spelling of every card it reads, and term_insert() reports
+       a node name a deck spelled two ways from it (doc/codex/issues/0068); a
+       bridge card spells its node the way the node is already interned, so
+       leaving the field set would let a generated line stand as evidence that
+       the *user* wrote that spelling.  It is the general rule of
+       doc/claude/decisions/0001-distinguish.md decision 3 -- exact about
+       names the deck chose, indifferent to names ngspice constructs -- applied
+       to a spelling rather than to an identity.  Measured: without this,
+       examples/xspice/verilator/adc.cir reported a pair on the strength of
+       'auto_adc4 [ start ] [ start ] auto_adc'. */
+
+    for (next = card; next; next = next->nextcard) {
+        tfree(next->line_case);
+        next->line_case = NULL;
+    }
+
     /* Destroy the parameter table that was created in subcircuit/parameter
      * expansion and restore the previous version.
      */

@@ -344,6 +344,7 @@ line_free_x(struct card *deck, bool recurse)
         struct card *next_deck = deck->nextcard;
         line_free_x(deck->actualLine, TRUE);
         tfree(deck->line);
+        tfree(deck->line_case);
         tfree(deck->error);
         tfree(deck);
         if (!recurse)

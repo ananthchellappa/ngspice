@@ -32,6 +32,19 @@ struct INPnTab {
        doc/claude/decisions/0002-deferred-node-resolution-check.md,
        doc/claude/decisions/0008-undefined-node-diagnostic.md */
     bool t_unclaimed;
+    /* The spelling the deck used for this node, when the mode is fold and the
+       card that interned it still carried its pre-fold text.  Under preserve
+       and distinguish t_ent is already the deck's spelling and this stays
+       NULL.  doc/codex/issues/0068 */
+    char *t_spelling;
+    /* the second spelling of this node's name, when the deck wrote one node
+       two ways and this mode made them one node.  Under preserve the two
+       spellings meet in term_insert(); under fold they meet as two answers
+       from two cards' pre-fold text; under distinguish two spellings are two
+       entries and the pair is found by scanning the bucket instead.
+       Reported once, at the end of the parse, by INPtermCaseCheck().
+       doc/codex/issues/0068 */
+    char *t_casetwin;
 };
 
 struct INPtables {
@@ -94,6 +107,16 @@ struct card {
     float l;
     float nf;
     int compmod;
+    /* The card as the deck wrote it, before inp_readall() lower cased it, or
+       NULL when this card has no such text: a card the preprocessor built,
+       a card copied for a subcircuit instantiation, or any card at all in a
+       mode that does not fold.  term_insert() reads it to report a node name
+       the deck spelled two ways, which is the one thing a fold run cannot
+       otherwise know.  Appended rather than inserted: src/xspice/icm/dlmain.c
+       is compiled into every .cm, so a field ahead of w/l/nf/compmod moves
+       them for a code model built against an older header.
+       doc/codex/issues/0068 */
+    char *line_case;
 };
 
 /* structure used to save models in after they are read during pass 1 */
@@ -108,6 +131,13 @@ struct INPmodel {
 // Ugly way to pass line onfo (number and source file) to lower-level error handlers.
 extern int Current_parse_line;
 extern char* Sourcefile;
+
+/* The card the parser is reading right now, or NULL outside a parse pass.
+   Set the same way and for the same reason as the two above: term_insert()
+   is five call layers below the loop that holds the card, and what it needs
+   from it is the pre-fold text of the line the node was written on.
+   doc/codex/issues/0068 */
+extern struct card *INPcurrent_card;
 
 /* listing types - used for debug listings */
 #define LOGICAL 1

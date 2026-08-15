@@ -20,7 +20,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	vector-pyplot-probe-report.cir subckt-formal-pin-case.cir \
 	udf-name-case.cir save-name-case.cir save-undef-report.cir \
 	save-near-miss-node-list.cir \
-	casemode-announce-report.cir curcasemode-relatch.cir
+	casemode-announce-report.cir curcasemode-relatch.cir \
+	node-case-collision-report.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -71,12 +72,18 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # curcasemode-relatch.cir writes the sub-deck it sources for a different
 # reason again: what it asserts is that a 'source' re-latches the case mode,
 # so it needs a second netlist read and not a redirect.
+# node-case-collision-report.cir writes its sub-decks and captures for
+# bsource-node-case-report.cir's reason.  It is the distinguish half of
+# doc/codex/issues/0068, and the mode in which the report is the one
+# doc/claude/decisions/0001-distinguish.md decision 2 declined to make: its
+# PAIR sub-deck is a deck that deliberately has two case-variant nets, and it
+# gets a line it cannot silence.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
 	sur_*.txt sur_*.cir snm_*.txt snm_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
 	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir cma_*.txt cma_*.cir \
 	vpr_*.txt vpr_*.svg VPR_*.CIR vpp_*.txt sfp_*.txt sfp_*.cir \
-	ccr_*.cir
+	ccr_*.cir ncc_*.cir ncc_*.txt
 
 EXTRA_DIST = \
 	$(TESTS) \

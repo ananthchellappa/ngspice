@@ -90,6 +90,29 @@ case from an existing one is created. It fires on the legitimate deck. Under
 feature; a warning there makes the feature unusable and trains users to ignore
 the warning that matters.
 
+**Amended 2026-08-14, and this paragraph is now about a `distinguish`-only
+warning specifically.** It is still the right answer to the question this
+decision asked, which was what the *near-miss* diagnostic should do: every
+other row of the table below is a resolution site, silent under `fold` and
+`preserve` for a structural reason, so a definition warning bolted onto it
+would have appeared in one mode only and could only have read as *you have
+made a mistake* in the one mode where two spellings are deliberate.
+
+What is **no longer** rejected is a **three-mode report of the outcome**, which
+is a different object and was not on the table here. `doc/codex/issues/0068`
+reverses the judgement for it and
+`doc/claude/decisions/0018-node-name-collision-report.md` is the record; the
+short form is that the deck is the ambiguous thing in every mode, that `fold`
+and `preserve` merge two spellings into one node just as silently as
+`distinguish` splits them, and that a sentence which names the circuit that was
+built — *one node* under the first two, *two nodes* under the third — is a
+confirmation to the `distinguish` user rather than an accusation. The cost this
+paragraph names is real and is paid: a deck that deliberately runs two
+case-variant nets gets one line per pair and cannot silence it, which is why
+the report is once per pair per parse and not once per occurrence. The scope
+is **nodes only**; the two definition rows at the bottom of the table stay
+silent.
+
 Rejected: **error and abort on a resolution miss**. An unresolved node is not
 an error in SPICE — a node mentioned once is a legal floating node, and decks
 rely on that. Turning every miss into an abort changes the language, not the
@@ -120,8 +143,8 @@ Where it applies, and its state:
 | `vec_get()` on `com_let()`'s left-hand side, `src/frontend/com_let.c:101` | definition | **silent** with `doc/codex/issues/0034`, through `vec_get_quiet()`, a sibling of `vec_get()` that passes `report_case_miss` false down to `findvec()`; `vec_get()` and its other forty callers are unchanged. `let TIME = time * 2` and `let VAA = 2` beside a `Vaa` no longer warn, and neither does `.meas` or `.csparam`, which run `com_let()` too. The **indexed** form `let x[0] = 1` still reports, because it cannot create `x` and so is resolving a name that must already exist. **Guarded** by `tests/regression/casedist/vector-let-report.cir`, three silences and four reports. See `doc/claude/decisions/0009-let-definition-report.md` |
 | `vec_get()` as a **probe** — `com_pyplot()`'s first word, `src/frontend/com_pyplot.c:61`, and `PP_mksnode()`, `src/frontend/parse.c:621`, for the formal parameters of a `define` and for `plotit()`'s `vs` separator | neither: the caller is asking *whether* a name exists in order to decide what kind of token it is | **silent** with `doc/codex/issues/0044` and `doc/codex/issues/0045`, through `vec_get_quiet()`, and the rule's third row is that the unit is the **token**: only the identifiers the caller already has another meaning for are silent, and every other name in the same expression is still a resolution and still reports. `define f(x) x*2` beside a node `X`, `plot a vs b` beside a node `VS` and `pyplot out v(Out)` beside an `Out` no longer warn; `define g(y) y*Zzz`, `plot NNN vs b` and `pyplot f OUt` still do. A probe may be silenced only where the caller's own miss-path can speak: `pyplot <name>` with no plot arguments used to return in silence and now reports, which is what makes the silence payable. `check == FALSE` is **not** the probe bit — `com_alterparam()`'s right-hand side, `src/frontend/device.c:1433`, parses that way and is a resolution whose miss `ft_evaluate()` reports. **Guarded** by `tests/regression/casedist/vector-probe-report.cir`, two silences and four reports, and `vector-pyplot-probe-report.cir`, one silence and two reports. See `doc/claude/decisions/0010-probe-category.md` |
 | a `.save` or `save` token, `beginPlot()`'s Pass 2, `src/frontend/outitf.c` | resolution | **implemented** with `doc/codex/issues/0057`, in `report_save_case_miss()`, once Passes 0 and 1 have failed to place the token. It is worth reading as this decision's own condition tested to destruction: `0057` first reported **every** unresolved save token in every mode, which is the wider rule this decision does not license, and three verification rounds each found another correct deck it fired on — a `.noise` column only the second plot of an analysis lacks, an XSPICE event node, a token `gettoks()` had reduced to a fragment, and two shipped `examples/` decks. Re-conditioned on the near miss, all of them went silent for a structural reason. The search set is the run's `dataNames[]` and then `ckt->CKTnodes`, and the wording is this section's, duplicated rather than reused for `doc/codex/issues/0032`'s reason: `vec_warn_case_near_miss()` wants a plot's lookup table and `plotInit()` has not run. The **event node table is not searched**, so an event node's own near miss is not reported from here — a stated gap, asserted as a silence by `tests/xspice/casedist/save-event-node-case-split.cir`. **Guarded** by that deck and by `tests/regression/casedist/save-undef-report.cir` and `save-near-miss-node-list.cir`, five reports, a line count and seven silences between them |
-| `INPtermInsert()` from a device card | definition | silent, deliberately |
-| `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately |
+| `INPtermInsert()` from a device card | definition | **reported** since `doc/codex/issues/0068`, in all three modes, once per colliding pair per parse, by `INPtermCaseCheck()`. This row said "silent, deliberately" until 2026-08-14; see the amendment above and `doc/claude/decisions/0018-node-name-collision-report.md`. Under `fold` the reader has folded the card before the token is interned, so the spelling is recovered from `struct card`'s `line_case`, the card's own pre-fold text; a card the preprocessor built has none, which is why two spellings inside a **subcircuit body** are reported under `preserve` and `distinguish` and not under `fold`. **Guarded** by `tests/regression/misc/node-case-collision-report.cir`, `tests/regression/case/node-case-collision-report.cir` and `tests/regression/casedist/node-case-collision-report.cir`, one report, a line count and three silences each |
+| `.model` / `.subckt` / `.global` declaration | definition | silent, deliberately, and still so after `doc/codex/issues/0068`: those names are not interned by `term_insert()` and have no single place where two spellings meet. This is the silence `set_case_mode()`'s experimental clause names now |
 
 The warning goes to `stderr`. That is not a preference: `tests/bin/check.sh:29`
 captures stdout only and its `egrep -v` filter drops any line containing
@@ -556,6 +579,18 @@ Enumerated so they are not read as oversights:
    inherent to what `distinguish` means, because a deck that spells one net two
    ways becomes two nets through two *definitions*, and this record's decision
    2 deliberately does not warn on a definition.
+
+   **Corrected 2026-08-14:** the last clause is no longer true, and the
+   sentence it is part of is what `doc/codex/issues/0068` set out to answer —
+   a record naming its own blind spot has left a question open, not settled
+   it. A node name spelled two ways is reported in all three modes now;
+   decision 2's amendment and
+   `doc/claude/decisions/0018-node-name-collision-report.md` carry the
+   argument. What keeps the word `experimental` is unchanged: `0004`
+   decision 6's other reasons, and the fact that the migration hazard is
+   narrowed rather than removed — the same two spellings of a `.model`,
+   `.subckt`, `.global` or `.param` name are still two names in silence, and
+   under `fold` a subcircuit body is still unreported.
 
    `0029`'s (a) is worth reading beside decision 3, though it is not an
    identifier comparison and so is not in its table. It is Class C's rule

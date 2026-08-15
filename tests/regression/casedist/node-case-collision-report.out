@@ -1,0 +1,36 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * the node-name collision report under distinguish, and the silences it owes
+
+
+Note: No compatibility mode selected!
+
+PAIR-REPORTED-TWO-NODES
+plines = 1.000000e+00
+
+Note: No compatibility mode selected!
+
+INST-SILENT
+INST-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+FORMAL-SILENT
+FORMAL-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+BODY-REPORTED-TWO-NODES
+BODY-CAPTURE-READ
+
+Note: No compatibility mode selected!
+
+near5 = 1.000000e+00
+pair5 = 0.000000e+00
+
+Note: No compatibility mode selected!
+
+near6 = 1.000000e+00
+pair6 = 0.000000e+00

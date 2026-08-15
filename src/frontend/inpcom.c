@@ -455,6 +455,7 @@ struct card *insert_new_line(
     x->linenum_orig = linenum_orig;
     x->level = card ? card->level : NULL;
     x->linesource = lineinfo;
+    x->line_case = NULL;
     x->compmod = 0;
 
     if (card)
@@ -672,12 +673,33 @@ static char *cat2strings(char *s1, char *s2, bool spa)
    Proccedure: store regular card in prev, skip comment lines (*..) and some
    others, add tokens from + lines to prev using dstring.
    */
+/* The pre-fold text of a continuation line, positioned at its '+' so that the
+   stitched copy is built exactly as the folded one is.  NULL when this card
+   has no pre-fold text, which makes the whole stitched card's text unknown
+   rather than half known: a spelling recovered from half a card would be a
+   spelling for the wrong token.  doc/codex/issues/0068 */
+
+static char *case_continuation(struct card *c)
+{
+    char *s;
+
+    if (!c->line_case)
+        return NULL;
+    for (s = c->line_case; *s && *s <= ' '; s++)
+        ;
+    return (*s == '+') ? s : NULL;
+}
+
+
 static void inp_stitch_continuation_lines(struct card* working)
 {
     struct card* prev = NULL;
     bool firsttime = TRUE;
+    /* Cleared as soon as one card of a stitched run has no pre-fold text. */
+    bool case_ok = TRUE;
 
     DS_CREATE(newline, 200);
+    DS_CREATE(newline_case, 200);
 
     while (working) {
         char* s, c;
@@ -721,14 +743,26 @@ static void inp_stitch_continuation_lines(struct card* working)
 
             if (firsttime) {
                 sadd(&newline, prev->line);
+                case_ok = (prev->line_case != NULL);
+                if (case_ok)
+                    sadd(&newline_case, prev->line_case);
                 firsttime = FALSE;
             }
             else {
+                char *sc = case_continuation(working);
                 /* replace '+' by space */
                 *s = ' ';
                 sadd(&newline, s);
                 /* mark for later removal */
                 *s = '*';
+                if (case_ok && sc) {
+                    *sc = ' ';
+                    sadd(&newline_case, sc);
+                    *sc = '+';
+                }
+                else {
+                    case_ok = FALSE;
+                }
             }
 
             break;
@@ -738,6 +772,10 @@ static void inp_stitch_continuation_lines(struct card* working)
                 tfree(prev->line);
                 prev->line = copy(ds_get_buf(&newline));
                 ds_clear(&newline);
+                tfree(prev->line_case);
+                prev->line_case = case_ok ? copy(ds_get_buf(&newline_case)) : NULL;
+                ds_clear(&newline_case);
+                case_ok = TRUE;
                 firsttime = TRUE;
                 /* remove final used '+' line, if regular line is following */
                 struct card* tmpl = prev->nextcard->nextcard;
@@ -753,8 +791,11 @@ static void inp_stitch_continuation_lines(struct card* working)
     if (!firsttime) {
         tfree(prev->line);
         prev->line = copy(ds_get_buf(&newline));
+        tfree(prev->line_case);
+        prev->line_case = case_ok ? copy(ds_get_buf(&newline_case)) : NULL;
     }
     ds_free(&newline);
+    ds_free(&newline_case);
 }
 
 #ifdef CIDER
@@ -1212,30 +1253,34 @@ static void set_case_mode(void)
         fprintf(cp_err,
                 "Warning: unknown casemode '%s', using 'fold'\n", unknown);
     else if (ng_case_mode == NG_CASE_DISTINGUISH) {
-        /* doc/codex/issues/0032 is closed, and with it this clause has run
-           out of open defects to name - 0029, 0027 and 0032 were the last
-           three. What replaces them is not a fourth defect but the mode's own
-           limitation, decision 5's migration hazard: a deck that spells one
-           net two ways becomes a deck with two nets, silently, because both
-           spellings are definitions and decision 2 deliberately does not warn
-           on a definition. So the clause keeps its shape - it has always
-           named a silence - and stops being a changelog of open issues.
-           Unlike every previous subject it can never be closed, only
-           withdrawn with the feature.
+        /* The clause has always named a silence, and it names a narrower one
+           since doc/codex/issues/0068.  It used to say that a deck spelling
+           one net two ways became two nets and nothing said so, because both
+           spellings were definitions; that is now reported, in every mode,
+           by INPtermCaseCheck() (src/spicelib/parser/inpsymt.c).  What is
+           still silent is every other namespace: a .model, .subckt, .global
+           or .param name written two ways is two names here and no diagnostic
+           has anything to say about it.  0068 states why that scope was not
+           widened with it - those names are not interned by term_insert() and
+           have no single place where both spellings meet - and it is the
+           honest subject for this clause now.
 
-           doc/codex/issues/0034 was rejected as the next subject: it is a
-           false positive rather than a silence, and naming it would tell a
-           user their output may be wrong at the one moment it is right.
+           This is the fourth subject the clause has had.  Before 0068 it was
+           the mode's own migration hazard; before that, 0029, 0027 and 0032
+           in turn, each a defect that then closed.  doc/codex/issues/0034 was
+           rejected as a subject and stays rejected: it is a false positive
+           rather than a silence, and naming it would tell a user their output
+           may be wrong at the one moment it is right.
            doc/claude/decisions/0005-scale-vector-identity.md decision 5 has
            that argument and the reasons the word 'experimental' does not rest
            on this clause alone; 0004 decision 6 is where those started. */
         fprintf(cp_err,
                 "Warning: casemode 'distinguish' is experimental. Identifier "
-                "identity is case sensitive, and a vector, a B source V() "
+                "identity is case sensitive. A vector, a B source V() "
                 "reference or an XSPICE node whose resolution misses by case "
-                "is reported, but a deck that spells one net two ways becomes "
-                "a deck with two nets and nothing says so, because both "
-                "spellings are definitions.\n");
+                "is reported, and so is a node name the deck spells two ways, "
+                "but a .model, .subckt, .global or .param name spelled two "
+                "ways is two names and nothing says so.\n");
     }
 }
 
@@ -1652,7 +1697,7 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
 {
     struct inp_read_t rv;
     struct card* end = NULL, * cc = NULL, *tmpcard=NULL;
-    char* buffer = NULL, *sourcelineinfo=NULL;
+    char* buffer = NULL, *sourcelineinfo=NULL, *precase = NULL;
     /* segfault fix */
 #ifdef XSPICE
     char big_buff[5000];
@@ -2033,6 +2078,16 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
          * These tokens may contain spaces, if they are enclosed in single or
          * double quotes. Single quotes are later on swallowed and disappear,
          * double quotes are printed. */
+        /* The card as the deck wrote it, taken one statement before the
+           reader lower cases it in place.  It is the only copy of the second
+           spelling that a fold run ever has: everything downstream -- comment
+           stripping, continuation stitching, .include, numparam, subcircuit
+           expansion -- works on the folded text.  It is handed to the card
+           below and read back by term_insert() through the card being parsed,
+           so that a node interned from this card can be reported under the
+           spelling that produced it.  doc/codex/issues/0068 */
+        tfree(precase);
+        precase = inp_case_folding() ? copy(buffer) : NULL;
         {
             char* s;
             /* A control command may be hidden behind the '*#' prefix, both
@@ -2249,12 +2304,16 @@ static struct inp_read_t inp_read(FILE* fp, int call_depth, const char* dir_name
         {
             end = insert_new_line(
                     end, copy(buffer), line_number++, line_number_orig++, sourcelineinfo);
+            end->line_case = precase;
+            precase = NULL;
             if (!cc)
                 cc = end;
         }
 
         tfree(buffer);
     } /* end while ((buffer = readline(fp)) != NULL) */
+
+    tfree(precase);
 
     if (!cc) /* No stuff here */
     {

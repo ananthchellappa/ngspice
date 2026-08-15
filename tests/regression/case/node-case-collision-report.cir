@@ -1,0 +1,243 @@
+* the node-name collision report under preserve, and the silences it owes
+* doc/codex/issues/0068.  A deck that writes one node name with two spellings
+* is ambiguous, and until this issue every mode resolved the ambiguity without
+* a word.  Under preserve ent_eq() (src/spicelib/parser/inpsymt.c) is cieq, so
+* the two spellings intern to one entry and are one node; the sentence says
+* so, and the deck below asserts the sentence and not just the presence of a
+* line.
+*
+* This is the mode the detection is simplest in, and the one that shows where
+* it lives.  Both spellings reach term_insert(): the entry holds the first and
+* the caller hands in the second, so the pair is in scope at one place, which
+* is the whole of the mechanism here.  No card text is consulted, which is why
+* the BODY case below is reported in this mode and not under fold.
+*
+* The diagnostic is written before the first line of any .control block runs -
+* it is the end of the parse, src/frontend/spiceif.c - so there is no command
+* to attach a redirect to.  This deck therefore writes each circuit out with
+* echo and sources it from inside its own control block, which is the shape
+* doc/claude/decisions/0006-diagnostic-deck-coverage.md decision 2
+* establishes; tests/regression/casedist/bsource-node-case-report.cir is the
+* deck it is modelled on and its header carries the long form of the argument.
+* The sub-deck names are lower case for the reason given there.
+*
+* Every echoed token is upper case because tests/bin/check.sh drops any line
+* containing 'Warning' or 'Error' from both sides of its diff.
+*
+*   PAIR     'Out' and 'out', both defined, on four cards -> one report, and
+*            the count is printed, because 'once per colliding pair per parse'
+*            is half of what the issue promises and a per-occurrence report
+*            would still pass a presence assertion
+*   INST     an instance named 'R1' beside a node named 'r1' -> silent.  Two
+*            namespaces, not two spellings of one node; acceptance criterion 4
+*   FORMAL   a subcircuit body spelling a formal pin the other way from the
+*            .subckt card -> silent.  Under fold and preserve the expander
+*            matches the pin and substitutes the caller's actual, so one node
+*            is interned and there is no pair.  Under distinguish it does not
+*            match and the body's node becomes a scoped x1.in that nothing
+*            outside reaches, which is the distinguish half of
+*            doc/codex/issues/0049 and a different diagnostic's business: the
+*            two names are not case variants of each other, so this one has
+*            nothing to say and says nothing
+*   BODY     two spellings of one node inside a subcircuit body -> REPORTED,
+*            under the expanded names x1.Mid and x1.mid.  The expander
+*            prefixes the scope and the two spellings survive it, so they meet
+*            at term_insert() exactly as a top-level pair does.  Under fold
+*            this same case is silent, which is doc/codex/issues/0068's stated
+*            gap; tests/regression/misc/node-case-collision-report.cir asserts
+*            that silence, and the two decks together are what makes the
+*            difference visible
+*   NMPAIR   two spellings of a node NO card defines, both of them V()
+*            references -> the undefined-node report, ONCE, and no pair
+*            report.  Acceptance criterion 5 of doc/codex/issues/0068: the new
+*            report is about two nodes both of which cards define, and this
+*            entry is the one shape in this mode where a case twin is recorded
+*            on a node that was never defined - term_insert() keeps the second
+*            spelling whether the caller was defining or resolving, because at
+*            the insert a miss is indistinguishable from a forward reference.
+*            What holds it to one report is the 't_unclaimed' guard on the
+*            pair scan; delete that guard and 'mid' is reported twice, once as
+*            a name nothing defines and once as half of a pair, which would be
+*            the same fact in two vocabularies and the second of them false:
+*            the two spellings name no node at all here, so 'name one node'
+*            would be describing a net the simulator did not build
+*
+* NMPAIR asserts a count and not a presence, and the undefined-node count
+* being exactly 1 is also what proves the capture was read, so it needs no
+* CAPTURE-READ token: a capture that was never opened would print 0 for both
+* counts and fail on the first.
+.OPTIONS noacct
+.control
+* --- PAIR: one node, two spellings, four cards
+echo "* PAIR one node written two ways" > ncc_pair.cir
+echo ".OPTIONS noacct" >> ncc_pair.cir
+echo "V1 in 0 dc 1.5" >> ncc_pair.cir
+echo "R1 in Out 1k" >> ncc_pair.cir
+echo "R2 out 0 1k" >> ncc_pair.cir
+echo "R3 Out 0 4k" >> ncc_pair.cir
+echo "R4 out 0 4k" >> ncc_pair.cir
+echo ".end" >> ncc_pair.cir
+source ncc_pair.cir >& ncc_pair.txt
+set said1 = 0
+let plines = 0
+set n1 = 1
+fopen f1 ncc_pair.txt r
+while $n1 >= 0
+  set capline = "no_line_read"
+  fread capline $f1 n1
+  strstr p1 "_$capline" "node names 'Out' and 'out' differ only in case and name one node"
+  if $p1 >= 0
+    set said1 = 1
+    let plines = plines + 1
+  end
+end
+fclose $f1
+if $said1 > 0
+  echo PAIR-REPORTED-ONE-NODE
+else
+  echo PAIR-SILENT
+end
+print plines
+* --- INST: an instance name is not a node name
+echo "* INST an instance name colliding with a node name" > ncc_inst.cir
+echo ".OPTIONS noacct" >> ncc_inst.cir
+echo "V1 in 0 dc 1.5" >> ncc_inst.cir
+echo "R1 in r1 1k" >> ncc_inst.cir
+echo "R2 r1 0 1k" >> ncc_inst.cir
+echo ".end" >> ncc_inst.cir
+source ncc_inst.cir >& ncc_inst.txt
+set said2 = 0
+set read2 = 0
+set n2 = 1
+fopen f2 ncc_inst.txt r
+while $n2 >= 0
+  set capline = "no_line_read"
+  fread capline $f2 n2
+  strstr p2 "_$capline" "node names"
+  if $p2 >= 0
+    set said2 = 1
+  end
+  strstr r2 "_$capline" "Circuit:"
+  if $r2 >= 0
+    set read2 = 1
+  end
+end
+fclose $f2
+if $said2 > 0
+  echo INST-REPORTED
+else
+  echo INST-SILENT
+end
+if $read2 > 0
+  echo INST-CAPTURE-READ
+else
+  echo INST-CAPTURE-EMPTY
+end
+* --- FORMAL: a formal pin spelled the other way from the actual
+echo "* FORMAL a subcircuit body spelling a formal pin the other way" > ncc_formal.cir
+echo ".OPTIONS noacct" >> ncc_formal.cir
+echo ".subckt div IN OUT" >> ncc_formal.cir
+echo "Ra in mid 1k" >> ncc_formal.cir
+echo "Rb mid out 1k" >> ncc_formal.cir
+echo ".ends" >> ncc_formal.cir
+echo "V1 a 0 dc 1.5" >> ncc_formal.cir
+echo "X1 a b div" >> ncc_formal.cir
+echo "R3 b 0 1k" >> ncc_formal.cir
+echo ".end" >> ncc_formal.cir
+source ncc_formal.cir >& ncc_formal.txt
+set said3 = 0
+set read3 = 0
+set n3 = 1
+fopen f3 ncc_formal.txt r
+while $n3 >= 0
+  set capline = "no_line_read"
+  fread capline $f3 n3
+  strstr p3 "_$capline" "node names"
+  if $p3 >= 0
+    set said3 = 1
+  end
+  strstr r3 "_$capline" "Circuit:"
+  if $r3 >= 0
+    set read3 = 1
+  end
+end
+fclose $f3
+if $said3 > 0
+  echo FORMAL-REPORTED
+else
+  echo FORMAL-SILENT
+end
+if $read3 > 0
+  echo FORMAL-CAPTURE-READ
+else
+  echo FORMAL-CAPTURE-EMPTY
+end
+* --- BODY: two spellings inside a subcircuit body, the stated gap
+echo "* BODY one internal node of a subcircuit written two ways" > ncc_body.cir
+echo ".OPTIONS noacct" >> ncc_body.cir
+echo ".subckt div a b" >> ncc_body.cir
+echo "Ra a Mid 1k" >> ncc_body.cir
+echo "Rb mid b 1k" >> ncc_body.cir
+echo ".ends" >> ncc_body.cir
+echo "V1 p 0 dc 1.5" >> ncc_body.cir
+echo "X1 p q div" >> ncc_body.cir
+echo "R3 q 0 1k" >> ncc_body.cir
+echo ".end" >> ncc_body.cir
+source ncc_body.cir >& ncc_body.txt
+set said4 = 0
+set read4 = 0
+set n4 = 1
+fopen f4 ncc_body.txt r
+while $n4 >= 0
+  set capline = "no_line_read"
+  fread capline $f4 n4
+  strstr p4 "_$capline" "node names 'X1.Mid' and 'X1.mid' differ only in case and name one node"
+  if $p4 >= 0
+    set said4 = 1
+  end
+  strstr r4 "_$capline" "Circuit:"
+  if $r4 >= 0
+    set read4 = 1
+  end
+end
+fclose $f4
+if $said4 > 0
+  echo BODY-REPORTED-ONE-NODE
+else
+  echo BODY-SILENT
+end
+if $read4 > 0
+  echo BODY-CAPTURE-READ
+else
+  echo BODY-CAPTURE-EMPTY
+end
+* --- NMPAIR: two spellings of a node no card defines, both only referenced
+echo "* NMPAIR two spellings of a node no card defines" > ncc_nmpair.cir
+echo ".OPTIONS noacct rshunt=1e9" >> ncc_nmpair.cir
+echo "B1 o1 0 V={V(mid)*2}" >> ncc_nmpair.cir
+echo "R1 o1 0 1k" >> ncc_nmpair.cir
+echo "B2 o2 0 V={V(Mid)*3}" >> ncc_nmpair.cir
+echo "R2 o2 0 1k" >> ncc_nmpair.cir
+echo ".end" >> ncc_nmpair.cir
+source ncc_nmpair.cir >& ncc_nmpair.txt
+let undef5 = 0
+let pair5 = 0
+set n5 = 1
+fopen f5 ncc_nmpair.txt r
+while $n5 >= 0
+  set capline = "no_line_read"
+  fread capline $f5 n5
+  strstr p5 "_$capline" "no node named 'mid'; it is referenced"
+  if $p5 >= 0
+    let undef5 = undef5 + 1
+  end
+  strstr q5 "_$capline" "differ only in case and name"
+  if $q5 >= 0
+    let pair5 = pair5 + 1
+  end
+end
+fclose $f5
+print undef5
+print pair5
+.endc
+.end

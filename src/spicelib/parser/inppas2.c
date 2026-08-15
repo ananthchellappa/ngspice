@@ -20,6 +20,10 @@ Author: 1985 Thomas L. Quarles
 int Current_parse_line;
 char* Sourcefile;
 
+/* The card being parsed, for term_insert()'s recovery of the spelling the
+   reader folded away.  doc/codex/issues/0068 */
+struct card *INPcurrent_card;
+
 /* uncomment to trace in this file */
 /*#define TRACE*/
 
@@ -92,6 +96,7 @@ int INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
 
         Current_parse_line = current->linenum_orig;
         Sourcefile = current->linesource;
+        INPcurrent_card = current;
 
         c = *(current->line);
         if(islower_c(c))
@@ -255,14 +260,16 @@ int INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
             break;
 
         case '.':   /* .<something> Many possibilities */
-            if (INP2dot(ckt,tab,current,task,gnode))
+            if (INP2dot(ckt,tab,current,task,gnode)) {
                 /* the rest of the deck is abandoned here - a .dc whose
                    syntax is bad returns 1 - so the cards below this one are
                    never parsed and whatever they would have defined is not
                    in the symbol table.  Say so, rather than leave the caller
                    to assume the table is complete.
                    doc/claude/decisions/0008-undefined-node-diagnostic.md */
+                INPcurrent_card = NULL;
                 return current->nextcard ? 1 : 0;
+            }
             break;
 
         case '\0':
@@ -274,6 +281,12 @@ int INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
             break;
         }
     }
+
+    /* Nothing below this loop is reading a card, and a stale card here would
+       hand term_insert() the pre-fold text of a line that has nothing to do
+       with the node being interned -- the XSPICE auto-bridge parses cards of
+       its own after this returns.  doc/codex/issues/0068 */
+    INPcurrent_card = NULL;
 
     return 0;
 }

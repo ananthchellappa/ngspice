@@ -853,6 +853,12 @@ struct card * inp_deckcopy(struct card *deck) {
         d->l = deck->l;
         d->nf = deck->nf;
         d->line = copy(deck->line);
+        /* line_case is deliberately not copied, and TMALLOC zeroes it.  A copy
+           of a card is made to instantiate a subcircuit body, and the body's
+           pre-fold text describes the formal pins, while the nodes the copy
+           interns are the caller's actuals and this instance's scoped internal
+           names.  Answering from it would give a spelling for a different node.
+           doc/claude/decisions/0018-node-name-collision-report.md decision 3 */
         if (deck->error)
             d->error = copy(deck->error);
         d->actualLine = inp_deckcopy(deck->actualLine);

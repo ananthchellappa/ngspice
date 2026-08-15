@@ -53,6 +53,8 @@ if_sens_run(CKTcircuit *ckt, wordlist *args, INPtables *tab)
     deck.linenum_orig = 0;
     deck.compmod = 0;
     deck.line         = buf;
+    /* built here, not read from a deck; see spiceif.c, doc/codex/issues/0068 */
+    deck.line_case    = NULL;
 
     current = &deck;
     line = current->line;

@@ -284,6 +284,11 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
         deck.linenum = 0;
         deck.compmod = 0;
         deck.line = buf;
+        /* A card this function builds, not one the deck wrote, so it has no
+           pre-fold spelling; an automatic struct card is uninitialised
+           otherwise, and term_insert() reads this field.
+           doc/codex/issues/0068 */
+        deck.line_case = NULL;
 
         /*CDHW Delete any previous special task CDHW*/
 
