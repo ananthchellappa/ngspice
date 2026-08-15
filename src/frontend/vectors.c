@@ -153,6 +153,22 @@ static enum ALL_TYPE_ENUM get_all_type(const char *word)
 } /* end of function get_all_type */
 
 
+/* The wildcard vocabulary, published for the one caller outside this file that
+ * has to know a wildcard when it sees one.  ft_evaluate() labels a result with
+ * the text of the parse node that produced it whenever the result is a single
+ * unchained vector, which is right for an expression and wrong for a wildcard:
+ * "all" names nothing, and a wildcard that matched exactly one vector would
+ * otherwise lose the name the deck gave that net.  Sharing get_all_type() and
+ * not a second list is the point -- this is exactly the set findvec() below
+ * dispatches before any name lookup, and therefore exactly the set whose
+ * results are chained through v_link2 when two or more match.
+ * doc/codex/issues/0064. */
+bool vec_is_all_wildcard(const char *word)
+{
+    return get_all_type(word) != ALL_TYPE_NONE;
+} /* end of function vec_is_all_wildcard */
+
+
 
 /* Find a named vector in a plot. We are careful to copy the vector if
  * v_link2 is set, because otherwise we will get screwed up.

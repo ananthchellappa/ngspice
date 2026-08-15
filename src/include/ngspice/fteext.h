@@ -381,6 +381,11 @@ extern bool vec_fromfile(struct dvec *v, int n);
  * rule, and every name matcher outside the lookup table shares it.
  * doc/codex/issues/0032, doc/claude/decisions/0001-distinguish.md decision 3. */
 extern bool vec_name_eq(const char *v_name, const char *typed);
+/* TRUE when a word is one of the wildcards findvec() intercepts before it
+ * looks a name up at all: all, allv, alli, ally, alle.  Asked by
+ * ft_evaluate(), which must not copy such a word over the name of the one
+ * vector it matched.  doc/codex/issues/0064. */
+extern bool vec_is_all_wildcard(const char *word);
 extern int plot_num;
 extern struct dvec *vec_fromplot(char *word, struct plot *plot);
 extern struct dvec *vec_copy(struct dvec *v);

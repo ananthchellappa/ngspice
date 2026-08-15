@@ -9,7 +9,8 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	define-const-body.cir define-const-body-listing.cir \
 	define-formal-body.cir save-undef-report.cir \
 	save-multianalysis-report.cir save-crossplot-report.cir \
-	write-let-session.cir node-case-collision-report.cir
+	write-let-session.cir node-case-collision-report.cir \
+	wildcard-rename.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 
@@ -39,8 +40,10 @@ EXTRA_DIST = \
 # reason, and is the fold-mode half of doc/codex/issues/0068: its BODY case is
 # the one the other two modes report and this one cannot, so the deck freezes
 # a silence that is a stated gap rather than an accident.
+# wildcard-rename.cir writes the two rawfiles it reads back, because
+# doc/codex/issues/0064 is about the name a wildcard puts in a written file.
 CLEANFILES = PrintTail.txt dpc_*.raw dpc_*.txt bun_*.cir bun_*.txt \
 	dun_*.cir dun_*.txt sur_*.cir sur_*.txt smr_*.cir smr_*.txt \
-	scr_*.cir scr_*.txt wls_*.raw ncc_*.cir ncc_*.txt
+	scr_*.cir scr_*.txt wls_*.raw ncc_*.cir ncc_*.txt wcr_*.raw
 
 MAINTAINERCLEANFILES = Makefile.in

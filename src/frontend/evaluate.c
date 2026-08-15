@@ -77,7 +77,16 @@ ft_evaluate(struct pnode *node)
         return NULL;
     }
 
-    if (node->pn_name && !ft_evdb && d && !d->v_link2) {
+    /* Label the result with the text that produced it -- 'print v(a)+v(b)'
+     * prints under 'v(a)+v(b)' -- but never when that text is a wildcard.
+     * A wildcard's text is not a name for what it matched, and the only match
+     * that reaches here is a match of exactly one vector: findvec_all() and
+     * its siblings chain two or more through v_link2, which the test below
+     * already exempts.  So a deck that saves one signal used to write it under
+     * the name 'all', losing the name the deck gave the net.
+     * doc/codex/issues/0064. */
+    if (node->pn_name && !ft_evdb && d && !d->v_link2 &&
+            !vec_is_all_wildcard(node->pn_name)) {
         if (d->v_name)
             tfree(d->v_name); /* patch by Stefan Jones */
         d->v_name = copy(node->pn_name);

@@ -2,7 +2,15 @@
 
 ## Status
 
-Open, filed 2026-08-13 on branch `ver_50`.
+**Fixed 2026-08-15** on branch `ver_50`, in the narrow scope the repo owner
+chose: option (i) of *Scope* below, the rename and nothing else. Filed
+2026-08-13. What shipped, and what was deliberately left behind, is in
+*Resolution*.
+
+The second mechanism this file measured — `com_write()`'s scale prepend — is
+**not** fixed. It survives the fix, it is a separate defect, and it is filed
+under its own number by item 5 of
+`doc/claude/batches/2026-08-15-xschem-open-items/PLAN.md`.
 
 Pre-existing, upstream and mode independent. It reproduces byte for byte on
 `/usr/local/bin/ngspice` (`ngspice-46`, no `casemode` support) and on
@@ -14,7 +22,8 @@ column is not wildcard-specific, and the `-r` batch route does not have it at
 all. See *Re-measured 2026-08-15* below. Nothing here is withdrawn — the
 wildcard rename is still real and still the sharpest symptom — but the scope of
 a fix is now a decision for the repo owner and is stated at the end of
-*Resolution*. Status stays Open, unfixed, and now also unscoped.
+*Resolution*. Status stayed Open, unfixed and unscoped when that measurement
+landed; the owner chose option (i) the same day, and the rename is now fixed.
 
 Filed because it is visible in the client-facing evidence base:
 `doc/claude/feedback/ngspice_upstream/repro/run_all.sh` section 2 prints the
@@ -363,6 +372,112 @@ filed about.
    two-vector case is a control in the same deck.
 
 ## Resolution
+
+### Shipped 2026-08-15 — option (i), the rename and nothing else
+
+`ft_evaluate()` no longer copies the parse node's text over its result's name
+when that text is one of the wildcards. The test is
+`vec_is_all_wildcard()`, a three-line publication of the existing
+`get_all_type()` (`src/frontend/vectors.c`, declared in
+`src/include/ngspice/fteext.h`), so the exempt set is not a second list: it is
+by construction the same set `findvec()` intercepts before any name lookup, and
+therefore the same set whose results are chained through `v_link2` when two or
+more match. `all`, `allv`, `alli`, `ally` and `alle` are all exempt, and the
+match is case-insensitive because `get_all_type()` is — `write f.raw ALL` is
+the same wildcard as `write f.raw all`, which is what
+`tests/regression/misc/all-wildcard-case.cir` already asserts one call deeper.
+
+**`alle` is in the set, deliberately.** Not from the name but from the callers:
+`get_all_type()` returns `ALL_TYPE_ALLE` for it (`src/frontend/vectors.c:143`),
+`findvec()` dispatches it to `findvec_alle()` before any name lookup
+(`:184-186`, under `XSPICE`), and `findvec_alle()` (`:299-343`) builds its
+result by writing `v_link2` exactly as `FINDVEC_ALL_GEN` does — so a run with
+exactly one event node reaches `ft_evaluate()` with `v_link2 == NULL` and had
+the same exposure as `all`. Excluding it would have left one wildcard in five
+behaving differently from the other four for no reason a reader could find in
+the code. A live single-event-node measurement was attempted and is **not**
+reported here because `alle` could not be made to produce output in this tree
+at all: `print alle` on a one-event-node deck says *"Warning from checkvalid:
+vector alle is not available or has zero length"*, and on a two-event-node deck
+prints nothing. That is a separate matter on the `alle` path, was not
+investigated, and is unrelated to the rename.
+
+**RED first.** `tests/regression/misc/wildcard-rename.cir` was written and run
+before the change. Its failure, verbatim from
+`make -C build-ver_50/tests/regression/misc check TESTS=wildcard-rename.cir`:
+
+```
+--- wildcard-rename.out_tmp	2026-08-15 10:58:35.905559007 -0700
++++ wildcard-rename.test_tmp	2026-08-15 10:58:35.901558991 -0700
+@@ -5,15 +5,15 @@
+ 
+ 
+ WCR-ONE-PRINT-ALL
+-in = 1.000000e+00
++all = 1.000000e+00
+ WCR-ONE-PRINT-ALLV
+-in = 1.000000e+00
++allv = 1.000000e+00
+ ASCII raw file "wcr_one.raw"
+ WCR-ONE-WRITE-HOLDS-NET
+-WCR-ONE-WRITE-NO-WILDCARD
++WCR-ONE-WRITE-HOLDS-WILDCARD
+ ASCII raw file "wcr_allv.raw"
+ WCR-ALLV-WRITE-HOLDS-NET
+-WCR-ALLV-WRITE-NO-WILDCARD
++WCR-ALLV-WRITE-HOLDS-WILDCARD
+ WCR-TWO-PRINT-ALL
+ in = 1.000000e+00
+ wcr_b = 2.000000e+00
+FAIL: wildcard-rename.cir
+```
+
+Four lines, and only four: the two controls in the same deck — the same
+wildcard on a two-vector plot, and `print v(in)+wcr_b` — already matched before
+the change and still match after it, which is the evidence that the rename was
+withheld and not removed.
+
+**Acceptance criteria 1 to 4 are met**, re-measured against the fixed binary:
+
+| deck | before | after |
+|---|---|---|
+| `.op`, `.save v(in)`, bare `write` | `No. Variables: 2`, `v(in)` `v(all)` | `No. Variables: 1`, `v(in)` |
+| `.op`, `.save v(in)`, `print all` | `all = 1.000000e+00` | `in = 1.000000e+00` |
+| `.op`, `.save i(v1)`, `write f alli` | `No. Variables: 2`, `i(v1)` `i(alli)` | `No. Variables: 1`, `i(v1)` |
+| `.op`, `.save i(v1)`, `print alli` | `alli = -1.00000e-03` | `v1#branch = -1.00000e-03` |
+| `.tran`, `.save v(in)`, `write f allv` | `time` `v(allv)` | `time` `v(in)` |
+| `.tran`, `.save v(in)`, `write f v(In)` | `time` `v(In)` | `time` `v(In)` — unchanged |
+| `.tran`, `.save v(in)`, `write f v(In)+0` | `time` `v(In)+0` | `time` `v(In)+0` — unchanged |
+| `.op`, `.save v(in)`, `write f v(In)` | `v(in)` `v(In)` | `v(in)` `v(In)` — unchanged |
+
+Every "before" in that table was run, not carried over: the pre-fix binary was
+rebuilt from `git checkout src/frontend/evaluate.c` for the two rows the
+predecessor batch's table did not contain (`alli`, and `v(In)+0` on `.tran`),
+and the fix restored and re-verified afterwards.
+
+Criterion 5 is met by `tests/regression/misc/wildcard-rename.cir`, with the
+two-vector case as a control in the same deck. Criterion 4's `alle` half is met
+by code, not by a deck, for the reason given above.
+
+**What was deliberately left.** Mechanism 2 — `com_write()`'s scale prepend,
+`src/frontend/postcoms.c:681-696` — is untouched, and `src/frontend/postcoms.c`
+was not edited at all. It still adds a column to any *partial* write of an `.op`
+plot: measured after the fix, `.op` + `.save v(in)` + `write f.raw v(In)` still
+writes `No. Variables: 2`, `v(in)` and `v(In)`, and under `preserve`,
+`distinguish` and stock those two columns still carry a byte-identical name. It
+is a separate defect with its own issue number, filed by item 5 of this batch.
+The consequence for a consumer is unchanged from what *Scope* option (i)
+predicted: a bare `write` is now clean, and naming vectors on the `write` line
+is not.
+
+The test deck asserts **names, not column counts**, for exactly that reason. A
+count assertion would have been an assertion about `com_write()`.
+
+### The analysis that led there
+
+*Everything below this line is as it was written before the fix, including the
+three scopes the owner chose between. Nothing in it is withdrawn; the option
+the owner took is (i).*
 
 **None yet.** The change most likely to be right is to teach the rename to skip
 a node whose text is one of the wildcards — the set `get_all_type()`

@@ -1,0 +1,126 @@
+* a wildcard that matches one vector keeps the vector's own name
+* doc/codex/issues/0064.  ft_evaluate() (src/frontend/evaluate.c) labels its
+* result with the text of the parse node whenever that result is a single
+* unchained vector.  That is what makes 'print v(a)+v(b)' come out under the
+* expression the deck typed, and it is exactly wrong for a wildcard: the token
+* 'all' is not a name for whatever all matched.  A deck that saves one signal
+* is the shape that reaches it, because findvec_all() and its siblings chain
+* two or more matches through v_link2 and the rename is withheld from a chain.
+*
+*   ONE-PRINT   'print all' and 'print allv' on a one-vector plot -> the net
+*   ONE-WRITE   the rawfile of a bare 'write'    -> holds v(in), no wildcard
+*   ALLV-WRITE  the rawfile of 'write f allv'    -> holds v(in), no wildcard
+*   TWO-PRINT   the same wildcard on a two-vector plot         (control)
+*   EXPR-PRINT  an expression is still labelled by its own text (control)
+*
+* The last two are the controls the fix must not break.  TWO-PRINT never
+* entered the renaming branch -- v_link2 is set -- and EXPR-PRINT is what the
+* branch is for.
+*
+* What this deck deliberately does NOT assert is the column count.  com_write()
+* prepends the plot's scale whenever the vectors it is about to write do not
+* already contain it, and on an .op plot that "scale" is merely whichever saved
+* vector was created first, so a partial write of an .op plot gains a column
+* that no wildcard is responsible for.  That is a separate mechanism, filed
+* separately, and it survives this deck; the assertions below are on names.
+*
+* The two rawfiles are ASCII so the deck can read its own variable table back
+* out of them, in the fopen/fread/strstr idiom of write-let-session.cir: the
+* wildcard's text reaches the file as 'v(all)' or 'v(allv)' because rawfile.c
+* wraps a voltage vector's stored name in v(), so one search for "(all" catches
+* both spellings and matches nothing else in the file.
+*
+* Mode independent: every name here is lower case and none is looked up across
+* a case boundary, so fold, preserve and distinguish give the same output.
+.OPTIONS noacct
+v1 in 0 dc 1
+r1 in mid 1k
+r2 mid 0 1k
+.save v(in)
+.control
+set silent_fileio
+set filetype=ascii
+shell rm -f wcr_one.raw wcr_allv.raw
+op
+
+* --- ONE-PRINT: the .save above leaves the operating-point plot holding
+* --- exactly one vector, which is the whole of the trigger
+echo WCR-ONE-PRINT-ALL
+print all
+echo WCR-ONE-PRINT-ALLV
+print allv
+
+* --- ONE-WRITE: a bare 'write' substitutes the token 'all', so a generated
+* --- deck reaches this without typing a wildcard at all
+write wcr_one.raw
+set gotnet = 0
+set gotwild = 0
+fopen c1 wcr_one.raw r
+if $c1 >= 0
+  set n1 = 1
+  while $n1 >= 0
+    set capline = "no_line_read"
+    fread capline $c1 n1
+    strstr pn "_$capline" "v(in)"
+    if $pn >= 0
+      set gotnet = 1
+    end
+    strstr pw "_$capline" "(all"
+    if $pw >= 0
+      set gotwild = 1
+    end
+  end
+  fclose $c1
+end
+if $gotnet > 0
+  echo WCR-ONE-WRITE-HOLDS-NET
+else
+  echo WCR-ONE-WRITE-MISSING-NET
+end
+if $gotwild > 0
+  echo WCR-ONE-WRITE-HOLDS-WILDCARD
+else
+  echo WCR-ONE-WRITE-NO-WILDCARD
+end
+
+* --- ALLV-WRITE: the wildcard typed out, same plot, same answer
+write wcr_allv.raw allv
+set gotnet = 0
+set gotwild = 0
+fopen c2 wcr_allv.raw r
+if $c2 >= 0
+  set n2 = 1
+  while $n2 >= 0
+    set capline = "no_line_read"
+    fread capline $c2 n2
+    strstr pn "_$capline" "v(in)"
+    if $pn >= 0
+      set gotnet = 1
+    end
+    strstr pw "_$capline" "(all"
+    if $pw >= 0
+      set gotwild = 1
+    end
+  end
+  fclose $c2
+end
+if $gotnet > 0
+  echo WCR-ALLV-WRITE-HOLDS-NET
+else
+  echo WCR-ALLV-WRITE-MISSING-NET
+end
+if $gotwild > 0
+  echo WCR-ALLV-WRITE-HOLDS-WILDCARD
+else
+  echo WCR-ALLV-WRITE-NO-WILDCARD
+end
+
+* --- the controls.  'let' puts a second permanent vector in the same plot,
+* --- so from here on the wildcard matches two and chains them
+let wcr_b = v(in) * 2
+echo WCR-TWO-PRINT-ALL
+print all
+echo WCR-EXPR-PRINT
+print v(in)+wcr_b
+.endc
+.end
