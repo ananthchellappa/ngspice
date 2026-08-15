@@ -33,11 +33,17 @@
 * trip in all three modes.
 *
 * The last check is the client's ask end to end: unset the request, load the
-* file back, and read the mode out of the header.  The unset has to come
-* before the load, because the loaded plot's environment makes the name
-* read-only while that plot is current (doc/codex/issues/0061, property 4),
-* and it is what makes the read live: with the request still set, '$casemode'
-* would be answered by the session ahead of the file.
+* file back, and read the mode out of the header.  The unset is what makes the
+* read live: with the request still set, '$casemode' would be answered by the
+* session ahead of the file.  It does not have to precede the load -- an
+* earlier draft of this comment said the loaded plot's environment makes the
+* name read-only while that plot is current, which was true of 0061's first
+* shape and is not true here: 0067's commit deleted that scan from
+* cp_usrset(), so a file no longer decides what the session may set
+* (doc/claude/decisions/0019).  Measured both ways against a file written
+* under 'preserve' by a session requesting 'distinguish': the unset removes
+* the name from the global list, where -D put it, and leaves the plot's
+* environment holding the file's key, so either order reads 'preserve'.
 *
 * tests/bin/check.sh compares stdout only and filters every line holding
 * 'Operating', so the Plotname: line itself cannot be echoed and is asserted
