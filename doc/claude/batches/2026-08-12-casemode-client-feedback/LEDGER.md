@@ -608,6 +608,21 @@ file the build writes is a crash trigger for released `ngspice-46`.
   omits the four gitignored `.out` files, so the backup cannot witness their
   byte-identity. The R2/R3 suites pin them instead.
 
+- [x] **The one item that survived the batch is filed as `0070`.** A plot
+  loaded from a raw file carrying no `Option:` lines is stamped with the
+  *copying* session's mode when written out. `raw_write()` tests `!pl->pl_env`
+  as its provenance check; that proves a plot came from a file when it is
+  non-empty, but an empty `pl_env` does not prove this session produced the
+  plot — and every file every released ngspice ever wrote has no `Option:`
+  lines, so the mis-identified case is nearly every raw file in existence.
+  Measured: one `preserve`-produced file, copied under each mode, claims each
+  mode in turn. The `fold` copy is self-contradictory — it claims a folding run
+  produced `v(In)` and `v(Mid)`, which a folding run cannot. Bounded by
+  `casemodewrite` being off by default; must be fixed before that default
+  flips. A second, smaller defect is recorded in the same issue: the two
+  `Option:` writers disagree on spacing, so a round trip turns
+  `casemode=preserve` into `casemode = preserve`.
+
 **A vacuous instruction this batch repeated for stages**: "clear the cached
 `*.log`/`*.trs`". `configure.ac:37` sets `serial-tests`, which writes neither.
 Nothing was ever cleared by it. It is struck from any future brief.
