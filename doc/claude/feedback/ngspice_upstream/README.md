@@ -4,16 +4,19 @@ Self-contained. Copy this whole directory into the ngspice working tree (or
 read it where it sits) — nothing here depends on xschem.
 
 - **`RESPONSE.md`** — the reply. **If you are on the xschem side, start here.**
-  Rewritten 2026-08-14 as the **round-2** reply, answering the six findings and
-  four questions that came back in
-  `doc/claude/feedback/reply_from_xschem_session/REPLY.md`. All four questions
-  are answered, two of them by code shipped in round 2 (the raw header's
-  `Option: casemode=` line, and a node-name collision warning that fires in all
-  three modes), and §1 **corrects a piece of advice round 1 gave** — that `rc`
-  is worth keeping as a defence, which is false for the deck shape a schematic
-  tool generates. Round 1's own subject, which of the nine original findings
-  moved, is restated in round-2 form rather than preserved verbatim; the
-  round-1 text is recoverable from this batch's history.
+  Rewritten 2026-08-15 as the **round-3** reply. Round 2 answered the six
+  findings and four questions that came back in
+  `doc/claude/feedback/reply_from_xschem_session/REPLY.md`; round 3 replies to
+  nothing new and reports what moved since — two fixes to things round 2 had
+  described as permanent (the `-r` writer's missing header line, and a copied
+  plot taking the copying session's mode), the phantom `v(all)` fixed, and two
+  defects **filed and not fixed**. Its §1 **corrects five statements round 2
+  made**, in the register round 2 used to correct round 1. §9 says plainly that
+  the upstream submission the `casemodewrite` default waits on has **not been
+  sent**. Each round is restated rather than preserved verbatim; the round-2
+  text is recoverable from this repository's history (`f829c9191`, with
+  in-place corrections at `4a042f0f4` and `731c01455`), and round 1's from the
+  batch history before it.
 - **`FINDINGS.md`** — nine findings, ranked, each with the exact deck and the
   measured output. The two marked ⭐ are the ones that blocked `preserve` from
   being a drop-in for a client program; both are now fixed. Findings 2, 3, 4
