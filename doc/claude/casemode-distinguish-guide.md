@@ -523,9 +523,9 @@ carries the capitals.
 
 ### The raw file can say which mode wrote it — ask for it with `casemodewrite`
 
-Since 2026-08-14 the header written by the `write` command can carry the mode
-in force, on the line after `Plotname:`. It is **off by default**; one word in
-the `.control` block turns it on:
+Since 2026-08-14 the raw header can carry the mode in force, on the line after
+`Plotname:`. It is **off by default**; one word in the `.control` block turns
+it on:
 
 ```
 .control
@@ -539,6 +539,27 @@ the `.control` block turns it on:
 Plotname: Operating Point
 Option: casemode=preserve
 ```
+
+**Both writers.** ngspice writes this format in two places — `raw_write()`
+behind the `write` command, and `fileInit()` behind the `-r` batch flag and
+`run <file>` — and since 2026-08-15 (`doc/codex/issues/0071`) they both carry
+the line, behind the same variable and in the same position. So the file a
+batch run produces says the same thing the interactive one does:
+
+```
+$ ngspice -b -D casemode=preserve -D casemodewrite -r out.raw deck.cir
+
+Plotname: Transient Analysis
+Option: casemode=preserve
+Flags: real
+```
+
+`set casemodewrite` in the deck's `.control` block does the same job for a
+`-r` run: the control block finishes before the analysis starts, so the
+variable is live when the file is written. On the command line the flag has to
+be the bare `-D casemodewrite` — `-D casemodewrite=TRUE` sets a *string*
+variable, which the boolean read does not see, and opens the gate for neither
+writer.
 
 It is there in both the ASCII and the binary format — the header is text in
 both — and the value is the *effective* mode, the one `curcasemode` reports,
@@ -581,10 +602,9 @@ does *not* know aborts the whole load with `Error: strange line in rawfile`,
 so do not invent one either.
 
 Four caveats. **Absence is not `fold`** — a file written by any older ngspice
-has no such line, nor has one written by the `-r` batch path, which is a
-different writer that does not carry it yet, nor has one this build wrote
-with `casemodewrite` unset, which is every file until somebody sets it; treat
-a missing line as unknown and fall back to the probe below.
+has no such line, nor has one this build wrote with `casemodewrite` unset,
+which is every file until somebody sets it; treat a missing line as unknown
+and fall back to the probe below.
 
 **A plot that was loaded and then written back out keeps the mode its own file
 recorded**, and never acquires the re-writing session's. That is what you want

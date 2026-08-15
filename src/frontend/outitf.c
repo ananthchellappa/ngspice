@@ -954,6 +954,47 @@ fileInit(runDesc *run)
     sprintf(buf, "Plotname: %s\n", run->type);
     n += strlen(buf);
     fputs(buf, run->fp);
+    /* The identifier case mode this run is being produced under, if the
+       session asked for it to be recorded.  raw_write()
+       (src/frontend/rawfile.c) writes the same line for the plots it
+       serialises, and the two writers share this format and no code, so
+       without this arm a file written through -r or 'run <file>' looked
+       exactly like a file from a release that has no such feature, and its
+       consumer had to spawn a probe simulation to learn what the writing
+       session already knew: doc/codex/issues/0071.
+
+       Nothing about the line is decided here.  The key is 'Option:', the one
+       key every existing reader already parses -- a new key aborts the load as
+       a strange line.  The place is the line after 'Plotname:', because the
+       reader's Option: arm needs a current plot to file the pair into and
+       calls the line misplaced when there is none.  The value is the mode in
+       force, inp_case_mode_name() (src/frontend/inpcom.c), and not the
+       'casemode' variable, which holds what was requested and stops
+       describing this run the moment a .control block moves it
+       (doc/codex/issues/0060).  raw_write()'s remaining condition, that the
+       plot did not come out of a file (doc/codex/issues/0070), has no
+       counterpart here: this writer only ever writes data the running
+       analysis is producing.
+
+       The gate is read through cp_getvar_policy() (src/frontend/variable.c)
+       rather than cp_getvar(), whose chain ends in the current plot's
+       environment: a raw header carrying 'Option: casemodewrite' is parsed
+       straight into that, so a plain read would let a file the user opened
+       switch this writer on.  It is off by default because a file carrying
+       the line can crash a released ngspice-46 that unsets the key
+       (doc/codex/issues/0067, fixed here and in nothing released); unset, the
+       header this function writes stays the one it has written since spice3.
+
+       It is written in this function's own idiom -- into buf, counted into n,
+       fputs -- and not as a bare fprintf, because n is the seek position
+       fileEnd() backfills the point count into when ftell() is unusable,
+       which is the run->fp == stdout arm a few lines below ('ngspice -s').
+       tests/regression/pipe/rawfile-casemode-batch.cmd. */
+    if (cp_getvar_policy("casemodewrite", CP_BOOL, NULL, 0)) {
+        sprintf(buf, "Option: casemode=%s\n", inp_case_mode_name());
+        n += strlen(buf);
+        fputs(buf, run->fp);
+    }
     sprintf(buf, "Flags: %s\n", run->isComplex ? "complex" : "real");
     n += strlen(buf);
     fputs(buf, run->fp);

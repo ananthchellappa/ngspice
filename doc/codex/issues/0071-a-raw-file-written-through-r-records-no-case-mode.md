@@ -2,9 +2,12 @@
 
 ## Status
 
-Open, filed 2026-08-15 on branch `ver_50`. Not started; see Resolution, which
-carries the shape a fix would take and the one question the owner has to
-settle before it is worth writing.
+**Fixed 2026-08-15** on branch `ver_50`, filed the same day. The repo owner
+settled the question this issue left open — the `-r` writer gets the line,
+behind the same gate, off by default — and both riders with it: covering
+`run <file>` as well is **intended**, because they are one writer and testing
+the flag rather than the writer would be the worse fix; the CIDER state dumps
+stay as they are. See Resolution.
 
 Not a defect in `9e341a8b7` ("feat: record the case mode in the raw header,
 opt-in", `doc/codex/issues/0061`, first addendum) and not a regression from it.
@@ -226,6 +229,10 @@ for once `0067` has been in a release — because from that day a `-r` file is a
 file that recorded nothing while a `write` of the same run recorded the mode,
 and the difference will be invisible to whoever chose the flag.
 
+*Both quotations above are the state this issue was filed in and are no longer
+what those documents say.* Resolution corrects them: each now states that both
+writers carry the line, re-measured, and neither claims the gap as a caveat.
+
 **Class**, for the taxonomy in `doc/claude/decisions/0001-distinguish.md`: none
 of the three. No identifier is compared here. It is a coverage gap in a
 provenance record.
@@ -335,67 +342,147 @@ There is no `fileInit_pass1()` in the tree. The function is `fileInit()` at
 
 ## Resolution
 
-Not started.
+### Shipped 2026-08-15 — the same gated line, in the second writer
 
-**The shape a fix would take.** One conditional `fprintf` in `fileInit()`
-(`src/frontend/outitf.c`), between the `Plotname:` line at `:954` and the
-`Flags:` line at `:957`, reading the gate through `cp_getvar_policy()` and the
-value through `inp_case_mode_name()` — the same two calls `raw_write()` makes,
-and both are already visible in this file: `cp_getvar_policy()` is declared in
-`src/frontend/variable.h`, which `outitf.c` includes at `:26`, and
-`inp_case_mode_name()` in `src/include/ngspice/fteext.h`, which it reaches
-through `ngspice/ftedefs.h` at `:16`. It must be written in this function's own
-idiom rather than as a bare `fprintf`: `sprintf` into `buf`, `n += strlen(buf)`,
-`fputs`, so criterion 5's `pointPos` fallback stays correct. That is on the
-order of four lines, and no header, build file or declaration changes.
+`fileInit()` (`src/frontend/outitf.c`) now writes the option line between its
+`Plotname:` line and its `Flags:` line when the session has asked for it:
 
-Nothing about the format needs deciding. The key, the position and the spelling
-are all fixed by `raw_write()`'s existing line and by the reader's `Option:`
-arm, which needs a current plot and so cannot take a line above `Plotname:`
-(`src/frontend/rawfile.c:637`, `Error: misplaced Option: line`).
+```c
+    if (cp_getvar_policy("casemodewrite", CP_BOOL, NULL, 0)) {
+        sprintf(buf, "Option: casemode=%s\n", inp_case_mode_name());
+        n += strlen(buf);
+        fputs(buf, run->fp);
+    }
+```
 
-**The question the owner has to settle first, and this issue does not answer
-it: is the fix wanted at all?**
+That is the whole production change: four lines of code and the comment above
+them, in one function. No header, declaration, build file or `Makefile.am`
+under `src/` moved, and `raw_write()` was not touched — the two writers still
+share their grammar and no code, which is Root Cause and was left alone on
+purpose. A shared helper was weighed and declined: the two call sites disagree
+on everything but the format string — one `fprintf`s to a `FILE *` it was
+handed, the other must accumulate into `n` in this function's idiom, and one
+carries a provenance test the other has no counterpart for — so a helper would
+have taken three arguments to save one line and would have put the reader one
+indirection away from the header it is reading. The house rule is to prefer
+existing helpers, not to grow new ones.
 
-The argument against is that this header is the oldest stable thing in the
-format. Unlike `raw_write()`'s, it is written by every batch run of every
-ngspice back to spice3, and a consumer that reads a `-r` file by counting lines
-is reading a header that has been the same for its entire working life. This
-tree contains exactly such a consumer, for the other writer:
-`tests/regression/pipe/postcoms-keyword-case.cmd` reads a fixed number of
-lines off an ASCII raw and asserts the next one is `Values:`, and it had to be
-edited when `raw_write()`'s line landed. If a committed deck in this repository
-counts header lines, third-party tooling does too.
+**The three properties are the ones `raw_write()`'s line already had**, because
+a consumer's single branch has to work on both writers: the key is `Option:`,
+the place is the line after `Plotname:`, and the value is
+`inp_case_mode_name()` — the mode in force, not the `casemode` request
+(`doc/codex/issues/0060`). The gate is read through `cp_getvar_policy()` rather
+than `cp_getvar()` for that function's own reason: `cp_getvar()`'s chain ends
+in the current plot's environment, and a raw header carrying
+`Option: casemodewrite` is parsed straight into it, so a plain read would let a
+file the user loaded switch this writer on. `raw_write()`'s remaining
+condition, `!pl->pl_fromfile` (`doc/codex/issues/0070`), has no counterpart
+here and is deliberately absent: this writer only ever writes data the running
+analysis is producing.
 
-The argument for is that the header is demonstrably not frozen and the
-compatibility cost is measurable rather than hypothetical. Upstream added the
-`Command:` line to this exact block on 2024-08-18 (`1087c6a0c`, Holger Vogt,
-"Add simulator version info to raw file in batch mode"), moving every line
-below it by one, and it shipped. The line a fix would add is behind a gate that
-is off by default, so a file only changes when the session asks — with the gate
-unset the batch header stays byte-identical to `ngspice-46`'s, which is
-criterion 4 and is already measured. And the file the fix would produce is
-known to load on the released binary, measured under criterion 6.
+**Scope, decided rather than inherited.** Covering `run <file>` as well as `-r`
+is intended. They are one writer reached through one route — `dosim()`
+(`src/frontend/runcoms.c:289`) opens `rawfileFp`, `ft_getOutReq()` (`:421`) is
+what `OUTpBeginPlot()` asks — and splitting them would have meant testing the
+flag rather than the writer, which is the worse fix. Both are measured below.
+The seven CIDER state dumps in Summary are unchanged, as this issue assumed.
 
-Both halves of that are measurements in this issue. Which of them decides it is
-a judgement about consumers we cannot see, and it belongs to the owner.
+**RED first.** `tests/regression/pipe/rawfile-casemode-batch.cmd` was written
+and run before the production change. Its failure, verbatim from
+`make -C build-ver_50/tests/regression/pipe check TESTS=rawfile-casemode-batch.cmd`:
 
-Two smaller questions ride along with it and should be answered in the same
-breath:
+```
+ERROR: the batch header line after Plotname: is <Flags: real> and not <Option: casemode=fold>
+FAIL: rawfile-casemode-batch.cmd
+```
 
-- **Scope.** A fix in `fileInit()` covers `-r` and `run <file>` together
-  because they are one writer. Is that intended, or is the `run <file>` route
-  meant to be left alone? Splitting them would mean testing the flag rather
-  than the writer, which is a worse fix; it is named only so the widening is a
-  decision and not a surprise.
-- **The CIDER writers.** The seven state-dump writers listed in Summary emit no
-  `Option:` line and never have. Their columns are language-defined names, so
-  the mode describes only their `Title:`, and they are off by default. This
-  issue assumes they stay as they are. If the owner wants the record to be a
-  property of the format rather than of a writer, that assumption is the thing
-  to revisit, and it should be its own issue rather than a rider on this one.
+The deck's earlier checks all passed in that run — the mode latched, the
+gate-unset header read `Flags: real` on line 5 in both formats — so the failure
+was the missing line and nothing else.
 
-If the answer is that the fix is not wanted, that is a legitimate close and the
-work is documentation: the caveat in `RESPONSE.md` §2 and in
-`doc/claude/casemode-distinguish-guide.md` stops being a "not yet" and becomes
-a statement of intent, and this issue records why.
+### Against the acceptance criteria
+
+1. **Met.** `Option: casemode=<mode>` immediately after `Plotname:`, same key
+   and same closed-up spelling, in all three modes and in both formats. The
+   client's own reproducer shape, `-b -n -D casemode=M -D casemodewrite -r`:
+
+   ```
+   fold         line4=<Plotname: Transient Analysis> line5=<Option: casemode=fold>        line6=<Flags: real>
+   preserve     line4=<Plotname: Transient Analysis> line5=<Option: casemode=preserve>    line6=<Flags: real>
+   distinguish  line4=<Plotname: Transient Analysis> line5=<Option: casemode=distinguish> line6=<Flags: real>
+   ```
+
+2. **Met.** The value is `inp_case_mode_name()`. Check 4 of the deck moves the
+   `casemode` request without a netlist read — `curcasemode` stays
+   `distinguish` while `casemode` reads `fold` — and asserts the header says
+   `Option: casemode=distinguish`.
+3. **Met, both routes measured on the same deck.** `-b -r` with
+   `set casemodewrite` in the `.control` block, and `run <file>` from an
+   interactive session with the same variable set, each give
+   `Plotname: Transient Analysis` / `Option: casemode=preserve` / `Flags: real`
+   as header lines 4, 5 and 6. The deck asserts the second route, which is the
+   only one this harness can drive.
+4. **Met, as whole-file bytes rather than as a header.** With `casemodewrite`
+   unset, a `-r` file from this build is byte-identical to one from stock
+   `/usr/local/bin/ngspice` (`ngspice-46`), `Date:` and `Command:` lines
+   excluded and the data section included — 2194 bytes ASCII, 860 bytes binary,
+   same deck, default mode on both sides. With the gate opened by
+   `-D casemodewrite` and nothing else changed, the same file grows by exactly
+   22 bytes, `len("Option: casemode=fold\n")`, and the first differing line is
+   line 3 of the stripped file: `Option: casemode=fold` against `Flags: real`.
+   Nothing else in the file moved.
+5. **Met, including the stdout path the trap lives on.** The line is written in
+   this function's idiom, so `n` still tracks the header. `ngspice -s`, whose
+   raw goes to stdout and whose `fileEnd()` prints `@@@ <pointPos> <count>` for
+   an external consumer, on the same multi-point `.tran`:
+
+   ```
+   gate unset: @@@ 180 21      true header length, Title: to end of 'No. Points: ' = 180
+   gate set:   @@@ 206 21      true header length = 206  (180 + 26, the option line)
+   ```
+
+   The point count is unchanged and the fallback position is the true header
+   length in both. In a file the count is asserted by check 5 of the deck,
+   which compares it against the same run held in memory: `run <file>` takes
+   this writer and `run` with no argument takes `plotInit()`, so the two counts
+   come from different code.
+6. **Met.** A file this build wrote with the line loads clean on this build and
+   on stock `ngspice-46` — no `strange line`, no `misplaced`, `display` shows
+   `v(In)` and `v(MidNode)`, and `echo $casemode` answers `preserve` on both.
+7. **Met.** `tests/regression/pipe/rawfile-casemode-batch.cmd`, 33 tests in
+   that directory and all passing. It reaches the writer through `run <file>`,
+   asserts the gate in both directions in one session (checks 0b and 6) and
+   asserts by position, reading eight header lines under the open gate so that
+   a duplicated or displaced line fails on a position and not on a search.
+8. **Not taken.** The optional `tests/regression/casedist/` half would reach
+   the same writer by the same `run <file>` route and would differ only in
+   where the mode came from — `-D` at start-up instead of `set casemode` plus a
+   `source` — which the pipe deck already covers for all three modes. It was
+   declined as duplicate coverage with a committed `.out` to maintain, not
+   because it could not be written.
+9. **Met.** The change adds no string comparison of any kind.
+   `tests/lint/identity.baseline` is unchanged.
+10. **Met.** Quoted above and in the commit message.
+11. **Met.** `make check` from `build-ver_50`: **322 PASS, 0 FAIL**, `rc=0` —
+    321 before, plus this issue's deck. That run includes the two directories
+    whose harness fixes a mode, `tests/regression/case` (`preserve`) and
+    `tests/regression/casedist` (`distinguish`), as well as everything under
+    the default. No committed `.out` file moved, which
+    is itself the evidence criterion 11 asked for: with the gate unset nothing
+    any existing deck writes changed by a byte, including
+    `tests/regression/pipe/postcoms-keyword-case.cmd`, the in-tree consumer
+    that counts header lines off a raw file.
+
+### What is left
+
+- **The default is still off**, and the severity note in Impact still stands:
+  when `casemodewrite`'s default flips (`0061` schedules that for once `0067`
+  has been in a release), both writers flip together, which is the state this
+  fix puts the tree in and the reason it was worth doing before the flip
+  rather than after.
+- **The CIDER state dumps** (`ciderlib/oned`, `ciderlib/twod`, and the five
+  device dumps) still emit no `Option:` line. Unchanged by decision; if the
+  record is ever meant to be a property of the format rather than of a writer,
+  that is its own issue.
+- **Nothing has been sent upstream.** The submission in `doc/claude/upstream/`
+  is prepared and unsent, and this fix is in `ver_50` only.

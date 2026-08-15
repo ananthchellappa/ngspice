@@ -11,7 +11,10 @@ Every line below was **re-measured 2026-08-14** against
 `Fri Aug 14 20:52:09 UTC 2026`) with `/usr/local/bin/ngspice` (`ngspice-46`) as
 the featureless baseline. §2's caveats were **re-measured 2026-08-15** against
 build stamp `Sat Aug 15 15:34:32 UTC 2026`; the transcripts above them keep
-their 2026-08-14 stamp and are otherwise unchanged. Round 1's work is committed
+their 2026-08-14 stamp and are otherwise unchanged. **One of those caveats has
+since stopped being one**: the `-r` batch path now carries the header line too
+(`doc/codex/issues/0071`), so §2 states it where it used to warn, re-measured
+against build stamp `Sat Aug 15 18:18:34 UTC 2026`. Round 1's work is committed
 through `58496a8dc`; round 2's two shipped changes are committed too —
 `9e341a8b7` (the header line) and `4e738fc3e` (the collision warning). One
 defect found in the header line after those landed — a copy of a loaded plot
@@ -161,8 +164,10 @@ deck that saves exactly one signal writes **two** variables today.
 
 ## 2. `Option: casemode=<mode>` ships — question 1, answered yes, opt-in
 
-It is committed — `9e341a8b7`, with `eb0b96c8c` on top of it — and measured.
-**You have to ask for it: `set casemodewrite` before the `write`.** One word in the `.control` block your
+It is committed — `9e341a8b7`, with `eb0b96c8c` and the `-r` half
+(`doc/codex/issues/0071`) on top of it — and measured.
+**You have to ask for it: `set casemodewrite`, anywhere before the file is
+written.** One word in the `.control` block your
 generator already writes:
 
 ```
@@ -180,7 +185,7 @@ built from the commit before the change. Why it is off by default is the last
 part of this section, and it is worth your reading before you hand one of
 these files to anybody else.
 
-With it set, `raw_write()` writes the line immediately
+With it set, the writer puts the line immediately
 after `Plotname:`, valued from the mode **in force** (the one `curcasemode`
 reports), so a `set casemode=` typed in a `.control` block after the deck was
 read cannot make it lie:
@@ -221,13 +226,33 @@ cannot steer the session that reads it (`doc/codex/issues/0061`).
 
 **The caveats, all of them ours to state rather than yours to discover.**
 
-- **The `-r` batch path does not carry it.** `ngspice -r out.raw deck.cir` is a
-  different writer and writes no `Option:` line. Measured. If your generated
-  decks name their rawfile from `.control write`, you have the line; if you
-  ever switch to `-r`, you lose it. (You have another reason not to use `-r`:
-  §1.)
-- **Absence is not `fold`.** Any older ngspice, and the `-r` path above. Treat
-  a missing line as *unknown* and fall back to the probe.
+- **The `-r` batch path carries it too, since `doc/codex/issues/0071`.** Round
+  2 of this document said it did not, and that was true when we wrote it:
+  ngspice has two writers for one raw format, `raw_write()` behind `write` and
+  `fileInit()` behind `-r`, and the line went into the first one only. The
+  second one now has the same gated line in the same place. Measured on this
+  build, your own command shape, ASCII and binary alike:
+
+  ```
+  $ ngspice -b -n -D casemode=distinguish -D casemodewrite -r out.raw deck.cir
+  Plotname: Transient Analysis
+  Option: casemode=distinguish        <- line 5, as it is under 'write'
+  Flags: real
+  ```
+
+  All three modes, and the same for `set casemodewrite` in the `.control`
+  block instead of `-D` — in a `-b -r` run the control block finishes before
+  the analysis starts, so a variable it sets is live when the file is written.
+  `run out.raw` from the control language is the same writer and behaves the
+  same. One caution on the flag spelling: bare `-D casemodewrite` sets the
+  boolean and opens the gate, while `-D casemodewrite=TRUE` sets a *string*
+  variable that the boolean read does not see, and opens it for neither
+  writer. **This is in `ver_50` and not in any release**; against a released
+  ngspice the caveat still reads as round 2 wrote it. (You still have §1's
+  reason not to use `-r`.)
+- **Absence is not `fold`.** Any older ngspice, and any file this build wrote
+  with `casemodewrite` unset — the default, and so every file until somebody
+  asks. Treat a missing line as *unknown* and fall back to the probe.
 - **Match the `Option:` key, not the line number.** Two writers can put this
   line in one header, and they put it in two different *places*: the session's
   own line goes immediately under `Plotname:`, while a value kept from a file
@@ -576,7 +601,7 @@ will not drift apart from the issues.
 | read `$sim_status` after *each* run | per analysis, last writer wins; absent before the first analysis |
 | **probe with the real run's argv *and* its cwd** | `.spiceinit` is searched beside the deck, a `-p` probe searches cwd |
 | probe with `echo $curcasemode` | the only thing that sees `preserve`; fails loudly on old binaries |
-| read `Option: casemode=` from the raw header | now written; also cross-checks the probe. Absent ≠ `fold`, and the `-r` path does not write it |
+| read `Option: casemode=` from the raw header | now written by both writers, `write` and `-r` alike (`doc/codex/issues/0071`, in `ver_50` only); also cross-checks the probe. Absent ≠ `fold` |
 | match it as an `Option:` **key**, anywhere in the header | same spelling, two places: the session's own line is under `Plotname:`, a value kept from a loaded file is re-emitted after `No. Points:` |
 | treat a copy with no `casemode` line as unknown, not as `fold` | a copy of a file that recorded nothing records nothing, and so does any `linearize`/`cutout`/`fft`/`psd`/`spec` of loaded data |
 | `set casemodewrite` in the deck, never as an `Option:` in a file | the gate is the session's request; a loaded header cannot open it |
