@@ -1,0 +1,105 @@
+* the raw header records the case mode the run that wrote it was reading
+* under, when the session asks it to
+* doc/claude/feedback/ngspice_upstream/FINDINGS.md finding 1, and
+* doc/codex/issues/0061, which is the issue that ask kept alive.
+*
+* The line is opt-in, behind the 'casemodewrite' variable, and this deck
+* writes the same plot twice so that both sides of the gate are asserted from
+* one run: the first header is the header every ngspice has ever written and
+* its line 5 is 'Flags:', the second carries the option line.  Off is the
+* default because a file carrying the line can crash a released ngspice-46 --
+* that binary's 'unset casemode' frees a node it left linked, which is
+* doc/codex/issues/0067, fixed here and not in anything released -- so the
+* line is not written into somebody else's crash unless this session asked
+* for it.
+*
+* With 'casemodewrite' set, raw_write() (src/frontend/rawfile.c) emits
+* 'Option: casemode=<mode>'
+* immediately after the 'Plotname:' line.  The key is one every existing
+* reader already parses -- a new 'Casemode:' key aborts the load, because the
+* header loop ends in an else that calls any line it does not know a strange
+* line -- and the place is after 'Plotname:' because the reader's Option: arm
+* has no plot to file the pair into before that line and says so.
+*
+* The value is the mode in force, inp_case_mode_name()
+* (src/frontend/inpcom.c), which is what 'curcasemode' answers and not what
+* the 'casemode' variable holds: the variable is the request, and a request
+* typed after the deck was read no longer describes the file that is being
+* written (doc/codex/issues/0060).  Here the two agree, because this whole
+* directory runs under '-D casemode=distinguish'
+* (tests/regression/casedist/Makefile.am) and nothing moves it; the deck half
+* that separates them is tests/regression/pipe/curcasemode-effect.cmd, and
+* tests/regression/pipe/rawfile-casemode-header.cmd asserts this same round
+* trip in all three modes.
+*
+* The last check is the client's ask end to end: unset the request, load the
+* file back, and read the mode out of the header.  The unset has to come
+* before the load, because the loaded plot's environment makes the name
+* read-only while that plot is current (doc/codex/issues/0061, property 4),
+* and it is what makes the read live: with the request still set, '$casemode'
+* would be answered by the session ahead of the file.
+*
+* tests/bin/check.sh compares stdout only and filters every line holding
+* 'Operating', so the Plotname: line itself cannot be echoed and is asserted
+* through a token instead.  The line that matters is echoed whole: it holds
+* no filtered word.
+.OPTIONS noacct
+V1 In 0 dc 1.5
+R1 In Mid 1k
+R2 Mid 0 1k
+.control
+op
+set filetype=ascii
+
+* the default: no option line, and line 5 is the Flags: line that has
+* followed Plotname: since spice3
+write rch_off.raw
+set n0 = 1
+set k4 = "no_line_read"
+set k5 = "no_line_read"
+fopen f0 rch_off.raw r
+fread k1 $f0 n0
+fread k2 $f0 n0
+fread k3 $f0 n0
+fread k4 $f0 n0
+fread k5 $f0 n0
+fclose $f0
+strstr q4 "_$k4" "Plotname:"
+if $q4 < 0
+  echo HDR-OFF-LINE4-NOT-PLOTNAME
+else
+  echo HDR-OFF-LINE4-PLOTNAME
+end
+echo HDR-OFF-LINE5 $k5
+
+set casemodewrite
+write rch_hdr.raw
+
+* five reads and no search: the position is the claim, so a line that
+* appeared anywhere else must fail.  Line 4 is checked too, so a header that
+* lost its Command: line fails as a broken harness and not as a lost option.
+set n1 = 1
+set l4 = "no_line_read"
+set l5 = "no_line_read"
+fopen f1 rch_hdr.raw r
+fread l1 $f1 n1
+fread l2 $f1 n1
+fread l3 $f1 n1
+fread l4 $f1 n1
+fread l5 $f1 n1
+fclose $f1
+strstr p4 "_$l4" "Plotname:"
+if $p4 < 0
+  echo HDR-LINE4-NOT-PLOTNAME
+else
+  echo HDR-LINE4-PLOTNAME
+end
+echo HDR-LINE5 $l5
+
+* and a consumer reads it back off the file
+unset casemode
+load rch_hdr.raw
+echo CASEMODE-AFTER-LOAD $casemode
+print v(Mid)
+.endc
+.end

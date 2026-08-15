@@ -246,7 +246,12 @@ endif !NO_HELP
 
 ## sconvert:
 
-ngsconvert_SOURCES =  ngsconvert.c
+# ngsconvert_stubs.c carries the front-end symbols the objects below call and
+# this program does not otherwise have -- the identifier case mode and the
+# vector-name rule.  A file rather than more .lo entries here: the objects
+# that define them, frontend/inpcom.lo and frontend/vectors.lo, each drag in
+# some fifty further symbols.  doc/codex/issues/0061.
+ngsconvert_SOURCES =  ngsconvert.c ngsconvert_stubs.c
 ngsconvert_LDADD = \
 	frontend/dvec.lo \
     frontend/rawfile.lo \

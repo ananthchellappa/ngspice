@@ -33,6 +33,14 @@ struct variable {
 extern struct variable *variables;
 extern bool cp_echo;
 
+/* A policy read: the same chain cp_getvar() walks (declared in
+ * ngspice/cpextern.h), minus the current plot's environment, which describes
+ * a plot the user loaded and may not decide what this session does.  For the
+ * reads a caller knows are policy; the reads taken while a netlist is being
+ * read are narrowed without asking the caller.  src/frontend/variable.c says
+ * why, doc/codex/issues/0061 is the issue. */
+bool cp_getvar_policy(char *name, enum cp_types type, void *retval, size_t rsize);
+
 /* extern struct variable *variables; */
 wordlist *cp_varwl(struct variable *var);
 wordlist *cp_variablesubst(wordlist *wlist);

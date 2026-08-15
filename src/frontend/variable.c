@@ -709,10 +709,56 @@ void cp_remvar(char *varname)
 
 
 
+static bool getvar_chain(char *name, enum cp_types type, void *retval,
+                         size_t rsize, bool policy);
+
+
 /* Determine the value of a variable.  Fail if the variable is unset,
- * and if the type doesn't match, try and make it work...  */
+ * and if the type doesn't match, try and make it work...
+ *
+ * This is the read the session takes about itself, so the current plot's
+ * environment is one of the places that may answer it -- except while a
+ * netlist is being turned into cards, when every read is policy for the file
+ * in hand and none of them is about the session.  doc/codex/issues/0061.  */
 bool
 cp_getvar(char *name, enum cp_types type, void *retval, size_t rsize)
+{
+    return getvar_chain(name, type, retval, rsize, inp_reading_netlist());
+}
+
+
+/* The same read, declared by its caller to be a policy read: a question the
+ * code asks on its own behalf -- how a file is to be parsed, what this build
+ * is allowed to write -- rather than a question about the session.  A loaded
+ * plot's environment never answers one.
+ *
+ * There is exactly one place in the chain below where a data file the user
+ * merely opened can speak: a rawfile's 'Option:' line is parsed into
+ * plot_cur->pl_env (src/frontend/rawfile.c) and nothing else in the tree puts
+ * anything there.  A plot's environment describes a plot.  It may answer a
+ * question about the session it is loaded into; it may not decide how that
+ * session behaves, because whatever it says is a fact about some other run.
+ * doc/codex/issues/0061 applied that to the reads taken inside inp_readall(),
+ * which is where it was first needed and where the caller cannot be asked
+ * because there are dozens of them; a policy read taken anywhere else says so
+ * here.  Neither predicate names a variable, and that is deliberate: a
+ * predicate that knew one name would have had to learn the next one.
+ *
+ * What is not narrowed: the pair stays filed, stays listed by 'set', and
+ * stays readable through $name -- both of those take cp_enqvar()
+ * (src/frontend/options.c) -- so a header a consumer wrote can still be read
+ * back out of the plot it was loaded into, which is the whole of what a raw
+ * header is for.  */
+bool
+cp_getvar_policy(char *name, enum cp_types type, void *retval, size_t rsize)
+{
+    return getvar_chain(name, type, retval, rsize, TRUE);
+}
+
+
+static bool
+getvar_chain(char *name, enum cp_types type, void *retval, size_t rsize,
+             bool policy)
 {
     struct variable *v;
     struct variable *uv1;
@@ -734,19 +780,12 @@ cp_getvar(char *name, enum cp_types type, void *retval, size_t rsize)
                 break;
 
     /* The current plot's environment answers a read taken on behalf of the
-       session, and not one taken while a file is being turned into cards.
-       A rawfile's 'Option:' line is parsed into that environment
-       (src/frontend/rawfile.c), so this link is the one place in the chain
-       where a data file can answer, and inp_readall()'s reads are policy for
-       the file in hand: whichever of them a loaded plot answered, it would
-       be answering about some other run.  The pair stays filed and stays
-       readable through $name and through 'set' -- both take cp_enqvar()
-       (src/frontend/options.c), which is not narrowed -- so a header can
-       still be read back, which is what the client asking for this wanted
-       from it.
-       doc/codex/issues/0061; inp_reading_netlist() is src/frontend/inpcom.c. */
+       session, and not a policy read -- one taken while a file is being
+       turned into cards, or one whose caller asked through
+       cp_getvar_policy().  The two entry points above carry the argument and
+       say why.  doc/codex/issues/0061. */
 
-    if (!v && plot_cur && !inp_reading_netlist())
+    if (!v && plot_cur && !policy)
         for (v = plot_cur->pl_env; v; v = v->va_next)
             if (eq(name, v->va_name))
                 break;

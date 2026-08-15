@@ -116,6 +116,79 @@ void raw_write(char *name, struct plot *pl, bool app, bool binary)
     if (ft_sim) /* not available when old app ngscovert is made */
         fprintf(fp, "Command: %s-%s, Build %s\n", ft_sim->simulator, ft_sim->version, Spice_Build_Date);
     fprintf(fp, "Plotname: %s\n", pl->pl_name);
+    /* The identifier case mode this plot was produced under, if this session
+       asked for it to be recorded.  A consumer that opens a raw file has no
+       other way to learn how the names in it were spelled -- the mode is a
+       property of the run that produced the data and not of the binary on the
+       reader's PATH today -- and without it every tool has to spawn a
+       throwaway simulation to find out.
+
+       Three things about this line are load bearing.  The key is 'Option:',
+       which every existing reader already parses: a new key aborts the load
+       outright, because the header loop below ends in an else that calls any
+       line it does not know a strange line and returns NULL.  The place is
+       after 'Plotname:', because that arm needs a plot to file the pair into
+       and prints 'Error: misplaced Option: line' when there is none.  And
+       the value comes from inp_case_mode_name() (src/frontend/inpcom.c),
+       which is the mode in force: the 'casemode' variable holds what was
+       requested and stops describing this file the moment a .control block
+       writes it, doc/codex/issues/0060.
+
+       Filing the pair is all the reader does with it: a loaded plot's
+       environment no longer answers the reads that steer a netlist read, so
+       a file carrying this line cannot reconfigure the session that reads it
+       -- doc/codex/issues/0061, and
+       doc/claude/feedback/ngspice_upstream/FINDINGS.md finding 1, which is the
+       ask.
+
+       Why it is off by default.  The line is safe to *read* on every binary
+       that exists -- measured on stock ngspice-46, which files the pair and
+       says nothing -- but it puts a 'casemode' key into that session's
+       variable space, and an ngspice-46 that then unsets it dies:
+       cp_remvar() frees a node it chose not to unlink, doc/codex/issues/0067,
+       fixed in this tree and in nothing released.  The unset itself returns
+       cleanly, so what dies is the next command of any kind -- set, display,
+       print, echo $casemode, a second unset -- each measured at rc=139 there,
+       in the ASCII and the binary format alike.  So a file this build writes
+       must not become a crash trigger for a simulator that cannot be fixed
+       unless somebody asked for the line; the default flips once 0067 has
+       been in a release.  Unset, the header this build writes is byte for
+       byte the header every ngspice has ever written.
+
+       The name sits with the other write-path options this function and its
+       caller read -- 'nopadding' and 'keep#branch' above, 'appendwrite' and
+       'plainwrite' in com_write() (src/frontend/postcoms.c), 'filetype'
+       beside them -- and is read almost the way they are: through
+       cp_getvar_policy() (src/frontend/variable.c) rather than cp_getvar(),
+       because the question is one this build asks about what it may write.
+       cp_getvar()'s chain ends in the current plot's environment, and a raw
+       header carrying 'Option: casemodewrite' is parsed straight into that,
+       so a plain read let a file the user opened switch this writer on for
+       the rest of the session -- and the default is off precisely so that our
+       files cannot become somebody else's crash, which a default a data file
+       can flip does not do.  Asserted from both sides of the gate by
+       tests/regression/pipe/rawfile-casemode-header.cmd and
+       tests/regression/casedist/rawfile-casemode-header.cir, and against the
+       loaded key by tests/regression/pipe/rawfile-casemode-gate-key.cmd.
+
+       The last condition is provenance: the mode in force describes this plot
+       only if this session produced it, so the line is not written for a plot
+       that arrived carrying an environment of its own.  That environment is
+       some file's header, filed by raw_read() and by nothing else in the
+       tree, so a plot that has one came out of a file and is described by
+       what that file said -- re-emitted unchanged by the pl_env loop below,
+       because a pair the file carried is data the user may want kept and is
+       the only record of that run's mode there is.  Without the test, a plot
+       loaded from a 'preserve' file and written out again by a folding
+       session came out with two casemode lines, the copying session's first
+       and the file's own second, and a reader's own lookup answers with the
+       first: the header described the copier and not the names under it.  The
+       test is provenance and not a name -- a plot this session produced
+       carries no environment at all, so nothing here has to know which key is
+       which.  tests/regression/pipe/rawfile-casemode-rewrite.cmd. */
+    if (!pl->pl_env &&
+            cp_getvar_policy("casemodewrite", CP_BOOL, NULL, 0))
+        fprintf(fp, "Option: casemode=%s\n", inp_case_mode_name());
     fprintf(fp, "Flags: %s%s\n",
             realflag ? "real" : "complex", raw_padding ? "" : " unpadded");
     fprintf(fp, "No. Variables: %d\n", nvars);
@@ -456,8 +529,22 @@ raw_read(char *name) {
         } else if (ciprefix("command:", buf)) {
             /* Note that we reverse these commands eventually... */
             s = SKIP(buf);
-            /* Exec command only if not ngspice simulator info */
-            if (!ciprefix(ft_sim->simulator, s)) {
+            /* Exec command only if not ngspice simulator info.  ft_sim is
+               NULL in ngsconvert, which links this file and no simulator
+               (the writer above has always guarded on it and this reader
+               never did), so reading any file ngspice wrote -- every one of
+               them carries a 'Command: ngspice-<v>, Build <date>' line --
+               was a SIGSEGV in that program.  With no simulator to compare
+               against, the line cannot be recognised as our own provenance,
+               so it is treated as a user command like any other: filed and
+               re-emitted if a plot is current, and reported as misplaced if
+               none is -- which is where ngspice's own stamp lands, since it
+               is written above 'Plotname:'.  cp_evloop() is a stub there, so
+               nothing is executed.  Inert in ngspice, where ft_sim is set at
+               start-up (main.c) before any load can run.  Pre-existing and
+               upstream: the stamp and this deref arrived together in
+               123ed0aad.  doc/codex/issues/0061. */
+            if (!ft_sim || !ciprefix(ft_sim->simulator, s)) {
                 NONL(s);
                 if (curpl) {
                     curpl->pl_commands = wl_cons(copy(s), curpl->pl_commands);

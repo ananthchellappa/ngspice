@@ -1,0 +1,14 @@
+ASCII raw file "rch_off.raw"
+HDR-OFF-LINE4-PLOTNAME
+HDR-OFF-LINE5 Flags: real
+ASCII raw file "rch_hdr.raw"
+HDR-LINE4-PLOTNAME
+HDR-LINE5 Option: casemode=distinguish
+Loading raw data file ("rch_hdr.raw") ...
+done.
+Title:  * the raw header records the case mode the run that wrote it was reading
+Title: * the raw header records the case mode the run that wrote it was reading
+    v(In)               : voltage, real, 1 long [default scale]
+    v(Mid)              : voltage, real, 1 long
+CASEMODE-AFTER-LOAD distinguish
+v(Mid) = 7.500000e-01
