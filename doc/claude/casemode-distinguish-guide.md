@@ -6,7 +6,10 @@ against `build-ver_50/src/ngspice`.
 
 If you are a **client program** (Xschem, a test harness, a wrapper script)
 rather than a person writing a deck, skip to §9 — the question you have is
-capability detection, and it has a one-line answer.
+capability detection, and it has a one-line answer. §9 also carries the other
+four things a client needs: how to tell that a run actually ran (`$sim_status`,
+not the exit status), the warning ngspice emits when a deck spells one node two
+ways, what the raw file records about the mode, and which mode to ask for.
 
 ## 1. The command
 
@@ -159,6 +162,11 @@ subckt/model and a `.func` formal/body mismatch. A CI gate on `$?` passes every
 silent corruption. Note also that stderr is *never* empty under distinguish —
 the experimental banner is always there — so "stderr empty = pass" fails every
 run.
+
+**What to gate on instead is `$sim_status`**, the per-analysis outcome, read
+from inside the `.control` block and turned into an exit status of your own
+choosing with `quit <n>`. §9 has the guard block, the measurements, and the
+three properties you have to know before you trust it.
 
 ## 6. Auditing your own deck
 
@@ -327,6 +335,176 @@ argument vector you intend to use for simulations, so it inherits the same
 `spinit`/`.spiceinit` situation; then the answer is about your real runs and
 not about the binary in the abstract.
 
+### Guard the run with `$sim_status`, not with the exit status
+
+The exit status of a batch run does not tell you whether the analysis ran. It
+reports whichever arm of `main()`'s batch epilogue ran last, and which arm that
+is depends on `-r` and on whether the deck carries an analysis dot card — a
+deck author cannot read it off the deck (`doc/codex/issues/0069`). **That is
+not going to change, by decision.** `run` inside `.control` is ngspice's
+scripting interface, and decks legitimately retry, sweep and continue past a
+failed run; making a failed `run` a process failure would be a behaviour change
+to every such script, with no opt-out.
+
+What you get instead is better than an exit status, because it fires *before*
+the artefact exists. `$sim_status` is the per-analysis outcome, readable from
+the control language, and `quit <n>` gives the deck the exit status of its
+choice. Emit this into every deck you generate — it is complete and runnable as
+printed:
+
+```spice
+* guard.cir -- analysis dot card, .control run, no -r: the shape a
+* schematic tool generates, and the shape that otherwise exits 0.
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.save v(midnode)
+.op
+.control
+run
+if $sim_status ne 0
+  echo RUN-FAILED
+  quit 1
+end
+write guard.raw
+.endc
+.end
+```
+
+The `.save` card spells the net `midnode` where the deck defines it as
+`MidNode`, so it resolves under `fold` and `preserve` and misses under
+`distinguish`. Measured, one run per row:
+
+| mode | rc | guard fired | `guard.raw` |
+| --- | --- | --- | --- |
+| fold | 0 | no | written, `Plotname: Operating Point` |
+| preserve | 0 | no | written, `Plotname: Operating Point` |
+| **distinguish** | **1** | **yes** | **absent** |
+
+Delete the four guard lines and the same deck exits **0** in all three modes,
+and under `distinguish` leaves a 570-byte `Plotname: constants` rawfile behind
+— well formed, loading without a diagnostic, holding the twelve physical
+constants. The guard turns that into rc=1 and no file at all.
+
+**It needs nothing from this build.** The same guard with `.save
+v(nosuchnode)` and no `casemode` flag anywhere is rc=1, `RUN-FAILED`, no
+rawfile on stock `ngspice-46` exactly as here; unguarded, both are rc=0 with a
+constants file (569 bytes on stock, 570 here). So you can emit it against every
+ngspice you support, today.
+
+Three properties, each measured:
+
+1. **Per analysis, last writer wins.** A deck that fails one analysis and then
+   succeeds at another reads 0 at the end — `save v(midnode)` / `op` gives
+   `AFTER-BAD=1`, and `save all` / `op` after it gives `AFTER-GOOD=0`. Read it
+   after *each* `run`, not once at the end of the block.
+2. **It does not exist before the first analysis.** `echo $sim_status` in a
+   block that has not run anything prints an empty string and puts
+   `Error: sim_status: no such variable.` on stderr. If your block can reach
+   the guard without a `run`, test `$?sim_status` first: measured, it answers
+   `0` before the first analysis and `1` after it.
+3. **`0` does not mean data was produced.** A `run` with no analysis to do sets
+   it to 0. `sim_status == 0` means "the last analysis did not report a
+   failure", not "an analysis produced data" — for the second question you
+   still have to ask the rawfile.
+
+And **rc=1 does not mean nothing was written**, which is the trap on the other
+side. A deck whose analysis lives only in a `.control` block exits 1 when the
+run fails and still leaves a 570-byte constants file on disk, because the
+`write` inside the block already ran. Reading `$sim_status` before the `write`
+is what avoids that; no reading of rc can.
+
+**Do not carry both an analysis dot card and a `.control run`.** With no `-r`,
+ngspice re-runs the deck's analysis dot cards *after* the control block has
+ended, so that deck shape runs the analysis **twice**. Measured on the guard
+deck's shape under `distinguish`: `Doing analysis` twice, and a `.save`
+near-miss warning **twice for one mistake**. It is also why rc describes the
+second run rather than the one that failed. Either put the analysis command
+inside the `.control` block and drop the dot card, or keep the dot card and
+drop the block. If you relay warnings, deduplicate on the token the message
+quotes — it is in single quotes for that reason.
+
+### A node the deck spells two ways is reported, in all three modes
+
+This is the signal to relay to a user who drew `Out` and `OUT` and got one net.
+Since 2026-08-14 the parser reports it on stderr whatever the mode
+(`doc/codex/issues/0068`). Deck:
+
+```spice
+* coll.cir -- one node, two spellings
+V1 in 0 dc 1.5
+R1 in Out 1k
+R2 out 0 1k
+.op
+.end
+```
+
+| run | stderr |
+| --- | --- |
+| `-D casemode=fold` | `Warning: node names 'Out' and 'out' differ only in case and name one node (casemode=fold)` |
+| `-D casemode=preserve` | the same line, `name one node (casemode=preserve)` |
+| `-D casemode=distinguish` | the same line, **`name two nodes`** `(casemode=distinguish)` |
+| no flag at all | `name one node (casemode=fold)` |
+| `ngspice-46` | *(nothing)* |
+
+Four properties to build on:
+
+- **All three modes**, which is what makes it useful to you: `fold` and
+  `preserve` are the modes you will actually ship under, and they are the two
+  where the collision merges silently.
+- **The sentence names the outcome, not the mistake** — `one node` / `two
+  nodes`. Under `distinguish` two case-variant nets are the feature, so the
+  line tells that user what they got rather than telling them off.
+- **Once per colliding pair per parse**, not once per occurrence: `Out` on
+  three cards and `out` on two more is one line. Three spellings are one line
+  under `fold` and `preserve` and **three** under `distinguish`, one per pair,
+  because there they really are three nodes. It does not double on the
+  two-simulation deck shape above — measured on a deck carrying both a pair and
+  a `.save` near miss under `distinguish`, two analyses gave **one** pair line
+  and **two** near-miss lines. The one place the count grows is a pair inside a
+  `.subckt` body: that is one line per instantiation, so three instances of the
+  body give three identical lines (measured), and a large netlist can give
+  hundreds. Deduplicate on the quoted pair.
+- **It covers cards you did not write.** The detection is at the parser's node
+  symbol table, so it sees every card the deck reads, including the ones an
+  `.include`d PDK brought — measured, with the second spelling in the included
+  file and the first in the deck, reported in all three modes. That is the half
+  your own netlister could never cover.
+
+It goes to ngspice's `cp_err` stream, which in a batch run is the process's
+stderr, and it is emitted **at parse time**, before any `.control` block runs —
+so a `>&` redirect inside the block cannot catch it. Read it from the process's
+stderr, along with the near-miss warnings.
+
+**Carry it across with its silences.** A consumer that treats the absence of
+this line as "no collision" will be wrong in the mode ngspice ships in.
+Measured, one deck per row, second spelling only in the place named:
+
+| where the deck's second spelling appears | fold | preserve | distinguish |
+| --- | --- | --- | --- |
+| a top-level device card | reported | reported | reported |
+| a card an `.include`d file brought | reported | reported | reported |
+| inside a `.subckt` body | **silent** | reported, as `X1.Mid`/`X1.mid`, once per instantiation | as `preserve` |
+| only on an `X` card's actual | **silent** | reported | reported |
+| on a card the preprocessor rebuilds — every B source, and any `E`/`G`/`R`/`C`/`L` carrying an expression | **silent** | reported | reported from a node field; from inside an expression you get the near-miss line instead |
+| a `.model`, `.subckt`, `.global` or `.param` name | **silent** | **silent** | **silent** |
+
+Two readings of that table. **`fold` is the default and it is the quietest
+column.** Its three extra silences — rows 3, 4 and 5 — are all cards whose
+pre-fold text the preprocessor does not keep, so by the time the node is
+interned there is no second spelling left to compare; `preserve` and
+`distinguish` keep the deck's own spellings and so still see them. If you ship
+under `fold`, that is the shape of what you will and will not be told.
+
+And **the last row is not a to-do item.** Those four namespaces have no single
+place where both spellings meet, and
+`doc/claude/decisions/0018-node-name-collision-report.md` decision 1 rejects
+widening past nodes on that ground rather than deferring it. The `distinguish`
+experimental banner names all four as the silence that remains — which is also
+a warning to you: that banner's *text* changed when this work landed, so
+anything of yours matching on the whole string rather than on its prefix will
+have stopped matching.
+
 ### What actually changes for a schematic tool: the raw file
 
 This is the payoff, and it does not need `distinguish`. Net `MidNode`,
@@ -465,13 +643,64 @@ silently floats, with rc=0 either way. A GUI that emits netlists
 programmatically is well placed to be consistent, but it inherits the user's
 libraries, and library names are not yours to case (§3).
 
+### Under `distinguish`, `.save` stays byte-exact — permanently
+
+If you offer `distinguish` as a setting, you can word the warning beside it as
+**permanent**. A `.save` card that spells a net in a case the defining card did
+not is fatal under `distinguish`, and it is going to stay that way. Measured,
+`.save v(midnode)` against a net the deck defines as `MidNode`:
+
+| mode | rc | rawfile |
+| --- | --- | --- |
+| fold | 0 | `No. Variables: 1`, `v(midnode)` |
+| preserve | 0 | `No. Variables: 1`, `v(MidNode)` |
+| **distinguish** | **1** | none written |
+
+with, on stderr under `distinguish`, `Warning: no vector named 'midnode';
+'MidNode' differs only in case (casemode=distinguish)` and then `Error: no data
+saved for D.C. Operating point analysis; analysis not run` /
+`run simulation(s) aborted`.
+
+**That is a contract, not an interim state**, and the shape of the record it
+lives in is what makes it one. `doc/claude/decisions/0001-distinguish.md`
+decision 5 is a list of guarantees `preserve` makes that `distinguish`
+deliberately **withdraws** — not a list of things `distinguish` has not got
+round to. The clause is:
+
+> Two spellings of a name typed at the control language: `alter`, `show`,
+> `@dev[param]`, `let`, `print`, **`save`**. The typed name must now match the
+> stored spelling exactly.
+
+The mode exists so that `Out` and `OUT` can be two nets. A folded `.save` would
+be asking for both of them and being handed one, which is the thing the mode is
+for refusing — so making it fold would not be a bug fix, it would be a
+withdrawal of the mode. `tests/regression/casedist/save-name-case.cir` is the
+regression guard that keeps it that way, and it exists specifically to catch a
+future loosening.
+
+**`.print` is the same card in different clothes.** Measured on the same net
+with `.dc Vs 1 3 1` / `.print dc v(midnode)`: rc=0 with a `v(midnode)` column
+under `fold`, rc=0 with a `v(midnode)` column under `preserve`, and under
+`distinguish` the same near-miss warning followed by `Error: no data saved for
+D.C. Transfer curve analysis; analysis not run` and rc=1. So the contract is
+not a quirk of one card.
+
+The practical rule for a generator: under `distinguish`, every name your deck
+*types* rather than defines — `.save` and `.print`, and `print`, `let`,
+`alter`, `show`, `@dev[param]` inside `.control` — has to be spelled the way
+the card that defines it spells it. A mis-cased `print` inside `.control` is
+the quiet one: it emits the near-miss warning and no value, and the run still
+exits 0. Under `preserve` none of this applies, which is the other half of the
+case for picking `preserve`.
+
 ### If you offer it as a setting
 
 Probe once at startup with the user's configured ngspice command; if the
 result is `NGCASE=folded` when they asked for `distinguish`, say so rather
 than proceeding — that is the state in which everything looks fine and the
 numbers are quietly folded. Do not gate on exit status: rc=0 covers every
-silent trap in §5.
+silent trap in §5. Gate on `$sim_status` inside the deck instead, and let the
+deck choose its own exit status with `quit <n>` — the guard block is above.
 
 ## Worked example
 
