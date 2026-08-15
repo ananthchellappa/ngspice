@@ -13,9 +13,21 @@ change to `sp_shutdown()`.
 
 Pre-existing, upstream and mode independent. Reproduces on
 `/usr/local/bin/ngspice` (`ngspice-46`, no `casemode` support) with no `-D` at
-all, from a `.save` of a node no netlist has. Every measurement below was taken
+all, from a `.save` of a node no netlist has. The measurements were first taken
 2026-08-14 against `build-ver_50/src/ngspice` (`ngspice-46+`, build stamp
-`Fri Aug 14 20:52:09 UTC 2026`), with stock as the baseline.
+`Fri Aug 14 20:52:09 UTC 2026`), with stock as the baseline, and every one of
+them was re-taken 2026-08-15 against the same path rebuilt (build stamp
+`Sat Aug 15 18:18:34 UTC 2026`).
+
+**Corrected 2026-08-15.** The Resolution's guard listing had no netlist lines in
+it — as printed it was not a runnable deck, it was a `.control` block with
+nothing to simulate — and it named three `.cir` files that exist nowhere in the
+tree, which is what every number in its table was attributed to. Every deck in
+this file is now printed complete and was run as printed, every number was
+re-measured, and no file is named that does not exist. Two byte counts moved,
+for a reason recorded under *Resolution*; no rc and no table row moved. The
+decision is untouched: the exit status does not change and `$sim_status` is the
+answer.
 
 Reported by the client integration (xschem generating decks, reading the raw
 file back) as **R1** of
@@ -42,7 +54,9 @@ flag rather than the block that decides.
 The controlled experiment. One deck spelling its net `MidNode` and its `.save`
 card `v(midnode)`, so the save misses under `distinguish`; one deck the same
 plus a `.control run` / `write` block, which is how a generated deck names its
-own rawfile. Four runs, `repro2/plain_fail.cir` and `repro2/ctl_fail.cir`:
+own rawfile. Both decks are committed, at
+`doc/claude/feedback/reply_from_xschem_session/repro2/plain_fail.cir` and
+`.../repro2/ctl_fail.cir`. Four runs, re-measured 2026-08-15 and unchanged:
 
 ```
 $ ngspice -b -n -D casemode=distinguish -r plain_fail.raw plain_fail.cir
@@ -58,17 +72,24 @@ rc=1        ctl_fail.raw: Plotname: constants <- same deck, -r added
 The `.control` block is not what changes the answer. A deck whose analysis
 lives *only* in a `.control` block — no analysis dot card at all — exits 1:
 
-```
-* ctl_noop.cir -- no analysis dot card; op and write inside .control
+```spice
+* ctl_only.cir -- no analysis dot card; save, op and write inside .control
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
 .control
 save v(midnode)
 op
-write ctl_noop.raw
+write ctl_only.raw
 .endc
-
-rc=1, one analysis, one near-miss warning, and ctl_noop.raw is
-599 bytes of Plotname: constants anyway.
+.end
 ```
+
+`ngspice -b -n -D casemode=distinguish ctl_only.cir` exits **1**, with one
+analysis, one near-miss warning, and `ctl_only.raw` on disk anyway — 570 bytes
+of `Plotname: constants`. Under `fold` and `preserve` the same deck is rc=0 with
+a 289-byte `Plotname: Operating Point` file, so the exit status here is tracking
+the failure and not the block.
 
 So the client's rule of thumb — "a `.control` deck has no `rc`" — is not the
 rule, and the rule it replaces is worse: rc reports whichever of `main()`'s
@@ -90,18 +111,22 @@ Every channel a consumer has then agrees the run was fine:
 | --- | --- |
 | exit status | 0 |
 | stdout | `binary raw file "ctl_fail.raw"` |
-| stderr | the near-miss warning, if the miss was a case near miss; **nothing at all** if the name is simply absent (`doc/codex/issues/0057`) |
+| stderr | the near-miss warning, if the miss was a case near miss; if the name is simply absent, `Error: no data saved …; analysis not run` and `run simulation(s) aborted` and **no line naming the token** (`doc/codex/issues/0057`) |
 | the rawfile | well formed, loads without a diagnostic, twelve variables (`doc/codex/issues/0059`) |
 
-Measured on `repro2/absent.cir`, `.save v(nosuchnode)`, which needs no case
-mode to reach:
+Measured on `doc/claude/feedback/reply_from_xschem_session/repro2/absent.cir`
+— `.save v(nosuchnode)` in the shape above, which needs no case mode to reach
+— and re-measured 2026-08-15:
 
 ```
-ver_50 -D casemode=fold          rc=0   Plotname: constants   mentions of 'nosuchnode': 0
-ver_50 -D casemode=preserve      rc=0   Plotname: constants   mentions of 'nosuchnode': 0
-ver_50 -D casemode=distinguish   rc=0   Plotname: constants   mentions of 'nosuchnode': 0
-stock ngspice-46, no flag        rc=0   Plotname: constants
+ver_50 -D casemode=fold          rc=0   Plotname: constants  570 bytes  mentions of 'nosuchnode': 0
+ver_50 -D casemode=preserve      rc=0   Plotname: constants  570 bytes  mentions of 'nosuchnode': 0
+ver_50 -D casemode=distinguish   rc=0   Plotname: constants  570 bytes  mentions of 'nosuchnode': 0
+stock ngspice-46, no flag        rc=0   Plotname: constants  569 bytes
 ```
+
+The count of mentions is over the rawfile, stdout and stderr together: no
+channel names the token the deck got wrong.
 
 The rows above are `doc/codex/issues/0059`'s Impact reached through this
 issue's rc=0 arm; 0059 records the same deck at rc=1 because it measured the
@@ -117,8 +142,8 @@ simulation, and this deck shape is two simulations. The two findings are one
 deck shape and are cross-referenced from 0057.
 
 The reverse hazard is worth stating too, because a client that starts trusting
-rc=1 will meet it: **rc=1 does not mean nothing was written.** `ctl_noop.cir`
-above exits 1 and leaves a 599-byte constants rawfile on disk, and the `-r`
+rc=1 will meet it: **rc=1 does not mean nothing was written.** The control-only
+deck above exits 1 and leaves a 570-byte constants rawfile on disk, and the `-r`
 arm's `ctl_fail.cir` + `-r` run exits 1 having written `ctl_fail.raw` from
 inside the control block. Whatever rc says, 0059's content checks are still
 owed.
@@ -172,8 +197,11 @@ Each arm is correct on its own and the four together have no single subject.
 - **Arm 3, no dot card, a `.control` run that set `sim_status` to 0.** Reports
   success, correctly.
 - **Arm 4, everything else,** including a `.control`-only deck whose run
-  failed: `error3` is 1, so `EXIT_BAD`. This is why `ctl_noop.cir` exits 1 and
-  why "`.control` swallows the status" is the wrong description.
+  failed: `error3` is 1, so `EXIT_BAD`. This is why the control-only deck of
+  *Summary* exits 1 and why "`.control` swallows the status" is the wrong
+  description. Measured on the same deck with a `.save` that resolves, this arm
+  is also the rc=0 one: `Note: Simulation executed from .control section` on
+  stdout, `EXIT_NORMAL`.
 
 `sim_status` itself is set in `src/frontend/runcoms.c`: to `err` before the
 analysis at `:329`, and to 1 at `:352` (`simulation(s) aborted`) and `:358`
@@ -217,6 +245,38 @@ change. Criteria 1 and 2 are the decision; 3 to 5 are what is owed anyway.
    constants rawfile on disk. Any documentation of this issue that lets a
    reader infer otherwise is wrong; `doc/codex/issues/0059` is still owed.
 
+### Where the criteria stand, checked 2026-08-15
+
+The criteria themselves still say what is owed and none of them is withdrawn.
+Four of the five are met; the third is not, and nothing in this batch writes it.
+
+1. **Met.** `src/main.c` has no commit on `ver_50` since this issue was filed
+   and the chain is where *Root Cause* quotes it, line for line: `error3 = 1` at
+   `:1534`, the `cp_getvar` at `:1559`, `if (rflag)` at `:1561`,
+   `else if (ft_savedotargs())` at `:1577`, `else if (error3 == 0)` at `:1584`,
+   the final `else` at `:1588`. `runcoms.c`'s three writes are still at
+   `:329`, `:352` and `:358`.
+2. **Met, at all three places.**
+   `doc/claude/casemode-distinguish-guide.md` §9 carries the subsection *Guard
+   the run with `$sim_status`, not with the exit status* with the complete deck
+   and all three properties; `doc/claude/feedback/ngspice_upstream/RESPONSE.md`
+   carries them under *The answer: `$sim_status`, and it needs no ngspice
+   change*; this issue's *Resolution* is the third. All three say per analysis,
+   last writer wins, and absent before the first analysis.
+3. **Not met, and still owed.** There is no test anywhere under `tests/` that
+   mentions `sim_status` — `grep -rl sim_status tests/` returns nothing on
+   2026-08-15. The guard shape is documented and measured in three places and
+   asserted in none, so nothing in the suite would notice if a future change
+   broke it. The specification in the criterion is unchanged, including that
+   `tests/regression/pipe/` is the directory that can see an exit status.
+4. **Met.** The two-simulation shape is in the guide's §9 as *Do not carry both
+   an analysis dot card and a `.control run`*, and in this issue's *Impact*.
+   Re-measured 2026-08-15 on `repro2/ctl_fail.cir` under `distinguish`: two
+   `Doing analysis` lines and two near-miss warnings for one mistake, rc=0.
+5. **Met.** Both this issue and the guide state the reverse hazard, and the
+   number behind it was re-measured: the control-only deck exits 1 and leaves a
+   570-byte constants file. `doc/codex/issues/0059` is still owed.
+
 ## Resolution
 
 **Not fixed, by decision, and the replacement is measured.**
@@ -226,11 +286,26 @@ language before the `write` that would produce the bogus artefact, and `quit
 <n>` propagates a status of the deck's choosing. So a client gets a reliable
 signal with no ngspice change and no risk to the scripts of criterion 1.
 
+**Re-measured 2026-08-15** against `build-ver_50/src/ngspice` (`ngspice-46+`,
+build stamp `Sat Aug 15 18:18:34 UTC 2026`), with `/usr/local/bin/ngspice`
+(`ngspice-46`) as the baseline. **Every deck below is printed complete and runs
+as printed.** The 2026-08-14 listing was neither: it had no netlist lines in it
+at all, so a reader who copied it got the `dotcards.c` assertion abort rather
+than a demonstration, and the three file names it carried
+(`guard_both.cir`, `guard_absent.cir`, `ctl_noop.cir`) named nothing in the
+tree. Nothing here is committed as a `.cir` either — copy the block. The same
+guard, in the same shape and with the same measurements, is
+`doc/claude/casemode-distinguish-guide.md` §9, which is where a client reads it.
+
 Measured in the client's own deck shape — analysis dot card, `.control run`,
 no `-r`, which is the shape that gives rc=0:
 
-```
-* guard_both.cir
+```spice
+* guard.cir -- analysis dot card, .control run, no -r: the shape a
+* schematic tool generates, and the shape that otherwise exits 0.
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
 .save v(midnode)
 .op
 .control
@@ -239,14 +314,19 @@ if $sim_status ne 0
   echo RUN-FAILED
   quit 1
 end
-write guard_both.raw
+write guard.raw
 .endc
+.end
 ```
 
-| mode | rc | guard fired | rawfile |
+The `.save` card spells the net `midnode` where the netlist defines it as
+`MidNode`, so it resolves under `fold` and `preserve` and misses under
+`distinguish`. One run per row, `ngspice -b -n -D casemode=<mode> guard.cir`:
+
+| mode | rc | guard fired | `guard.raw` |
 | --- | --- | --- | --- |
-| `fold` | 0 | no | written, `Plotname: Operating Point` |
-| `preserve` | 0 | no | written, `Plotname: Operating Point` |
+| `fold` | 0 | no | written, `Plotname: Operating Point`, 281 bytes, one variable `v(midnode)` |
+| `preserve` | 0 | no | written, `Plotname: Operating Point`, 281 bytes, one variable `v(MidNode)` |
 | `distinguish` | **1** | **yes** | **absent** |
 
 The `distinguish` row is the failing run: rc is 1 where the unguarded deck gave
@@ -254,47 +334,107 @@ The `distinguish` row is the failing run: rc is 1 where the unguarded deck gave
 the `write`. The `fold` and `preserve` rows are `doc/codex/issues/0056`'s fix
 — the folded `.save` card resolves — and are the negative control.
 
-**It works on stock.** Same guard, `.save v(nosuchnode)`, no `casemode` flag
+Delete the four guard lines (`if` through `end`) and the same deck exits **0**
+in every mode:
+
+```
+UNGUARDED fold         rc=0   Plotname: Operating Point   281 bytes
+UNGUARDED preserve     rc=0   Plotname: Operating Point   281 bytes
+UNGUARDED distinguish  rc=0   Plotname: constants         570 bytes, 12 variables
+```
+
+**It works on stock.** Change that deck's one card to `.save v(nosuchnode)`,
+which misses in every mode, and run both binaries with no `casemode` flag
 anywhere:
 
 ```
-stock ngspice-46      rc=1   RUN-FAILED   guard_absent.raw ABSENT
-ver_50 (no flag)      rc=1   RUN-FAILED   guard_absent.raw ABSENT
+guarded    stock ngspice-46   rc=1   RUN-FAILED   guard.raw ABSENT
+guarded    ver_50 (no flag)   rc=1   RUN-FAILED   guard.raw ABSENT
+unguarded  stock ngspice-46   rc=0   Plotname: constants   569 bytes
+unguarded  ver_50 (no flag)   rc=0   Plotname: constants   570 bytes
 ```
 
-Unguarded, the same deck is rc=0 with a constants raw on both binaries — 569
-bytes on stock, 592 here, the difference being the `Option: casemode=fold` line
-`raw_write()` gained on 2026-08-14, which the bogus file carries exactly as a
-good one does. So this is not a feature of this branch and a client can adopt
-the guard against every ngspice they support; and the new header line is a
-record of the mode, not of the run's health.
+So this is not a feature of this branch and a client can adopt the guard
+against every ngspice they support.
+
+**Two of the byte counts this issue first recorded have moved, and no run has.**
+On 2026-08-14 the unguarded constants file measured 592 bytes here against 569
+on stock, and 599 under `distinguish` in the control-only deck. The difference
+was the `Option: casemode=…` line `raw_write()` had just gained, which the
+20:52 build wrote unconditionally. As committed that line is opt-in behind
+`casemodewrite` — `9e341a8b7`, the same evening,
+`doc/codex/issues/0070` — so the default file is now 570 bytes and differs from
+stock's 569 only by the `+` in the version string. Setting the gate brings both
+old numbers back exactly: `set casemodewrite` before the `write` gives 592 under
+`fold` and 599 under `distinguish`, those two lines being 22 and 29 bytes. As of
+`731c01455` the `-r` writer emits the same gated line
+(`doc/codex/issues/0071`). Either way the header line is a record of the mode,
+not of the run's health: the bogus file carries it exactly as a good one does.
 
 **Three properties a consumer has to know**, each measured rather than
-reasoned:
+reasoned. The first two come out of one deck:
 
-1. **It is per analysis, and last writer wins.** A deck that fails one analysis
-   and then succeeds at another reads 0 at the end:
+```spice
+* props.cir -- $sim_status before any run, after a failed one, after a good one
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.control
+echo HAVE-BEFORE=$?sim_status
+echo VALUE-BEFORE=$sim_status
+save v(midnode)
+op
+echo HAVE-AFTER=$?sim_status
+echo AFTER-BAD=$sim_status
+save all
+op
+echo AFTER-GOOD=$sim_status
+.endc
+.end
+```
 
-   ```
-   .control
-   save v(midnode) / op / echo AFTER-BAD=$sim_status     -> AFTER-BAD=1
-   save all        / op / echo AFTER-GOOD=$sim_status    -> AFTER-GOOD=0
-   ```
+`ngspice -b -n -D casemode=distinguish props.cir`, rc=0:
 
-   So it must be read **after each run**, not once at the end of the block.
-   This is the same reading `doc/codex/issues/0059`'s `status_probe.cir`
-   already took, from the other side.
-2. **It does not exist before the first analysis.** `echo $sim_status` in a
-   `.control` block that has not run anything answers an empty string and puts
-   `Error: sim_status: no such variable.` on stderr. A guard that runs before
-   the first `run` therefore has to test `$?sim_status` first, or accept the
-   error line.
+```
+HAVE-BEFORE=0                                  <- stdout
+VALUE-BEFORE=                                  <- stdout, empty
+HAVE-AFTER=1
+AFTER-BAD=1
+AFTER-GOOD=0
+Error: sim_status: no such variable.           <- stderr, from the read before the first run
+```
+
+1. **It is per analysis, and last writer wins.** `AFTER-BAD=1` then
+   `AFTER-GOOD=0`: a deck that fails one analysis and then succeeds at another
+   reads 0 at the end. So it must be read **after each run**, not once at the
+   end of the block. This is the same reading `doc/codex/issues/0059`'s
+   `status_probe.cir` already took, from the other side.
+2. **It does not exist before the first analysis.** `$?sim_status` is `0` before
+   the first `op` and `1` after it, `echo $sim_status` answers an empty string,
+   and the read puts `Error: sim_status: no such variable.` on stderr. A guard
+   that can be reached before the first `run` therefore has to test
+   `$?sim_status` first, or accept the error line.
 3. **A `run` that had no analysis to do reads 0.** A deck with no analysis card
-   at all, whose `.control` block says only `run`, sets `sim_status` to 0 —
-   `runcoms.c:329` writes `err` before dispatching and nothing failed. So
-   `sim_status == 0` means "the last analysis did not report a failure", not
-   "an analysis produced data". A consumer that needs the second question has
-   to ask the rawfile, which is `doc/codex/issues/0059` again.
+   at all, whose `.control` block says only `run`:
+
+   ```spice
+   * noanalysis.cir -- no analysis card anywhere; the block only runs
+   Vs In 0 DC 3
+   Rl In MidNode 1k
+   Rg MidNode 0 3k
+   .control
+   run
+   echo AFTER-RUN=$sim_status
+   .endc
+   .end
+   ```
+
+   answers `AFTER-RUN=0`, prints `Note: Simulation executed from .control
+   section` and exits 0 — arm 3 of the chain. `runcoms.c:329` writes `err`
+   before dispatching and nothing failed. So `sim_status == 0` means "the last
+   analysis did not report a failure", not "an analysis produced data". A
+   consumer that needs the second question has to ask the rawfile, which is
+   `doc/codex/issues/0059` again.
 
 **What this does not give the client.** `$sim_status` is in-band: it is
 readable by the deck and it reaches a consumer only if the deck is written to
@@ -311,5 +451,16 @@ residual, and it is the same residual `0059` records — neither `sim_status` no
 - `doc/codex/issues/0057` — the diagnostic half. Its per-simulation contract
   plus this issue's two-simulation deck shape is R4 of the client's reply.
 - `doc/codex/issues/0064` — the phantom `v(all)`, which the same client decks
-  produce, and which is why a vector-count check on the rawfile has to expect
-  n+1 for a single-vector plot.
+  produced. **Fixed 2026-08-15** (`25e891ec3`), in the narrow scope: a bare
+  `write` of a one-vector plot now holds the net's own name and one column,
+  which is why the guard table's `fold` and `preserve` rows read *one variable
+  `v(midnode)`* today where the same run would have written `v(midnode)` and
+  `v(all)` the day before (`tests/regression/misc/wildcard-rename.cir` is the
+  assertion). 0064's second mechanism — `com_write()`'s scale prepend, which
+  still duplicates the column when the argument is a name rather than a wildcard
+  — survives that fix and is being filed on its own number by item 5 of
+  `doc/claude/batches/2026-08-15-xschem-open-items/PLAN.md`. Measured
+  2026-08-15 on the guard deck under `fold`: bare `write guard.raw` gives one
+  column `v(midnode)`, `write guard.raw v(midnode)` gives two columns of that
+  same name. A vector-count check on a rawfile still has to know which of the
+  two it is looking at.
