@@ -1,0 +1,36 @@
+* self-test: the .invoke sidecar, read against a .status that is wrong
+*
+* This deck has two jobs.
+*
+* 1. Prove the verdict inversion still works on the new code path.  The deck
+*    runs cleanly and exits 0, selftest-invoke.status says 3, and
+*    selftest-invoke.mustfail names the status check as the one that has to
+*    report it.  Same idea as selftest-status.cir, one route further out.
+*
+* 2. Prove selftest-invoke.invoke is actually honoured, which passing under a
+*    declared route otherwise does not: a deck that passes under 'route notty'
+*    would pass just as well if the driver ignored the sidecar and ran the
+*    default.  So selftest-invoke.files asserts one artefact per key:
+*
+*      - 'batchmode=0' in selftest-invoke.evidence.  $?batchmode is the cp
+*        variable main.c:1032 sets from -b / --batch, and nothing else in the
+*        tree sets it.  'route notty' runs 'ngspice -n <deck> < /dev/null',
+*        which reaches batch mode at main.c:1177 -- no tty and no -i -- and
+*        never touches that variable.  Under the default batch route this
+*        same line writes 'batchmode=1'.
+*      - selftest-invoke.raw exists.  Only the 'flags -r selftest-invoke.raw'
+*        line puts a -r on the command line, and without it a batch run of
+*        this deck writes no rawfile at all.
+*
+*    'files' is deliberately NOT in selftest-invoke.mustfail.  .mustfail is
+*    set equality, so a driver that quietly ignored the sidecar would fail
+*    files as well as status and this entry would report SELF-TEST FAILED.
+*    Passing it means the sidecar was read, both keys were used, and the
+*    driver can still fail.
+v1 in 0 dc 1
+r1 in 0 1k
+.op
+.control
+echo "batchmode=$?batchmode" > selftest-invoke.evidence
+.endc
+.end

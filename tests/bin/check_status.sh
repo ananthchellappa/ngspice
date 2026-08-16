@@ -18,6 +18,30 @@
 #   <base>.status    required.  One integer: the exit status the run must
 #                    return.  A value >= 128 is refused -- see the signal
 #                    check below.
+#   <base>.invoke    optional, and the only one of these files that changes
+#                    what is run rather than what is asserted about it.  Two
+#                    keys, at most one line each; '#' starts a comment and
+#                    blank lines are ignored:
+#                        route  batch | stdin | notty
+#                        flags  <words put on the command line before the
+#                                deck>
+#                    The routes are the three ways main.c:1175 lets a run
+#                    reach batch mode:
+#                        batch   $SPICE --batch -n [flags] <deck>
+#                        stdin   $SPICE -b -n [flags] < <deck>
+#                        notty   $SPICE -n [flags] <deck> < /dev/null
+#                    'batch' is the default, so a deck with no .invoke is run
+#                    exactly as every deck here was run before this file
+#                    existed.  An unknown key, an unknown route, a repeated
+#                    key or a 'flags' with no words is a broken test spec.
+#                    A flags word may hold only letters, digits and
+#                    . _ / = + , : - and may not be an absolute path or
+#                    contain '..'; the words are put on a command line
+#                    unquoted, so this driver never runs a string a deck
+#                    supplied that it has not first restricted to that set.
+#                    A file the flags cause the run to write is cleaned by
+#                    the directory's CLEANFILES, and is deleted before the
+#                    run only if some <base>.files line also names it.
 #   <base>.err       optional.  The filtered stderr of the run, compared with
 #                    diff -B -w.  Both sides are put through the same filter,
 #                    so a reference file may be pasted straight from a run.
@@ -43,7 +67,9 @@
 #
 # The run's stdout and stderr are captured to <base>.stdout and <base>.stderr
 # in the current directory, which is the build directory.  They are removed on
-# success and left in place on failure.
+# success and left in place on failure.  Every FAILED report carries the exact
+# command line the driver used, because a route that silently fell back to the
+# default is otherwise invisible, and that is the way this feature rots.
 #
 # Exit 0 if every check passed (or, under .mustfail, if exactly the named
 # checks failed), 1 otherwise.
@@ -74,7 +100,10 @@ done
 testname=`basename $TEST .cir`
 testdir=`dirname $TEST`
 
+deck=$testdir/$testname.cir
+
 status_spec=$testdir/$testname.status
+invoke_spec=$testdir/$testname.invoke
 err_spec=$testdir/$testname.err
 files_spec=$testdir/$testname.files
 mustfail_spec=$testdir/$testname.mustfail
@@ -167,8 +196,8 @@ words () {
 
 # ---------------------------------------------------------------- the spec
 
-if [ ! -f "$testdir/$testname.cir" ] ; then
-    spec_error "no such deck: $testdir/$testname.cir"
+if [ ! -f "$deck" ] ; then
+    spec_error "no such deck: $deck"
 fi
 
 if [ ! -f "$status_spec" ] ; then
@@ -202,6 +231,97 @@ if [ -f "$mustfail_spec" ] ; then
     done
 fi
 
+# ------------------------------------------------------ how the deck is run
+#
+# The defaults are the fixed command line this driver used before .invoke
+# existed, so a deck without the file is unaffected by any of this.
+route=batch
+flags=
+route_seen=no
+flags_seen=no
+
+if [ -f "$invoke_spec" ] ; then
+    # No pathname expansion while the file is being read.  'flags *' has to
+    # arrive at the check below as one word and be refused there; left to
+    # glob it would quietly become whatever is in the build directory, and
+    # every one of those words would pass the check.
+    set -f
+    # '|| [ -n "$key" ]' picks up a last line with no newline after it.  read
+    # sets the variables and then reports EOF for such a line, so a plain
+    # 'while read' drops it -- and a dropped 'route' line is exactly the
+    # silent fallback to the default that this file exists to make visible.
+    while read -r key rest || [ -n "$key" ] ; do
+        case $key in
+            ''|\#*) continue ;;
+        esac
+        rest=${rest%%#*}
+        case $key in
+            route)
+                if [ "$route_seen" = yes ] ; then
+                    spec_error "$invoke_spec: a second 'route' line; at most one of each key"
+                fi
+                route_seen=yes
+                nword=0
+                for word in $rest ; do
+                    nword=`expr $nword + 1`
+                    if [ $nword -eq 1 ] ; then
+                        route=$word
+                    fi
+                done
+                if [ $nword -ne 1 ] ; then
+                    spec_error "$invoke_spec: 'route' takes exactly one word, got '$rest'"
+                fi
+                case $route in
+                    batch|stdin|notty) ;;
+                    *) spec_error "$invoke_spec: unknown route '$route'; the routes are batch, stdin, notty" ;;
+                esac ;;
+            flags)
+                if [ "$flags_seen" = yes ] ; then
+                    spec_error "$invoke_spec: a second 'flags' line; at most one of each key"
+                fi
+                flags_seen=yes
+                nword=0
+                for word in $rest ; do
+                    nword=`expr $nword + 1`
+                    # An allow-list, not a list of metacharacters to refuse.
+                    # These words go onto a command line unquoted, so the
+                    # question is not "which characters are dangerous today"
+                    # but "which are known to be inert": letters, digits, and
+                    # the punctuation an option or a relative path needs.
+                    # Everything the shell could read as syntax -- a quote, a
+                    # backtick, $ ; & | < > ( ) { } ! ~ # -- and every glob
+                    # character is outside the set by construction.
+                    case $word in
+                        *[!A-Za-z0-9._/=+,:-]*)
+                            spec_error "$invoke_spec: flags word '$word' holds a character this driver will not put on a command line.  A flags word may hold only letters, digits and . _ / = + , : -" ;;
+                    esac
+                    # Same rule as a .files path, for the same reason: this
+                    # directory's runs stay inside the build directory.
+                    case $word in
+                        /*|../*|*/../*|..|*/..)
+                            spec_error "$invoke_spec: flags word '$word' is an absolute path or reaches outside the build directory" ;;
+                    esac
+                done
+                if [ $nword -eq 0 ] ; then
+                    spec_error "$invoke_spec: 'flags' with no words"
+                fi
+                flags=$rest ;;
+            *)
+                spec_error "$invoke_spec: unknown key '$key'; the keys are route, flags" ;;
+        esac
+    done < "$invoke_spec"
+    set +f
+fi
+
+# The command line, as a string, for the failure reports.  Built from the
+# same words the run below uses, and printed by every FAILED path: a route
+# that fell back to the default has to be readable off the failure.
+case $route in
+    batch) invocation="$SPICE --batch -n${flags:+ $flags} $deck" ;;
+    stdin) invocation="$SPICE -b -n${flags:+ $flags} < $deck" ;;
+    notty) invocation="$SPICE -n${flags:+ $flags} $deck < /dev/null" ;;
+esac
+
 # ------------------------------------------------- clear the ground, then run
 
 rm -f "$out" "$err" "$errfilt" "$errwant"
@@ -232,7 +352,11 @@ if [ -f "$mustfail_spec" ] ; then
     echo "  the one this deck exists to produce; the verdict is inverted."
 fi
 
-$SPICE --batch -n "$testdir/$testname.cir" > "$out" 2> "$err"
+case $route in
+    batch) $SPICE --batch -n $flags "$deck" > "$out" 2> "$err" ;;
+    stdin) $SPICE -b -n $flags > "$out" 2> "$err" < "$deck" ;;
+    notty) $SPICE -n $flags "$deck" > "$out" 2> "$err" < /dev/null ;;
+esac
 rc=$?
 
 # ------------------------------------------------------------- the checks
@@ -242,12 +366,14 @@ if [ $rc -ge 128 ] ; then
     echo "check_status: $testname: FAILED (signal)"
     echo "  the simulator did not terminate normally: rc=$rc is 128+$signo, `signal_name $signo`."
     echo "  A run that cannot proceed has to say so and return a status."
+    echo "  invocation: $invocation"
     fail signal
 fi
 
 if [ $rc -ne "$expected" ] ; then
     echo "check_status: $testname: FAILED (status)"
     echo "  expected exit status $expected, got $rc"
+    echo "  invocation: $invocation"
     if [ -s "$err" ] ; then
         echo "  stderr was:"
         sed 's/^/    /' "$err"
@@ -265,6 +391,7 @@ if [ -f "$err_spec" ] ; then
     else
         echo "check_status: $testname: FAILED (err)"
         echo "  filtered stderr does not match $err_spec (- expected, + actual)"
+        echo "  invocation: $invocation"
         fail err
     fi
 fi
@@ -304,6 +431,7 @@ if [ -f "$files_spec" ] ; then
     done < "$files_spec"
     if [ "$files_ok" = no ] ; then
         echo "check_status: $testname: FAILED (files)"
+        echo "  invocation: $invocation"
         fail files
     fi
 fi

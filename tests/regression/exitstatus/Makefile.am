@@ -19,6 +19,19 @@
 ## to report it.  It passes only while the driver can still fail, which is the
 ## one thing a harness directory owes its own suite.
 ##
+## selftest-invoke.cir is the same idea for the fifth assertion file, .invoke,
+## which says how the deck is invoked:
+##
+##     route  batch | stdin | notty     (batch is the default and the
+##                                       behaviour of a deck with no .invoke)
+##     flags  <words put on the command line before the deck>
+##
+## An unknown key, an unknown route, a repeated key or a 'flags' with no words
+## is a broken test spec, not a test failure: the driver exits 1 through
+## spec_error() and .mustfail never inverts it.  selftest-invoke.cir declares
+## both keys and its .files asserts one artefact per key, so the entry fails
+## -- as a self-test, loudly -- if the sidecar is ever read and dropped.
+##
 ## The assertion files deliberately avoid the .out extension, which
 ## tests/.gitignore ignores globally.
 ##
@@ -40,7 +53,7 @@
 ## with a diagnostic", so all three assert a status AND the stderr text, and
 ## the driver's signal check turns a regression back into two named failures.
 
-TESTS = tran-empty-netlist.cir selftest-status.cir \
+TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
 	sim-status-properties.cir sim-status-unset.cir \
 	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir
@@ -55,6 +68,10 @@ EXTRA_DIST = \
 	tran-empty-netlist.files \
 	selftest-status.status \
 	selftest-status.mustfail \
+	selftest-invoke.status \
+	selftest-invoke.mustfail \
+	selftest-invoke.invoke \
+	selftest-invoke.files \
 	sim-status-guard.status \
 	sim-status-guard.files \
 	sim-status-guard-ok.status \
@@ -76,7 +93,10 @@ EXTRA_DIST = \
 # run, so a stale one has to be cleanable too.  sim-status-guard-ok.cir writes
 # its rawfile from inside its .control block and sim-status-guard.cir would if
 # its guard ever stopped firing, so both names are listed here whether or not
-# the run that produced them passed.
+# the run that produced them passed.  selftest-invoke.cir leaves two artefacts
+# behind on a passing run, one per .invoke key: selftest-invoke.raw, which the
+# 'flags -r' line causes, and selftest-invoke.evidence, which its .control
+# block writes so that the route can be read off a file.
 #
 # 'core' and 'core.*' are here for the three op-empty-* decks.  No committed
 # deck dumps one now, and that is the point of them: the state they assert
@@ -88,6 +108,9 @@ CLEANFILES = \
 	tran-empty-netlist.stderr.filtered tran-empty-netlist.stderr.expected \
 	selftest-status.stdout selftest-status.stderr \
 	selftest-status.stderr.filtered selftest-status.stderr.expected \
+	selftest-invoke.stdout selftest-invoke.stderr \
+	selftest-invoke.stderr.filtered selftest-invoke.stderr.expected \
+	selftest-invoke.raw selftest-invoke.evidence \
 	sim-status-guard.stdout sim-status-guard.stderr \
 	sim-status-guard.stderr.filtered sim-status-guard.stderr.expected \
 	sim-status-guard.raw \

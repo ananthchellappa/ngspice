@@ -1,0 +1,12 @@
+# Both lines are about selftest-invoke.invoke, not about the circuit.  The
+# driver deletes every path named here before the run, so neither can be
+# satisfied by an artefact an earlier run left behind.
+#
+# 'route notty' -- no -b anywhere on the command line, so the batchmode cp
+# variable main.c:1032 sets is unset and the deck's .control block writes 0.
+# The default route writes 1.
+grep selftest-invoke.evidence batchmode=0
+
+# 'flags -r selftest-invoke.raw' -- without the flags line there is no -r and
+# no rawfile.
+present selftest-invoke.raw

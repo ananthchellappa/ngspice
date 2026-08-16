@@ -1,0 +1,13 @@
+# How this deck is invoked.  tests/bin/check_status.sh reads it; a deck
+# without one of these files is run the way every deck here was run before
+# the file existed, '$(SPICE) --batch -n <deck>'.
+#
+# route notty is 'ngspice -n <deck> < /dev/null': batch mode reached by
+# having no terminal rather than by asking for it.  It is the row
+# doc/codex/issues/0072 criterion 1 calls the trap.
+route notty
+
+# -r is what makes the run write a rawfile.  selftest-invoke.files asserts
+# the file is there, which is the hard witness that this line was passed
+# through to the simulator rather than parsed and dropped.
+flags -r selftest-invoke.raw

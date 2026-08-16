@@ -1,0 +1,6 @@
+# The set of checks that must fail, and no others.
+#
+# 'files' is not here on purpose.  selftest-invoke.files asserts that
+# selftest-invoke.invoke was honoured, so it has to PASS, and .mustfail's set
+# equality is what turns that into an assertion instead of a hope.
+status

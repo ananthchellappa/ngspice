@@ -1,0 +1,2 @@
+# Deliberately wrong.  The deck exits 0; see selftest-invoke.mustfail.
+3
