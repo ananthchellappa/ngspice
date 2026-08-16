@@ -1,0 +1,5 @@
+# A batch run given no -r and no write command leaves no rawfile.  Asserted
+# because the failure mode this deck is about used to destroy every byte of
+# stdout, so "what did the run leave behind" is the only other question a
+# caller can ask about it.  The driver deletes this path before the run.
+absent rawspice.raw

@@ -1,0 +1,14 @@
+* an .op card and a .tran card, still with no netlist
+* doc/codex/issues/0072 criterion 1 names three deck shapes.  This is the
+* second: the same empty netlist as op-empty-netlist.cir, with a .tran card
+* added.  It aborted too, and it aborted for the .op -- the transient on
+* this netlist has always been a clean rc=1, which is what
+* tran-empty-netlist.cir in this directory asserts.  Adding the .op card is
+* what turned that into a signal, and both cards together produce one
+* diagnostic, not two: ft_cktcoms() reports and returns before it reaches
+* the '.' line loop that would print the transient's table.
+*
+* Everything above .op is a comment, so the circuit has no non-ground node.
+.op
+.tran 1n 10n
+.end

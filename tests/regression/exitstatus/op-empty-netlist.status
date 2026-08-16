@@ -1,0 +1,16 @@
+# doc/codex/issues/0072 criterion 1.  op-empty-netlist.cir is that issue's
+# reproducer byte for byte -- six bytes, a title line and an .op dot card,
+# and deliberately no comment block, because the deck IS the reproducer and
+# anything added to it is no longer the thing that was reported.  The
+# commentary lives here and in Makefile.am instead.
+#
+# Before the fix this run died on assert(plot_cur->pl_dvecs != NULL) in
+# ft_cktcoms() and the shell reported rc=134, 128+SIGABRT, with an empty
+# stdout because abort() does not flush stdio.  The criterion is that the run
+# terminates normally, non-zero, with a diagnostic naming the deck's mistake:
+# hence 1, which is what .tran, .dc and .ac on the identical netlist have
+# always returned, and hence the .err sibling.
+#
+# The driver's signal check is independent of this number and fires on any
+# rc >= 128, so a regression back to the abort fails twice and names SIGABRT.
+1

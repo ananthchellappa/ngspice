@@ -222,7 +222,19 @@ ft_cktcoms(bool terse)
     /* If there was a .op line, then we have to do the .op output. */
     plot_cur = setcplot("op");
     if (plot_cur != NULL) {
-        assert(plot_cur->pl_dvecs != NULL);
+        /* An operating point has no reference vector, so its plot holds one
+           vector per output column and nothing else.  A circuit with no
+           non-ground node yields no columns, and the plot is empty.  That is
+           a property of the deck, not an invariant of this program, so it is
+           reported and returned the way the ft_curckt guard above does --
+           main.c turns the return into the process's exit status. */
+        if (plot_cur->pl_dvecs == NULL) {
+            fprintf(cp_err,
+                    "Error: incomplete or empty netlist\n"
+                    "       or no node to report an operating point for;\n"
+                    "no operating point printed!\n");
+            return 1;
+        }
         if (plot_cur->pl_dvecs->v_realdata != NULL) {
             if (terse) {
                 fprintf(cp_out, "OP information in rawfile.\n");

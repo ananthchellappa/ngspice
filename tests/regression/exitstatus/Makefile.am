@@ -27,10 +27,23 @@
 ## AND a .control run, which is the combination that otherwise exits 0), plus
 ## its negative control and the three properties 0069's Resolution measures.
 ## They are the first decks anywhere under tests/ that mention sim_status.
+##
+## The three op-empty-* decks are doc/codex/issues/0072 criterion 6, which
+## says in as many words that no existing harness can assert that fix.  They
+## are the three deck shapes its criterion 1 names -- an .op dot card alone,
+## with a .tran card, and with a .control run block -- each on a netlist with
+## no non-ground node, which is the state that used to reach
+## assert(plot_cur->pl_dvecs != NULL) in ft_cktcoms() and kill the process
+## with SIGABRT.  op-empty-netlist.cir is that issue's reproducer byte for
+## byte and carries no comment block for that reason; its .status sibling
+## holds the commentary.  The criterion is "terminates normally, non-zero,
+## with a diagnostic", so all three assert a status AND the stderr text, and
+## the driver's signal check turns a regression back into two named failures.
 
 TESTS = tran-empty-netlist.cir selftest-status.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
-	sim-status-properties.cir sim-status-unset.cir
+	sim-status-properties.cir sim-status-unset.cir \
+	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -48,7 +61,14 @@ EXTRA_DIST = \
 	sim-status-guard-ok.files \
 	sim-status-properties.status \
 	sim-status-unset.status \
-	sim-status-unset.err
+	sim-status-unset.err \
+	op-empty-netlist.status \
+	op-empty-netlist.err \
+	op-empty-netlist.files \
+	op-empty-tran.status \
+	op-empty-tran.err \
+	op-empty-control.status \
+	op-empty-control.err
 
 # The driver captures each run's stdout and stderr into the build directory
 # and filters the latter in place; tran-empty-netlist.files asserts that the
@@ -57,6 +77,12 @@ EXTRA_DIST = \
 # its rawfile from inside its .control block and sim-status-guard.cir would if
 # its guard ever stopped firing, so both names are listed here whether or not
 # the run that produced them passed.
+#
+# 'core' and 'core.*' are here for the three op-empty-* decks.  No committed
+# deck dumps one now, and that is the point of them: the state they assert
+# used to abort, and an abort leaves a core file in whichever directory the
+# run was made from, which is this one.  A regression that fails those decks
+# should not also leave an unlisted artefact behind.
 CLEANFILES = \
 	tran-empty-netlist.stdout tran-empty-netlist.stderr \
 	tran-empty-netlist.stderr.filtered tran-empty-netlist.stderr.expected \
@@ -72,6 +98,12 @@ CLEANFILES = \
 	sim-status-properties.stderr.filtered sim-status-properties.stderr.expected \
 	sim-status-unset.stdout sim-status-unset.stderr \
 	sim-status-unset.stderr.filtered sim-status-unset.stderr.expected \
-	rawspice.raw
+	op-empty-netlist.stdout op-empty-netlist.stderr \
+	op-empty-netlist.stderr.filtered op-empty-netlist.stderr.expected \
+	op-empty-tran.stdout op-empty-tran.stderr \
+	op-empty-tran.stderr.filtered op-empty-tran.stderr.expected \
+	op-empty-control.stdout op-empty-control.stderr \
+	op-empty-control.stderr.filtered op-empty-control.stderr.expected \
+	rawspice.raw core core.*
 
 MAINTAINERCLEANFILES = Makefile.in

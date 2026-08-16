@@ -2,20 +2,55 @@
 
 ## Status
 
-**Open, filed 2026-08-15** on branch `ver_50`. **Filing only — no fix, and no
-code was written for it.** The batch that filed it
-(`doc/claude/batches/2026-08-15-xschem-open-items/`, item 4) was scoped to the
-write-up, and the decision under **Resolution** — where the guard goes, and
-whether it goes here or upstream — is not taken.
+**Fixed 2026-08-15** on branch `ver_50`, in the same day it was filed, at
+**`src/frontend/dotcards.c:225`** — the assertion is now a test, a diagnostic
+and a return, in the idiom the same function already uses at `:204`. The fix,
+the three decks that assert it in `tests/regression/exitstatus/`, and this
+rewrite are one commit, summary `fix: report an .op card with no netlist
+instead of aborting`; a commit cannot carry its own hash, so the hash is in
+`doc/claude/batches/2026-08-15-exit-status-testing/receipts/04-op-no-netlist-fix.md`.
+The six-byte reproducer now answers:
 
-**Pre-existing and upstream.** The same six-byte deck aborts identically on
-`/usr/local/bin/ngspice` (`ngspice-46` as released, build stamp
+```
+$ printf '*\n.op\n' > tiny.cir
+$ ngspice --batch -n tiny.cir ; echo rc=$?
+Error: incomplete or empty netlist
+       or no node to report an operating point for;
+no operating point printed!
+rc=1
+```
+
+`beginPlot()` (`src/frontend/outitf.c:479`) was measured and rejected; the
+reason is under **Resolution** and the measurement is
+`doc/claude/batches/2026-08-15-exit-status-testing/receipts/03-op-guard-site-measurement.md`.
+All nine Acceptance Criteria are met. Three rows within them rest on a
+recorded measurement rather than on a committed deck, and for one reason:
+`tests/bin/check_status.sh` runs exactly `--batch -n <deck>` and takes no
+per-deck flags, so criterion 1's other two routes (`-b -n < deck` and
+`-n deck < /dev/null`) and the whole of criterion 5's `-r` route are measured
+by hand and written down, not asserted by the suite. The table under
+**Resolution** says so row by row. Full `make check` from `build-ver_50/` is
+**331 PASS / 0 FAIL** against a 328 PASS / 0 FAIL baseline at `1c07b937b`, the
+difference being exactly the three new decks.
+
+**Filed and fixed by different batches.** The batch that filed it
+(`doc/claude/batches/2026-08-15-xschem-open-items/`, item 4) was scoped to the
+write-up and took no decision. `doc/claude/batches/2026-08-15-exit-status-testing/`
+built the harness criterion 6 says did not exist (item 1), measured both guard
+sites (item 3), and landed this (item 4).
+
+**Pre-existing and upstream.** Before the fix the same six-byte deck aborted
+identically on `/usr/local/bin/ngspice` (`ngspice-46` as released, build stamp
 `Sun Aug 2 23:29:26 UTC 2026`) and on `build-ver_50/src/ngspice`
 (`ngspice-46+`, build stamp `Sat Aug 15 18:18:34 UTC 2026`): same exit status,
 same message, the same 106 bytes on `stderr` naming the same file and the same
 line. Nothing in the case-mode work caused it, touches it, or is needed to
 reproduce it, and it is mode independent — `fold`, `preserve`, `distinguish`
-and no `-D` at all are `rc=134`, and stock has no `casemode` support to set.
+and no `-D` at all were `rc=134`, and stock has no `casemode` support to set.
+**Everything in the body of this file below is the state before the fix**, and
+is left in the present tense as the record of what was measured; the fix and
+its own before/after are under **Status** and **Resolution**. Released
+`ngspice-46` still aborts, because nothing has been sent upstream.
 
 **Class**, for the taxonomy in `doc/claude/decisions/0001-distinguish.md`: none
 of the three. No identifier is compared anywhere on this path.
@@ -203,16 +238,44 @@ What it costs is this:
   out; `/usr/local/bin/ngspice` is a release build and it aborts. Worth stating
   because "it's just an assert" is otherwise a reasonable thing to assume.
 
-**What in `tests/` reaches this path today: nothing.** A scan of `tests/` for a
-bare `.op` dot card (`^\s*\.op(?![a-z])`, which excludes `.options`) finds
-eight decks — `tests/jfet/jfet_vds-vgs.cir`, `tests/vbic/diffamp.cir`,
+**What in `tests/` reaches this path today: nothing — but not for the reason
+first recorded here.** A scan of `tests/` for a bare `.op` dot card
+(`^\s*\.op(?![a-z])`, which excludes `.options`) finds eight decks —
+`tests/jfet/jfet_vds-vgs.cir`, `tests/vbic/diffamp.cir`,
 `tests/polezero/filt_bridge_t.cir`, `tests/filters/lowpass.cir`,
 `tests/mesa/mesa11.cir`, `tests/resistance/res_partition.cir`,
 `tests/resistance/res_array.cir`, and the reference file
-`tests/filters/lowpass.out` — and every one of them has a netlist. No deck in
-the tree has an analysis card and an empty netlist, so `make check` exercises
-`ft_cktcoms()` only with populated plots and would not notice this changing in
-either direction.
+`tests/filters/lowpass.out` — and every one of them has a netlist.
+
+**Corrected 2026-08-15.** This paragraph used to continue *"No deck in the tree
+has an analysis card and an empty netlist, so `make check` exercises
+`ft_cktcoms()` only with populated plots"*. The first half of that is **false**,
+and the scan above is why: it looks for `.op` **dot cards**, and cannot see a
+bare `op` inside a `.control` block. `tests/regression/misc/empty-1.cir` is
+upstream, is titled *"check that we can survive emptiness"*, and runs `op`,
+`tran` and `ac` on a circuit whose only node is the implicit ground, from a
+`.control` block. Measured on `build-ver_50/src/ngspice`: `rc=0`, 627 bytes on
+`stdout`, `stderr` empty, and the run does create the empty `.op` plot —
+
+```
+$ ngspice --batch -n <the same deck, with 'echo $curplot' and 'display' added>
+No. of Data Rows : 1
+curplot is op1
+There are no vectors currently active.
+```
+
+— an `op1` plot, current, with `pl_dvecs == NULL`. So `make check` **does**
+manufacture the empty plot this assertion forbids. What it does not do is reach
+the assertion, and the reason is one branch up in `main.c`: `empty-1.cir`
+carries no analysis dot card, so `ft_savedotargs()` returns 0, the batch
+epilogue takes its `.control` arm, and `ft_cktcoms()` is never called.
+
+That correction points the opposite way from the sentence it replaces. The
+uncovered thing is not "an empty circuit"— the suite has one — it is
+specifically *an empty circuit plus an analysis dot card*, and `empty-1.cir` is
+in-tree evidence that the empty plot itself is a state upstream ships, asserts
+and expects to survive. It is what decided this issue's guard site: see
+**Resolution**.
 
 ## Root Cause
 
@@ -340,8 +403,13 @@ three different ways.**
    decided by the contents of a user's file.
 
 That said, the *first* question is not where to print — it is whether the empty
-`.op` plot should exist at all, and that decision belongs at `outitf.c:479`
-rather than in the epilogue. See criterion 3.
+`.op` plot should exist at all. **Falsified 2026-08-15, and the sentence that
+stood here is corrected.** It used to end *"and that decision belongs at
+`outitf.c:479` rather than in the epilogue"*. The empty `.op` plot **should**
+exist: `tests/regression/misc/empty-1.cir` is an upstream test that creates one
+deliberately and asserts that all three of its analyses survive, and a guard at
+`outitf.c:479` fails it. The plot is not the defect; asserting on it in the
+epilogue was. See criterion 3 and **Resolution**.
 
 ## Acceptance Criteria
 
@@ -420,47 +488,146 @@ rather than in the epilogue. See criterion 3.
 
 ## Resolution
 
-**Not started.** Filed for the record; the shape below is a description of the
-work, not a decision that it will be done.
+**Fixed 2026-08-15 at `src/frontend/dotcards.c:225`.** The assertion is a test,
+a diagnostic and a return:
 
-**The shape a fix would take.** One conditional, in one of the two places
-criterion 3 names, plus its diagnostic. `beginPlot()` is the better place on
-the merits — it is where the empty plot is manufactured, its message for this
-exact condition is already written and already reachable for a *different*
-input (`numNames > 0` with everything filtered out by `.save`), and stopping
-the plot from existing fixes consumers this issue has not enumerated. It is
-also the place that needs the most measurement, because `numNames == 0` is not
-unique to `.op` and the effect on the other analyses' plots has to be taken
-rather than reasoned about. `ft_cktcoms()` is the smaller change and is the
-right one if the wider measurement comes back awkward. Nothing else moves: no
-header, no `Makefile.am`, no new helper.
+```c
+    plot_cur = setcplot("op");
+    if (plot_cur != NULL) {
+        /* An operating point has no reference vector, so its plot holds one
+           vector per output column and nothing else.  A circuit with no
+           non-ground node yields no columns, and the plot is empty.  That is
+           a property of the deck, not an invariant of this program, so it is
+           reported and returned the way the ft_curckt guard above does --
+           main.c turns the return into the process's exit status. */
+        if (plot_cur->pl_dvecs == NULL) {
+            fprintf(cp_err,
+                    "Error: incomplete or empty netlist\n"
+                    "       or no node to report an operating point for;\n"
+                    "no operating point printed!\n");
+            return 1;
+        }
+        if (plot_cur->pl_dvecs->v_realdata != NULL) {
+```
 
-**It belongs upstream, and that is the main thing to decide.** Every
-measurement in this file was taken on `/usr/local/bin/ngspice`, `ngspice-46` as
-released, as well as here, and the two are identical to the byte. The defect is
-in code this branch has not touched — `src/frontend/dotcards.c:225` and
-`src/frontend/outitf.c:479` are both unmodified from upstream — and it has
-nothing to do with case modes, with the raw header, or with anything else this
-branch exists for. It is not a `--with-ngshared` bug and cannot be reached from
-`libngspice`. So the argument that closed `doc/codex/issues/0067` here rather
-than upstream — *that branch work made a pre-existing arm reachable from files
-this build writes* — does not apply: this branch makes nothing about this
-easier or harder to reach.
+Twelve added lines, five of them comment, in the idiom the same function uses
+at `:204`; `main.c:1581` turns the `1` into `sp_shutdown(EXIT_BAD)`. No header,
+no `Makefile.am` under `src/`, no new helper, and no string comparison — the
+test is a NULL check on a pointer.
 
-Which leaves the owner three options, in order of increasing cost:
+**On the wording.** Criterion 2 names `Error: incomplete or empty netlist … no
+simulations run!`, which `.tran` on the identical deck prints from
+`main.c:1590`. The first two lines above are that message's shape and its first
+line is byte-identical; the last clause is **not** `no simulations run!`,
+deliberately. It would be false here: the operating point *did* run, and
+`No. of Data Rows : 1` is on `stdout` immediately above the error. What did not
+happen is the printing, which is this function's whole job, so the message says
+so. Criterion 2's stated requirement is that a reader knows to look at the
+netlist and that the text does not say "internal error"; line 1 is the same
+sentence ngspice already uses to send a reader to their netlist, and line 2
+names the exact shortfall.
 
-1. **Report it upstream and carry no patch.** Correct on ownership. Costs
-   nothing here and fixes nothing here.
-2. **Report it upstream with a patch, and apply the patch here too**, the way
-   `doc/claude/upstream/` is already prepared to do for `0067`. Two lines of
-   code and criterion 6's harness question. Reasonable if this branch's client
-   generates decks, which it does.
-3. **Fix here only.** Not recommended: it is a divergence from upstream in a
-   file this branch otherwise does not touch, bought for an input no correct
-   deck produces.
+### `beginPlot()` (`outitf.c:479`) was measured and rejected
 
-**Nothing has been sent upstream.** The submission in `doc/claude/upstream/` is
-prepared and unsent, and this issue is not in it.
+Criterion 3 requires the rejected site to be named with its reason. Both were
+built as scratch patches and measured against the full suite; the measurement
+is `doc/claude/batches/2026-08-15-exit-status-testing/receipts/03-op-guard-site-measurement.md`.
+
+> Dropping the `numNames &&` conjunct fixes the abort but takes six unrelated
+> rows with it, and one of them is an in-tree test.
+> `tests/regression/misc/empty-1.cir` — upstream, titled *"check that we can
+> survive emptiness"*, a `.control` block running `op`, `tran` and `ac` on a
+> circuit whose only node is the implicit ground — fails: all three analyses
+> stop at `Error: no data saved for …; analysis not run` and the committed
+> `.out` loses its `Initial Transient Solution` block. Full `make check` with
+> the patch applied is **327 PASS / 1 FAIL** against a 328 PASS / 0 FAIL
+> baseline, and plain `make check` aborts the recursion after 53 tests. The
+> deck passes on released `ngspice-46`, so this is a behaviour upstream ships
+> and asserts, not an artefact of this branch. This issue's Impact statement
+> that no in-tree deck has an analysis card with an empty netlist was true only
+> of `.op` **dot cards**; the scan `^\s*\.op(?![a-z])` does not see a
+> `.control` block's bare `op`. That statement is now corrected in place.
+>
+> Three further rows move that are nobody's bug report: a nodeless deck with
+> `.print tran v(1)` + `.tran` goes from `rc=0` to `rc=1`, and so do the
+> `.print ac` and `.four` variants — `numNames == 0` reaches `beginPlot()` from
+> every analysis, not just `.op`, and for those the plot already holds its
+> reference column and is not empty at all. And criterion 5's `-r` row moves
+> twice over: the `.op` run stops writing a rawfile, and so does the nodeless
+> `.tran` run, which was writing a perfectly good `No. Variables: 1` file.
+>
+> A narrower variant was also measured — keeping `numNames &&` on the
+> reference-vector disjunct and removing it only from the `.op` disjunct. It
+> scores 328 PASS / 0 FAIL, but that is a harness artefact, not safety: it
+> still stops `empty-1.cir`'s `op`, and the change is invisible only because
+> `check.sh`'s `FILTER` contains `Data` (so the vanished `No. of Data Rows : 1`
+> is stripped from both sides), because `check.sh` never captures `stderr` (so
+> the three new error lines are discarded), and because the deck's own `quit 0`
+> sets the status. It also still turns the `.control`-only `op` route and the
+> `.op` `-r` route from `rc=0` into `rc=1`.
+>
+> Finally, the message. `beginPlot()`'s existing text is `Error: no data saved
+> for %s; analysis not run`, which is what `tests/resistance/res_array.cir`
+> already prints for an unrelated cause, and it never mentions the netlist —
+> so a reader of it checks their `.save` lines, not their circuit. Producing
+> criterion 2's wording there would need a second message keyed on
+> `numNames == 0`, which is more than the one-conjunct change criterion 3
+> costed. `ft_cktcoms()` owns its own `fprintf` and can print the sentence
+> directly.
+
+In one number: `dotcards.c:225` moves exactly the nine rows of this issue's
+three tables that **are** the defect and none that are not, at 328 PASS /
+0 FAIL; `outitf.c:479` moves fifteen, six of which nobody reported, at 327 PASS
+/ 1 FAIL. The paragraph that used to stand here preferred `beginPlot()` "on the
+merits", on the ground that stopping the plot from existing would fix consumers
+this issue had not enumerated. The measurement contradicts it: the consumers it
+had not enumerated include one that *wants* the empty plot, and it is a test.
+
+### The state of each Acceptance Criterion
+
+Measured on `build-ver_50/src/ngspice`, `ngspice-46+`, build stamp
+`Sun Aug 16 00:53:25 UTC 2026`, sha256 `1fa06748c09be050…7686`.
+
+| # | state | measurement |
+| --- | --- | --- |
+| 1 | **met**; three of its nine rows asserted by a deck, six measured | All three deck shapes (`.op`; `.op`+`.tran 1n 10n`; `.op`+`.control run`) × all three routes (`--batch -n deck`, `-b -n < deck`, `-n deck < /dev/null`) are `rc=1` with the three-line diagnostic on `stderr`. Nine rows, all `rc=134` before, no signal in any of them. The `--batch -n` column is the three committed decks; the other six rows are the same code path reached two other ways — `main.c:1175` sets `ft_batchmode` for all three — and are measured rather than asserted, because the driver takes no per-deck invocation. |
+| 2 | **met, with a one-clause departure** | The message names the netlist in its first line, byte-identical to `main.c:1590`'s, and does not say "internal error". `no simulations run!` was replaced by `no operating point printed!` because the analysis did run; see *On the wording*. |
+| 3 | **met** | `dotcards.c:225` chosen, `outitf.c:479` named and rejected above with the number that rejected it. Nothing dereferences NULL: the guard returns before `:226`. |
+| 4 | **met** | The eight in-tree witnesses named in Impact — seven decks and one reference file — were checked. The seven decks were run before and after from their own directories: `stderr` is byte-identical for all seven; `stdout` is identical once wall-clock timestamps and the resource-usage block are removed, and identical under `check.sh`'s own `FILTER`. `tests/filters/lowpass.out` keeps sha256 `fec8b85a…`. No tracked `.out` in the tree is modified. `tests/filters/lowpass.cir` was additionally run under `-D casemode=fold`, `preserve` and `distinguish`: identical in all three. |
+| 5 | **met, by not moving**; measured, not asserted by a deck | The driver's command line is `--batch -n <deck>` with no `-r` and no per-deck flag file, so this row is a recorded measurement. `ngspice -b -n -r out.raw tiny.cir` is `rc=0` writing 193 bytes before and after, and the two files are identical apart from their `Date:` and `Command:` lines. It is a valid raw file, measured by reading it back with ngspice's own reader: `printf 'load out.raw\ndisplay\nquit 0\n' \| ngspice -p -n` loads it, reports `Name: Operating Point`, and exits 0. The nodeless `.tran` `-r` file (681 B, `No. Variables: 1`) and a real one (1658 B) are also unmoved. Not a third thing. |
+| 6 | **met** | Three decks in `tests/regression/exitstatus/`: `op-empty-netlist.cir` (this issue's reproducer, six bytes), `op-empty-tran.cir`, `op-empty-control.cir`, each with a `.status` of `1` and an `.err` holding the diagnostic. The criterion's own answer to "no existing harness can" was taken: `tests/bin/check_status.sh` and this directory were built first, as item 1 of `doc/claude/batches/2026-08-15-exit-status-testing/`. Its signal check makes a return to `SIGABRT` a named failure and not just a wrong number. |
+| 7 | **met** | The guard adds a NULL pointer test and an `fprintf`, and no comparison of any kind. `tests/lint/identity.baseline` is unchanged (sha256 `3dbd620e…`); both lint specs report `baseline matches`, 264 and 11 comparisons, the same counts as before. |
+| 8 | **met** | Full `make check` from `build-ver_50/`: **328 PASS / 0 FAIL** before, **331 PASS / 0 FAIL** after, `make` exit status 0 both times, the difference being exactly the three new decks. The criterion's 322 is the baseline at filing; the 328 is the same suite after this batch added `tests/regression/exitstatus/`. Case modes are covered inside that suite — `tests/regression/casedist/` runs under `-D casemode=distinguish` and `tests/regression/case/` under `preserve` — plus the three-mode run of a real `.op` deck in row 4. |
+| 9 | **met** | Decided: fixed here, on `ver_50`, and the upstream material owed alongside it is a named, separate item that is not written yet. See *Where it lands*. |
+
+### Where it lands
+
+**Fixed here; upstream material is a separate, later item.** Option 2 of the
+three the filing offered: the patch is applied on this branch, and the material
+an upstream report would need — the minimal diff against upstream, the six-byte
+reproducer, the measurement that it reproduces on released `ngspice-46`, and
+the before/after — is item 5 of
+`doc/claude/batches/2026-08-15-exit-status-testing/PLAN.md`, to be written into
+that batch directory. It is not in this commit and it is not written yet.
+
+The ownership argument is unchanged, and it is the reason upstream material is
+owed at all. Every measurement in this file was taken on
+`/usr/local/bin/ngspice`, `ngspice-46` as released, as well as here, and the
+two were identical to the byte. The defect is in code this branch has not
+otherwise touched — `src/frontend/dotcards.c` and `src/frontend/outitf.c` were
+both unmodified from upstream before this fix — and it has nothing to do with
+case modes, with the raw header, or with anything else this branch exists for.
+It is not a `--with-ngshared` bug and cannot be reached from `libngspice`. So
+the argument that closed `doc/codex/issues/0067` here rather than upstream —
+*that branch work made a pre-existing arm reachable from files this build
+writes* — does not apply. What decided it instead is the population in Impact:
+batch mode is the default for any invocation without a tty, this branch's
+client generates decks, and a generated deck that loses its netlist lines is
+exactly this file.
+
+**Nothing has been sent upstream.** No submission from this repository has been
+sent, including the one prepared for `0067`, and nothing for this issue has
+even been written yet.
 
 ## Related
 

@@ -1,0 +1,15 @@
+* an .op card and a .control run block, still with no netlist
+* doc/codex/issues/0072 criterion 1's third deck shape, and the one the
+* defect was actually found in: a generated deck that emits an analysis dot
+* card and a .control block and gets the netlist emission wrong.  A .control
+* block whose only card is a bare 'op', with no .op dot card above it, does
+* NOT abort -- it runs and exits 0, and that deck is
+* tests/regression/misc/empty-1.cir, which this fix leaves alone.  The card
+* that aborted is the dot card, and this deck carries both.
+*
+* Everything above .op is a comment, so the circuit has no non-ground node.
+.op
+.control
+run
+.endc
+.end
