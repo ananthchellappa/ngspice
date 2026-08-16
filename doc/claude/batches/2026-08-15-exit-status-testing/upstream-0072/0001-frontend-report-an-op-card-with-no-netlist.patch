@@ -1,0 +1,87 @@
+From 052fc7361b1f6f21dd2e4ead38343855f576bd56 Mon Sep 17 00:00:00 2001
+From: ananthchellappa <ananth.chellappa@outlook.com>
+Date: Sat, 15 Aug 2026 18:02:11 -0700
+Subject: [PATCH] frontend: report an .op card with no netlist instead of
+ aborting
+
+A deck of a title line and an .op card -- six bytes, no netlist at all --
+reaches assert(plot_cur->pl_dvecs != NULL) in ft_cktcoms() and dies on
+SIGABRT.  Measured on ngspice-46 as released:
+
+    $ printf '*\n.op\n' > tiny.cir
+    $ ngspice --batch -n tiny.cir ; echo rc=$?
+    ngspice: ../../../src/frontend/dotcards.c:225: ft_cktcoms: Assertion `plot_cur->pl_dvecs != NULL' failed.
+    rc=134
+
+The analysis is not what fails.  The operating point runs to completion and
+prints "No. of Data Rows : 1"; only the dot-card epilogue dies.  Because
+abort() does not flush stdio, that output is discarded whenever stdout is a
+file or a pipe, so a caller running in batch mode gets 0 bytes on stdout,
+106 bytes of assertion text on stderr, and rc=134.
+
+.op is the only analysis this can reach.  DCop() passes a NULL refName to
+OUTpBeginPlot() (src/spicelib/analysis/dcop.c:50) because an operating point
+has no sweep to plot against, so run->refIndex stays -1 and no data
+descriptor is added for a reference vector.  Every other analysis passes one
+-- DCtran() passes "time", .ac a frequency, .dc a sweep -- so its plot holds
+at least that column and is never empty.  beginPlot() has the exact test for
+this state in the second disjunct of its "nothing to save" guard
+(src/frontend/outitf.c:461): numData == 0 with refIndex == -1.  But the guard
+is gated behind numNames &&, and CKTnames() returns numNames == 0 for a
+circuit with no non-ground node (CKTmaxEqNum - 1).  So the guard declines,
+plotInit() runs, and pl_dvecs stays NULL.
+
+The assertion is therefore standing on a property of the user's deck, not on
+an invariant of the program.  Replace it with a test, a diagnostic and a
+return, in the idiom the same function already uses for !ft_curckt twenty
+lines above; main.c turns the return into the process's exit status.  The
+result is rc=1 with the netlist named on stderr, which is what .tran, .dc
+and .ac on the identical netlist have always done.
+
+Putting the guard in beginPlot() instead -- dropping the numNames &&
+conjunct so the existing E_NOTFOUND path fires -- was measured and rejected:
+it fails tests/regression/misc/empty-1.cir, which runs op, tran and ac on a
+zero-node circuit from a .control block and is titled "check that we can
+survive emptiness".  All three analyses stop at "Error: no data saved for
+...; analysis not run" and the committed .out loses its Initial Transient
+Solution block.  It also turns three unrelated nodeless decks (.print tran,
+.print ac, .four) from rc=0 into rc=1, and stops the -r route writing a
+rawfile for a nodeless .tran, which today writes a valid one-column file.
+
+The last clause of the message is "no operating point printed!" rather than
+main.c's "no simulations run!" because the operating point did run and says
+so on the line above.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+---
+ src/frontend/dotcards.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/src/frontend/dotcards.c b/src/frontend/dotcards.c
+index 60a3e1a..2acadf1 100644
+--- a/src/frontend/dotcards.c
++++ b/src/frontend/dotcards.c
+@@ -222,7 +222,19 @@ ft_cktcoms(bool terse)
+     /* If there was a .op line, then we have to do the .op output. */
+     plot_cur = setcplot("op");
+     if (plot_cur != NULL) {
+-        assert(plot_cur->pl_dvecs != NULL);
++        /* An operating point has no reference vector, so its plot holds one
++           vector per output column and nothing else.  A circuit with no
++           non-ground node yields no columns, and the plot is empty.  That is
++           a property of the deck, not an invariant of this program, so it is
++           reported and returned the way the ft_curckt guard above does --
++           main.c turns the return into the process's exit status. */
++        if (plot_cur->pl_dvecs == NULL) {
++            fprintf(cp_err,
++                    "Error: incomplete or empty netlist\n"
++                    "       or no node to report an operating point for;\n"
++                    "no operating point printed!\n");
++            return 1;
++        }
+         if (plot_cur->pl_dvecs->v_realdata != NULL) {
+             if (terse) {
+                 fprintf(cp_out, "OP information in rawfile.\n");
+-- 
+2.43.0
+
