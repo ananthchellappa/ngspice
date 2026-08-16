@@ -23,15 +23,18 @@ rc=1
 `beginPlot()` (`src/frontend/outitf.c:479`) was measured and rejected; the
 reason is under **Resolution** and the measurement is
 `doc/claude/batches/2026-08-15-exit-status-testing/receipts/03-op-guard-site-measurement.md`.
-All nine Acceptance Criteria are met. Three rows within them rest on a
-recorded measurement rather than on a committed deck, and for one reason:
-`tests/bin/check_status.sh` runs exactly `--batch -n <deck>` and takes no
-per-deck flags, so criterion 1's other two routes (`-b -n < deck` and
-`-n deck < /dev/null`) and the whole of criterion 5's `-r` route are measured
-by hand and written down, not asserted by the suite. The table under
-**Resolution** says so row by row. Full `make check` from `build-ver_50/` is
-**331 PASS / 0 FAIL** against a 328 PASS / 0 FAIL baseline at `1c07b937b`, the
-difference being exactly the three new decks.
+All nine Acceptance Criteria are met. One route within them still rests on a
+recorded measurement rather than on a committed deck: criterion 5's `-r` route.
+Criterion 1's other two routes (`-b -n < deck` and `-n deck < /dev/null`) were
+in that position for the same reason — `tests/bin/check_status.sh` ran exactly
+`--batch -n <deck>` and took no per-deck flags — and are **asserted since
+2026-08-15**, when the driver learned a per-deck `<base>.invoke` sidecar
+(`38717a031`) and two decks were committed to spend it (`op-empty-stdin.cir`,
+`op-empty-notty.cir`). The table under **Resolution** says so row by row, and
+*The route dimension* below says what those two decks do and do not prove.
+Full `make check` from `build-ver_50/` was **331 PASS / 0 FAIL** at the fix,
+against a 328 PASS / 0 FAIL baseline at `1c07b937b`, the difference being
+exactly the three new decks.
 
 **Filed and fixed by different batches.** The batch that filed it
 (`doc/claude/batches/2026-08-15-xschem-open-items/`, item 4) was scoped to the
@@ -610,7 +613,7 @@ Measured on `build-ver_50/src/ngspice`, `ngspice-46+`, build stamp
 
 | # | state | measurement |
 | --- | --- | --- |
-| 1 | **met**; three of its nine rows asserted by a deck, six measured | All three deck shapes (`.op`; `.op`+`.tran 1n 10n`; `.op`+`.control run`) × all three routes (`--batch -n deck`, `-b -n < deck`, `-n deck < /dev/null`) are `rc=1` with the three-line diagnostic on `stderr`. Nine rows, all `rc=134` before, no signal in any of them. The `--batch -n` column is the three committed decks; the other six rows are the same code path reached two other ways — `main.c:1175` sets `ft_batchmode` for all three — and are measured rather than asserted, because the driver takes no per-deck invocation. |
+| 1 | **met**; five of its nine rows asserted by a deck, four measured | All three deck shapes (`.op`; `.op`+`.tran 1n 10n`; `.op`+`.control run`) × all three routes (`--batch -n deck`, `-b -n < deck`, `-n deck < /dev/null`) are `rc=1` with the three-line diagnostic on `stderr`. Nine rows, all `rc=134` before, no signal in any of them. Five are asserted by a committed deck: the `--batch -n` column is the three decks named in row 6, and `op-empty-stdin.cir` and `op-empty-notty.cir` are the reproducer's same six bytes under the other two routes, each declaring its route in a `<base>.invoke` sidecar. The sentence that stood here — *"measured rather than asserted, because the driver takes no per-deck invocation"* — was true when it was written and is **false since `38717a031`**: `tests/bin/check_status.sh` is no longer fixed at `--batch -n <deck>` and reads a per-deck invocation, so nothing about the driver keeps the remaining four rows unasserted. They are the `.tran` and `.control run` shapes under those two routes, and they are left measured by choice: see *The route dimension* below. |
 | 2 | **met, with a one-clause departure** | The message names the netlist in its first line, byte-identical to `main.c:1590`'s, and does not say "internal error". `no simulations run!` was replaced by `no operating point printed!` because the analysis did run; see *On the wording*. |
 | 3 | **met** | `dotcards.c:225` chosen, `outitf.c:479` named and rejected above with the number that rejected it. Nothing dereferences NULL: the guard returns before `:226`. |
 | 4 | **met** | The eight in-tree witnesses named in Impact — seven decks and one reference file — were checked. The seven decks were run before and after from their own directories: `stderr` is byte-identical for all seven; `stdout` is identical once wall-clock timestamps and the resource-usage block are removed, and identical under `check.sh`'s own `FILTER`. `tests/filters/lowpass.out` keeps sha256 `fec8b85a…`. No tracked `.out` in the tree is modified. `tests/filters/lowpass.cir` was additionally run under `-D casemode=fold`, `preserve` and `distinguish`: identical in all three. |
@@ -619,6 +622,48 @@ Measured on `build-ver_50/src/ngspice`, `ngspice-46+`, build stamp
 | 7 | **met** | The guard adds a NULL pointer test and an `fprintf`, and no comparison of any kind. `tests/lint/identity.baseline` is unchanged (sha256 `3dbd620e…`); both lint specs report `baseline matches`, 264 and 11 comparisons, the same counts as before. |
 | 8 | **met** | Full `make check` from `build-ver_50/`: **328 PASS / 0 FAIL** before, **331 PASS / 0 FAIL** after, `make` exit status 0 both times, the difference being exactly the three new decks. The criterion's 322 is the baseline at filing; the 328 is the same suite after this batch added `tests/regression/exitstatus/`. Case modes are covered inside that suite — `tests/regression/casedist/` runs under `-D casemode=distinguish` and `tests/regression/case/` under `preserve` — plus the three-mode run of a real `.op` deck in row 4. |
 | 9 | **met** | Decided: fixed here, on `ver_50`, and the upstream material owed alongside it is a named, separate item, written later the same day and **not sent**. See *Where it lands*. |
+
+### The route dimension
+
+Added 2026-08-15, when criterion 1's other two routes stopped being measurements
+and became `op-empty-stdin.cir` and `op-empty-notty.cir` in
+`tests/regression/exitstatus/`.
+
+**The 3 shapes × 3 routes cross product is deliberately not built.** The route
+dimension is the one nothing asserted; the shape dimension is already covered
+three ways under the default `batch` route by the decks in row 6. All nine cells
+reach the same `ft_cktcoms()` call at `main.c:1581`, and nine committed decks for
+one code path reached three ways is not worth the `EXTRA_DIST`. The four
+remaining cells stay measurements, and the measurement is the nine-row run
+recorded in row 1.
+
+**What the two route decks prove, and what they do not.** They prove the
+property criterion 1 asks for — terminates normally, non-zero, with the
+diagnostic, no signal — holds when the driver is told to run the reproducer
+those two ways. That was demonstrated by removing the guard at `dotcards.c:225`
+in a working tree and rebuilding: both decks then failed the driver's `signal`
+check at `rc=134`, named `SIGABRT`, with the invocations
+`ngspice -b -n < <deck>` and `ngspice -n <deck> < /dev/null` printed beside the
+failures.
+
+They do **not** witness their own route from inside, and this was measured
+rather than assumed. Each deck is the six-byte reproducer verbatim and returns
+before any control language runs, so it cannot read `$?batchmode` or
+`$inputdir`, which are the only two cp variables that separate the three routes.
+And the diagnostic carries no route information: run three ways, the reproducer
+produces `stderr` **and** `stdout` byte-identical across all three, sha256 equal,
+115 and 173 bytes. So a corruption test was run on the sidecars themselves —
+deleting the `route` line, changing it to the other route, and deleting the whole
+`.invoke` file — and **the verdict did not move in any of the five cases**: the
+deck passes under the default `batch` route too, because for this deck every
+route produces the same answer, which is precisely what the criterion claims.
+
+That is the honest worth of these two decks: they are assertions about the
+**simulator's** behaviour on three command lines, not about the harness's
+fidelity in producing them. What holds the routes honest is elsewhere and is
+asserted — `tests/regression/exitstatus/selftest-invoke.cir` reads `$?batchmode`
+from a `.control` block and fails if the sidecar is dropped, and the driver
+prints its exact command line beside every failure.
 
 ### Where it lands
 

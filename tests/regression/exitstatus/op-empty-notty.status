@@ -1,0 +1,19 @@
+# doc/codex/issues/0072 criterion 1, the 'ngspice -n deck < /dev/null' row --
+# the one that issue's route table calls the trap, because no tty and no -i is
+# batch mode whether or not anyone typed -b (main.c:1175).  The deck is that
+# issue's six-byte reproducer verbatim -- a title line and an .op dot card, no
+# comment block, because the deck IS the reproducer; the commentary lives here,
+# in the .invoke sibling and in Makefile.am.
+#
+# Before the fix at src/frontend/dotcards.c:225 this run died on
+# assert(plot_cur->pl_dvecs != NULL) in ft_cktcoms() and the shell reported
+# rc=134, 128+SIGABRT.  The criterion is that all three routes into that one
+# call terminate normally, non-zero, with a diagnostic -- hence 1, and hence
+# the .err sibling, which holds the same three lines as op-empty-netlist.err
+# because the diagnostic is byte-identical on every route (measured).
+#
+# The driver's signal check is independent of this number and fires on any
+# rc >= 128, so a regression back to the abort fails twice and names SIGABRT.
+# That is the property this deck exists for; the status alone would not
+# distinguish an abort from a deliberate exit(134).
+1

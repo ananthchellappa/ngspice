@@ -1,0 +1,21 @@
+# How this deck is invoked.  tests/bin/check_status.sh reads it; a deck with
+# no .invoke is run '$(SPICE) --batch -n <deck>', which is what
+# op-empty-netlist.cir -- the same six bytes -- already asserts.
+#
+# route notty is 'ngspice -n <deck> < /dev/null': batch mode reached by having
+# no terminal rather than by asking for it.  main.c:1175 is
+#
+#     if ((!iflag && !istty) || ft_servermode) ft_batchmode = TRUE;
+#
+# so every invocation from a Makefile, a CI job, a subprocess.run() or a
+# schematic tool takes this route whether or not anyone typed -b.
+# doc/codex/issues/0072 criterion 1's route table calls it the trap, and it is
+# the route by which the abort this deck's .status describes reached the
+# largest population.
+#
+# What this file cannot do is witness itself.  The deck is the reproducer byte
+# for byte and returns before any control language runs, so it cannot read
+# $?batchmode -- the one cp variable that separates this route from the other
+# two -- and the diagnostic it does produce is byte-identical on all three
+# routes.  See Makefile.am's comment block and this batch's receipt 02.
+route notty

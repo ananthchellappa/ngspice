@@ -1,0 +1,15 @@
+# How this deck is invoked.  tests/bin/check_status.sh reads it; a deck with
+# no .invoke is run '$(SPICE) --batch -n <deck>', which is what
+# op-empty-netlist.cir -- the same six bytes -- already asserts.
+#
+# route stdin is 'ngspice -b -n < <deck>'.  The deck arrives on standard input
+# instead of as a filename argument, which is the second of the three rows
+# doc/codex/issues/0072 criterion 1 names: the same ft_cktcoms() call at
+# main.c:1581, reached with no deck filename anywhere on the command line.
+#
+# What this file cannot do is witness itself.  The deck is the reproducer byte
+# for byte and returns before any control language runs, so it cannot read
+# $inputdir -- the one cp variable that separates this route from batch -- and
+# the diagnostic it does produce is byte-identical on all three routes.  See
+# Makefile.am's comment block and this batch's receipt 02.
+route stdin

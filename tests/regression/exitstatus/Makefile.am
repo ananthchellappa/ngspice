@@ -52,11 +52,36 @@
 ## holds the commentary.  The criterion is "terminates normally, non-zero,
 ## with a diagnostic", so all three assert a status AND the stderr text, and
 ## the driver's signal check turns a regression back into two named failures.
+##
+## op-empty-stdin.cir and op-empty-notty.cir are the same six bytes again, and
+## they are here for the other dimension of that criterion: not the three deck
+## shapes but the three ROUTES into the one ft_cktcoms() call at main.c:1581.
+## Each carries an .invoke -- 'route stdin' is 'ngspice -b -n < deck', 'route
+## notty' is 'ngspice -n deck < /dev/null', the row 0072 calls the trap because
+## no tty and no -i is batch mode whether or not anyone typed -b
+## (main.c:1175).  The three shapes x three routes cross product is
+## deliberately not built: the route dimension is what nothing asserted, the
+## shape dimension is already covered above under the default batch route, and
+## nine decks for one code path reached three ways is not worth the EXTRA_DIST.
+##
+## What these two decks prove, exactly.  They prove that the six-byte
+## reproducer returns 1 with the three-line diagnostic and no signal when the
+## driver is told to run it these two ways -- which is the property criterion 1
+## asks for, and which used to be rc=134 on all three routes.  They do NOT
+## witness the route from inside: the deck returns before any control language
+## runs, so it cannot read $?batchmode or $inputdir, and the diagnostic is
+## byte-identical on all three routes (measured, sha256 equal, stdout too).
+## Measured consequence: deleting the 'route' line from either .invoke leaves
+## the entry passing, because the default batch route produces the same verdict
+## for this deck.  What holds the route honest is elsewhere -- the driver
+## prints its exact command line on every failure, and selftest-invoke.cir
+## asserts the two cp variables that do separate the routes.
 
 TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
 	sim-status-properties.cir sim-status-unset.cir \
-	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir
+	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir \
+	op-empty-stdin.cir op-empty-notty.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -85,7 +110,13 @@ EXTRA_DIST = \
 	op-empty-tran.status \
 	op-empty-tran.err \
 	op-empty-control.status \
-	op-empty-control.err
+	op-empty-control.err \
+	op-empty-stdin.status \
+	op-empty-stdin.err \
+	op-empty-stdin.invoke \
+	op-empty-notty.status \
+	op-empty-notty.err \
+	op-empty-notty.invoke
 
 # The driver captures each run's stdout and stderr into the build directory
 # and filters the latter in place; tran-empty-netlist.files asserts that the
@@ -98,7 +129,7 @@ EXTRA_DIST = \
 # 'flags -r' line causes, and selftest-invoke.evidence, which its .control
 # block writes so that the route can be read off a file.
 #
-# 'core' and 'core.*' are here for the three op-empty-* decks.  No committed
+# 'core' and 'core.*' are here for the five op-empty-* decks.  No committed
 # deck dumps one now, and that is the point of them: the state they assert
 # used to abort, and an abort leaves a core file in whichever directory the
 # run was made from, which is this one.  A regression that fails those decks
@@ -127,6 +158,10 @@ CLEANFILES = \
 	op-empty-tran.stderr.filtered op-empty-tran.stderr.expected \
 	op-empty-control.stdout op-empty-control.stderr \
 	op-empty-control.stderr.filtered op-empty-control.stderr.expected \
+	op-empty-stdin.stdout op-empty-stdin.stderr \
+	op-empty-stdin.stderr.filtered op-empty-stdin.stderr.expected \
+	op-empty-notty.stdout op-empty-notty.stderr \
+	op-empty-notty.stderr.filtered op-empty-notty.stderr.expected \
 	rawspice.raw core core.*
 
 MAINTAINERCLEANFILES = Makefile.in
