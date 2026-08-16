@@ -76,12 +76,39 @@
 ## for this deck.  What holds the route honest is elsewhere -- the driver
 ## prints its exact command line on every failure, and selftest-invoke.cir
 ## asserts the two cp variables that do separate the routes.
+##
+## op-empty-raw.cir is those same six bytes a third time, and it is the one
+## op-empty-* deck whose expected status is 0.  It is doc/codex/issues/0072
+## criterion 5, which asks the opposite question from criterion 1: not "does
+## this route report the mistake" but "is this route, which never reported it,
+## unchanged by the fix, and is what it writes a valid raw file rather than a
+## third thing".  Its .invoke carries no route -- the route is the default
+## batch -- and one 'flags -r op-empty-raw.raw' line.  Under -r the run streams
+## to a file: OUTpBeginPlot() calls fileInit() instead of plotInit()
+## (src/frontend/outitf.c:494-:497), no plot is linked into plot_list,
+## setcplot("op") in ft_cktcoms() answers NULL, and the dotcards.c:225 guard
+## that makes the other five op-empty-* decks exit 1 is never reached.  It also
+## puts this deck on the rflag arm of the batch epilogue, main.c:1561, and so
+## on the other of ft_cktcoms()'s two call sites, main.c:1573 with terse=TRUE;
+## every other deck about the simulator's behaviour here arrives at main.c:1581
+## with terse=FALSE.  (selftest-invoke.cir carries a 'flags -r' line too and
+## takes the same arm, but its subject is the driver, not the simulator.)  Zero
+## is therefore the correct status and not a bug; the .status sibling says so
+## at length so that a reader who finds one 0 among five 1s does not "fix" it.
+##
+## Unlike the two route decks above, this one DOES witness its own sidecar.
+## Its .files asserts the rawfile's presence and two header lines that are
+## neither clock- nor build-specific -- 'No. Variables: 0', which is the whole
+## of criterion 5, and 'Plotname: Operating Point'.  Delete the flags line and
+## no rawfile is written, so all three fail.  It is, with selftest-invoke.cir,
+## one of the only two committed decks in this directory whose .invoke is
+## load-bearing.
 
 TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
 	sim-status-properties.cir sim-status-unset.cir \
 	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir \
-	op-empty-stdin.cir op-empty-notty.cir
+	op-empty-stdin.cir op-empty-notty.cir op-empty-raw.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -116,7 +143,10 @@ EXTRA_DIST = \
 	op-empty-stdin.invoke \
 	op-empty-notty.status \
 	op-empty-notty.err \
-	op-empty-notty.invoke
+	op-empty-notty.invoke \
+	op-empty-raw.status \
+	op-empty-raw.invoke \
+	op-empty-raw.files
 
 # The driver captures each run's stdout and stderr into the build directory
 # and filters the latter in place; tran-empty-netlist.files asserts that the
@@ -127,13 +157,17 @@ EXTRA_DIST = \
 # the run that produced them passed.  selftest-invoke.cir leaves two artefacts
 # behind on a passing run, one per .invoke key: selftest-invoke.raw, which the
 # 'flags -r' line causes, and selftest-invoke.evidence, which its .control
-# block writes so that the route can be read off a file.
+# block writes so that the route can be read off a file.  op-empty-raw.cir
+# leaves one for the same reason -- op-empty-raw.raw, which its own 'flags -r'
+# line causes and which its .files asserts on.
 #
-# 'core' and 'core.*' are here for the five op-empty-* decks.  No committed
-# deck dumps one now, and that is the point of them: the state they assert
-# used to abort, and an abort leaves a core file in whichever directory the
-# run was made from, which is this one.  A regression that fails those decks
-# should not also leave an unlisted artefact behind.
+# 'core' and 'core.*' are here for five of the six op-empty-* decks -- every
+# one but op-empty-raw.cir, whose whole subject is that its route never
+# aborted.  No committed deck dumps one now, and that is the point of them:
+# the state the other five assert used to abort, and an abort leaves a core
+# file in whichever directory the run was made from, which is this one.  A
+# regression that fails those decks should not also leave an unlisted artefact
+# behind.
 CLEANFILES = \
 	tran-empty-netlist.stdout tran-empty-netlist.stderr \
 	tran-empty-netlist.stderr.filtered tran-empty-netlist.stderr.expected \
@@ -162,6 +196,9 @@ CLEANFILES = \
 	op-empty-stdin.stderr.filtered op-empty-stdin.stderr.expected \
 	op-empty-notty.stdout op-empty-notty.stderr \
 	op-empty-notty.stderr.filtered op-empty-notty.stderr.expected \
+	op-empty-raw.stdout op-empty-raw.stderr \
+	op-empty-raw.stderr.filtered op-empty-raw.stderr.expected \
+	op-empty-raw.raw \
 	rawspice.raw core core.*
 
 MAINTAINERCLEANFILES = Makefile.in

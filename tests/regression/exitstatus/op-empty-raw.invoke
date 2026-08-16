@@ -1,0 +1,22 @@
+# How this deck is invoked.  tests/bin/check_status.sh reads it; a deck with
+# no .invoke is run '$(SPICE) --batch -n <deck>', which is what
+# op-empty-netlist.cir -- the same six bytes -- already asserts.
+#
+# There is no 'route' line, so the route is the default, batch.  The only
+# thing that differs from op-empty-netlist.cir is the -r flag, and that is the
+# whole subject of this deck: doc/codex/issues/0072 criterion 5.
+#
+# -r sends the run's output to a rawfile instead of to an in-memory plot.
+# OUTpBeginPlot() calls fileInit() rather than plotInit() for it
+# (src/frontend/outitf.c:494-:497), so nothing is linked into plot_list,
+# setcplot("op") answers NULL, and the guard at src/frontend/dotcards.c:225 --
+# the one that makes every other op-empty-* deck here exit 1 -- is never
+# reached.  It also puts this deck on the other of ft_cktcoms()'s two call
+# sites, main.c:1573 with terse=TRUE, which no other op-empty-* deck reaches.
+# Hence a .status of 0; the .status sibling says the rest.
+#
+# Unlike op-empty-stdin.cir and op-empty-notty.cir, this deck DOES witness its
+# own sidecar: without this line no rawfile exists, so the three
+# op-empty-raw.files assertions all fail.  Measured, both ways, in this
+# batch's receipt 03.
+flags -r op-empty-raw.raw

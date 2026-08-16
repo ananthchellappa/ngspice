@@ -1,0 +1,27 @@
+# doc/codex/issues/0072 criterion 5: the -r run writes a valid raw file, or it
+# refuses to write one -- not a third thing.  The status alone cannot say which
+# of those happened, so the file itself is the assertion.  The driver deletes
+# every path named here BEFORE the run, so none of these three lines can be
+# satisfied by an artefact an earlier run left behind.
+#
+# 'present' is also the hard witness that op-empty-raw.invoke's 'flags -r
+# op-empty-raw.raw' line reached the command line: with no -r there is no
+# rawfile at all, and all three lines below fail.
+present op-empty-raw.raw
+
+# The header the run must write.  Nine lines, 193 bytes, and two of them are
+# not fit to assert on: 'Date:' is a wall clock and 'Command:' carries the
+# build stamp.  These two are neither.
+#
+# 'No. Variables: 0' is the whole of criterion 5.  An .op plot has no
+# reference vector (DCop() passes NULL for refName, dcop.c:50), so a circuit
+# with no non-ground node yields no columns at all -- where the same nodeless
+# deck under .tran writes 'No. Variables: 1', its time column.  Zero variables
+# is the state that used to abort on the routes that build a plot.
+#
+# The text is a BRE: the driver passes it to grep unchanged, so the '.' is
+# escaped.  Unescaped it would also match a line reading 'Nox Variables: 0'.
+grep op-empty-raw.raw ^No\. Variables: 0$
+
+# ... and that the file is the operating point's, not some other analysis's.
+grep op-empty-raw.raw ^Plotname: Operating Point$

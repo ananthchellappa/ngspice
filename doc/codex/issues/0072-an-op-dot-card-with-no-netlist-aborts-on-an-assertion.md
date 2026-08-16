@@ -23,15 +23,20 @@ rc=1
 `beginPlot()` (`src/frontend/outitf.c:479`) was measured and rejected; the
 reason is under **Resolution** and the measurement is
 `doc/claude/batches/2026-08-15-exit-status-testing/receipts/03-op-guard-site-measurement.md`.
-All nine Acceptance Criteria are met. One route within them still rests on a
-recorded measurement rather than on a committed deck: criterion 5's `-r` route.
+All nine Acceptance Criteria are met, and every route named in them is now
+asserted by a committed deck. Three of them were recorded measurements until
+2026-08-15, for one shared reason — `tests/bin/check_status.sh` ran exactly
+`--batch -n <deck>` and took no per-deck flags — which stopped being true when
+the driver learned a per-deck `<base>.invoke` sidecar (`38717a031`).
 Criterion 1's other two routes (`-b -n < deck` and `-n deck < /dev/null`) were
-in that position for the same reason — `tests/bin/check_status.sh` ran exactly
-`--batch -n <deck>` and took no per-deck flags — and are **asserted since
-2026-08-15**, when the driver learned a per-deck `<base>.invoke` sidecar
-(`38717a031`) and two decks were committed to spend it (`op-empty-stdin.cir`,
-`op-empty-notty.cir`). The table under **Resolution** says so row by row, and
-*The route dimension* below says what those two decks do and do not prove.
+spent on first (`op-empty-stdin.cir`, `op-empty-notty.cir`), and criterion 5's
+`-r` route followed (`op-empty-raw.cir`, `flags -r op-empty-raw.raw`, the one
+deck here whose expected status is 0). What remains a recorded measurement
+inside criterion 5 is narrower and is named as such in its row: reading the
+rawfile back through ngspice's own `load`, which would need a second
+invocation in the driver. The table under **Resolution** says all of this row
+by row, and *The route dimension* below says what the two criterion-1 decks do
+and do not prove.
 Full `make check` from `build-ver_50/` was **331 PASS / 0 FAIL** at the fix,
 against a 328 PASS / 0 FAIL baseline at `1c07b937b`, the difference being
 exactly the three new decks.
@@ -617,7 +622,7 @@ Measured on `build-ver_50/src/ngspice`, `ngspice-46+`, build stamp
 | 2 | **met, with a one-clause departure** | The message names the netlist in its first line, byte-identical to `main.c:1590`'s, and does not say "internal error". `no simulations run!` was replaced by `no operating point printed!` because the analysis did run; see *On the wording*. |
 | 3 | **met** | `dotcards.c:225` chosen, `outitf.c:479` named and rejected above with the number that rejected it. Nothing dereferences NULL: the guard returns before `:226`. |
 | 4 | **met** | The eight in-tree witnesses named in Impact — seven decks and one reference file — were checked. The seven decks were run before and after from their own directories: `stderr` is byte-identical for all seven; `stdout` is identical once wall-clock timestamps and the resource-usage block are removed, and identical under `check.sh`'s own `FILTER`. `tests/filters/lowpass.out` keeps sha256 `fec8b85a…`. No tracked `.out` in the tree is modified. `tests/filters/lowpass.cir` was additionally run under `-D casemode=fold`, `preserve` and `distinguish`: identical in all three. |
-| 5 | **met, by not moving**; measured, not asserted by a deck | The driver's command line is `--batch -n <deck>` with no `-r` and no per-deck flag file, so this row is a recorded measurement. `ngspice -b -n -r out.raw tiny.cir` is `rc=0` writing 193 bytes before and after, and the two files are identical apart from their `Date:` and `Command:` lines. It is a valid raw file, measured by reading it back with ngspice's own reader: `printf 'load out.raw\ndisplay\nquit 0\n' \| ngspice -p -n` loads it, reports `Name: Operating Point`, and exits 0. The nodeless `.tran` `-r` file (681 B, `No. Variables: 1`) and a real one (1658 B) are also unmoved. Not a third thing. |
+| 5 | **met, by not moving**; asserted by a deck for the status and the header, with the load-back a recorded measurement | `ngspice -b -n -r out.raw tiny.cir` is `rc=0` writing 193 bytes before and after, and the two files are identical apart from their `Date:` and `Command:` lines. **Asserted since 2026-08-15** by `tests/regression/exitstatus/op-empty-raw.cir` — the same six reproducer bytes, an `.invoke` of `flags -r op-empty-raw.raw`, a `.status` of **0**, and a `.files` asserting `present op-empty-raw.raw` plus the two header lines that are neither clock- nor build-specific, `^No\. Variables: 0$` and `^Plotname: Operating Point$`. It is the one deck in that directory whose expected status is 0, and its `.status` says at length why 0 is correct here rather than a bug, so that a reader who finds one 0 among six does not "fix" it. The *by not moving* half is held the same way criterion 1's is: with the guard at `dotcards.c:225` reverted to the assertion in a working tree and the binary rebuilt, the other five `op-empty-*` decks fail and **this one still passes**, writing the same 193-byte file — the row is shown not to have moved by a deck rather than by a note. What stays a **recorded measurement**, deliberately and by the owner's decision against a load-back concept in the driver, is that the file is a valid raw file rather than a third thing: `printf 'load out.raw\ndisplay\nquit 0\n' \| ngspice -p -n` loads the very file this deck writes, reports `Name: Operating Point`, and exits 0 — asserting it would need a second invocation in `check_status.sh`, which the driver does not have and is not getting. The nodeless `.tran` `-r` file (681 B, `No. Variables: 1` — its `time` column, and the reason `No. Variables: 0` is the assertion worth making) and a real one (1658 B) are also unmoved. |
 | 6 | **met** | Three decks in `tests/regression/exitstatus/`: `op-empty-netlist.cir` (this issue's reproducer, six bytes), `op-empty-tran.cir`, `op-empty-control.cir`, each with a `.status` of `1` and an `.err` holding the diagnostic. The criterion's own answer to "no existing harness can" was taken: `tests/bin/check_status.sh` and this directory were built first, as item 1 of `doc/claude/batches/2026-08-15-exit-status-testing/`. Its signal check makes a return to `SIGABRT` a named failure and not just a wrong number. |
 | 7 | **met** | The guard adds a NULL pointer test and an `fprintf`, and no comparison of any kind. `tests/lint/identity.baseline` is unchanged (sha256 `3dbd620e…`); both lint specs report `baseline matches`, 264 and 11 comparisons, the same counts as before. |
 | 8 | **met** | Full `make check` from `build-ver_50/`: **328 PASS / 0 FAIL** before, **331 PASS / 0 FAIL** after, `make` exit status 0 both times, the difference being exactly the three new decks. The criterion's 322 is the baseline at filing; the 328 is the same suite after this batch added `tests/regression/exitstatus/`. Case modes are covered inside that suite — `tests/regression/casedist/` runs under `-D casemode=distinguish` and `tests/regression/case/` under `preserve` — plus the three-mode run of a real `.op` deck in row 4. |

@@ -1,0 +1,25 @@
+# doc/codex/issues/0072 criterion 5, the '-r' row.  The deck is that issue's
+# six-byte reproducer verbatim -- a title line and an .op dot card, no comment
+# block, because the deck IS the reproducer; the commentary lives here, in the
+# .invoke and .files siblings and in Makefile.am.
+#
+# Zero, and it is the right answer rather than a bug.  Every other op-empty-*
+# deck in this directory exits 1, because a nodeless .op run builds an empty
+# plot and the guard at src/frontend/dotcards.c:225 reports it.  Under -r that
+# plot is never built: OUTpBeginPlot() takes its writeOut arm and calls
+# fileInit() instead of plotInit() (src/frontend/outitf.c:494-:497), so
+# plot_list gains nothing.  ft_cktcoms() still runs -- from the OTHER of its
+# two call sites, main.c:1573, the rflag arm of the batch epilogue, with
+# terse=TRUE, where every other op-empty-* deck arrives at main.c:1581 with
+# terse=FALSE -- but its setcplot("op") answers NULL, so the body holding the
+# guard is never entered.  The run streams a rawfile and exits normally.
+#
+# So this is not "the same mistake, forgiven on one route".  It is a different
+# path through the simulator that never had the defect, and criterion 5's
+# requirement for it is the opposite of criterion 1's: the row has to be shown
+# NOT to have moved, and the file it writes has to be a valid raw file or no
+# file at all -- not a third thing.  op-empty-raw.files asserts the file and
+# two of its header lines; that the row does not move under the fix was
+# measured by reverting the guard and re-running this deck, in this batch's
+# receipt 03.
+0
