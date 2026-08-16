@@ -1,0 +1,30 @@
+* the $sim_status guard fires, and the bogus artefact is never written
+* doc/codex/issues/0069 criterion 3.  The shape is the client's own: an
+* analysis dot card AND a .control run, no -r.  That combination is arm 2 of
+* main.c's batch epilogue -- ft_savedotargs() builds a save list of its own
+* from the .op card, so the deck's failing .save is no longer the whole save
+* list, the re-run after the control block succeeds, and the process exits 0
+* while the analysis inside the block never produced data.  It also means the
+* analysis runs twice, which is the shape 0069's Impact records.
+*
+* .save v(nosuchnode) names a node no netlist has, so it misses under fold,
+* preserve and distinguish alike and this deck needs no -D flag.
+*
+* The guard is the four lines from "if" to "end".  Delete them and this deck
+* exits 0 with sim-status-guard.raw on disk holding Plotname: constants --
+* which is what sim-status-guard.status and sim-status-guard.files together
+* forbid.  That deletion is the RED for this deck; it is not a hypothetical.
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.save v(nosuchnode)
+.op
+.control
+run
+if $sim_status ne 0
+  echo RUN-FAILED
+  quit 1
+end
+write sim-status-guard.raw
+.endc
+.end

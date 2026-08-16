@@ -1,0 +1,32 @@
+* $sim_status does not exist before the first analysis of the session
+* doc/codex/issues/0069, Resolution, property 2.  Both halves are here and
+* they are asserted two different ways, because only one of them is visible
+* to the deck:
+*
+*   - $?sim_status is 0 before the first analysis.  The deck can see that and
+*     quits 1 if it is not, which is the fail-fast idiom of
+*     tests/regression/pipe/*.cmd.
+*   - reading $sim_status there puts "Error: sim_status: no such variable."
+*     on stderr.  No deck can read its own stderr, so that half is
+*     sim-status-unset.err, compared by tests/bin/check_status.sh.
+*
+* Why it matters: a guard that can be reached before the first run has to
+* test $?sim_status first, or accept the error line.  The guard decks in this
+* directory are reached only after their run, so they do not.
+*
+* The netlist is real -- the same divider the guard decks use -- so that
+* "nothing has been analysed yet" is the only reason the variable is missing.
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.control
+if $?sim_status ne 0
+  echo "ERROR: sim_status already exists before the first analysis"
+  quit 1
+end
+* the read that produces the stderr line sim-status-unset.err asserts; it
+* answers an empty string and the block carries on.
+echo VALUE-BEFORE=$sim_status
+quit 0
+.endc
+.end

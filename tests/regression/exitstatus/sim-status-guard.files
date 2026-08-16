@@ -1,0 +1,8 @@
+# The write is after the guard, so a run that quits inside the guard never
+# reaches it.  0069 criterion 3 asks for both halves -- rc=1 AND no rawfile --
+# because rc=1 on its own does not mean nothing was written: the control-only
+# deck in that issue exits 1 and leaves a 570-byte constants file behind.
+#
+# The driver deletes this path before the run, so the line says the run did
+# not create the file, not that the directory happened to be clean.
+absent sim-status-guard.raw

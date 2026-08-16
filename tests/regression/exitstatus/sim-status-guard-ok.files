@@ -1,0 +1,7 @@
+# The plotname is the half that matters.  A run whose analysis did not
+# produce data still writes a well-formed rawfile -- doc/codex/issues/0059 --
+# and it is 'Plotname: constants' with the twelve physical constants in it.
+# So 'present' alone would be satisfied by exactly the artefact the guard
+# exists to prevent; the grep is what makes this a negative control.
+present sim-status-guard-ok.raw
+grep sim-status-guard-ok.raw Plotname: Operating Point

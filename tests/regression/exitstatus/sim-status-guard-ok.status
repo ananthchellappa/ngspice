@@ -1,0 +1,3 @@
+# The guard is reached and does not fire, so the deck runs to the end of the
+# control block and main's arm 2 exits normally.
+0

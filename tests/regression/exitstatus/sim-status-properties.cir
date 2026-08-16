@@ -1,0 +1,58 @@
+* two of the three properties a consumer of $sim_status has to know
+* doc/codex/issues/0069, Resolution, properties 1 and 3.  Property 2 -- that
+* the variable does not exist before the first analysis -- is asserted by
+* sim-status-unset.cir instead, because half of its evidence is a line on
+* stderr that no deck can read.
+*
+* Every check is fail-fast in the idiom of tests/regression/pipe/*.cmd: an
+* explicit "quit 1" with an ERROR: echo, and "quit 0" at the end.  Before
+* tests/bin/check_status.sh existed those statuses were discarded by
+* tests/bin/check.sh and only the echo text failed a test; here the status is
+* the verdict, which is the whole point of the directory.
+*
+* There is no analysis dot card, so the bare "run" has nothing to do.  That is
+* property 3 and it is a trap: sim_status reads 0, because runcoms.c:329
+* writes it before dispatching and nothing failed.  0 therefore means "the
+* last analysis did not report a failure" and not "an analysis produced
+* data".  A consumer that needs the second question has to ask the rawfile
+* -- doc/codex/issues/0059.
+*
+* Then property 1, which is why the guard decks read the variable straight
+* after their run rather than once at the end of the block: a failing
+* analysis sets 1, a later good one sets 0, and the last writer wins.
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.control
+
+* --- property 3: a run with no analysis to do reads 0 -------------------
+run
+echo AFTER-RUN=$sim_status
+if $sim_status ne 0
+  echo "ERROR: a run with nothing to analyse left sim_status at $sim_status, not 0"
+  quit 1
+end
+
+* --- property 1a: a failed analysis sets 1 ------------------------------
+* v(nosuchnode) is in no netlist, so this miss needs no case mode to reach.
+save v(nosuchnode)
+op
+echo AFTER-BAD=$sim_status
+if $sim_status ne 1
+  echo "ERROR: a failed analysis left sim_status at $sim_status, not 1"
+  quit 1
+end
+
+* --- property 1b: the next good analysis sets it back to 0 --------------
+save all
+op
+echo AFTER-GOOD=$sim_status
+if $sim_status ne 0
+  echo "ERROR: a good analysis after a failed one left sim_status at $sim_status, not 0"
+  quit 1
+end
+
+echo PROPS-OK
+quit 0
+.endc
+.end

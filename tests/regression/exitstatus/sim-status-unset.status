@@ -1,0 +1,3 @@
+# Reading an undefined variable is a diagnostic, not a failure: the block
+# carries on and quits 0.
+0

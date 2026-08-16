@@ -1,0 +1,24 @@
+* the negative control: the same guarded deck with a .save that resolves
+* doc/codex/issues/0069 criterion 3.  Identical to sim-status-guard.cir card
+* for card except that the .save names the net the netlist defines, spelled
+* the way the netlist spells it, so it resolves under every case mode and
+* this deck needs no -D flag either.
+*
+* Without this deck sim-status-guard.cir would pass for the wrong reason: a
+* guard that fires on every run asserts nothing.  Here the guard is reached
+* and does not fire, the write is reached, and the rawfile is a real
+* operating point rather than the twelve physical constants.
+Vs In 0 DC 3
+Rl In MidNode 1k
+Rg MidNode 0 3k
+.save v(MidNode)
+.op
+.control
+run
+if $sim_status ne 0
+  echo RUN-FAILED
+  quit 1
+end
+write sim-status-guard-ok.raw
+.endc
+.end

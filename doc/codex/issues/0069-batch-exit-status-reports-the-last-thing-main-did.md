@@ -248,7 +248,8 @@ change. Criteria 1 and 2 are the decision; 3 to 5 are what is owed anyway.
 ### Where the criteria stand, checked 2026-08-15
 
 The criteria themselves still say what is owed and none of them is withdrawn.
-Four of the five are met; the third is not, and nothing in this batch writes it.
+All five are met. The third was the last one outstanding and was closed later
+the same day, by the decks named under it.
 
 1. **Met.** `src/main.c` has no commit on `ver_50` since this issue was filed
    and the chain is where *Root Cause* quotes it, line for line: `error3 = 1` at
@@ -263,12 +264,47 @@ Four of the five are met; the third is not, and nothing in this batch writes it.
    carries them under *The answer: `$sim_status`, and it needs no ngspice
    change*; this issue's *Resolution* is the third. All three say per analysis,
    last writer wins, and absent before the first analysis.
-3. **Not met, and still owed.** There is no test anywhere under `tests/` that
-   mentions `sim_status` — `grep -rl sim_status tests/` returns nothing on
-   2026-08-15. The guard shape is documented and measured in three places and
-   asserted in none, so nothing in the suite would notice if a future change
-   broke it. The specification in the criterion is unchanged, including that
-   `tests/regression/pipe/` is the directory that can see an exit status.
+3. **Met, 2026-08-15,** on `ver_50` in *test: assert the `$sim_status` guard
+   shape*, the child of `baccfa570`. Four decks in
+   `tests/regression/exitstatus/`, driven by `tests/bin/check_status.sh` — the
+   directory and driver `baccfa570` itself added, precisely because no existing
+   harness could see a batch run's exit status.
+   `grep -rl sim_status tests/` returned nothing when this
+   subsection was first written; it now returns six files (`| sort`):
+
+   ```
+   tests/regression/exitstatus/Makefile.am
+   tests/regression/exitstatus/sim-status-guard-ok.cir
+   tests/regression/exitstatus/sim-status-guard.cir
+   tests/regression/exitstatus/sim-status-properties.cir
+   tests/regression/exitstatus/sim-status-unset.cir
+   tests/regression/exitstatus/sim-status-unset.err
+   ```
+
+   - `sim-status-guard.cir` is the criterion's deck: the client's shape — an
+     analysis dot card *and* a `.control run`, no `-r` — with
+     `.save v(nosuchnode)`, which misses in every case mode so the deck needs
+     no `-D` flag. `run`, the four guard lines, then a `write` that must never
+     be reached. `sim-status-guard.status` asserts rc=1 and
+     `sim-status-guard.files` asserts `absent sim-status-guard.raw`, which is
+     the criterion's *both*.
+   - `sim-status-guard-ok.cir` is the negative control: the same deck with
+     `.save v(MidNode)`, asserting rc=0, the rawfile present, and
+     `Plotname: Operating Point` in it — the plotname rather than mere
+     existence, because the artefact the guard prevents is also a well-formed
+     file.
+   - `sim-status-properties.cir` and `sim-status-unset.cir` assert the three
+     properties of the *Resolution* in the fail-fast idiom of
+     `tests/regression/pipe/*.cmd`. Property 2 is split off because half its
+     evidence is `Error: sim_status: no such variable.` on stderr, which no
+     deck can read; `sim-status-unset.err` carries it.
+
+   The criterion named `tests/regression/pipe/` as the directory that can see
+   an exit status. That was true when it was written and is now superseded:
+   `pipe/` drives `ngspice -p`, which never enters batch mode and so cannot
+   reach the four-arm epilogue this issue is about. `exitstatus/` runs
+   `--batch -n` and asserts the status, so the guard is asserted against the
+   path it is a guard for.
 4. **Met.** The two-simulation shape is in the guide's §9 as *Do not carry both
    an analysis dot card and a `.control run`*, and in this issue's *Impact*.
    Re-measured 2026-08-15 on `repro2/ctl_fail.cir` under `distinguish`: two
