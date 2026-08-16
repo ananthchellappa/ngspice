@@ -486,6 +486,16 @@ residual, and it is the same residual `0059` records — neither `sim_status` no
   reached a different way (a good analysis after a bad one).
 - `doc/codex/issues/0057` — the diagnostic half. Its per-simulation contract
   plus this issue's two-simulation deck shape is R4 of the client's reply.
+- `doc/codex/issues/0072` — an `.op` dot card with no netlist aborts on an
+  assertion. **Fixed 2026-08-15** at `src/frontend/dotcards.c:225`, prepared for
+  upstream and not sent. It was found by running this issue's *Resolution*
+  listing verbatim, back when that listing had lost its netlist lines (item 3 of
+  `doc/claude/batches/2026-08-15-xschem-open-items/` corrected it). The two are
+  the same complaint from opposite ends: there a user's mistake is reported as
+  `SIGABRT`, here a real failure is reported as `rc=0`. Both became assertable
+  at the same moment — `tests/bin/check_status.sh` and
+  `tests/regression/exitstatus/` were built to close criterion 3 above, and
+  0072's three decks are in that same directory.
 - `doc/codex/issues/0064` — the phantom `v(all)`, which the same client decks
   produced. **Fixed 2026-08-15** (`25e891ec3`), in the narrow scope: a bare
   `write` of a one-vector plot now holds the net's own name and one column,

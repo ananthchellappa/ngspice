@@ -84,9 +84,9 @@ without one `.op` becomes the title and the deck is empty, which ngspice
 already diagnoses properly (`Warning: Empty netlist!`, then the
 `incomplete or empty netlist` error, `rc=1`).
 
-**`stdout` is empty.** Not truncated — empty. The run gets as far as printing
-its banner, `Circuit: *`, the solver line and `No. of Data Rows : 1`, and
-`abort()` does not flush `stdio`, so when `stdout` is a file or a pipe every
+**`stdout` is empty for this deck.** Not truncated — empty. The run gets as far
+as printing its banner, `Circuit: *`, the solver line and `No. of Data Rows : 1`,
+and `abort()` does not flush `stdio`, so when `stdout` is a file or a pipe every
 byte of that is discarded:
 
 ```
@@ -96,6 +96,15 @@ $ wc -c so.txt se.txt
   0 so.txt
 106 se.txt
 ```
+
+**Scoped 2026-08-15**, because this paragraph read as a property of the defect
+rather than of the deck. Empty is exact for this six-byte reproducer and for the
+`.op` + a `.control run` shape; it is **false for `.op` + `.tran 1n 10n`**, which
+keeps **324 bytes** under the same redirect. The transient path flushes on its
+way past, so the banner, `No. of Data Rows : 1` and an empty
+`Initial Transient Solution` header survive while the transient's own results do
+not. Measured in
+`doc/claude/batches/2026-08-15-exit-status-testing/receipts/05-upstream-material.md`.
 
 Under a pty the same output is line-buffered and does appear, which is why the
 abort looks different by hand than it does under automation:
@@ -223,8 +232,11 @@ What it costs is this:
   them are genuine memory defects. The cost of this one is that it spends
   somebody's triage budget looking like the other two.
 - **The output that would have explained it is destroyed.** Zero bytes of
-  `stdout` survive under a redirect, measured above. A harness that captures
-  `stdout` and reports the tail of it on failure has nothing to report. This
+  `stdout` survive under a redirect for the reproducer, measured above; the
+  `.op` + `.tran` shape keeps only the 324 bytes the transient path had already
+  flushed, which stop before the analysis that mattered. A harness that captures
+  `stdout` and reports the tail of it on failure has nothing to report, or a
+  fragment that stops short of the failure. This
   is the same class of unhelpfulness that `doc/codex/issues/0069` documents
   from the other end — there the status is silent about a real failure, here
   the status is loud about a mistake and the output is silent about which.
@@ -338,6 +350,14 @@ loops:
 ```
 
 Zero iterations. `pl->pl_dvecs` stays as `plot_alloc()` left it: NULL.
+
+**These `outitf.c` line numbers are this branch's.** That file carries unrelated
+branch changes earlier on, so a reader who follows them into an upstream tree
+lands in the wrong place: the `numNames &&` guard is **`outitf.c:461`** on
+`pre-master-47` where this file says `:479`, and `run->refIndex = -1` above is
+`:291` there rather than `:303`. `dotcards.c` needs no such translation —
+`assert(plot_cur->pl_dvecs != NULL)` is line **225 in both trees**, which is why
+the fix site's number is the same one an upstream maintainer sees.
 
 **Step 3 — the epilogue asserts the invariant instead of testing it.**
 `main.c:1577` asks `ft_savedotargs()`, which returns 1 because the deck has an
@@ -598,7 +618,7 @@ Measured on `build-ver_50/src/ngspice`, `ngspice-46+`, build stamp
 | 6 | **met** | Three decks in `tests/regression/exitstatus/`: `op-empty-netlist.cir` (this issue's reproducer, six bytes), `op-empty-tran.cir`, `op-empty-control.cir`, each with a `.status` of `1` and an `.err` holding the diagnostic. The criterion's own answer to "no existing harness can" was taken: `tests/bin/check_status.sh` and this directory were built first, as item 1 of `doc/claude/batches/2026-08-15-exit-status-testing/`. Its signal check makes a return to `SIGABRT` a named failure and not just a wrong number. |
 | 7 | **met** | The guard adds a NULL pointer test and an `fprintf`, and no comparison of any kind. `tests/lint/identity.baseline` is unchanged (sha256 `3dbd620e…`); both lint specs report `baseline matches`, 264 and 11 comparisons, the same counts as before. |
 | 8 | **met** | Full `make check` from `build-ver_50/`: **328 PASS / 0 FAIL** before, **331 PASS / 0 FAIL** after, `make` exit status 0 both times, the difference being exactly the three new decks. The criterion's 322 is the baseline at filing; the 328 is the same suite after this batch added `tests/regression/exitstatus/`. Case modes are covered inside that suite — `tests/regression/casedist/` runs under `-D casemode=distinguish` and `tests/regression/case/` under `preserve` — plus the three-mode run of a real `.op` deck in row 4. |
-| 9 | **met** | Decided: fixed here, on `ver_50`, and the upstream material owed alongside it is a named, separate item that is not written yet. See *Where it lands*. |
+| 9 | **met** | Decided: fixed here, on `ver_50`, and the upstream material owed alongside it is a named, separate item, written later the same day and **not sent**. See *Where it lands*. |
 
 ### Where it lands
 
@@ -607,8 +627,11 @@ three the filing offered: the patch is applied on this branch, and the material
 an upstream report would need — the minimal diff against upstream, the six-byte
 reproducer, the measurement that it reproduces on released `ngspice-46`, and
 the before/after — is item 5 of
-`doc/claude/batches/2026-08-15-exit-status-testing/PLAN.md`, to be written into
-that batch directory. It is not in this commit and it is not written yet.
+`doc/claude/batches/2026-08-15-exit-status-testing/PLAN.md`. It is not in this
+commit. It was written later the same day and is
+`doc/claude/batches/2026-08-15-exit-status-testing/upstream-0072/`: a patch
+against `pre-master-47`, a report, and a README. **Prepared and not sent** —
+whether to send it is the owner's call.
 
 The ownership argument is unchanged, and it is the reason upstream material is
 owed at all. Every measurement in this file was taken on
@@ -626,8 +649,8 @@ client generates decks, and a generated deck that loses its netlist lines is
 exactly this file.
 
 **Nothing has been sent upstream.** No submission from this repository has been
-sent, including the one prepared for `0067`, and nothing for this issue has
-even been written yet.
+sent — not the material prepared for `0067`, and not the material now prepared
+for this issue.
 
 ## Related
 
@@ -638,7 +661,13 @@ even been written yet.
   failure reported as `rc=0`, this is a user mistake reported as a signal, and
   in both cases the exit status tells the caller something other than what
   happened. 0069's answer — `$sim_status`, chosen by the deck — does not reach
-  this one, because the process is dead before any control language runs.
+  this one, because the process is dead before any control language runs. 0069
+  is **not fixed, by decision**, and its last open criterion — a deck asserting
+  the `$sim_status` guard — was closed on 2026-08-15 by four decks in
+  `tests/regression/exitstatus/`, the same directory this issue's three live in.
+  Neither could be asserted before `tests/bin/check_status.sh` existed: it is
+  the first driver in the tree that can see a `--batch` run's exit status, and
+  it was built as item 1 of the batch that fixed this.
 - `doc/codex/issues/0067` — `cp_remvar()` frees a node it chose not to unlink.
   Also `rc=134` from a released binary, also found from the client's side, and
   the reason `rc=134` is an expensive thing for ngspice to spend on a bad deck.
