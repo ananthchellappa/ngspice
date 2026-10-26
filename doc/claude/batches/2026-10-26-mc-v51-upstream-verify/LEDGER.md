@@ -29,3 +29,19 @@ Send order: p1, then p4-crash/on-p1, then p2.
    together.
 2. Is `ananth.chellappa@outlook.com` the address to publish?
 3. Post and file (see `SUBMIT.md`), then tell the driver the ticket numbers.
+
+## Submitted
+
+| patch | ticket | filed |
+| --- | --- | --- |
+| p1, R model through the R→B rewrite | https://sourceforge.net/p/ngspice/patches/134/ | 2026-10-26, by the owner |
+| p4-crash (on-p1), typeless .model with .if | https://sourceforge.net/p/ngspice/patches/135/ | 2026-10-26, by the owner |
+| p2, warn once when .option seed= overrides setseed | https://sourceforge.net/p/ngspice/patches/136/ | 2026-10-26, by the owner |
+
+Forum thread, posted by the owner on 2026-10-26, linking all three tickets:
+https://sourceforge.net/p/ngspice/discussion/127605/thread/7dae98eab5/
+
+The AI disclosure was kept in both places, the forum sentence and the
+`Co-Authored-By` trailers. The patches were sent with the outlook address
+already in them. P3 was not sent, because upstream fixed it (bugs #872/#873).
+Next: wait for the maintainers' replies on the thread and the tickets.
