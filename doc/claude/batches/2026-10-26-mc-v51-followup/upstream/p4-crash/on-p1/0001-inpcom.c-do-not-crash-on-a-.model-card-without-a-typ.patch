@@ -1,0 +1,280 @@
+From 0221985ccdd7ad25c4d680f34c1cf8078ec9925c Mon Sep 17 00:00:00 2001
+From: Ananth <ananth.chellappa@outlook.com>
+Date: Mon, 26 Oct 2026 10:33:17 -0700
+Subject: [PATCH] inpcom.c: do not crash on a .model card without a type in a
+ deck with .if
+
+A .model card that stops before its type ('.model bad', or '.model'
+alone) crashes ngspice when the deck has an .if, even when the card is
+in a branch that is not taken.  On ngspice-45.2:
+
+    .if (0)
+    .model bad
+    .endif
+    i1 0 1 1u
+    r1 1 0 1k
+    ...                              Segmentation fault, exit 139
+
+Without .if the same card is reported ("Error: no model type given in
+line .model bad!") and ngspice exits 1.  The difference is that
+inp_readall() only calls inp_rem_unused_models(), which makes that
+check, when the deck has no .if; with .if the card reaches the macro
+expander.  There:
+
+- inp_expand_macro_in_str() skips '.model name' with nexttok() and then
+  calls findtok_noparen(&search_ptr, &search_ptr, &end).  With no type,
+  findtok_noparen() sets its token argument, which is search_ptr, to
+  NULL, and the strchr(search_ptr, '(') that follows crashes.  For
+  '.model' alone the second nexttok() already returns NULL.
+- For '.model' alone inside a subcircuit that is used, modtranslate()
+  takes a NULL name from gettok() and puts it in its wordlist, and the
+  next wl_find() crashes in strcmp().
+
+has_if is never cleared, so after one deck with .if, a deck without
+.if read in the same session takes the same path.
+
+The fix:
+
+- inp_expand_macro_in_str() skips the two tokens with skip_token(),
+  which never returns NULL, and gives the type its own pointer.
+- modtranslate() leaves a '.model' card with no name as it is.
+- The "no model type given" check is factored out of
+  inp_rem_unused_models() into inp_chk_model_type(), and a new
+  inp_chk_model_types() runs it on the flat deck.  inp_spsource() calls
+  it right after dotifeval(), so a card in a branch that is not taken is
+  already a comment and is not reported, and a deck with .if gets the
+  same error and exit 1 as one without.  The text of the error is
+  unchanged; in a subcircuit it shows the card as expansion left it
+  (".model x1:bad "), with the deck's own line number.
+
+Behaviour change: none for a deck without .if.  A deck with .if and a
+typeless .model in a live branch now stops with the error instead of
+crashing, and one with the card in a dead branch runs.
+
+Test (tests/regression/model, check.sh):
+- model-typeless-if-dead.cir: '.model bad' in an '.if (0)' branch.  The
+  deck must run, so a crash leaves "INFO: success" out of its output.
+  The error cases exit 1 with their message on stderr, which check.sh
+  does not see, so they have no test here.
+
+This version is for a tree that already has 'inpcom.c: carry the R model
+through the R->B rewrite', which moved the check into
+inp_collect_models().  The change is the same.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/frontend/inp.c                            |  4 +
+ src/frontend/inpcom.c                         | 78 +++++++++++++++----
+ src/frontend/subckt.c                         |  5 ++
+ tests/regression/model/Makefile.am            |  3 +-
+ .../model/model-typeless-if-dead.cir          | 26 +++++++
+ .../model/model-typeless-if-dead.out          |  1 +
+ 6 files changed, 103 insertions(+), 14 deletions(-)
+ create mode 100644 tests/regression/model/model-typeless-if-dead.cir
+ create mode 100644 tests/regression/model/model-typeless-if-dead.out
+
+diff --git a/src/frontend/inp.c b/src/frontend/inp.c
+index f0de1289d..ee95571ae 100644
+--- a/src/frontend/inp.c
++++ b/src/frontend/inp.c
+@@ -80,6 +80,7 @@ extern struct nscope* inp_add_levels(struct card *deck);
+ extern void inp_rem_levels(struct nscope* root);
+ extern void comment_out_unused_subckt_models(struct card *deck);
+ extern void inp_rem_unused_models(struct nscope *root, struct card *deck);
++extern void inp_chk_model_types(struct card *deck);
+ 
+ extern void modprobenames(INPtables * tab);
+ 
+@@ -1020,6 +1021,9 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
+             /* handle .if ... .elseif ... .else ... .endif statements. */
+             dotifeval(deck);
+ 
++            /* a .model card without a type, in a deck with .if */
++            inp_chk_model_types(deck);
++
+             /* get csparams and create vectors, available
+                in plot 'const' of a .control section */
+             for (dd = deck; dd; dd = dd->nextcard) {
+diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
+index 57feea4a6..e18c5a3f2 100644
+--- a/src/frontend/inpcom.c
++++ b/src/frontend/inpcom.c
+@@ -183,6 +183,8 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck);
+ static struct modellist *inp_find_model(
+         struct nscope *scope, const char *name);
+ static int inp_collect_models(struct card *deck);
++static void inp_chk_model_type(struct card *card, char *model_type);
++void inp_chk_model_types(struct card *deck);
+ static void inp_free_models(struct nscope *level);
+ static bool behav_r_models_wanted(struct card *deck);
+ static char *behav_r_model_token(const char *rest, const char *line);
+@@ -4742,10 +4744,14 @@ static char *inp_expand_macro_in_str(struct function_env *env, char *str)
+     /* If we have '.model mymod mdname(params)', don't treat this as a function,
+     but skip '.model mymod mdname' and only then start searching for functions. */
+     if (ciprefix(".model", search_ptr)){
+-        search_ptr = nexttok(search_ptr);
+-        search_ptr = nexttok(search_ptr);
+-        char *end;
+-        findtok_noparen(&search_ptr, &search_ptr, &end);
++        /* The card may stop short of the type, or of the name: skip_token()
++           never returns NULL, and the type gets its own pointer, because
++           findtok_noparen() sets it to NULL when there is no type.  A card
++           without a type is reported by inp_chk_model_type(). */
++        search_ptr = skip_token(search_ptr); /* .model */
++        search_ptr = skip_token(search_ptr); /* model name */
++        char *type, *end;
++        findtok_noparen(&search_ptr, &type, &end);
+     }
+     // printf("%s: enter(\"%s\")\n", __FUNCTION__, str);
+     while ((open_paren_ptr = strchr(search_ptr, '(')) != NULL) {
+@@ -9647,16 +9653,9 @@ static int inp_collect_models(struct card *deck)
+ 
+         if (ciprefix(".model", curr_line)) {
+             struct modellist *modl_new;
+-            modl_new = TMALLOC(struct modellist, 1);
+             char *model_type = get_model_type(curr_line);
+-            if (!model_type) {
+-                fprintf(stderr, "Error: no model type given in line %s!\n", curr_line);
+-                fprintf(stderr,
+-                    "    line no. %d from file %s!\n",
+-                    card->linenum_orig, card->linesource);
+-                tfree(modl_new);
+-                controlled_exit(EXIT_BAD);
+-            }
++            inp_chk_model_type(card, model_type);
++            modl_new = TMALLOC(struct modellist, 1);
+             modl_new->elemb = inp_get_elem_ident(model_type);
+             modl_new->modelname = get_subckt_model_name(curr_line);
+             modl_new->model = card;
+@@ -9671,6 +9670,59 @@ static int inp_collect_models(struct card *deck)
+ }
+ 
+ 
++/* Stop the run if the .model card card gave no model type: model_type is
++   what get_model_type() returned for it. */
++static void inp_chk_model_type(struct card *card, char *model_type)
++{
++    if (model_type)
++        return;
++    fprintf(stderr, "Error: no model type given in line %s!\n", card->line);
++    fprintf(stderr,
++        "    line no. %d from file %s!\n",
++        card->linenum_orig, card->linesource);
++    controlled_exit(EXIT_BAD);
++}
++
++
++/* Stop the run on any .model card of deck that gives no model type.
++   inp_collect_models() makes this check while it builds the model lists,
++   but inp_readall() does not call it for a deck that has .if, because a
++   model may be in a branch that is not taken.  inp_spsource() calls this
++   once the branches are decided and the deck is flat, so a deck with .if
++   gets the same diagnostic as one without.  The title line is skipped. */
++void inp_chk_model_types(struct card *deck)
++{
++    struct card *card;
++    int skip_control = 0;
++
++    for (card = deck->nextcard; card; card = card->nextcard) {
++
++        char *curr_line = card->line;
++
++        if (ciprefix(".control", curr_line)) {
++            skip_control++;
++            continue;
++        }
++        else if (ciprefix(".endc", curr_line)) {
++            skip_control--;
++            continue;
++        }
++        else if (skip_control > 0) {
++            continue;
++        }
++
++        if (*curr_line == '*')
++            continue;
++
++        if (ciprefix(".model", curr_line)) {
++            char *model_type = get_model_type(curr_line);
++            inp_chk_model_type(card, model_type);
++            tfree(model_type);
++        }
++    }
++}
++
++
+ /* Free the models lists of level and of every scope below it, and leave
+    the .model cards alone: unlike rem_unused_xxx(), nothing is commented
+    out. */
+diff --git a/src/frontend/subckt.c b/src/frontend/subckt.c
+index a0fed2696..d4f173911 100644
+--- a/src/frontend/subckt.c
++++ b/src/frontend/subckt.c
+@@ -1758,6 +1758,11 @@ modtranslate(struct card *c, char *subname, wordlist *new_modnames)
+ 
+             model_name = gettok(&t);
+ 
++            /* a '.model' card with no name is left as it is: there is
++               nothing to rename, and inp_chk_model_types() reports it */
++            if (!model_name)
++                continue;
++
+             new_model_name = tprintf("%s:%s", subname, model_name);
+ 
+             /* remember the translation */
+diff --git a/tests/regression/model/Makefile.am b/tests/regression/model/Makefile.am
+index d2fcd85ba..8dda9eb78 100644
+--- a/tests/regression/model/Makefile.am
++++ b/tests/regression/model/Makefile.am
+@@ -1,7 +1,8 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ 
+-TESTS = binning-1.cir special-names-1.cir instance-defaults.cir
++TESTS = binning-1.cir special-names-1.cir instance-defaults.cir \
++	model-typeless-if-dead.cir
+ 
+ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
+ 
+diff --git a/tests/regression/model/model-typeless-if-dead.cir b/tests/regression/model/model-typeless-if-dead.cir
+new file mode 100644
+index 000000000..60c4a4886
+--- /dev/null
++++ b/tests/regression/model/model-typeless-if-dead.cir
+@@ -0,0 +1,26 @@
++regression test model-typeless-if-dead.cir, a .model card without a type in a false .if branch
++
++* dotifeval() comments out the lines of a branch that is not taken, so
++* '.model bad' is not part of the circuit and the deck is correct.  Macro
++* expansion in inp_readall() runs long before that and reads every line,
++* and on a '.model' card without a type it called strchr() on NULL.  The
++* deck must run, so a crash leaves INFO: success out of the output.
++
++.if (0)
++.model bad
++.endif
++i1 0 1 1u
++r1 1 0 1k
++
++.control
++op
++if v(1) = 1m
++  echo "INFO: success"
++  quit 0
++else
++  echo "ERROR: v(1) is not 1 mV"
++  quit 1
++end
++.endc
++
++.end
+diff --git a/tests/regression/model/model-typeless-if-dead.out b/tests/regression/model/model-typeless-if-dead.out
+new file mode 100644
+index 000000000..8e9036969
+--- /dev/null
++++ b/tests/regression/model/model-typeless-if-dead.out
+@@ -0,0 +1 @@
++INFO: success
+-- 
+2.53.0
+

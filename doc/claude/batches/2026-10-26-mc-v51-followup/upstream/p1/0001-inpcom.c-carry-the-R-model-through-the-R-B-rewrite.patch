@@ -1,6 +1,6 @@
-From 44da6f8de9dd18cd90741bcb08428884ca2af7de Mon Sep 17 00:00:00 2001
+From f9619786fd6a1fb4071ba43c4f9567b77035b1c0 Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
-Date: Mon, 26 Oct 2026 09:47:03 -0700
+Date: Mon, 26 Oct 2026 10:32:01 -0700
 Subject: [PATCH] inpcom.c: carry the R model through the R->B rewrite
 
 An R card whose value needs a behavioural source (it names v(), i(),
@@ -29,9 +29,14 @@ yet and every value may be a {expression}:
   skips a {...} value too, so 'R n1 n2 {eq} model' keeps its model when
   unused models are removed.
 - The lookup walks the card's scope outwards and accepts only an exact
-  name; R has no binning.  Not found, or more than one exact match in the
-  winning scope (the branches of an .if, resolved later): a warning, and
-  the line is exactly what it was before.
+  name; R has no binning.  The rewrite runs before .if is resolved, so a
+  model written in both branches of an .if is found twice in one scope.
+  Matches whose text after the name is the same, byte for byte, are one
+  model.  Not found, or two matches in the winning scope that differ: a
+  warning, and the line is exactly what it was before.  With the same
+  .model rm in the .if and the .else branch of the deck above, at 125 C:
+  v(a) = 7.300000e-02 and a "not resolved" warning if the second match
+  is refused, 5.694000e-02 (= v(b)) with this patch.
 - tc1|tc1r, tc2|tc2r and tnom come from the model; instance tc/tc1 and tc2
   override them per parameter.  A model tnom becomes an offset of the
   temperature the ASRC sees: dtemp={<dtemp|0>+27-(tnom)}, or
@@ -64,28 +69,37 @@ Tests (tests/regression/temper, check.sh):
 - temper-res-behav-noise.cir: the noise branch, off and on, against a
   plain model R, with dtemp and temp.
 - temper-res-behav-noise-subckt.cir: the same in a subckt whose model
-  shadows a global one.
+  shadows a global one.  A top-level R uses the global model, so that
+  inp_rem_unused_models() keeps that card: a lookup in the wrong scope
+  then finds the wrong model (maxerr 0.445) instead of none.
+- temper-res-behav-dup.cir: the same .model in the .if and the .else
+  branch, at the top level and in a subckt after the instance.  Refusing
+  the second match leaves the converted R flat (maxerr 0.282, spread 0).
 The decks keep vectors across 'reset' in the const plot (let const.x),
 which needs 785be3194; their success line is the tested branch, so a
 missing vector fails them.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
- src/frontend/inpcom.c                         | 382 +++++++++++++++++-
+ src/frontend/inpcom.c                         | 387 +++++++++++++++++-
  tests/regression/temper/Makefile.am           |   9 +-
  .../regression/temper/temper-res-behav-1.cir  | 133 ++++++
  .../regression/temper/temper-res-behav-1.lib  |   6 +
  .../regression/temper/temper-res-behav-1.out  |   1 +
+ .../temper/temper-res-behav-dup.cir           |  83 ++++
+ .../temper/temper-res-behav-dup.out           |   1 +
  .../temper/temper-res-behav-noise-subckt.cir  |  70 ++++
  .../temper/temper-res-behav-noise-subckt.out  |   1 +
- .../temper/temper-res-behav-noise-subckt.sp   |  28 ++
+ .../temper/temper-res-behav-noise-subckt.sp   |  34 ++
  .../temper/temper-res-behav-noise.cir         |  73 ++++
  .../temper/temper-res-behav-noise.out         |   1 +
  .../temper/temper-res-behav-noise.sp          |  27 ++
- 11 files changed, 724 insertions(+), 7 deletions(-)
+ 13 files changed, 819 insertions(+), 7 deletions(-)
  create mode 100644 tests/regression/temper/temper-res-behav-1.cir
  create mode 100644 tests/regression/temper/temper-res-behav-1.lib
  create mode 100644 tests/regression/temper/temper-res-behav-1.out
+ create mode 100644 tests/regression/temper/temper-res-behav-dup.cir
+ create mode 100644 tests/regression/temper/temper-res-behav-dup.out
  create mode 100644 tests/regression/temper/temper-res-behav-noise-subckt.cir
  create mode 100644 tests/regression/temper/temper-res-behav-noise-subckt.out
  create mode 100644 tests/regression/temper/temper-res-behav-noise-subckt.sp
@@ -94,7 +108,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 tests/regression/temper/temper-res-behav-noise.sp
 
 diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
-index 0ec7189aa..d6ae18f19 100644
+index 0ec7189aa..57feea4a6 100644
 --- a/src/frontend/inpcom.c
 +++ b/src/frontend/inpcom.c
 @@ -182,6 +182,13 @@ void inp_rem_levels(struct nscope *root);
@@ -236,7 +250,7 @@ index 0ec7189aa..d6ae18f19 100644
      /* scan through all element lines  that require or may need a model */
      for (card = deck; card; card = card->nextcard) {
  
-@@ -9700,6 +9773,305 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
+@@ -9700,6 +9773,310 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
      rem_unused_xxx(root);
  }
  
@@ -438,7 +452,8 @@ index 0ec7189aa..d6ae18f19 100644
 +   The model is looked up from the card's own scope outwards; only an exact
 +   name counts, as an R has no binning.  Two or more exact matches in the
 +   scope that has any (the branches of an .if, which is resolved later) are
-+   not resolved. */
++   one model when every card's text after its name is the same, byte for
++   byte, and are not resolved when any two differ. */
 +static char *behav_r_model_args(struct card *card, const char *rname,
 +        const char *mname, const char *rest, char *equation,
 +        char **noise_args)
@@ -446,6 +461,7 @@ index 0ec7189aa..d6ae18f19 100644
 +    struct modellist *m = NULL;
 +    struct nscope *scope;
 +    int nfound = 0;
++    bool differ = FALSE;
 +
 +    *noise_args = NULL;
 +
@@ -456,11 +472,14 @@ index 0ec7189aa..d6ae18f19 100644
 +                    model_name_match(mname, p->modelname) == 1) {
 +                if (!m)
 +                    m = p;
++                else if (strcmp(skip_token(skip_token(m->model->line)),
++                        skip_token(skip_token(p->model->line))) != 0)
++                    differ = TRUE;
 +                nfound++;
 +            }
 +    }
 +
-+    if (nfound != 1) {
++    if (nfound == 0 || differ) {
 +        fprintf(stderr, "Warning: behavioral R %s: model %s not resolved, "
 +                "tc1/tc2/tnom not applied\n", rname, mname);
 +        return NULL;
@@ -543,7 +562,7 @@ index 0ec7189aa..d6ae18f19 100644
   * License: Modified BSD (see http://www.cl.cam.ac.uk/~mgk25/short-license.html)
   * The utf8_check() function scans the '\0'-terminated string starting
 diff --git a/tests/regression/temper/Makefile.am b/tests/regression/temper/Makefile.am
-index fb32354a2..a709a64b6 100644
+index fb32354a2..91b9cedce 100644
 --- a/tests/regression/temper/Makefile.am
 +++ b/tests/regression/temper/Makefile.am
 @@ -1,12 +1,17 @@
@@ -553,7 +572,7 @@ index fb32354a2..a709a64b6 100644
 -TESTS = temper-1.cir temper-2.cir temper-3.cir temper-res-1.cir
 +TESTS = temper-1.cir temper-2.cir temper-3.cir temper-res-1.cir \
 +	temper-res-behav-1.cir temper-res-behav-noise.cir \
-+	temper-res-behav-noise-subckt.cir
++	temper-res-behav-noise-subckt.cir temper-res-behav-dup.cir
  
  TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
  
@@ -724,6 +743,102 @@ index 000000000..8e9036969
 +++ b/tests/regression/temper/temper-res-behav-1.out
 @@ -0,0 +1 @@
 +INFO: success
+diff --git a/tests/regression/temper/temper-res-behav-dup.cir b/tests/regression/temper/temper-res-behav-dup.cir
+new file mode 100644
+index 000000000..00a26d685
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-dup.cir
+@@ -0,0 +1,83 @@
++regression test temper-res-behav-dup.cir, identical duplicate R models through the R->B rewrite
++
++* The R->B rewrite (temper-res-behav-1.cir) looks a converted R's .model
++* up before inp_dot_if() has resolved the deck's .if branches, so a model
++* written in both branches is found twice in one scope.  Two cards that
++* disagree leave the model unresolved, and nothing is carried
++* (tests/regression/exitstatus/behav-r-model-warn.cir, r5).  Two cards
++* that are the same are one model, and its tc1/tc2/tnom must be carried.
++*   A  top level, the same .model in the .if and the .else branch
++*   B  in a subckt, the same .model in both branches there, after the
++*      instance
++* Each converted R must match a plain R with the same model within 1e-9
++* at 0, 25 and 125 C, and the converted R must move with temperature.
++* The vectors that span 'reset' live in the const plot.
++
++.param sel=1
++
++* A
++.if (sel == 1)
++.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
++.else
++.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
++.endif
++ia 0 a 1u
++ra a 0 rm r={73k+0*v(a)}
++iar 0 ar 1u
++rar ar 0 rm r=73k
++
++* B
++xb b br rsub
++.subckt rsub n nr
++ib 0 n 1u
++rb n 0 rs r={73k+0*v(n)}
++ibr 0 nr 1u
++rbr nr 0 rs r=73k
++.if (sel == 1)
++.model rs r tc1=4e-3 tc2=-1e-6 tnom=40
++.else
++.model rs r tc1=4e-3 tc2=-1e-6 tnom=40
++.endif
++.ends
++
++.control
++
++let const.maxerr = 0
++let const.spread = 0
++let const.v25 = 0
++
++foreach tk 0 25 125
++  reset
++  set temp=$tk
++  op
++  let ratio = vector(2)
++  let ratio[0] = v(a)/v(ar)
++  let ratio[1] = v(b)/v(br)
++  let err = vecmax(abs(ratio - 1))
++  echo "Note: temp =" $tk "err =" $&err
++  echo "Note: ratio =" $&ratio
++  if err > const.maxerr
++    let const.maxerr = err
++  end
++  if $tk = 25
++    let const.v25 = v(a)
++  end
++  if $tk = 125
++    let const.spread = abs(v(a)/const.v25 - 1)
++  end
++end
++
++echo "Note: maxerr =" $&const.maxerr "spread =" $&const.spread
++
++* success is the tested branch, so a vector that is missing fails the deck
++if const.maxerr <= 1e-9 and const.spread >= 0.1
++  echo "INFO: success"
++  quit 0
++else
++  echo "ERROR: test failed"
++  quit 1
++end
++
++.endc
++
++.end
+diff --git a/tests/regression/temper/temper-res-behav-dup.out b/tests/regression/temper/temper-res-behav-dup.out
+new file mode 100644
+index 000000000..8e9036969
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-dup.out
+@@ -0,0 +1 @@
++INFO: success
 diff --git a/tests/regression/temper/temper-res-behav-noise-subckt.cir b/tests/regression/temper/temper-res-behav-noise-subckt.cir
 new file mode 100644
 index 000000000..42ec10b59
@@ -809,10 +924,10 @@ index 000000000..8e9036969
 +INFO: success
 diff --git a/tests/regression/temper/temper-res-behav-noise-subckt.sp b/tests/regression/temper/temper-res-behav-noise-subckt.sp
 new file mode 100644
-index 000000000..a8fb7cd20
+index 000000000..65fb8c76f
 --- /dev/null
 +++ b/tests/regression/temper/temper-res-behav-noise-subckt.sp
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,34 @@
 +netlist for temper-res-behav-noise-subckt.cir, sourced from its .control block
 +
 +* The noise branch of a converted R inside a subcircuit.  Its 1 ohm
@@ -820,6 +935,10 @@ index 000000000..a8fb7cd20
 +* has to translate that name to the subckt's own model (xs:rm), not to the
 +* global one of the same name, whose TC and tnom are different on purpose.
 +* The local model also comes after the instances that use it, as sky130's do.
++* rg uses the global model at the top level, so that the deck has no unused
++* model for inp_rem_unused_models() to delete before the rewrite: without it
++* the global card is gone, and a lookup that took the wrong scope would find
++* no model at all instead of the wrong one.
 +*   a  converted R, local model           b  plain R, the same model
 +*   d  converted R, instance dtemp=10     e  plain R, dtemp=10
 +* 'r={73k+0*v(x)}' forces the R->B rewrite without changing the value.
@@ -839,6 +958,8 @@ index 000000000..a8fb7cd20
 +id 0 d dc 1u ac 1
 +ie 0 e dc 1u ac 1
 +xs a b d e sr
++ig 0 g dc 1u
++rg g 0 rm r=73k
 +
 +.end
 diff --git a/tests/regression/temper/temper-res-behav-noise.cir b/tests/regression/temper/temper-res-behav-noise.cir
@@ -960,3 +1081,6 @@ index 000000000..3403b4273
 +rg g 0 rm r=73k temp=50
 +
 +.end
+-- 
+2.53.0
+

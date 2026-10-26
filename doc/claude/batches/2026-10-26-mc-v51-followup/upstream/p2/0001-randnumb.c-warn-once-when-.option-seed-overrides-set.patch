@@ -1,6 +1,6 @@
-From 1e95f8edc37c3ce80694a4720ffe131bf32df3d1 Mon Sep 17 00:00:00 2001
+From cfac78314c15ea245509e281f3e687339b1a2c47 Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
-Date: Mon, 26 Oct 2026 09:47:03 -0700
+Date: Mon, 26 Oct 2026 10:32:01 -0700
 Subject: [PATCH] randnumb.c: warn once when .option seed= overrides setseed
 
 eval_opt() re-seeds the generator from '.option seed=N' (or seed=random)
@@ -34,7 +34,17 @@ never calls setseed is silent.
 
 eval_opt()'s existing "Multiple 'option seed=val|random' found!" warning
 was printed on every parse, once per Monte Carlo sample; it is now
-printed once per session by seed_option_multiple().
+printed once per session by seed_option_multiple().  So is its "Cannot
+convert" warning for a seed= value that is not a positive integer, by
+seed_option_unusable(); the value is still skipped on every parse.  On
+ngspice-45.2, '.option seed=abc' with 'setseed 3 / reset / op' three
+times prints
+
+    Warning: Cannot convert 'option seed=abc' to seed value, skipped!
+
+four times, once for the load and once per reset; now it is printed once,
+followed by "(This warning is printed once per session.)".  @r1[r] is
+8.392277e+02 on every sample, before and after.
 
 The flags are cleared by rnd_reset_state(), called from totalreset(), so
 a new shared-library session warns again.  The sequence of draws is
@@ -42,14 +52,14 @@ unchanged.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
- src/frontend/inp.c             |  8 ++--
- src/include/ngspice/randnumb.h |  7 ++++
- src/maths/misc/randnumb.c      | 71 ++++++++++++++++++++++++++++++++++
+ src/frontend/inp.c             | 10 ++--
+ src/include/ngspice/randnumb.h |  9 ++++
+ src/maths/misc/randnumb.c      | 90 ++++++++++++++++++++++++++++++++++
  src/sharedspice.c              |  1 +
- 4 files changed, 82 insertions(+), 5 deletions(-)
+ 4 files changed, 104 insertions(+), 6 deletions(-)
 
 diff --git a/src/frontend/inp.c b/src/frontend/inp.c
-index f0de1289d..716be037b 100644
+index f0de1289d..a01b006f4 100644
 --- a/src/frontend/inp.c
 +++ b/src/frontend/inp.c
 @@ -443,7 +443,7 @@ eval_opt(struct card* deck)
@@ -61,7 +71,7 @@ index f0de1289d..716be037b 100644
              char* token = gettok(&begtok);
              /* option seed=random [seed='random'] */
              if (eq(token, "random") || eq(token, "{random}")) {
-@@ -451,8 +451,7 @@ eval_opt(struct card* deck)
+@@ -451,18 +451,16 @@ eval_opt(struct card* deck)
                  gettimeofday(&tv, NULL);
                  /* get random value from current timestamp microseconds */
                  int rseed = (int)(tv.tv_usec);
@@ -71,9 +81,11 @@ index f0de1289d..716be037b 100644
                  has_seed = TRUE;
              }
              /* option seed=val*/
-@@ -461,8 +460,7 @@ eval_opt(struct card* deck)
+             else {
+                 int sr = atoi(token);
                  if (sr <= 0)
-                     fprintf(cp_err, "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n", token);
+-                    fprintf(cp_err, "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n", token);
++                    seed_option_unusable(token);
                  else {
 -                    cp_vset("rndseed", CP_NUM, &sr);
 -                    com_sseed(NULL);
@@ -82,10 +94,10 @@ index f0de1289d..716be037b 100644
                  }
              }
 diff --git a/src/include/ngspice/randnumb.h b/src/include/ngspice/randnumb.h
-index 881175fcf..b458f6d53 100644
+index 881175fcf..6d424a43c 100644
 --- a/src/include/ngspice/randnumb.h
 +++ b/src/include/ngspice/randnumb.h
-@@ -1,9 +1,16 @@
+@@ -1,9 +1,18 @@
  #ifndef ngspice_RANDNUMB_H
  #define ngspice_RANDNUMB_H
  
@@ -98,15 +110,17 @@ index 881175fcf..b458f6d53 100644
 +extern void seed_from_option(int seed, bool is_random, const char *written);
 +/* more than one '.option seed=': warn, once per session */
 +extern void seed_option_multiple(void);
++/* a '.option seed=' value that is not a seed: warn, once per session */
++extern void seed_option_unusable(const char *written);
 +extern void rnd_reset_state(void);
  
  /* initialize random number generators */
  extern void initw(void);
 diff --git a/src/maths/misc/randnumb.c b/src/maths/misc/randnumb.c
-index 5308a3b2b..991cf706d 100644
+index 5308a3b2b..fe567f231 100644
 --- a/src/maths/misc/randnumb.c
 +++ b/src/maths/misc/randnumb.c
-@@ -67,6 +67,19 @@ float  CombLCGTaus2(void);
+@@ -67,6 +67,21 @@ float  CombLCGTaus2(void);
  void rgauss(double* py1, double* py2);
  static bool seedinfo = FALSE;
  
@@ -115,18 +129,20 @@ index 5308a3b2b..991cf706d 100644
 +   made before the reset.  The option keeps winning; seed_from_option() only
 +   says so, once per session, and only after an explicit 'setseed N'.  A bare
 +   'setseed', which re-seeds from $rndseed, does not set setseed_used.
-+   eval_opt()'s warning about more than one '.option seed=' is printed once
-+   per session too, by seed_option_multiple(), not on every parse.  The
++   eval_opt()'s warnings about more than one '.option seed=', and about a
++   'seed=' value that is not a seed, are printed once per session too, by
++   seed_option_multiple() and seed_option_unusable(), not on every parse.  The
 +   flags are cleared by rnd_reset_state(), called from totalreset() in
 +   sharedspice.c, so a new shared-library session warns again. */
 +static bool setseed_used = FALSE;
 +static bool seed_override_warned = FALSE;
 +static bool seed_multiple_warned = FALSE;
++static bool seed_unusable_warned = FALSE;
 +
  
  /* Check if a seed has been set by the command 'set rndseed=value'
     in spinit, .spiceinit or in a .control section
-@@ -288,6 +301,8 @@ double exprand(double mean)
+@@ -288,6 +303,8 @@ double exprand(double mean)
  *   take value of variable rndseed as seed
  * command "setseed <n>"
  *   seed with number <n>
@@ -135,7 +151,7 @@ index 5308a3b2b..991cf706d 100644
  */
  void
  com_sseed(wordlist *wl)
-@@ -315,6 +330,7 @@ com_sseed(wordlist *wl)
+@@ -315,6 +332,7 @@ com_sseed(wordlist *wl)
          srand((unsigned int)newseed);
          TausSeed();
          cp_vset("rndseed", CP_NUM, &newseed);
@@ -143,7 +159,7 @@ index 5308a3b2b..991cf706d 100644
      }
  
      if (seedinfo)
-@@ -327,3 +343,58 @@ setseedinfo(void)
+@@ -327,3 +345,75 @@ setseedinfo(void)
  {
      seedinfo = TRUE;
  }
@@ -194,6 +210,22 @@ index 5308a3b2b..991cf706d 100644
 +}
 +
 +
++/* For eval_opt(): a 'seed=' value that atoi() does not turn into a positive
++   seed, quoted as the deck wrote it.  The option is skipped on every parse;
++   this says so once per session. */
++void
++seed_option_unusable(const char *written)
++{
++    if (!seed_unusable_warned) {
++        fprintf(cp_err,
++            "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n"
++            "    (This warning is printed once per session.)\n",
++            written);
++        seed_unusable_warned = TRUE;
++    }
++}
++
++
 +/* Forget the setseed and warning flags, for a new session. */
 +void
 +rnd_reset_state(void)
@@ -201,6 +233,7 @@ index 5308a3b2b..991cf706d 100644
 +    setseed_used = FALSE;
 +    seed_override_warned = FALSE;
 +    seed_multiple_warned = FALSE;
++    seed_unusable_warned = FALSE;
 +}
 diff --git a/src/sharedspice.c b/src/sharedspice.c
 index 902e50c97..d8fea3175 100644
@@ -214,3 +247,6 @@ index 902e50c97..d8fea3175 100644
  
      rem_controls();
  
+-- 
+2.53.0
+
