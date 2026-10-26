@@ -1,0 +1,17 @@
+* a .model card with no type in a live .if branch, and an R->B rewrite
+* The live twin of model-typeless-if-dead-behav.cir.  The model-list pass
+* for the rewrite runs before the branches are decided, so it must leave a
+* typeless card to inp_chk_model_types(), which runs after dotifeval().
+* That check must still stop this deck, whose '.model bad' is part of the
+* circuit, with the same diagnostic and status as a deck without .if.
+.model rm r tc1=-2.47e-3 tnom=25
+.if (1)
+.model bad
+.endif
+i1 0 1 1u
+r1 1 0 rm r={1k+0*v(1)}
+.control
+op
+quit 0
+.endc
+.end

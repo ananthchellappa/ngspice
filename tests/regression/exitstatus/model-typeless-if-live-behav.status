@@ -1,0 +1,3 @@
+# The typeless card is in the taken branch: a normal error exit with the
+# same diagnostic as the deck without .if.
+1

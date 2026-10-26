@@ -1,0 +1,20 @@
+* a .model card with no type in a dead .if branch, and an R->B rewrite
+* model-typeless-if-dead.cir with one more card: r1's value names v(), so
+* inp_compat() rewrites it into a B source, and it names a .model, so
+* inp_readall() builds the .model lists for that rewrite.  That happens
+* before dotifeval() decides the branches, so '.model bad' is still a card
+* of the deck then.  The type check made while the lists were built stopped
+* the run with "no model type given" and 1, for a card that is not part of
+* the circuit.  The deck has no mistake: the status is 0, and stderr is
+* empty because rm resolves and is carried.
+.model rm r tc1=-2.47e-3 tnom=25
+.if (0)
+.model bad
+.endif
+i1 0 1 1u
+r1 1 0 rm r={1k+0*v(1)}
+.control
+op
+quit 0
+.endc
+.end

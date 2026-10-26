@@ -1,0 +1,4 @@
+Error: no model type given in line .model bad!
+    line no. 9 from file model-typeless-if-live-behav.cir!
+
+ERROR: fatal error in ngspice, exit(1)

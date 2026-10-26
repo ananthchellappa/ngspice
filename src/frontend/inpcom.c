@@ -10199,6 +10199,13 @@ static int inp_collect_models(struct card *deck)
         if (ciprefix(".model", curr_line)) {
             struct modellist *modl_new;
             char *model_type = get_model_type(curr_line);
+            /* In a deck with .if, the R->B rewrite builds these lists
+               before dotifeval() has decided the branches, so a typeless
+               card may be in a branch that is not taken.  Leave it out of
+               the lists; inp_chk_model_types() reports it once the deck is
+               flat, if it is still there. */
+            if (!model_type && has_if)
+                continue;
             inp_chk_model_type(card, model_type);
             modl_new = TMALLOC(struct modellist, 1);
             modl_new->elemb = inp_get_elem_ident(model_type);
@@ -10231,8 +10238,9 @@ static void inp_chk_model_type(struct card *card, char *model_type)
 
 /* Stop the run on any .model card of deck that gives no model type.
    inp_collect_models() makes this check while it builds the model lists,
-   but inp_readall() does not call it for a deck that has .if, because a
-   model may be in a branch that is not taken.  inp_spsource() calls this
+   but not for a deck that has .if, because a model may be in a branch that
+   is not taken: inp_readall() then calls it only for the R->B rewrite, and
+   it skips a typeless card.  inp_spsource() calls this
    once the branches are decided and the deck is flat, so a deck with .if
    gets the same diagnostic as one without.  The title line is skipped. */
 void inp_chk_model_types(struct card *deck)

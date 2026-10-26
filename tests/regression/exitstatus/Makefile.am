@@ -112,7 +112,7 @@
 ## check.sh's FILTER would delete every one of those lines.  The numbers are
 ## asserted by tests/regression/temper/temper-res-behav-1.cir.
 ##
-## The seven model-* decks are doc/codex/issues/0074: a .model card with no
+## The nine model-* decks are doc/codex/issues/0074: a .model card with no
 ## type, or with no name either, used to kill a deck that has .if with
 ## SIGSEGV, where the same card without .if stops with "no model type given"
 ## and 1.  model-typeless-noif.cir is that unchanged control.
@@ -124,6 +124,11 @@
 ## its status is 0.  model-typeless-after-if.cir has no .if itself: its
 ## .control block reads a deck with .if and then one with the bad card,
 ## because the flag that marks a deck as having .if is never cleared.
+## model-typeless-if-dead-behav.cir and model-typeless-if-live-behav.cir add
+## an R that the R->B rewrite converts and that names a .model, so the .model
+## lists are built for the rewrite before the .if is decided: the dead-branch
+## card must not stop that deck (status 0), and the live-branch card must
+## still give the diagnostic and 1.
 
 TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
@@ -133,7 +138,8 @@ TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	behav-r-model-warn.cir \
 	model-typeless-noif.cir model-typeless-if.cir model-bare-if.cir \
 	model-typeless-if-subckt.cir model-bare-if-subckt.cir \
-	model-typeless-if-dead.cir model-typeless-after-if.cir
+	model-typeless-if-dead.cir model-typeless-after-if.cir \
+	model-typeless-if-dead-behav.cir model-typeless-if-live-behav.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -187,7 +193,11 @@ EXTRA_DIST = \
 	model-typeless-if-dead.status \
 	model-typeless-if-dead.err \
 	model-typeless-after-if.status \
-	model-typeless-after-if.err
+	model-typeless-after-if.err \
+	model-typeless-if-dead-behav.status \
+	model-typeless-if-dead-behav.err \
+	model-typeless-if-live-behav.status \
+	model-typeless-if-live-behav.err
 
 # The driver captures each run's stdout and stderr into the build directory
 # and filters the latter in place; tran-empty-netlist.files asserts that the
@@ -260,6 +270,12 @@ CLEANFILES = \
 	model-typeless-after-if.stdout model-typeless-after-if.stderr \
 	model-typeless-after-if.stderr.filtered \
 	model-typeless-after-if.stderr.expected \
+	model-typeless-if-dead-behav.stdout model-typeless-if-dead-behav.stderr \
+	model-typeless-if-dead-behav.stderr.filtered \
+	model-typeless-if-dead-behav.stderr.expected \
+	model-typeless-if-live-behav.stdout model-typeless-if-live-behav.stderr \
+	model-typeless-if-live-behav.stderr.filtered \
+	model-typeless-if-live-behav.stderr.expected \
 	mtai_if.cir mtai_bad.cir \
 	op-empty-raw.raw \
 	rawspice.raw core core.*
