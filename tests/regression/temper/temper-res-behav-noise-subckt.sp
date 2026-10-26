@@ -5,6 +5,10 @@ netlist for temper-res-behav-noise-subckt.cir, sourced from its .control block
 * has to translate that name to the subckt's own model (xs:rm), not to the
 * global one of the same name, whose TC and tnom are different on purpose.
 * The local model also comes after the instances that use it, as sky130's do.
+* rg uses the global model at the top level, so that the deck has no unused
+* model for inp_rem_unused_models() to delete before the rewrite: without it
+* the global card is gone, and a lookup that took the wrong scope would find
+* no model at all instead of the wrong one.
 *   a  converted R, local model           b  plain R, the same model
 *   d  converted R, instance dtemp=10     e  plain R, dtemp=10
 * 'r={73k+0*v(x)}' forces the R->B rewrite without changing the value.
@@ -24,5 +28,7 @@ ib 0 b dc 1u ac 1
 id 0 d dc 1u ac 1
 ie 0 e dc 1u ac 1
 xs a b d e sr
+ig 0 g dc 1u
+rg g 0 rm r=73k
 
 .end

@@ -1,0 +1,83 @@
+regression test temper-res-behav-dup.cir, identical duplicate R models through the R->B rewrite
+
+* The R->B rewrite (temper-res-behav-1.cir) looks a converted R's .model
+* up before inp_dot_if() has resolved the deck's .if branches, so a model
+* written in both branches is found twice in one scope.  Two cards that
+* disagree leave the model unresolved, and nothing is carried
+* (tests/regression/exitstatus/behav-r-model-warn.cir, r5).  Two cards
+* that are the same are one model, and its tc1/tc2/tnom must be carried.
+*   A  top level, the same .model in the .if and the .else branch
+*   B  in a subckt, the same .model in both branches there, after the
+*      instance
+* Each converted R must match a plain R with the same model within 1e-9
+* at 0, 25 and 125 C, and the converted R must move with temperature.
+* The vectors that span 'reset' live in the const plot.
+
+.param sel=1
+
+* A
+.if (sel == 1)
+.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
+.else
+.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
+.endif
+ia 0 a 1u
+ra a 0 rm r={73k+0*v(a)}
+iar 0 ar 1u
+rar ar 0 rm r=73k
+
+* B
+xb b br rsub
+.subckt rsub n nr
+ib 0 n 1u
+rb n 0 rs r={73k+0*v(n)}
+ibr 0 nr 1u
+rbr nr 0 rs r=73k
+.if (sel == 1)
+.model rs r tc1=4e-3 tc2=-1e-6 tnom=40
+.else
+.model rs r tc1=4e-3 tc2=-1e-6 tnom=40
+.endif
+.ends
+
+.control
+
+let const.maxerr = 0
+let const.spread = 0
+let const.v25 = 0
+
+foreach tk 0 25 125
+  reset
+  set temp=$tk
+  op
+  let ratio = vector(2)
+  let ratio[0] = v(a)/v(ar)
+  let ratio[1] = v(b)/v(br)
+  let err = vecmax(abs(ratio - 1))
+  echo "Note: temp =" $tk "err =" $&err
+  echo "Note: ratio =" $&ratio
+  if err > const.maxerr
+    let const.maxerr = err
+  end
+  if $tk = 25
+    let const.v25 = v(a)
+  end
+  if $tk = 125
+    let const.spread = abs(v(a)/const.v25 - 1)
+  end
+end
+
+echo "Note: maxerr =" $&const.maxerr "spread =" $&const.spread
+
+* success is the tested branch, so a vector that is missing fails the deck
+if const.maxerr <= 1e-9 and const.spread >= 0.1
+  echo "INFO: success"
+  quit 0
+else
+  echo "ERROR: test failed"
+  quit 1
+end
+
+.endc
+
+.end

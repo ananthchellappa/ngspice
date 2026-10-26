@@ -107,7 +107,7 @@
 ## behav-r-model-warn.cir is here for its stderr, not its status, which is 0.
 ## It is the diagnostic half of the R->B model carry: when inp_compat()
 ## rewrites a resistor into a B source and cannot carry the card's .model (no
-## such model, two of them, tce, a model that uses temper), or carries a TC
+## such model, two of them that differ, tce, a model that uses temper), or carries a TC
 ## onto an expression that already has one, it says so on stderr, and
 ## check.sh's FILTER would delete every one of those lines.  The numbers are
 ## asserted by tests/regression/temper/temper-res-behav-1.cir.

@@ -12,8 +12,9 @@
 *   r3  the expression already has a temper TC    -> applied anyway, and said so,
 *       and the model's TC is tc1 alone              naming tc1 only
 *   r4  the model's own values use temper         -> nothing carried
-*   r5  two exact models in scope (.if/.else; the -> not resolved, nothing
-*       .if is resolved after the rewrite)           carried
+*   r5  two exact models in scope that differ     -> not resolved, nothing
+*       (.if/.else; the .if is resolved after        carried
+*       the rewrite)
 *   r6  a model that resolves                     -> no warning
 *   r7  a temper expression, the instance's tc1   -> no warning: the model adds
 *       overrides the model's only TC                nothing, and the card shows
@@ -21,6 +22,10 @@
 *   r8  as r7, but the model also has tc2         -> the warning names tc2 only
 *   r9  a temper expression and an instance tc1,  -> no warning, as for r7, and
 *       no model                                     the line is today's
+*   r10 two exact models in scope, the same card  -> no warning: they are one
+*       in the .if and the .else                     model, and it is carried
+*   r11 three exact models in scope, the first    -> not resolved, nothing
+*       two the same and the third different         carried
 *
 * The deck has an .if, so inp_rem_unused_models() does not run and adds no
 * "can't find model" line of its own.  Every case still simulates: the
@@ -34,6 +39,18 @@
 .model ramb r tc1=1e-3
 .else
 .model ramb r tc1=2e-3
+.endif
+.if (sel == 1)
+.model rsame r tc1=1e-3 tnom=25
+.else
+.model rsame r tc1=1e-3 tnom=25
+.endif
+.if (sel == 1)
+.model rthree r tc1=1e-3
+.elseif (sel == 2)
+.model rthree r tc1=1e-3
+.else
+.model rthree r tc1=3e-3
 .endif
 i1 0 1 1u
 r1 1 0 nosuch r={1k+0*v(1)}
@@ -53,6 +70,10 @@ i8 0 8 1u
 r8 8 0 rboth r={1k*(1+1e-3*(temper-25))} tc1=2e-3
 i9 0 9 1u
 r9 9 0 r={1k*(1+1e-3*(temper-25))} tc1=2e-3
+i10 0 10 1u
+r10 10 0 rsame r={1k+0*v(10)}
+i11 0 11 1u
+r11 11 0 rthree r={1k+0*v(11)}
 .control
 op
 quit 0

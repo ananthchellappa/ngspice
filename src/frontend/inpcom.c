@@ -1600,8 +1600,8 @@ static struct card *inp_readall_cards(FILE *fp, const char *dir_name,
             }
             inp_compat(working);
             if (r_models) {
-                inp_free_models(root);
                 behav_r_models_root = NULL;
+                inp_free_models(root);
             }
             working = cc->nextcard;
             /* B source numparam compatibility transformation */
@@ -10274,13 +10274,13 @@ void inp_chk_model_types(struct card *deck)
 static void inp_free_models(struct nscope *level)
 {
     struct modellist *m = level->models;
+    level->models = NULL;
     while (m) {
         struct modellist *next_m = m->next;
         tfree(m->modelname);
         tfree(m);
         m = next_m;
     }
-    level->models = NULL;
 
     struct card_assoc *p = level->subckts;
     for (; p; p = p->next)
@@ -10568,7 +10568,8 @@ static char *behav_r_operand(const char *v)
    The model is looked up from the card's own scope outwards; only an exact
    name counts, as an R has no binning.  Two or more exact matches in the
    scope that has any (the branches of an .if, which is resolved later) are
-   not resolved. */
+   one model when every card's text after its name is the same, byte for
+   byte, and are not resolved when any two differ. */
 static char *behav_r_model_args(struct card *card, const char *rname,
         const char *mname, const char *rest, char *equation,
         char **noise_args)
@@ -10576,6 +10577,7 @@ static char *behav_r_model_args(struct card *card, const char *rname,
     struct modellist *m = NULL;
     struct nscope *scope;
     int nfound = 0;
+    bool differ = FALSE;
 
     *noise_args = NULL;
 
@@ -10587,11 +10589,15 @@ static char *behav_r_model_args(struct card *card, const char *rname,
                             !inp_case_exact_ids()) == 1) {
                 if (!m)
                     m = p;
+                /* case-lint: stored - two .model cards of this deck, text after the name */
+                else if (strcmp(skip_token(skip_token(m->model->line)),
+                        skip_token(skip_token(p->model->line))) != 0)
+                    differ = TRUE;
                 nfound++;
             }
     }
 
-    if (nfound != 1) {
+    if (nfound == 0 || differ) {
         fprintf(stderr, "Warning: behavioral R %s: model %s not resolved, "
                 "tc1/tc2/tnom not applied\n", rname, mname);
         return NULL;
