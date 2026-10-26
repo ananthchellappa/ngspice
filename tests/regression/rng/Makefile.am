@@ -20,10 +20,20 @@
 ##   option-seed-absent.cir          setseed without the option: stderr is
 ##                                   empty, and setseed is honoured
 ##
+## The next two are ver_51 batch item 3 (P3).  initw() used to re-seed the
+## generator from the process id after startup had seeded it from
+## rndseed=1; now startup re-seeds from $rndseed after initw():
+##
+##   startup-equals-setseed1.cir     a deck's first draw equals the draw
+##                                   after 'setseed 1', in one process
+##   setseed7-bit-identity.cir       'setseed 7' still draws the 45.2 value
+##                                   (glibc rand(), so Linux-only)
+##
 ## An empty .err is an assertion that stderr is empty, not a missing file.
 
 TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
-	option-seed-nosetseed.cir option-seed-absent.cir
+	option-seed-nosetseed.cir option-seed-absent.cir \
+	startup-equals-setseed1.cir setseed7-bit-identity.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -33,7 +43,9 @@ EXTRA_DIST = \
 	option-seed-setseed.status option-seed-setseed.err \
 	option-seed-random-setseed.status option-seed-random-setseed.err \
 	option-seed-nosetseed.status option-seed-nosetseed.err \
-	option-seed-absent.status option-seed-absent.err
+	option-seed-absent.status option-seed-absent.err \
+	startup-equals-setseed1.status startup-equals-setseed1.err \
+	setseed7-bit-identity.status setseed7-bit-identity.err
 
 # The driver captures each run's stdout and stderr into the build directory
 # and leaves them there when a deck fails.
@@ -46,6 +58,10 @@ CLEANFILES = \
 	option-seed-nosetseed.stderr.filtered option-seed-nosetseed.stderr.expected \
 	option-seed-absent.stdout option-seed-absent.stderr \
 	option-seed-absent.stderr.filtered option-seed-absent.stderr.expected \
+	startup-equals-setseed1.stdout startup-equals-setseed1.stderr \
+	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
+	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \
+	setseed7-bit-identity.stderr.filtered setseed7-bit-identity.stderr.expected \
 	rawspice.raw
 
 MAINTAINERCLEANFILES = Makefile.in

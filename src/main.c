@@ -1369,6 +1369,9 @@ int main(int argc, char **argv)
         }
 #elif defined(WaGauss)
         initw();
+        /* filling the Wallace pools drew from the generator: start the
+           deck's stream from $rndseed again */
+        com_sseed(NULL);
 #endif
         /* write out the ngspice start command */
         if (ft_ngdebug)

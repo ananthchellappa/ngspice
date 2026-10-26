@@ -1078,6 +1078,9 @@ ngSpice_Init(SendChar* printfcn, SendStat* statusfcn, ControlledExit* ngspiceexi
     }
 #elif defined (WaGauss)
         initw();
+        /* filling the Wallace pools drew from the generator: start the
+           deck's stream from $rndseed again */
+        com_sseed(NULL);
 #endif
 
     fprintf(cp_out,

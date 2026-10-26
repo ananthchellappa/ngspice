@@ -79,10 +79,10 @@ initw(void)
     double totsqr, nomsqr;
     unsigned int coa;
 
-    /* initialize the uniform generator */
-    srand((unsigned int) getpid());
-    // srand(17);
-    TausSeed();
+    /* The uniform generators are not seeded here.  The caller has already
+       seeded them from $rndseed with com_sseed(NULL), and calls it again
+       after initw() returns, so the startup stream equals 'setseed 1'
+       instead of depending on the process id. */
 
     ScaleGauss = 1.;
     newpools = 1;

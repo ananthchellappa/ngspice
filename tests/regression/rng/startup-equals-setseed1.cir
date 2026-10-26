@@ -1,0 +1,28 @@
+* The startup random stream equals 'setseed 1'
+* main.c and sharedspice.c set rndseed=1 and seed the generator from it with
+* com_sseed(NULL), but initw() (src/frontend/trannoise/wallace.c) used to run
+* afterwards and re-seed from the process id, while $rndseed still read 1.  So
+* a deck with no 'setseed' drew a different value in every process.  Now the
+* generator is re-seeded from $rndseed after initw(), and the first parse
+* draws what 'setseed 1' draws (ver_51 batch item 3, decision 6).  Both draws
+* are made in one process, so the test does not depend on libc's rand().
+* The startup draw is kept in the const plot, because 'reset' drops plain
+* 'let' vectors.
+.param rv=agauss(1k,100,1)
+v1 1 0 1
+r1 1 0 {rv}
+.control
+op
+let const.startup = @r1[r]
+setseed 1
+reset
+op
+let const.seed1 = @r1[r]
+if const.startup = const.seed1
+  echo startup-equals-setseed1: the startup draw equals setseed 1
+  quit 0
+end
+echo startup-equals-setseed1: the startup draw differs from setseed 1
+quit 1
+.endc
+.end
