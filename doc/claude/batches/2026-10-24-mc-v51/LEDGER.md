@@ -82,7 +82,11 @@ falsified". The headline ones:
 
 ## Waiting on the owner
 
-1. Keep or delete `build-ver_51-shared/`.
+1. ~~Keep or delete `build-ver_51-shared/`.~~ *2026-10-26:* the owner said
+   delete, and the driver deleted it. Its probe source is kept in
+   `probes/rnddraws_reset_probe.c`. From now on nothing exercises the
+   `libngspice` reset paths of items 2–4. Their only checks were the probe run
+   recorded in receipt 04 and the syntax checks in receipts 02 and 03.
 2. The minor review issues and the deliberate gaps (`receipts/06-close.md`
    §B and §C): fix them in a follow-up batch, or accept them. The two with most
    effect are B9, glibc-only decks with no skip on other libcs, and B10, the
