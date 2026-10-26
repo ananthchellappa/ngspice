@@ -1,4 +1,4 @@
-From 53e79ddda7cef3c5046e8396dea0fe64a1075cd3 Mon Sep 17 00:00:00 2001
+From cebdc2b5c1c7f29d120d6248d1d678747d7e3848 Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
 Date: Mon, 26 Oct 2026 10:32:01 -0700
 Subject: [PATCH] randnumb.c: warn once when .option seed= overrides setseed
@@ -6,14 +6,15 @@ Subject: [PATCH] randnumb.c: warn once when .option seed= overrides setseed
 eval_opt() re-seeds the generator from '.option seed=N' (or seed=random)
 on every parse, and 'reset' is a parse.  So in the usual Monte Carlo
 loop, 'setseed k; reset; op', the option silently beats the setseed just
-before it, and every sample draws the same values.  On ngspice-45.2:
+before it, and every sample draws the same values.  On ngspice-45.2
+and on pre-master-48 (a1148c969):
 
     .param rv=agauss(1k,100,1)
     .option seed=5
     r1 1 0 {rv}
-    ...
-    setseed 1 / reset / op    @r1[r] = 9.312134e+02
-    setseed 2 / reset / op    @r1[r] = 9.312134e+02
+    ...                       @r1[r], 45.2    pre-master-48
+    setseed 1 / reset / op    9.312134e+02    7.974070e+02
+    setseed 2 / reset / op    9.312134e+02    7.974070e+02
 
 and nothing is printed.
 
@@ -39,18 +40,24 @@ was printed on every parse, once per Monte Carlo sample; it is now
 printed once per session by seed_option_multiple().  So is its "Cannot
 convert" warning for a seed= value that is not a positive integer, by
 seed_option_unusable(); the value is still skipped on every parse.  On
-ngspice-45.2, '.option seed=abc' with 'setseed 3 / reset / op' three
-times prints
+ngspice-45.2 and on pre-master-48, '.option seed=abc' with
+'setseed 3 / reset / op' three times prints
 
     Warning: Cannot convert 'option seed=abc' to seed value, skipped!
 
 four times, once for the load and once per reset; now it is printed once,
 followed by "(This warning is printed once per session.)".  @r1[r] is
-8.392277e+02 on every sample, before and after.
+8.432359e+02 on every sample on pre-master-48 (8.392277e+02 on 45.2),
+before and after the patch.
 
 The flags are cleared by rnd_reset_state(), called from totalreset(), so
 a new shared-library session warns again.  The sequence of draws is
 unchanged.
+
+Rechecked on pre-master-48 a1148c969: the warnings above are printed as
+described, stdout is unchanged, and make check passes.  There is no
+make check test, because the warnings go to stderr, which check.sh does
+not compare.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
@@ -61,10 +68,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  4 files changed, 108 insertions(+), 6 deletions(-)
 
 diff --git a/src/frontend/inp.c b/src/frontend/inp.c
-index deea842e0..b1c8db107 100644
+index ef75dfd6b..be340afe8 100644
 --- a/src/frontend/inp.c
 +++ b/src/frontend/inp.c
-@@ -447,7 +447,7 @@ eval_opt(struct card* deck, bool comfile)
+@@ -448,7 +448,7 @@ eval_opt(struct card* deck, bool comfile)
              begtok = &begtok[5]; /*skip seed=*/
          if (begtok) {
              if (has_seed)
@@ -73,7 +80,7 @@ index deea842e0..b1c8db107 100644
              char* token = gettok(&begtok);
              /* option seed=random [seed='random'] */
              if (eq(token, "random") || eq(token, "{random}")) {
-@@ -455,18 +455,16 @@ eval_opt(struct card* deck, bool comfile)
+@@ -456,18 +456,16 @@ eval_opt(struct card* deck, bool comfile)
                  gettimeofday(&tv, NULL);
                  /* get random value from current timestamp microseconds */
                  int rseed = (int)(tv.tv_usec);
@@ -120,7 +127,7 @@ index b87bdc5f2..e8f8cb000 100644
  /* initialize random number generators */
  extern void initw(void);
 diff --git a/src/maths/misc/randnumb.c b/src/maths/misc/randnumb.c
-index e2b505804..77ed174c2 100644
+index e2b505804..bebb7b6eb 100644
 --- a/src/maths/misc/randnumb.c
 +++ b/src/maths/misc/randnumb.c
 @@ -67,6 +67,22 @@ float  CombLCGTaus2(void);
@@ -180,8 +187,8 @@ index e2b505804..77ed174c2 100644
 +
 +
 +/* Seed from '.option seed=N' or '.option seed=random', for eval_opt().  This
-+   is the cp_vset() + set_sseed(NULL) pair eval_opt() has always done, with
-+   the warning in front of it.  The warning quotes 'written', the value as
++   is the cp_vset() + set_sseed(NULL) pair eval_opt() does, with the
++   warning in front of it.  The warning quotes 'written', the value as
 +   the deck spells it, so '.option seed=05' is not shown as 'seed=5'. */
 +void
 +seed_from_option(int seed, bool is_random, const char *written)

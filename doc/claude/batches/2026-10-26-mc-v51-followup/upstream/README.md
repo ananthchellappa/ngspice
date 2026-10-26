@@ -46,6 +46,20 @@ its development branch to `pre-master-48`. See
 - Send the series in this order: `p1`, `p4-crash/on-p1`, `p2`. `p4-crash`
   is the alternative to `p1` + `on-p1` if `p1` is not sent.
 
+**Polished for submission (`a1148c969`, 2026-10-26).** See
+`../../2026-10-26-mc-v51-upstream-verify/receipts/02-polish.md`.
+- `p1`, `p4-crash/on-p1` and `p2` were applied with `git am` on
+  `pre-master-48`, amended and regenerated with `git format-patch`, so their
+  `index` lines now name `pre-master-48` blobs. Each commit message has a
+  line saying it was rechecked on `pre-master-48`, and the `pre-master-48`
+  numbers next to the 45.2 ones where they differ.
+- `p1`: the header of `temper-res-behav-dup.cir` no longer cites the
+  fork-only `tests/regression/exitstatus/behav-r-model-warn.cir`.
+- `p2`: the `seed=5` and `seed=abc` examples give the `pre-master-48` values
+  (7.974070e+02 and 8.432359e+02), and a code comment says `eval_opt()`
+  "does" the `cp_vset()` + `set_sseed(NULL)` pair, not "has always done".
+- `p4-crash/` (the version without `p1`) and `p3/` are unchanged.
+
 **Checked:** each patch passes `git apply --check` on a clean checkout of
 `pre-master-47`, on its own and all three together. P2 and P3 both touch
 `src/sharedspice.c`, in different hunks, and they apply in either order. Each

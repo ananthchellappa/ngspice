@@ -1,4 +1,4 @@
-From f9619786fd6a1fb4071ba43c4f9567b77035b1c0 Mon Sep 17 00:00:00 2001
+From 0add091517d637c641e0f8a7c6550e7c5ea52bdb Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
 Date: Mon, 26 Oct 2026 10:32:01 -0700
 Subject: [PATCH] inpcom.c: carry the R model through the R->B rewrite
@@ -15,6 +15,7 @@ temperature.  On ngspice-45.2, at 125 C, with 1 uA into each:
     r2 b 0 rm r=73k                          v(b) = 5.694000e-02
 
 The converted resistor is 28% off.  sky130's xhigh_po is such a card.
+pre-master-48 (a1148c969) gives the same two values.
 
 The rewrite now carries the model, as text, because numparam has not run
 yet and every value may be a {expression}:
@@ -76,8 +77,12 @@ Tests (tests/regression/temper, check.sh):
   branch, at the top level and in a subckt after the instance.  Refusing
   the second match leaves the converted R flat (maxerr 0.282, spread 0).
 The decks keep vectors across 'reset' in the const plot (let const.x),
-which needs 785be3194; their success line is the tested branch, so a
-missing vector fails them.
+which needs 785be3194 (in ngspice-47 and later); their success line is
+the tested branch, so a missing vector fails them.
+
+Rechecked on pre-master-48 a1148c969: the four decks fail without the
+patch (maxerr 0.314, 0.145, 0.156 and 0.282) and pass with it, the
+wrong-scope figure above was measured there, and make check passes.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
@@ -108,10 +113,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 tests/regression/temper/temper-res-behav-noise.sp
 
 diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
-index 0ec7189aa..57feea4a6 100644
+index db734b391..76e31884a 100644
 --- a/src/frontend/inpcom.c
 +++ b/src/frontend/inpcom.c
-@@ -182,6 +182,13 @@ void inp_rem_levels(struct nscope *root);
+@@ -184,6 +184,13 @@ void inp_rem_levels(struct nscope *root);
  void inp_rem_unused_models(struct nscope *root, struct card *deck);
  static struct modellist *inp_find_model(
          struct nscope *scope, const char *name);
@@ -125,7 +130,7 @@ index 0ec7189aa..57feea4a6 100644
  
  void tprint(struct card *deck);
  static char* libprint(struct card* t, const char *dir);
-@@ -1202,8 +1209,18 @@ struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
+@@ -1201,8 +1208,18 @@ struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
              /* Do all the compatibility stuff here */
              working = cc->nextcard;
              inp_meas_current(working);
@@ -145,7 +150,7 @@ index 0ec7189aa..57feea4a6 100644
              working = cc->nextcard;
              /* B source numparam compatibility transformation */
              inp_bsource_compat(working);
-@@ -3005,11 +3022,20 @@ static char *get_model_name(char *line, int num_terminals)
+@@ -3008,11 +3025,20 @@ static char *get_model_name(char *line, int num_terminals)
      for (i = 0; i < num_terminals; i++)
          beg_ptr = skip_token(beg_ptr); // Eat terminal.
  
@@ -167,7 +172,7 @@ index 0ec7189aa..57feea4a6 100644
      end_ptr = skip_non_ws(beg_ptr);
      return copy_substring(beg_ptr, end_ptr);
  }
-@@ -6889,17 +6915,32 @@ static void inp_compat(struct card *card)
+@@ -6874,17 +6900,32 @@ static void inp_compat(struct card *card)
              else if (strstr(cut_line, "noisy=0") || strstr(cut_line, "noise=0"))
                  rnoise = FALSE;
  
@@ -202,7 +207,7 @@ index 0ec7189aa..57feea4a6 100644
              tfree(tcrstr);
              tfree(mstr);
  
-@@ -9575,7 +9616,10 @@ static void mark_all_binned(struct nscope *scope, char *name)
+@@ -9778,7 +9819,10 @@ static void mark_all_binned(struct nscope *scope, char *name)
  }
  
  
@@ -214,7 +219,7 @@ index 0ec7189aa..57feea4a6 100644
  {
      struct card *card;
      int skip_control = 0;
-@@ -9623,6 +9667,35 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
+@@ -9826,6 +9870,35 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
          }
      }
  
@@ -250,7 +255,7 @@ index 0ec7189aa..57feea4a6 100644
      /* scan through all element lines  that require or may need a model */
      for (card = deck; card; card = card->nextcard) {
  
-@@ -9700,6 +9773,310 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
+@@ -9903,6 +9976,310 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
      rem_unused_xxx(root);
  }
  
@@ -745,7 +750,7 @@ index 000000000..8e9036969
 +INFO: success
 diff --git a/tests/regression/temper/temper-res-behav-dup.cir b/tests/regression/temper/temper-res-behav-dup.cir
 new file mode 100644
-index 000000000..00a26d685
+index 000000000..c29aedbbe
 --- /dev/null
 +++ b/tests/regression/temper/temper-res-behav-dup.cir
 @@ -0,0 +1,83 @@
@@ -754,9 +759,9 @@ index 000000000..00a26d685
 +* The R->B rewrite (temper-res-behav-1.cir) looks a converted R's .model
 +* up before inp_dot_if() has resolved the deck's .if branches, so a model
 +* written in both branches is found twice in one scope.  Two cards that
-+* disagree leave the model unresolved, and nothing is carried
-+* (tests/regression/exitstatus/behav-r-model-warn.cir, r5).  Two cards
-+* that are the same are one model, and its tc1/tc2/tnom must be carried.
++* disagree leave the model unresolved: ngspice warns on stderr, and
++* nothing is carried.  This deck covers the other case: two cards that
++* are the same are one model, and its tc1/tc2/tnom must be carried.
 +*   A  top level, the same .model in the .if and the .else branch
 +*   B  in a subckt, the same .model in both branches there, after the
 +*      instance

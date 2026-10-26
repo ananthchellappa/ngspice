@@ -1,4 +1,4 @@
-From 0221985ccdd7ad25c4d680f34c1cf8078ec9925c Mon Sep 17 00:00:00 2001
+From f99e14c96e0655314aa3b81d3b3244cb2dc4f7d0 Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
 Date: Mon, 26 Oct 2026 10:33:17 -0700
 Subject: [PATCH] inpcom.c: do not crash on a .model card without a type in a
@@ -14,6 +14,8 @@ in a branch that is not taken.  On ngspice-45.2:
     i1 0 1 1u
     r1 1 0 1k
     ...                              Segmentation fault, exit 139
+
+pre-master-48 (a1148c969) crashes the same way.
 
 Without .if the same card is reported ("Error: no model type given in
 line .model bad!") and ngspice exits 1.  The difference is that
@@ -57,6 +59,9 @@ Test (tests/regression/model, check.sh):
   The error cases exit 1 with their message on stderr, which check.sh
   does not see, so they have no test here.
 
+Rechecked on pre-master-48 a1148c969: the deck crashes (exit 139)
+without the fix and passes with it, and make check passes.
+
 This version is for a tree that already has 'inpcom.c: carry the R model
 through the R->B rewrite', which moved the check into
 inp_collect_models().  The change is the same.
@@ -74,7 +79,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 tests/regression/model/model-typeless-if-dead.out
 
 diff --git a/src/frontend/inp.c b/src/frontend/inp.c
-index f0de1289d..ee95571ae 100644
+index deea842e0..ef75dfd6b 100644
 --- a/src/frontend/inp.c
 +++ b/src/frontend/inp.c
 @@ -80,6 +80,7 @@ extern struct nscope* inp_add_levels(struct card *deck);
@@ -85,7 +90,7 @@ index f0de1289d..ee95571ae 100644
  
  extern void modprobenames(INPtables * tab);
  
-@@ -1020,6 +1021,9 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
+@@ -1120,6 +1121,9 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
              /* handle .if ... .elseif ... .else ... .endif statements. */
              dotifeval(deck);
  
@@ -96,10 +101,10 @@ index f0de1289d..ee95571ae 100644
                 in plot 'const' of a .control section */
              for (dd = deck; dd; dd = dd->nextcard) {
 diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
-index 57feea4a6..e18c5a3f2 100644
+index 76e31884a..06d835eff 100644
 --- a/src/frontend/inpcom.c
 +++ b/src/frontend/inpcom.c
-@@ -183,6 +183,8 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck);
+@@ -185,6 +185,8 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck);
  static struct modellist *inp_find_model(
          struct nscope *scope, const char *name);
  static int inp_collect_models(struct card *deck);
@@ -108,7 +113,7 @@ index 57feea4a6..e18c5a3f2 100644
  static void inp_free_models(struct nscope *level);
  static bool behav_r_models_wanted(struct card *deck);
  static char *behav_r_model_token(const char *rest, const char *line);
-@@ -4742,10 +4744,14 @@ static char *inp_expand_macro_in_str(struct function_env *env, char *str)
+@@ -4727,10 +4729,14 @@ static char *inp_expand_macro_in_str(struct function_env *env, char *str)
      /* If we have '.model mymod mdname(params)', don't treat this as a function,
      but skip '.model mymod mdname' and only then start searching for functions. */
      if (ciprefix(".model", search_ptr)){
@@ -127,7 +132,7 @@ index 57feea4a6..e18c5a3f2 100644
      }
      // printf("%s: enter(\"%s\")\n", __FUNCTION__, str);
      while ((open_paren_ptr = strchr(search_ptr, '(')) != NULL) {
-@@ -9647,16 +9653,9 @@ static int inp_collect_models(struct card *deck)
+@@ -9850,16 +9856,9 @@ static int inp_collect_models(struct card *deck)
  
          if (ciprefix(".model", curr_line)) {
              struct modellist *modl_new;
@@ -146,7 +151,7 @@ index 57feea4a6..e18c5a3f2 100644
              modl_new->elemb = inp_get_elem_ident(model_type);
              modl_new->modelname = get_subckt_model_name(curr_line);
              modl_new->model = card;
-@@ -9671,6 +9670,59 @@ static int inp_collect_models(struct card *deck)
+@@ -9874,6 +9873,59 @@ static int inp_collect_models(struct card *deck)
  }
  
  
