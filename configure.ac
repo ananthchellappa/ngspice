@@ -1478,6 +1478,8 @@ AC_CONFIG_FILES([Makefile
                  tests/transient/Makefile
                  tests/transmission/Makefile
                  tests/xspice/Makefile
+                 tests/xspice/analog/Makefile
+                 tests/xspice/analog/spinit
                  tests/xspice/digital/Makefile
                  tests/xspice/digital/spinit
                  tests/xspice/case/Makefile
