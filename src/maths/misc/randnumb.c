@@ -71,11 +71,14 @@ static bool seedinfo = FALSE;
    every parse, and 'reset' is a parse, so the option overrides a 'setseed N'
    made before the reset.  The option keeps winning; seed_from_option() only
    says so, once per session, and only after an explicit 'setseed N'.  A bare
-   'setseed', which re-seeds from $rndseed, does not set setseed_used.  Both
+   'setseed', which re-seeds from $rndseed, does not set setseed_used.
+   eval_opt()'s warning about more than one '.option seed=' is printed once
+   per session too, by seed_option_multiple(), not on every parse.  The
    flags are cleared by rnd_reset_state(), called from totalreset() in
    sharedspice.c, so a new shared-library session warns again. */
 static bool setseed_used = FALSE;
 static bool seed_override_warned = FALSE;
+static bool seed_multiple_warned = FALSE;
 
 /* The seed record, for the draw log (drawlog.c).  rng_calls counts the
    CombLCGTaus() calls, rng_calls_at_seed is its value at the last seeding,
@@ -374,23 +377,27 @@ setseedinfo(void)
 
 /* Seed from '.option seed=N' or '.option seed=random', for eval_opt().  This
    is the cp_vset() + com_sseed(NULL) pair eval_opt() has always done, with
-   the warning in front of it. */
+   the warning in front of it.  The warning quotes 'written', the value as
+   the deck spells it, so '.option seed=05' is not shown as 'seed=5'. */
 void
-seed_from_option(int seed, bool is_random)
+seed_from_option(int seed, bool is_random, const char *written)
 {
     if (setseed_used && !seed_override_warned) {
         if (is_random)
             fprintf(cp_err,
-                "Warning: '.option seed=random' re-seeds the random number generator from the clock\n"
-                "    on every 'reset', so it overrides 'setseed'. Each seed it uses is stored in\n"
-                "    $rndseed. Remove the option to let 'setseed' choose the seed.\n"
-                "    (This warning is printed once per session.)\n");
+                "Warning: '.option seed=%s' re-seeds the random number generator from the clock\n"
+                "    each time the circuit is parsed, by 'source' and by every 'reset', so it\n"
+                "    overrides 'setseed'. Each seed it uses is stored in $rndseed. Remove the\n"
+                "    option to let 'setseed' choose the seed.\n"
+                "    (This warning is printed once per session.)\n",
+                written);
         else
             fprintf(cp_err,
-                "Warning: '.option seed=%d' re-seeds the random number generator on every 'reset',\n"
-                "    so it overrides 'setseed'. Remove the option to let 'setseed' choose the seed.\n"
+                "Warning: '.option seed=%s' re-seeds the random number generator each time the\n"
+                "    circuit is parsed, by 'source' and by every 'reset', so it overrides 'setseed'.\n"
+                "    Remove the option to let 'setseed' choose the seed.\n"
                 "    (This warning is printed once per session.)\n",
-                seed);
+                written);
         seed_override_warned = TRUE;
     }
     cp_vset("rndseed", CP_NUM, &seed);
@@ -400,12 +407,28 @@ seed_from_option(int seed, bool is_random)
 }
 
 
+/* For eval_opt(): the option deck has more than one 'seed='.  eval_opt()
+   runs on every parse, so this is printed once per session, not once per
+   'reset'. */
+void
+seed_option_multiple(void)
+{
+    if (!seed_multiple_warned) {
+        fprintf(cp_err,
+            "Warning: Multiple 'option seed=val|random' found!\n"
+            "    (This warning is printed once per session.)\n");
+        seed_multiple_warned = TRUE;
+    }
+}
+
+
 /* Forget the setseed and warning flags, for a new session. */
 void
 rnd_reset_state(void)
 {
     setseed_used = FALSE;
     seed_override_warned = FALSE;
+    seed_multiple_warned = FALSE;
     rng_calls = rng_calls_at_seed = rng_draw_mark = 0;
     rng_seed = 0;
     rng_src = "startup";

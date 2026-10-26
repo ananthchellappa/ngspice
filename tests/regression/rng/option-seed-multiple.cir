@@ -1,0 +1,22 @@
+* two .option seed= cards: the 'Multiple' warning, once per session
+* eval_opt() (src/frontend/inp.c) warns when the option deck holds more than
+* one 'seed='.  It runs on every parse, and 'reset' is a parse, so before
+* ver_51 follow-up 2 the warning was printed again on every reset: a
+* 1000-sample Monte Carlo loop printed it 1000 times.  It is now printed once
+* per session, like the '.option seed=' versus 'setseed' warning.  This deck
+* parses four times (the load and three resets), and its .err holds the
+* warning exactly once.  No 'setseed' is called, so that other warning stays
+* silent.
+.param rv=agauss(1k,100,1)
+.option seed=5
+.option seed=6
+v1 1 0 1
+r1 1 0 {rv}
+.control
+foreach k 1 2 3
+  reset
+  op
+end
+quit 0
+.endc
+.end

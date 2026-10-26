@@ -1,0 +1,21 @@
+* .option seed= with an explicit setseed: the warning quotes the option as written
+* option-seed-setseed.cir checks the warning for '.option seed=5'.  The text
+* used to print the parsed integer, so '.option seed=05' was quoted back as
+* 'seed=5', a card the user never wrote and cannot search the deck for.  The
+* warning now quotes the value as the deck spells it.  The deck also checks
+* that the option still wins: after 'setseed 3; reset', $rndseed is 5 again.
+.param rv=agauss(1k,100,1)
+.option seed=05
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed 3
+reset
+op
+if $rndseed = 5
+  quit 0
+end
+echo option-seed-spelling: setseed 3 was not overridden by .option seed=05
+quit 1
+.endc
+.end

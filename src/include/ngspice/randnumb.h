@@ -5,8 +5,11 @@
 #include "ngspice/wordlist.h"
 extern void com_sseed(wordlist *wl);
 extern void setseedinfo(void);
-/* '.option seed=N|random': seed, warning once if 'setseed N' was used */
-extern void seed_from_option(int seed, bool is_random);
+/* '.option seed=N|random': seed, warning once if 'setseed N' was used;
+   'written' is the option's value as the deck spells it */
+extern void seed_from_option(int seed, bool is_random, const char *written);
+/* more than one '.option seed=': warn, once per session */
+extern void seed_option_multiple(void);
 extern void rnd_reset_state(void);
 /* the seed record and the call counter, for the draw log (drawlog.h) */
 extern void rng_seed_info(int *seed, const char **src, unsigned long long *offset);

@@ -445,7 +445,7 @@ eval_opt(struct card* deck)
             begtok = &begtok[5]; /*skip seed=*/
         if (begtok) {
             if (has_seed)
-                fprintf(cp_err, "Warning: Multiple 'option seed=val|random' found!\n");
+                seed_option_multiple();
             char* token = gettok(&begtok);
             /* option seed=random [seed='random'] */
             if (eqc(token, "random") || eqc(token, "{random}")) {
@@ -453,7 +453,7 @@ eval_opt(struct card* deck)
                 gettimeofday(&tv, NULL);
                 /* get random value from current timestamp microseconds */
                 int rseed = (int)(tv.tv_usec);
-                seed_from_option(rseed, TRUE);
+                seed_from_option(rseed, TRUE, token);
                 has_seed = TRUE;
             }
             /* option seed=val*/
@@ -462,7 +462,7 @@ eval_opt(struct card* deck)
                 if (sr <= 0)
                     fprintf(cp_err, "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n", token);
                 else {
-                    seed_from_option(sr, FALSE);
+                    seed_from_option(sr, FALSE, token);
                     has_seed = TRUE;
                 }
             }

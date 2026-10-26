@@ -20,6 +20,13 @@
 ##   option-seed-absent.cir          setseed without the option: stderr is
 ##                                   empty, and setseed is honoured
 ##
+## Two more from the ver_51 follow-up (P2 fixes):
+##
+##   option-seed-spelling.cir        the warning quotes '.option seed=05' as
+##                                   written, not as the parsed 5
+##   option-seed-multiple.cir        two '.option seed=' cards: the existing
+##                                   'Multiple' warning, once over four parses
+##
 ## The next two are ver_51 batch item 3 (P3).  initw() used to re-seed the
 ## generator from the process id after startup had seeded it from
 ## rndseed=1; now startup re-seeds from $rndseed after initw():
@@ -48,6 +55,7 @@
 
 TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-nosetseed.cir option-seed-absent.cir \
+	option-seed-spelling.cir option-seed-multiple.cir \
 	startup-equals-setseed1.cir setseed7-bit-identity.cir \
 	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir
 
@@ -60,6 +68,8 @@ EXTRA_DIST = \
 	option-seed-random-setseed.status option-seed-random-setseed.err \
 	option-seed-nosetseed.status option-seed-nosetseed.err \
 	option-seed-absent.status option-seed-absent.err \
+	option-seed-spelling.status option-seed-spelling.err \
+	option-seed-multiple.status option-seed-multiple.err \
 	startup-equals-setseed1.status startup-equals-setseed1.err \
 	setseed7-bit-identity.status setseed7-bit-identity.err \
 	rnddraws-mm.status rnddraws-mm.err rnddraws-mm.files \
@@ -77,6 +87,10 @@ CLEANFILES = \
 	option-seed-nosetseed.stderr.filtered option-seed-nosetseed.stderr.expected \
 	option-seed-absent.stdout option-seed-absent.stderr \
 	option-seed-absent.stderr.filtered option-seed-absent.stderr.expected \
+	option-seed-spelling.stdout option-seed-spelling.stderr \
+	option-seed-spelling.stderr.filtered option-seed-spelling.stderr.expected \
+	option-seed-multiple.stdout option-seed-multiple.stderr \
+	option-seed-multiple.stderr.filtered option-seed-multiple.stderr.expected \
 	startup-equals-setseed1.stdout startup-equals-setseed1.stderr \
 	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
 	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \
