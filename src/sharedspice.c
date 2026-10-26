@@ -2603,8 +2603,10 @@ static int totalreset(void)
     cp_remvar("prompt");
 
     destroy_wallace();
-    rnd_reset_state();
+    /* The draw log first: a parse that aborted left its record set open,
+       and the footer reads the call counter rnd_reset_state() zeroes. */
     ng_drawlog_reset();
+    rnd_reset_state();
 
     rem_controls();
 

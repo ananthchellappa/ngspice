@@ -9,7 +9,12 @@
  *      src=startup, offset=0, although session 1 used the generator), a
  *      new 'set rnddraws' logs again, and its z column equals session 1's
  *      setseed 1 set (startup draws what setseed 1 draws, item 3);
- *   4. 'unset rnddraws' closes the log.
+ *   4. 'unset rnddraws' closes the log;
+ *   5. a parse that aborts through controlled_exit() (an undefined
+ *      parameter) leaves its record set open, and the ngSpice_Reset() the
+ *      host then calls writes that set's footer with a sane
+ *      unlogged_calls: the footer must be written before the call counter
+ *      is zeroed, or the unsigned subtraction wraps (review round 1).
  * It prints one line per check and exits 0 only if every check passed.
  *
  * Build and run (from the repo root), against a --with-ngshared tree:
@@ -51,6 +56,14 @@ static char l6[] = "xm1 1 0 cell";
 static char l7[] = "xm2 1 0 cell";
 static char l8[] = ".end";
 static char *deck[] = { l0, l1, l2, l3, l4, l5, l6, l7, l8, NULL };
+
+/* aborts in numparam: r2's expression names no parameter */
+static char b0[] = "* rnddraws abort probe";
+static char b1[] = "v1 1 0 1";
+static char b2[] = "r1 1 0 r={agauss(1k,100,1)}";
+static char b3[] = "r2 1 0 r={nosuchparam*2}";
+static char b4[] = ".end";
+static char *bad[] = { b0, b1, b2, b3, b4, NULL };
 
 static void check(bool ok, const char *what)
 {
@@ -140,10 +153,14 @@ int main(void)
 {
     struct rset a[MAXSETS], c[MAXSETS];
     int na, nc;
+    char line[1024], footer[1024] = "";
+    unsigned long long unlogged = 0;
+    FILE *fp;
     long size_a;
 
     remove("probe-a.tsv");
     remove("probe-c.tsv");
+    remove("probe-d.tsv");
 
     /* session 1 */
     ngSpice_Init(cb_char, NULL, cb_exit, NULL, NULL, NULL, NULL);
@@ -198,6 +215,32 @@ int main(void)
     check(file_size("probe-a.tsv") == size_a, "the session 1 log is unchanged");
 
     ngSpice_Reset();
+
+    /* session 3: a parse aborts with its record set open, then the host
+       resets.  The generator has been used before the set opens, so its
+       start count is not 0. */
+    ngSpice_Init(cb_char, NULL, cb_exit, NULL, NULL, NULL, NULL);
+    cmd("setseed 1");
+    ngSpice_Circ(deck);
+    cmd("set rnddraws=probe-d.tsv");
+    ngSpice_Circ(bad);
+    ngSpice_Reset();
+    check(open_fds("probe-d.tsv") == 0, "session 3: ngSpice_Reset after an aborted parse closes the log");
+    if ((fp = fopen("probe-d.tsv", "r")) != NULL) {
+        while (fgets(line, sizeof line, fp))
+            if (strncmp(line, "#\tend\t", 6) == 0)
+                snprintf(footer, sizeof footer, "%s", line);
+        fclose(fp);
+    }
+    footer[strcspn(footer, "\n")] = '\0';
+    printf("      session 3 footer: %s\n", footer);
+    {
+        const char *u = strstr(footer, "unlogged_calls=");
+        if (u)
+            unlogged = strtoull(u + 15, NULL, 10);
+        check(strncmp(footer, "#\tend\tlogged=1\t", 14) == 0 && u && unlogged == 0,
+              "session 3: the aborted set's footer reads logged=1 unlogged_calls=0");
+    }
     printf("%s: %d failure(s)\n", failures ? "FAILED" : "PASSED", failures);
     return failures ? 1 : 0;
 }
