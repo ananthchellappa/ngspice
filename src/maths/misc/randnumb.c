@@ -67,6 +67,16 @@ float  CombLCGTaus2(void);
 void rgauss(double* py1, double* py2);
 static bool seedinfo = FALSE;
 
+/* '.option seed=' versus 'setseed'.  eval_opt() re-seeds from the option on
+   every parse, and 'reset' is a parse, so the option overrides a 'setseed N'
+   made before the reset.  The option keeps winning; seed_from_option() only
+   says so, once per session, and only after an explicit 'setseed N'.  A bare
+   'setseed', which re-seeds from $rndseed, does not set setseed_used.  Both
+   flags are cleared by rnd_reset_state(), called from totalreset() in
+   sharedspice.c, so a new shared-library session warns again. */
+static bool setseed_used = FALSE;
+static bool seed_override_warned = FALSE;
+
 
 /* Check if a seed has been set by the command 'set rndseed=value'
    in spinit, .spiceinit or in a .control section
@@ -288,6 +298,8 @@ double exprand(double mean)
 *   take value of variable rndseed as seed
 * command "setseed <n>"
 *   seed with number <n>
+* Only the second form counts as an explicit 'setseed' for the
+* '.option seed=' warning in seed_from_option().
 */
 void
 com_sseed(wordlist *wl)
@@ -315,6 +327,7 @@ com_sseed(wordlist *wl)
         srand((unsigned int)newseed);
         TausSeed();
         cp_vset("rndseed", CP_NUM, &newseed);
+        setseed_used = TRUE;
     }
 
     if (seedinfo)
@@ -326,4 +339,39 @@ void
 setseedinfo(void)
 {
     seedinfo = TRUE;
+}
+
+
+/* Seed from '.option seed=N' or '.option seed=random', for eval_opt().  This
+   is the cp_vset() + com_sseed(NULL) pair eval_opt() has always done, with
+   the warning in front of it. */
+void
+seed_from_option(int seed, bool is_random)
+{
+    if (setseed_used && !seed_override_warned) {
+        if (is_random)
+            fprintf(cp_err,
+                "Warning: '.option seed=random' re-seeds the random number generator from the clock\n"
+                "    on every 'reset', so it overrides 'setseed'. Each seed it uses is stored in\n"
+                "    $rndseed. Remove the option to let 'setseed' choose the seed.\n"
+                "    (This warning is printed once per session.)\n");
+        else
+            fprintf(cp_err,
+                "Warning: '.option seed=%d' re-seeds the random number generator on every 'reset',\n"
+                "    so it overrides 'setseed'. Remove the option to let 'setseed' choose the seed.\n"
+                "    (This warning is printed once per session.)\n",
+                seed);
+        seed_override_warned = TRUE;
+    }
+    cp_vset("rndseed", CP_NUM, &seed);
+    com_sseed(NULL);
+}
+
+
+/* Forget the setseed and warning flags, for a new session. */
+void
+rnd_reset_state(void)
+{
+    setseed_used = FALSE;
+    seed_override_warned = FALSE;
 }

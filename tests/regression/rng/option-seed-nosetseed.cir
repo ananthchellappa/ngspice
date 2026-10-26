@@ -1,0 +1,16 @@
+* .option seed= with no setseed: silent
+* The false-positive guard for option-seed-setseed.cir.  Here the deck never
+* calls 'setseed', so '.option seed=' re-seeding on each 'reset' overrides
+* nothing and the run must say nothing on stderr: the .err is empty.
+.param rv=agauss(1k,100,1)
+.option seed=5
+v1 1 0 1
+r1 1 0 {rv}
+.control
+foreach k 1 2 3
+  reset
+  op
+end
+quit 0
+.endc
+.end

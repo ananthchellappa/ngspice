@@ -1,0 +1,3 @@
+# The option still wins over setseed, which the deck checks itself and
+# answers with 'quit 1' if it does not.  The warning is in the .err.
+0

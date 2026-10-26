@@ -1,0 +1,24 @@
+* .option seed=random with an explicit setseed: its own warning, once
+* The seed=random arm of option-seed-setseed.cir.  eval_opt() re-seeds from
+* the clock on every parse, which also overrides 'setseed'.  The warning has
+* its own wording, and it must not say the run cannot be repeated: every
+* re-seed is stored in $rndseed.  The draws are clock-dependent, so this deck
+* asserts only the stderr text, exactly once over three resets, and that
+* $rndseed is no longer the value setseed gave it.
+.param rv=agauss(1k,100,1)
+.option seed=random
+v1 1 0 1
+r1 1 0 {rv}
+.control
+foreach k 1 2 3
+  setseed 7
+  reset
+  op
+end
+if $rndseed = 7
+  echo option-seed-random-setseed: setseed 7 was not overridden
+  quit 1
+end
+quit 0
+.endc
+.end

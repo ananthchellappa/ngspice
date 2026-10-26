@@ -2599,6 +2599,7 @@ static int totalreset(void)
     cp_remvar("prompt");
 
     destroy_wallace();
+    rnd_reset_state();
 
     rem_controls();
 

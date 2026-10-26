@@ -1,0 +1,34 @@
+* .option seed= with an explicit setseed: one warning per session
+* eval_opt() (src/frontend/inp.c) re-seeds the generator from '.option seed='
+* on every parse, and 'reset' is a parse, so the option silently beats the
+* 'setseed k' just before it.  The option keeps winning (the owner chose
+* warn-only, ver_51 batch decision 5), but once a deck has called 'setseed N'
+* the simulator says so on stderr -- once, not once per reset.  This deck's
+* .err holds that warning exactly once over three resets, and the block below
+* pins that the option still wins: the k=1 and k=2 draws must be equal.
+* The draws are kept in the const plot, because 'reset' drops plain 'let'
+* vectors.
+.param rv=agauss(1k,100,1)
+.option seed=5
+v1 1 0 1
+r1 1 0 {rv}
+.control
+foreach k 1 2 3
+  setseed $k
+  reset
+  op
+  if $k = 1
+    let const.draw1 = @r1[r]
+  end
+  if $k = 2
+    let const.draw2 = @r1[r]
+  end
+end
+if const.draw1 = const.draw2
+  echo option-seed-setseed: the option still wins
+  quit 0
+end
+echo option-seed-setseed: setseed changed the draw under .option seed=
+quit 1
+.endc
+.end

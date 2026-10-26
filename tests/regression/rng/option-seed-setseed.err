@@ -1,0 +1,3 @@
+Warning: '.option seed=5' re-seeds the random number generator on every 'reset',
+    so it overrides 'setseed'. Remove the option to let 'setseed' choose the seed.
+    (This warning is printed once per session.)

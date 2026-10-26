@@ -452,8 +452,7 @@ eval_opt(struct card* deck)
                 gettimeofday(&tv, NULL);
                 /* get random value from current timestamp microseconds */
                 int rseed = (int)(tv.tv_usec);
-                cp_vset("rndseed", CP_NUM, &rseed);
-                com_sseed(NULL);
+                seed_from_option(rseed, TRUE);
                 has_seed = TRUE;
             }
             /* option seed=val*/
@@ -462,8 +461,7 @@ eval_opt(struct card* deck)
                 if (sr <= 0)
                     fprintf(cp_err, "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n", token);
                 else {
-                    cp_vset("rndseed", CP_NUM, &sr);
-                    com_sseed(NULL);
+                    seed_from_option(sr, FALSE);
                     has_seed = TRUE;
                 }
             }

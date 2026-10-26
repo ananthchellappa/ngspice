@@ -1,0 +1,28 @@
+* setseed with no .option seed=: silent
+* The other guard for option-seed-setseed.cir.  The deck calls 'setseed k'
+* before every 'reset', as a Monte Carlo loop does, and has no '.option
+* seed=', so 'setseed' is in charge and the run must say nothing on stderr:
+* the .err is empty.  It also checks that setseed is honoured: the k=1 and
+* k=2 draws must differ.
+.param rv=agauss(1k,100,1)
+v1 1 0 1
+r1 1 0 {rv}
+.control
+foreach k 1 2 3
+  setseed $k
+  reset
+  op
+  if $k = 1
+    let const.draw1 = @r1[r]
+  end
+  if $k = 2
+    let const.draw2 = @r1[r]
+  end
+end
+if const.draw1 = const.draw2
+  echo option-seed-absent: setseed 1 and setseed 2 drew the same value
+  quit 1
+end
+quit 0
+.endc
+.end
