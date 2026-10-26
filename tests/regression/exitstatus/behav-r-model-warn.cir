@@ -1,0 +1,46 @@
+* the warnings of the R->B rewrite when an R card's .model cannot be carried
+* inp_compat() rewrites an R card whose value names v(), i(), temper, hertz
+* or time into a B source, and carries the card's .model onto the B line as
+* text: tc1/tc2 (the instance's override the model's) and a tnom offset in
+* dtemp or temp.  tests/regression/temper/temper-res-behav-1.cir asserts the
+* numbers.  This deck asserts the five cases in which the rewrite says what
+* it did not do, or did twice; they go to stderr, which tests/bin/check.sh
+* never sees, hence this directory:
+*
+*   r1  the model does not exist                  -> not resolved, nothing carried
+*   r2  the model has tce, which an ASRC lacks    -> model not applied
+*   r3  the expression already has a temper TC    -> applied anyway, and said so
+*   r4  the model's own values use temper         -> nothing carried
+*   r5  two exact models in scope (.if/.else; the -> not resolved, nothing
+*       .if is resolved after the rewrite)           carried
+*   r6  a model that resolves                     -> no warning
+*
+* The deck has an .if, so inp_rem_unused_models() does not run and adds no
+* "can't find model" line of its own.  Every case still simulates: the
+* status is 0.
+.param sel=1
+.model rt r tc1=1e-3 tce=2m tnom=25
+.model rtemp r tc1={1e-3*temper/25}
+.model rok r tc1=1e-3 tnom=25
+.if (sel == 1)
+.model ramb r tc1=1e-3
+.else
+.model ramb r tc1=2e-3
+.endif
+i1 0 1 1u
+r1 1 0 nosuch r={1k+0*v(1)}
+i2 0 2 1u
+r2 2 0 rt r={1k+0*v(2)}
+i3 0 3 1u
+r3 3 0 rok r={1k*(1+1e-3*(temper-25))}
+i4 0 4 1u
+r4 4 0 rtemp r={1k+0*v(4)}
+i5 0 5 1u
+r5 5 0 ramb r={1k+0*v(5)}
+i6 0 6 1u
+r6 6 0 rok r={1k+0*v(6)}
+.control
+op
+quit 0
+.endc
+.end

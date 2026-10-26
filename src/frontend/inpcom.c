@@ -182,6 +182,13 @@ void inp_rem_levels(struct nscope *root);
 void inp_rem_unused_models(struct nscope *root, struct card *deck);
 static struct modellist *inp_find_model(
         struct nscope *scope, const char *name);
+static int inp_collect_models(struct card *deck);
+static void inp_free_models(struct nscope *level);
+static bool behav_r_models_wanted(struct card *deck);
+static char *behav_r_model_token(const char *rest, const char *line);
+static char *behav_r_model_args(struct card *card, const char *rname,
+        const char *mname, const char *rest, char *equation,
+        char **noise_args);
 
 void tprint(struct card *deck);
 static char* libprint(struct card* t, const char *dir);
@@ -1570,8 +1577,16 @@ static struct card *inp_readall_cards(FILE *fp, const char *dir_name,
             /* Do all the compatibility stuff here */
             working = cc->nextcard;
             inp_meas_current(working);
-            /* E, G, L, R, C compatibility transformations */
+            /* E, G, L, R, C compatibility transformations.  An R card that
+               becomes a B source and names a .model needs that model's
+               tc1/tc2/tnom, so the .model lists are rebuilt for the rewrite
+               (they were freed above, or never built in a deck with .if) */
+            bool r_models = behav_r_models_wanted(working);
+            if (r_models)
+                inp_collect_models(working);
             inp_compat(working);
+            if (r_models)
+                inp_free_models(root);
             working = cc->nextcard;
             /* B source numparam compatibility transformation */
             inp_bsource_compat(working);
@@ -3457,11 +3472,20 @@ static char *get_model_name(char *line, int num_terminals)
     for (i = 0; i < num_terminals; i++)
         beg_ptr = skip_token(beg_ptr); // Eat terminal.
 
-    if (elem_letter(line) == 'r') /* special dealing for r models */
+    if (elem_letter(line) == 'r') { /* special dealing for r models */
         if ((*beg_ptr == '+') || (*beg_ptr == '-') ||
                 isdigit_c(*beg_ptr)) { /* looking for a value before model */
             beg_ptr = skip_token(beg_ptr); /* Skip the value, */
         }
+        else if (*beg_ptr == '{') { /* or an expression, which may hold blanks */
+            char *v = beg_ptr;
+            char *e = gettok_char(&v, '}', TRUE, TRUE);
+            if (e) {
+                tfree(e);
+                beg_ptr = v;
+            }
+        }
+    }
     end_ptr = skip_non_ws(beg_ptr);
     return copy_substring(beg_ptr, end_ptr);
 }
@@ -7421,17 +7445,32 @@ static void inp_compat(struct card *card)
             else if (cistrstr(cut_line, "noisy=0") || cistrstr(cut_line, "noise=0"))
                 rnoise = FALSE;
 
+            /* A card naming a .model carries the model's tc1/tc2/tnom,
+               overridden by the instance's, plus the instance dtemp/temp.
+               Unresolved: nothing is carried, and the line is today's. */
+            char *margs = NULL, *nargs = NULL;
+            char *rmodel = behav_r_model_token(cut_line, card->line);
+            if (rmodel)
+                margs = behav_r_model_args(card, title_tok, rmodel,
+                        cut_line, equation, &nargs);
+
             /* tc1, tc2, and m are enabled */
             xline = tprintf("b%s %s %s i = v(%s, %s)/(%s) %s %s reciproctc=1 reciprocm=0",
-                    title_tok, node1, node2, node1, node2, equation, tcrstr, mstr);
+                    title_tok, node1, node2, node1, node2, equation,
+                    margs ? margs : tcrstr, mstr);
             if (rnoise) {
                 x2line = tprintf("b%s_1 %s %s i = i(v%s_3)/sqrt(%s)",
                         title_tok, node1, node2, title_tok, equation);
+                /* with a model, the real resistor applies the TC, the tnom
+                   and the noise temperature itself */
                 x3line = tprintf("r%s_2 %s_3 0 1.0 %s",
-                        title_tok, title_tok, tcrstr);
+                        title_tok, title_tok, nargs ? nargs : tcrstr);
                 x4line = tprintf("v%s_3 %s_3 0 0", title_tok, title_tok);
             }
 
+            tfree(rmodel);
+            tfree(margs);
+            tfree(nargs);
             tfree(tcrstr);
             tfree(mstr);
 
@@ -10108,7 +10147,10 @@ static void mark_all_binned(struct nscope *scope, char *name)
 }
 
 
-void inp_rem_unused_models(struct nscope *root, struct card *deck)
+/* Add every .model card of deck to the models list of its scope.  Returns
+   the .control nesting count at the end of the deck, which
+   inp_rem_unused_models() carries into its second walk as it always has. */
+static int inp_collect_models(struct card *deck)
 {
     struct card *card;
     int skip_control = 0;
@@ -10155,6 +10197,35 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
             tfree(model_type);
         }
     }
+
+    return skip_control;
+}
+
+
+/* Free the models lists of level and of every scope below it, and leave
+   the .model cards alone: unlike rem_unused_xxx(), nothing is commented
+   out. */
+static void inp_free_models(struct nscope *level)
+{
+    struct modellist *m = level->models;
+    while (m) {
+        struct modellist *next_m = m->next;
+        tfree(m->modelname);
+        tfree(m);
+        m = next_m;
+    }
+    level->models = NULL;
+
+    struct card_assoc *p = level->subckts;
+    for (; p; p = p->next)
+        inp_free_models(p->line->level);
+}
+
+
+void inp_rem_unused_models(struct nscope *root, struct card *deck)
+{
+    struct card *card;
+    int skip_control = inp_collect_models(deck);
 
     /* scan through all element lines  that require or may need a model */
     for (card = deck; card; card = card->nextcard) {
@@ -10231,6 +10302,301 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
 
     // disable unused .model lines, and free the models assoc lists
     rem_unused_xxx(root);
+}
+
+
+/* The R->B rewrite of inp_compat() and the R card's .model.
+ *
+ * 'Rxxx n1 n2 [value] model r={equation} ...' becomes a B source.  The B
+ * source has no model, so what the model contributes to the resistance has
+ * to be written onto the B line as text: numparam has not run yet, and a
+ * value may be a {expression}.  An ASRC applies
+ *     1 + tc1*d + tc2*d^2,   d = temp + dtemp - 300.15
+ * so a model tnom becomes an offset of the instance temperature, dtemp (or
+ * temp, because an ASRC ignores dtemp when temp is given), of 27 - tnom.
+ * A model without tnom keeps the ASRC's fixed 27 C reference, which differs
+ * from a real resistor's only under '.option tnom' other than 27. */
+
+/* the next blank separated token of *s, a {...} group kept whole */
+static char *behav_r_next_token(const char **s)
+{
+    const char *p = skip_ws(*s);
+    const char *b = p;
+    int lvl = 0;
+
+    if (*p == '\0')
+        return NULL;
+    for (; *p; p++) {
+        if (*p == '{')
+            lvl++;
+        else if (*p == '}') {
+            if (lvl > 0)
+                lvl--;
+        }
+        else if (lvl == 0 && isspace_c(*p))
+            break;
+    }
+    *s = p;
+    return copy_substring(b, p);
+}
+
+
+/* The model name of an R card, from rest, the text after its two nodes:
+   one optional value token (a number or a whole {...} group) may come
+   first.  Returns NULL when the card names no model. */
+static char *behav_r_model_token(const char *rest, const char *line)
+{
+    const char *s = rest;
+    char *tok = behav_r_next_token(&s);
+
+    if (tok && (*tok == '{' || *tok == '+' || *tok == '-' || *tok == '.' ||
+            isdigit_c(*tok))) {
+        tfree(tok);
+        tok = behav_r_next_token(&s);
+    }
+    if (tok && is_a_modelname(tok, line))
+        return tok;
+    tfree(tok);
+    return NULL;
+}
+
+
+/* TRUE if some R card of deck will be rewritten into a B source by
+   inp_compat() and names a model */
+static bool behav_r_models_wanted(struct card *deck)
+{
+    struct card *card;
+    int skip_control = 0;
+    bool wanted = FALSE;
+
+    for (card = deck; card && !wanted; card = card->nextcard) {
+        char *curr_line = card->line;
+
+        if (ciprefix(".control", curr_line)) {
+            skip_control++;
+            continue;
+        }
+        else if (ciprefix(".endc", curr_line)) {
+            skip_control--;
+            continue;
+        }
+        else if (skip_control > 0) {
+            continue;
+        }
+        if (*curr_line == '*' || elem_letter(curr_line) != 'r')
+            continue;
+
+        char *cut_line = curr_line;
+        char *title_tok = gettok(&cut_line);
+        char *node1 = gettok(&cut_line);
+        char *node2 = gettok(&cut_line);
+        if (b_transformation_wanted(cut_line)) {
+            char *m = behav_r_model_token(cut_line, curr_line);
+            wanted = (m != NULL);
+            tfree(m);
+        }
+        tfree(title_tok);
+        tfree(node1);
+        tfree(node2);
+    }
+
+    return wanted;
+}
+
+
+/* the parameters the rewrite reads from a model card or an R card */
+struct behav_r_kv {
+    char *tc1, *tc2, *tnom, *tce, *dtemp, *temp;
+};
+
+
+static void behav_r_kv_set(char **slot, const char *b, const char *e)
+{
+    tfree(*slot);
+    *slot = copy_substring(b, e);
+}
+
+
+/* Collect the key=value pairs of s, a model card's parameters (model) or
+   an R card's text after its nodes.  Tokens are separated by blanks,
+   parentheses and commas outside braces; a later pair wins, as it does in
+   the device's own parameter parsing.  Keys are the aliases the R device
+   accepts: model tc1|tc1r, tc2|tc2r, tce, tnom; instance tc|tc1, tc2, tce,
+   dtemp, temp. */
+static void behav_r_kv_scan(const char *s, bool model, struct behav_r_kv *kv)
+{
+    const char *p = s;
+
+    while (*p) {
+        while (*p && (isspace_c(*p) || *p == '(' || *p == ')' || *p == ','))
+            p++;
+        if (*p == '\0')
+            break;
+
+        const char *tb = p, *eqp = NULL;
+        int lvl = 0;
+        for (; *p; p++) {
+            if (*p == '{')
+                lvl++;
+            else if (*p == '}') {
+                if (lvl > 0)
+                    lvl--;
+            }
+            else if (lvl == 0) {
+                if (isspace_c(*p) || *p == '(' || *p == ')' || *p == ',')
+                    break;
+                if (*p == '=' && !eqp)
+                    eqp = p;
+            }
+        }
+        if (!eqp || eqp == tb || eqp + 1 == p)
+            continue;
+
+        char *key = copy_substring(tb, eqp);
+        const char *vb = eqp + 1;
+        if (cieq(key, "tc1") || (model && cieq(key, "tc1r")) ||
+                (!model && cieq(key, "tc")))
+            behav_r_kv_set(&kv->tc1, vb, p);
+        else if (cieq(key, "tc2") || (model && cieq(key, "tc2r")))
+            behav_r_kv_set(&kv->tc2, vb, p);
+        else if (cieq(key, "tce"))
+            behav_r_kv_set(&kv->tce, vb, p);
+        else if (model && cieq(key, "tnom"))
+            behav_r_kv_set(&kv->tnom, vb, p);
+        else if (!model && cieq(key, "dtemp"))
+            behav_r_kv_set(&kv->dtemp, vb, p);
+        else if (!model && cieq(key, "temp"))
+            behav_r_kv_set(&kv->temp, vb, p);
+        tfree(key);
+    }
+}
+
+
+static void behav_r_kv_free(struct behav_r_kv *kv)
+{
+    tfree(kv->tc1);
+    tfree(kv->tc2);
+    tfree(kv->tnom);
+    tfree(kv->tce);
+    tfree(kv->dtemp);
+    tfree(kv->temp);
+}
+
+
+/* a value as an operand of a new expression: {expr} -> (expr), 1k -> (1k) */
+static char *behav_r_operand(const char *v)
+{
+    size_t n = strlen(v);
+
+    if (n >= 2 && v[0] == '{' && v[n - 1] == '}')
+        return tprintf("(%.*s)", (int) (n - 2), v + 1);
+    return tprintf("(%s)", v);
+}
+
+
+/* What the B line of R card rname (the card) carries from model mname.
+   rest is the card's text after its nodes, equation its {...} value.
+   Returns the B line's tc1/tc2/dtemp|temp arguments and sets *noise_args
+   to the arguments of the 1 ohm resistor of the noise branch, or returns
+   NULL, with a warning, when nothing is carried.
+   The model is looked up from the card's own scope outwards; only an exact
+   name counts, as an R has no binning.  Two or more exact matches in the
+   scope that has any (the branches of an .if, which is resolved later) are
+   not resolved. */
+static char *behav_r_model_args(struct card *card, const char *rname,
+        const char *mname, const char *rest, char *equation,
+        char **noise_args)
+{
+    struct modellist *m = NULL;
+    struct nscope *scope;
+    int nfound = 0;
+
+    *noise_args = NULL;
+
+    for (scope = card->level; scope && nfound == 0; scope = scope->next) {
+        struct modellist *p;
+        for (p = scope->models; p; p = p->next)
+            if (p->elemb == 'r' &&
+                    model_name_match(mname, p->modelname,
+                            !inp_case_exact_ids()) == 1) {
+                if (!m)
+                    m = p;
+                nfound++;
+            }
+    }
+
+    if (nfound != 1) {
+        fprintf(stderr, "Warning: behavioral R %s: model %s not resolved, "
+                "tc1/tc2/tnom not applied\n", rname, mname);
+        return NULL;
+    }
+
+    if (search_plain_identifier(m->model->line, "temper")) {
+        fprintf(stderr, "Warning: behavioral R %s: model %s uses temper, "
+                "tc1/tc2/tnom not applied\n", rname, mname);
+        return NULL;
+    }
+
+    struct behav_r_kv mk = { NULL, NULL, NULL, NULL, NULL, NULL };
+    struct behav_r_kv ik = { NULL, NULL, NULL, NULL, NULL, NULL };
+
+    /* the parameters follow '.model name' */
+    behav_r_kv_scan(skip_token(skip_token(m->model->line)), TRUE, &mk);
+
+    if (mk.tce) {
+        fprintf(stderr, "Warning: behavioral R %s: model %s has tce, which "
+                "a B source cannot express, model not applied\n",
+                rname, mname);
+        behav_r_kv_free(&mk);
+        return NULL;
+    }
+
+    behav_r_kv_scan(rest, FALSE, &ik);
+
+    /* the instance overrides the model, parameter by parameter */
+    const char *tc1 = ik.tc1 ? ik.tc1 : mk.tc1;
+    const char *tc2 = ik.tc2 ? ik.tc2 : mk.tc2;
+
+    if ((tc1 || tc2) && search_plain_identifier(equation, "temper"))
+        fprintf(stderr, "Warning: behavioral R %s: the expression uses "
+                "temper and model %s adds tc1/tc2, both are applied\n",
+                rname, mname);
+
+    char *tcs = tprintf("%s%s%s%s", tc1 ? "tc1=" : "", tc1 ? tc1 : "",
+            tc2 ? " tc2=" : "", tc2 ? tc2 : "");
+
+    char *temps;
+    if (mk.tnom) {
+        char *tn = behav_r_operand(mk.tnom);
+        char *t = behav_r_operand(ik.temp ? ik.temp :
+                (ik.dtemp ? ik.dtemp : "0"));
+        temps = tprintf("%s={%s+27-%s}", ik.temp ? "temp" : "dtemp", t, tn);
+        tfree(tn);
+        tfree(t);
+    }
+    else if (ik.temp)
+        temps = tprintf("temp=%s", ik.temp);
+    else if (ik.dtemp)
+        temps = tprintf("dtemp=%s", ik.dtemp);
+    else
+        temps = copy("");
+
+    char *args = tprintf("%s %s", tcs, temps);
+
+    /* the noise branch's resistor is a real one: it takes the model and the
+       instance's own values, and applies the model itself */
+    *noise_args = tprintf("%s%s%s%s%s%s%s", mname,
+            ik.tc1 ? " tc1=" : "", ik.tc1 ? ik.tc1 : "",
+            ik.tc2 ? " tc2=" : "", ik.tc2 ? ik.tc2 : "",
+            ik.temp ? " temp=" : (ik.dtemp ? " dtemp=" : ""),
+            ik.temp ? ik.temp : (ik.dtemp ? ik.dtemp : ""));
+
+    tfree(tcs);
+    tfree(temps);
+    behav_r_kv_free(&mk);
+    behav_r_kv_free(&ik);
+
+    return args;
 }
 
 /* Markus Kuhn <http://www.cl.cam.ac.uk/~mgk25/> -- 2005-03-30

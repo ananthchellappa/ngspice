@@ -103,12 +103,21 @@
 ## no rawfile is written, so all three fail.  It is, with selftest-invoke.cir,
 ## one of the only two committed decks in this directory whose .invoke is
 ## load-bearing.
+##
+## behav-r-model-warn.cir is here for its stderr, not its status, which is 0.
+## It is the diagnostic half of the R->B model carry: when inp_compat()
+## rewrites a resistor into a B source and cannot carry the card's .model (no
+## such model, two of them, tce, a model that uses temper), or carries a TC
+## onto an expression that already has one, it says so on stderr, and
+## check.sh's FILTER would delete every one of those lines.  The numbers are
+## asserted by tests/regression/temper/temper-res-behav-1.cir.
 
-TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
+TESTS =tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
 	sim-status-properties.cir sim-status-unset.cir \
 	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir \
-	op-empty-stdin.cir op-empty-notty.cir op-empty-raw.cir
+	op-empty-stdin.cir op-empty-notty.cir op-empty-raw.cir \
+	behav-r-model-warn.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -146,7 +155,9 @@ EXTRA_DIST = \
 	op-empty-notty.invoke \
 	op-empty-raw.status \
 	op-empty-raw.invoke \
-	op-empty-raw.files
+	op-empty-raw.files \
+	behav-r-model-warn.status \
+	behav-r-model-warn.err
 
 # The driver captures each run's stdout and stderr into the build directory
 # and filters the latter in place; tran-empty-netlist.files asserts that the
@@ -198,6 +209,8 @@ CLEANFILES = \
 	op-empty-notty.stderr.filtered op-empty-notty.stderr.expected \
 	op-empty-raw.stdout op-empty-raw.stderr \
 	op-empty-raw.stderr.filtered op-empty-raw.stderr.expected \
+	behav-r-model-warn.stdout behav-r-model-warn.stderr \
+	behav-r-model-warn.stderr.filtered behav-r-model-warn.stderr.expected \
 	op-empty-raw.raw \
 	rawspice.raw core core.*
 

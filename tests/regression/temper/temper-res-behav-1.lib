@@ -1,0 +1,6 @@
+* library for temper-res-behav-1.cir, pair C: a resistor model that
+* reaches the deck through '.lib file section'
+
+.lib rsec
+.model rlib r tc1r=-2.47e-3 tc2r=2.7e-6 tnom=25
+.endl rsec

@@ -1,0 +1,132 @@
+regression test temper-res-behav-1.cir, R model through the R->B rewrite
+
+* An R card whose value needs a behavioral source (it names v(), i(),
+* temper, hertz or time) is rewritten by inp_compat() into a B source.
+* That rewrite used to drop the card's .model: the B line carried the
+* equation, the instance tc1/tc2 and m only, so the model's tc1/tc2/tnom
+* were lost and the converted resistor was flat with temperature.  At
+* 125 C, 73k with tc1=-2.47e-3 tc2=2.7e-6 tnom=25 under 1 uA read 73 mV
+* where a plain model R reads 56.94 mV.
+*
+* Each pair below drives 1 uA into a converted R that has a model and into
+* a reference, at 0, 25 and 125 C, and every ratio must be 1 within 1e-9.
+*   A  top level, model before the instance; reference is the same
+*      expression times (1+tc1*(temper-25)+tc2*(temper-25)^2), no model
+*   B  in a subckt, model defined after the instance, tc1={...*rsq} from a
+*      global .param; reference as A
+*   C  model from a '.lib file section'; reference as A
+*   D  instance dtemp=10; reference a plain model R with dtemp=10
+*   E  instance temp=50; reference a plain model R with temp=50
+*   F  instance tc1 overrides the model's, the model's tc2 is kept;
+*      reference a plain model R with the same instance tc1
+*   G  model without tnom (27 C reference); reference a plain model R
+*   H  value given first, model after it: 'R n 0 {eq} model'; reference
+*      as D but without dtemp
+* The vectors that span 'reset' live in the const plot: a plain 'let'
+* vector is gone after reset.
+
+.param rsq=0.5
+
+.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
+
+* A
+ia 0 a 1u
+ra a 0 rm r={73k*(1+1e-9*abs(v(a)))}
+iar 0 ar 1u
+rar ar 0 r={73k*(1+1e-9*abs(v(ar)))*(1+(-2.47e-3)*(temper-25)+2.7e-6*(temper-25)^2)}
+
+* B
+xb b rsub
+ibr 0 br 1u
+rbr br 0 r={73k*(1+1e-9*abs(v(br)))*(1+(-2.47e-3)*(temper-25)+2.7e-6*(temper-25)^2)}
+.subckt rsub n
+ib 0 n 1u
+r1 n 0 rs r={146k*rsq*(1+1e-9*abs(v(n)))}
+.model rs r tc1={-4.94e-3*rsq} tc2=2.7e-6 tnom=25
+.ends
+
+* C
+.lib temper-res-behav-1.lib rsec
+ic 0 c 1u
+rc c 0 rlib r={73k*(1+1e-9*abs(v(c)))}
+icr 0 cr 1u
+rcr cr 0 r={73k*(1+1e-9*abs(v(cr)))*(1+(-2.47e-3)*(temper-25)+2.7e-6*(temper-25)^2)}
+
+* D
+id 0 d 1u
+rd d 0 rm r={73k+0*v(d)} dtemp=10
+idr 0 dr 1u
+rdr dr 0 rm r=73k dtemp=10
+
+* E
+ie 0 e 1u
+re e 0 rm r={73k+0*v(e)} temp=50
+ier 0 er 1u
+rer er 0 rm r=73k temp=50
+
+* F
+iff 0 f 1u
+rf f 0 rm r={73k+0*v(f)} tc1=1e-3
+ifr 0 fr 1u
+rfr fr 0 rm r=73k tc1=1e-3
+
+* G
+.model rn r tc1=-2.47e-3 tc2=2.7e-6
+ig 0 g 1u
+rg g 0 rn r={73k+0*v(g)}
+igr 0 gr 1u
+rgr gr 0 rn r=73k
+
+* H
+ih 0 h 1u
+rh h 0 {73k+0*v(h)} rm
+ihr 0 hr 1u
+rhr hr 0 rm r=73k
+
+.control
+
+let const.maxerr = 0
+let const.spread = 0
+let const.v25 = 0
+
+foreach tk 0 25 125
+  reset
+  set temp=$tk
+  op
+  let ratio = vector(8)
+  let ratio[0] = v(a)/v(ar)
+  let ratio[1] = v(b)/v(br)
+  let ratio[2] = v(c)/v(cr)
+  let ratio[3] = v(d)/v(dr)
+  let ratio[4] = v(e)/v(er)
+  let ratio[5] = v(f)/v(fr)
+  let ratio[6] = v(g)/v(gr)
+  let ratio[7] = v(h)/v(hr)
+  let err = vecmax(abs(ratio - 1))
+  echo "Note: temp =" $tk "err =" $&err
+  echo "Note: ratio =" $&ratio
+  if err > const.maxerr
+    let const.maxerr = err
+  end
+  if $tk = 25
+    let const.v25 = v(a)
+  end
+  if $tk = 125
+    let const.spread = abs(v(a)/const.v25 - 1)
+  end
+end
+
+* the TC must actually move the converted R: 25 C -> 125 C is about -22 %
+echo "Note: maxerr =" $&const.maxerr "spread =" $&const.spread
+
+if const.maxerr > 1e-9 or const.spread < 0.1
+  echo "ERROR: test failed"
+  quit 1
+else
+  echo "INFO: success"
+  quit 0
+end
+
+.endc
+
+.end

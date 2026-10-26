@@ -1,0 +1,3 @@
+# Each warning is a diagnostic about what the rewrite carried; every resistor
+# still simulates, and the run quits 0.
+0

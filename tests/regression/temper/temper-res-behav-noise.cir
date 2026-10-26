@@ -1,0 +1,72 @@
+regression test temper-res-behav-noise.cir, R model on the noise branch
+
+* A resistor rewritten into a B source by inp_compat() is noiseless unless
+* 'set enable_noisy_r' is given before the netlist is read (or the
+* instance has noisy=1).  With the switch on, the rewrite adds a noise
+* branch: a 1 ohm resistor whose noise current is scaled into the B source.
+* That 1 ohm resistor has to carry the original card's model and its
+* dtemp/temp, so that the real resistor device applies the TC, the tnom and
+* the noise temperature.  Before, it carried neither, and the converted
+* resistor's thermal noise was flat with temperature and blind to dtemp/temp.
+*
+* The switch is read while the netlist is parsed, so this deck has no
+* netlist of its own: it sources temper-res-behav-noise.sp twice, first
+* with the switch off (a converted R must stay noiseless), then with it on
+* (every converted R must match a plain model R within 1e-9 at 0, 25 and
+* 125 C).  The vectors that span 'reset' live in the const plot.
+* check.sh's filter deletes every line containing 'oise', so the integrated
+* noise values are copied into vectors with other names.
+
+.control
+
+let const.maxerr = 0
+let const.quiet = 1
+
+unset enable_noisy_r
+source $inputdir/temper-res-behav-noise.sp
+noise v(a) ia lin 2 1k 2k
+let const.quiet = onoise_total
+
+set enable_noisy_r
+source $inputdir/temper-res-behav-noise.sp
+
+foreach tk 0 25 125
+  reset
+  set temp=$tk
+  noise v(a) ia lin 2 1k 2k
+  let const.na = onoise_total
+  noise v(b) ib lin 2 1k 2k
+  let const.nb = onoise_total
+  noise v(d) id lin 2 1k 2k
+  let const.nd = onoise_total
+  noise v(e) ie lin 2 1k 2k
+  let const.ne = onoise_total
+  noise v(f) iff lin 2 1k 2k
+  let const.nf = onoise_total
+  noise v(g) ig lin 2 1k 2k
+  let const.ng = onoise_total
+  let ratio = vector(3)
+  let ratio[0] = const.na/const.nb
+  let ratio[1] = const.nd/const.ne
+  let ratio[2] = const.nf/const.ng
+  let err = vecmax(abs(ratio - 1))
+  echo "Note: temp =" $tk "err =" $&err
+  echo "Note: ratio =" $&ratio
+  if err > const.maxerr
+    let const.maxerr = err
+  end
+end
+
+echo "Note: maxerr =" $&const.maxerr "quiet =" $&const.quiet
+
+if const.maxerr > 1e-9 or const.quiet <> 0
+  echo "ERROR: test failed"
+  quit 1
+else
+  echo "INFO: success"
+  quit 0
+end
+
+.endc
+
+.end

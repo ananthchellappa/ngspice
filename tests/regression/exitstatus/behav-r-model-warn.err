@@ -1,0 +1,5 @@
+Warning: behavioral R r1: model nosuch not resolved, tc1/tc2/tnom not applied
+Warning: behavioral R r2: model rt has tce, which a B source cannot express, model not applied
+Warning: behavioral R r3: the expression uses temper and model rok adds tc1/tc2, both are applied
+Warning: behavioral R r4: model rtemp uses temper, tc1/tc2/tnom not applied
+Warning: behavioral R r5: model ramb not resolved, tc1/tc2/tnom not applied
