@@ -5,12 +5,11 @@
 * drawn once through a .func (pq, instance '?'), eval_agauss() on a B line
 * (b1, keyed 'v'), and the gauss() that the B-source parser folds in a
 * .model expression with temper (rm, keyed 'rsh').
-* Two guards, both in this deck:
-*  - the log-off pass must draw the values ngspice drew before the log
-*    existed.  They are glibc rand() values, so the deck is Linux-only
-*    (glibc); the tolerance is 1e-9 in each value.
-*  - the log-on pass must draw exactly what the log-off pass drew: writing a
-*    row may not call the generator or reorder the arithmetic.
+* The guard: the log-on pass must draw exactly what the log-off pass drew:
+* writing a row may not call the generator or reorder the arithmetic.  This
+* holds on any libc.  The other guard, that the log-off pass draws the values
+* ngspice drew before the log existed, needs glibc's rand() and lives in
+* rnddraws-gold.cir, which the driver skips on another libc.
 * The .files beside this deck assert one row per draw.
 .func f() {agauss(0,1,1)}
 .param pq={f()}
@@ -43,17 +42,6 @@ let const.off[5] = v(2)
 let const.off[6] = @r7[r]
 let const.off[7] = @r8[r]
 let const.off[8] = @r9[r]
-* the values before the draw log existed (build a6c67b795d990487275b)
-let const.gold = vector(9)
-let const.gold[0] = 9.123729229632748e+02
-let const.gold[1] = 9.922349127917782e+02
-let const.gold[2] = 1.068293522298336e+03
-let const.gold[3] = 1.099493417330086e+03
-let const.gold[4] = 1.100000000000000e+03
-let const.gold[5] = 9.678340000000000e-01
-let const.gold[6] = 9.551800000000001e+02
-let const.gold[7] = 1.169806671727795e+03
-let const.gold[8] = 9.983922770214971e+02
 * pass 2, log on
 set rnddraws=rnddraws-funcs.tsv
 setseed 3
@@ -70,18 +58,13 @@ let const.on[5] = v(2)
 let const.on[6] = @r7[r]
 let const.on[7] = @r8[r]
 let const.on[8] = @r9[r]
-let const.dgold = vecmax(abs(const.off - const.gold))
 let const.don = vecmax(abs(const.on - const.off))
-echo rnddraws-funcs: max change from the old draws $&const.dgold, log on vs off $&const.don
-if const.dgold > 1e-9
-  echo rnddraws-funcs: the log-off draws are not the draws from before the log
-  quit 1
-end
+echo rnddraws-funcs: max change, log on vs off $&const.don
 if const.don > 0
   echo rnddraws-funcs: turning the log on changed a draw
   quit 1
 end
-echo rnddraws-funcs: the draws are unchanged, with the log off and on
+echo rnddraws-funcs: turning the log on changed no draw
 quit 0
 .endc
 .end

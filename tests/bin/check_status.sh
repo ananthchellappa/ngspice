@@ -56,6 +56,17 @@
 #                    a 'grep' line.  Paths are relative to the build directory
 #                    and may not be absolute or contain '..', because the
 #                    driver deletes them.
+#   <base>.requires  optional.  What the platform must provide for the
+#                    deck's assertions to mean anything.  One key, at most one
+#                    line; '#' starts a comment and blank lines are ignored:
+#                        libc   glibc
+#                    'libc glibc' is for a deck whose expected values are
+#                    glibc rand() values.  It is met when
+#                    'getconf GNU_LIBC_VERSION' names glibc, which is the
+#                    libc the simulator built on this host links against.
+#                    When it is not met the deck is not run, and the driver
+#                    exits 77, which automake reports as SKIP.  An unknown key
+#                    or value is a broken test spec.
 #   <base>.mustfail  optional, and this directory's self-test hook.  Names the
 #                    checks -- from 'status', 'signal', 'err', 'files' -- that
 #                    this deck exists to make fail.  With it present the
@@ -72,7 +83,7 @@
 # default is otherwise invisible, and that is the way this feature rots.
 #
 # Exit 0 if every check passed (or, under .mustfail, if exactly the named
-# checks failed), 1 otherwise.
+# checks failed), 77 if a .requires line is not met, 1 otherwise.
 
 if [ -z "$SPICE_SCRIPTS" ] ; then
     SPICE_SCRIPTS=`dirname $0`
@@ -106,6 +117,7 @@ status_spec=$testdir/$testname.status
 invoke_spec=$testdir/$testname.invoke
 err_spec=$testdir/$testname.err
 files_spec=$testdir/$testname.files
+requires_spec=$testdir/$testname.requires
 mustfail_spec=$testdir/$testname.mustfail
 
 out=$testname.stdout
@@ -229,6 +241,45 @@ if [ -f "$mustfail_spec" ] ; then
             *) spec_error "$mustfail_spec names '$name'; the checks are status, signal, err, files" ;;
         esac
     done
+fi
+
+# ------------------------------------------------- what the platform needs
+#
+# Checked before anything is deleted or run, so a skipped deck leaves the
+# build directory as it found it.
+
+if [ -f "$requires_spec" ] ; then
+    # No pathname expansion: the words of a line are split below, unquoted.
+    set -f
+    libc_seen=no
+    while read -r key rest || [ -n "$key" ] ; do
+        case $key in
+            ''|\#*) continue ;;
+        esac
+        rest=`echo ${rest%%#*}`
+        case $key in
+            libc)
+                if [ "$libc_seen" = yes ] ; then
+                    spec_error "$requires_spec: a second 'libc' line; at most one"
+                fi
+                libc_seen=yes
+                case $rest in
+                    glibc) ;;
+                    *) spec_error "$requires_spec: 'libc $rest'; the only libc this driver can check is glibc" ;;
+                esac
+                libc=`getconf GNU_LIBC_VERSION 2>/dev/null`
+                case $libc in
+                    glibc\ *) ;;
+                    *)
+                        echo "check_status: $testname: SKIP: the deck needs glibc, and"
+                        echo "  'getconf GNU_LIBC_VERSION' says '${libc:-<nothing>}'"
+                        exit 77 ;;
+                esac ;;
+            *)
+                spec_error "$requires_spec: unknown key '$key'; the only key is libc" ;;
+        esac
+    done < "$requires_spec"
+    set +f
 fi
 
 # ------------------------------------------------------ how the deck is run

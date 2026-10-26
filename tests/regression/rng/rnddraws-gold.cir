@@ -1,0 +1,67 @@
+* rnddraws: with the log off, the draws are the draws from before the log
+* ver_51 batch item 4 (P4), split from rnddraws-funcs.cir in the ver_51
+* follow-up (P3 fixes) so that deck can run on any libc.  The same circuit,
+* one draw from each draw path.  Pass 1, log off: the draws must equal the
+* values ngspice drew before the draw log existed (build
+* a6c67b795d990487275b), within 1e-9 in each.  Pass 2 writes the log, and
+* rnddraws-gold.files asserts that limit()'s row records 1100, the value
+* pass 1 drew.  Both are glibc rand() values, so rnddraws-gold.requires asks
+* for glibc and the driver skips the deck on another libc.
+.func f() {agauss(0,1,1)}
+.param pq={f()}
+v1 1 0 1
+r1 1 0 r={agauss(1k,100,1)}
+r2 1 0 r={gauss(1k,0.1,1)}
+r3 1 0 r={unif(1k,0.1)}
+r4 1 0 r={aunif(1k,100)}
+r5 1 0 r={limit(1k,100)}
+b1 2 0 v=agauss(1,0.1,1)
+r6 2 0 1k
+.model rm r rsh='100*gauss(1,0.1,1)+0*temper'
+r7 1 0 rm l=10u w=1u
+r8 1 0 r={agauss(1k,100,1)+agauss(0,10,1)}
+r9 1 0 r={1k+pq}
+.control
+set numdgt=15
+* pass 1, log off
+setseed 3
+reset
+op
+print @r1[r] @r2[r] @r3[r] @r4[r] @r5[r] v(2) @r7[r] @r8[r] @r9[r]
+let const.off = vector(9)
+let const.off[0] = @r1[r]
+let const.off[1] = @r2[r]
+let const.off[2] = @r3[r]
+let const.off[3] = @r4[r]
+let const.off[4] = @r5[r]
+let const.off[5] = v(2)
+let const.off[6] = @r7[r]
+let const.off[7] = @r8[r]
+let const.off[8] = @r9[r]
+* the values before the draw log existed (build a6c67b795d990487275b)
+let const.gold = vector(9)
+let const.gold[0] = 9.123729229632748e+02
+let const.gold[1] = 9.922349127917782e+02
+let const.gold[2] = 1.068293522298336e+03
+let const.gold[3] = 1.099493417330086e+03
+let const.gold[4] = 1.100000000000000e+03
+let const.gold[5] = 9.678340000000000e-01
+let const.gold[6] = 9.551800000000001e+02
+let const.gold[7] = 1.169806671727795e+03
+let const.gold[8] = 9.983922770214971e+02
+* pass 2, log on
+set rnddraws=rnddraws-gold.tsv
+setseed 3
+reset
+op
+unset rnddraws
+let const.dgold = vecmax(abs(const.off - const.gold))
+echo rnddraws-gold: max change from the old draws $&const.dgold
+if const.dgold > 1e-9
+  echo rnddraws-gold: the log-off draws are not the draws from before the log
+  quit 1
+end
+echo rnddraws-gold: the log-off draws are the draws from before the log
+quit 0
+.endc
+.end

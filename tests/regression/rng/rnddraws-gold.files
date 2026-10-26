@@ -1,0 +1,5 @@
+# limit() row of rnddraws-gold.cir's log.  The gaps in the grep text are
+# literal tab characters.  1100 is the value pass 1 drew under glibc rand().
+present rnddraws-gold.tsv
+grep rnddraws-gold.tsv ^#	rnddraws	v1	seed=3	src=setseed	offset=0$
+grep rnddraws-gold.tsv ^3	r5	r	limit	1000,100	[-0-9.e+]*	1100$

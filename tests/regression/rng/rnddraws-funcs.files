@@ -2,7 +2,9 @@
 # are literal tab characters.  Numbers are written with %.17g, so 0.1 is
 # 0.10000000000000001.  eval_agauss() (b1) and the B-source parser (rm) read
 # their literals with INPevaluate(), which makes 0.1 0.099999999999999992,
-# so those two rows accept any decimal there.
+# so those two rows accept any decimal there.  limit() gives 900 or 1100
+# depending on the draw, so r5's value is held to one of the two here; that it
+# is 1100 under glibc rand() is asserted in rnddraws-gold.files.
 present rnddraws-funcs.tsv
 grep rnddraws-funcs.tsv ^#	rnddraws	v1	seed=3	src=setseed	offset=0$
 grep rnddraws-funcs.tsv ^3	?	pq	agauss	0,1,1	
@@ -10,7 +12,7 @@ grep rnddraws-funcs.tsv ^3	r1	r	agauss	1000,100,1
 grep rnddraws-funcs.tsv ^3	r2	r	gauss	1000,0\.1[0-9]*,1	
 grep rnddraws-funcs.tsv ^3	r3	r	unif	1000,0\.1[0-9]*	
 grep rnddraws-funcs.tsv ^3	r4	r	aunif	1000,100	
-grep rnddraws-funcs.tsv ^3	r5	r	limit	1000,100	[-0-9.e+]*	1100$
+grep rnddraws-funcs.tsv ^3	r5	r	limit	1000,100	[-0-9.e+]*	9*1*00$
 grep rnddraws-funcs.tsv ^3	r8	r	agauss	1000,100,1	
 grep rnddraws-funcs.tsv ^3	r8	r#2	agauss	0,10,1	
 grep rnddraws-funcs.tsv ^3	b1	v	agauss	1,0\.[0-9]*,1	

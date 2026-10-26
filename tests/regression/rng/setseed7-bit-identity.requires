@@ -1,0 +1,3 @@
+# setseed7-bit-identity.cir asserts the value glibc rand() gives after
+# 'setseed 7'.  tests/bin/check_status.sh skips the deck on another libc.
+libc glibc

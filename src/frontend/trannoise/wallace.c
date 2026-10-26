@@ -11,12 +11,6 @@
 #include "ngspice/ngspice.h"
 #endif
 #endif
-#ifdef _MSC_VER
-#include <process.h>
-#define getpid _getpid
-#else
-#include <unistd.h>
-#endif
 #include <math.h>
 #include "ngspice/wallace.h"
 #include "ngspice/FastNorm3.h"
@@ -79,10 +73,12 @@ initw(void)
     double totsqr, nomsqr;
     unsigned int coa;
 
-    /* The uniform generators are not seeded here.  The caller has already
-       seeded them from $rndseed with com_sseed(NULL), and calls it again
-       after initw() returns, so the startup stream equals 'setseed 1'
-       instead of depending on the process id. */
+    /* The uniform generators are not seeded here.  In ngspice, main.c and
+       sharedspice.c have already seeded them from $rndseed with
+       com_sseed(NULL), and call it again after initw() returns, so the
+       startup stream equals 'setseed 1' instead of depending on the
+       process id.  The HasMain test main() at the end of this file does
+       not seed them before calling initw(). */
 
     ScaleGauss = 1.;
     newpools = 1;

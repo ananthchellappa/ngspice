@@ -2,8 +2,9 @@
 * A guard, green before and after ver_51 batch item 3: removing the process-id
 * seeding from initw() must not touch com_sseed() or TausSeed(), so an
 * explicit 'setseed 7' still gives @r1[r] = 9.068279585256480e+02, the value
-* ngspice-45.2 gives.  That value comes from glibc's rand(), so this deck is
-* Linux-only (glibc); on another libc it fails without anything being wrong.
+* ngspice-45.2 gives.  That value comes from glibc's rand(), so
+* setseed7-bit-identity.requires asks for glibc, and the driver skips the
+* deck on another libc instead of failing it.
 * The tolerance is 1e-9 ohm, about 1e-12 relative, while a different seed
 * moves the draw by tens of ohms.
 .param rv=agauss(1k,100,1)
