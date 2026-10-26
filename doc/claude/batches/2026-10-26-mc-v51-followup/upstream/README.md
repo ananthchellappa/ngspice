@@ -9,7 +9,7 @@ item 1 (`doc/codex/issues/0074`), which `pre-master-47` has too.
 | --- | --- | --- | --- |
 | `p1/` | `0001-inpcom.c-carry-the-R-model-through-the-R-B-rewrite.patch` | an R rewritten into a B source loses its `.model` (TC, tnom) and its `dtemp`/`temp` | `inpcom.c`, 11 test files in `tests/regression/temper/` |
 | `p2/` | `0001-randnumb.c-warn-once-when-.option-seed-overrides-set.patch` | `.option seed=` silently overrides `setseed` on every `reset`; its two other warnings repeat on every `reset` | `randnumb.c`, `randnumb.h`, `inp.c`, `sharedspice.c` |
-| `p3/` | `0001-wallace.c-do-not-re-seed-from-the-process-id-at-star.patch` | the startup random stream comes from the process id while `$rndseed` reads 1 | `wallace.c`, `main.c`, `sharedspice.c`, one test in `tests/regression/misc/` |
+| `p3/` | `0001-wallace.c-do-not-re-seed-from-the-process-id-at-star.patch` | the startup random stream comes from the process id while `$rndseed` reads 1 (superseded upstream by `059066b53`, see below) | `wallace.c`, `main.c`, `sharedspice.c`, one test in `tests/regression/misc/` |
 | `p4-crash/` | `0001-inpcom.c-do-not-crash-on-a-.model-card-without-a-typ.patch` | a `.model` card without a type crashes a deck with `.if`, even in a dead branch | `inpcom.c`, `inp.c`, `subckt.c`, one test in `tests/regression/model/` |
 | `p4-crash/on-p1/` | the same name | the same fix, for a tree that already has `p1` | the same files |
 
@@ -25,6 +25,26 @@ exception is `p4-crash/on-p1/`, whose parent is the `p1` commit, not
 were regenerated from the commits above with that batch's changes added
 (`3a904f87d` for `p1`, `f8f0f60d5` for `p2`), and `p4-crash` is new. `p3` is
 unchanged: nothing in that batch touched it.
+
+**Re-verified on `pre-master-48` (`a1148c969`, 2026-10-26).** Upstream moved
+its development branch to `pre-master-48`. See
+`../../2026-10-26-mc-v51-upstream-verify/receipts/01-verify.md`.
+- `p1`, `p4-crash` and `p4-crash/on-p1` still apply with `git am`, with
+  line offsets only. They are unchanged, and their `index` lines still name
+  `pre-master-47` blobs.
+- `p2` was rebased by hand onto `pre-master-48` and regenerated. Upstream
+  split `com_sseed()` into `com_sseed()` (the command) and `set_sseed()`, so
+  `seed_from_option()` now calls `set_sseed(NULL)`, and the `setseed_used`
+  flag is set in `set_sseed()`. It is set for upstream's new
+  `setseed random` as well as for `setseed N`.
+- `p3` is **superseded; do not send it.** Upstream's `059066b53` (bugs
+  #872 and #873) and `cbb09dc25` removed the `getpid()` re-seed from
+  `initw()` and seed before `initw()`, and `setseed` now refills the pools
+  too. So the startup stream already equals `setseed 1`.
+  `startup-seed.cir` passes on the unpatched `pre-master-48`. The patch no
+  longer applies, and it is left here as it was.
+- Send the series in this order: `p1`, `p4-crash/on-p1`, `p2`. `p4-crash`
+  is the alternative to `p1` + `on-p1` if `p1` is not sent.
 
 **Checked:** each patch passes `git apply --check` on a clean checkout of
 `pre-master-47`, on its own and all three together. P2 and P3 both touch

@@ -1,0 +1,18 @@
+p2 check nosetseed
+.param rv=agauss(1k,100,1)
+.option seed=5
+v1 1 0 1
+r1 1 0 {rv}
+.control
+op
+print @r1[r]
+reset
+op
+print @r1[r]
+setseed
+reset
+op
+print @r1[r]
+quit 0
+.endc
+.end

@@ -1,0 +1,21 @@
+p2 check override
+.param rv=agauss(1k,100,1)
+.option seed=5
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed 1
+reset
+op
+print @r1[r]
+setseed 2
+reset
+op
+print @r1[r]
+setseed 3
+reset
+op
+print @r1[r]
+quit 0
+.endc
+.end

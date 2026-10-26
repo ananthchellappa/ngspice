@@ -1,4 +1,4 @@
-From cfac78314c15ea245509e281f3e687339b1a2c47 Mon Sep 17 00:00:00 2001
+From 53e79ddda7cef3c5046e8396dea0fe64a1075cd3 Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
 Date: Mon, 26 Oct 2026 10:32:01 -0700
 Subject: [PATCH] randnumb.c: warn once when .option seed= overrides setseed
@@ -19,8 +19,9 @@ and nothing is printed.
 
 The option keeps winning; changing that would change long-standing
 behaviour.  eval_opt() now calls seed_from_option(), which does exactly
-the cp_vset("rndseed") + com_sseed(NULL) pair it did before, and in front
-of it prints, once per session and only after an explicit 'setseed N':
+the cp_vset("rndseed") + set_sseed(NULL) pair it did before, and in front
+of it prints, once per session and only after an explicit 'setseed N'
+or 'setseed random':
 
     Warning: '.option seed=5' re-seeds the random number generator each time the
         circuit is parsed, by 'source' and by every 'reset', so it overrides 'setseed'.
@@ -29,8 +30,9 @@ of it prints, once per session and only after an explicit 'setseed N':
 
 The value is quoted as the deck writes it.  seed=random has its own
 wording, which says that each seed it uses is stored in $rndseed.  A bare
-'setseed', which re-seeds from $rndseed, does not count.  A deck that
-never calls setseed is silent.
+'setseed', which re-seeds from $rndseed, does not count.  The flag is set
+in set_sseed(), in the two branches only the 'setseed' command reaches.
+A deck that never calls setseed is silent.
 
 eval_opt()'s existing "Multiple 'option seed=val|random' found!" warning
 was printed on every parse, once per Monte Carlo sample; it is now
@@ -54,15 +56,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
  src/frontend/inp.c             | 10 ++--
  src/include/ngspice/randnumb.h |  9 ++++
- src/maths/misc/randnumb.c      | 90 ++++++++++++++++++++++++++++++++++
+ src/maths/misc/randnumb.c      | 94 ++++++++++++++++++++++++++++++++++
  src/sharedspice.c              |  1 +
- 4 files changed, 104 insertions(+), 6 deletions(-)
+ 4 files changed, 108 insertions(+), 6 deletions(-)
 
 diff --git a/src/frontend/inp.c b/src/frontend/inp.c
-index f0de1289d..a01b006f4 100644
+index deea842e0..b1c8db107 100644
 --- a/src/frontend/inp.c
 +++ b/src/frontend/inp.c
-@@ -443,7 +443,7 @@ eval_opt(struct card* deck)
+@@ -447,7 +447,7 @@ eval_opt(struct card* deck, bool comfile)
              begtok = &begtok[5]; /*skip seed=*/
          if (begtok) {
              if (has_seed)
@@ -71,12 +73,12 @@ index f0de1289d..a01b006f4 100644
              char* token = gettok(&begtok);
              /* option seed=random [seed='random'] */
              if (eq(token, "random") || eq(token, "{random}")) {
-@@ -451,18 +451,16 @@ eval_opt(struct card* deck)
+@@ -455,18 +455,16 @@ eval_opt(struct card* deck, bool comfile)
                  gettimeofday(&tv, NULL);
                  /* get random value from current timestamp microseconds */
                  int rseed = (int)(tv.tv_usec);
 -                cp_vset("rndseed", CP_NUM, &rseed);
--                com_sseed(NULL);
+-                set_sseed(NULL);
 +                seed_from_option(rseed, TRUE, token);
                  has_seed = TRUE;
              }
@@ -88,22 +90,23 @@ index f0de1289d..a01b006f4 100644
 +                    seed_option_unusable(token);
                  else {
 -                    cp_vset("rndseed", CP_NUM, &sr);
--                    com_sseed(NULL);
+-                    set_sseed(NULL);
 +                    seed_from_option(sr, FALSE, token);
                      has_seed = TRUE;
                  }
              }
 diff --git a/src/include/ngspice/randnumb.h b/src/include/ngspice/randnumb.h
-index 881175fcf..6d424a43c 100644
+index b87bdc5f2..e8f8cb000 100644
 --- a/src/include/ngspice/randnumb.h
 +++ b/src/include/ngspice/randnumb.h
-@@ -1,9 +1,18 @@
+@@ -1,10 +1,19 @@
  #ifndef ngspice_RANDNUMB_H
  #define ngspice_RANDNUMB_H
  
 +#include "ngspice/bool.h"
  #include "ngspice/wordlist.h"
  extern void com_sseed(wordlist *wl);
+ extern void set_sseed(wordlist *wl);
  extern void setseedinfo(void);
 +/* '.option seed=N|random': seed, warning once if 'setseed N' was used;
 +   'written' is the option's value as the deck spells it */
@@ -117,18 +120,19 @@ index 881175fcf..6d424a43c 100644
  /* initialize random number generators */
  extern void initw(void);
 diff --git a/src/maths/misc/randnumb.c b/src/maths/misc/randnumb.c
-index 5308a3b2b..fe567f231 100644
+index e2b505804..77ed174c2 100644
 --- a/src/maths/misc/randnumb.c
 +++ b/src/maths/misc/randnumb.c
-@@ -67,6 +67,21 @@ float  CombLCGTaus2(void);
+@@ -67,6 +67,22 @@ float  CombLCGTaus2(void);
  void rgauss(double* py1, double* py2);
  static bool seedinfo = FALSE;
  
 +/* '.option seed=' versus 'setseed'.  eval_opt() re-seeds from the option on
 +   every parse, and 'reset' is a parse, so the option overrides a 'setseed N'
-+   made before the reset.  The option keeps winning; seed_from_option() only
-+   says so, once per session, and only after an explicit 'setseed N'.  A bare
-+   'setseed', which re-seeds from $rndseed, does not set setseed_used.
++   or 'setseed random' made before the reset.  The option keeps winning;
++   seed_from_option() only says so, once per session, and only after an
++   explicit 'setseed N' or 'setseed random'.  A bare 'setseed', which re-seeds
++   from $rndseed, does not set setseed_used.
 +   eval_opt()'s warnings about more than one '.option seed=', and about a
 +   'seed=' value that is not a seed, are printed once per session too, by
 +   seed_option_multiple() and seed_option_unusable(), not on every parse.  The
@@ -142,16 +146,26 @@ index 5308a3b2b..fe567f231 100644
  
  /* Check if a seed has been set by the command 'set rndseed=value'
     in spinit, .spiceinit or in a .control section
-@@ -288,6 +303,8 @@ double exprand(double mean)
+@@ -288,6 +304,10 @@ double exprand(double mean)
  *   take value of variable rndseed as seed
  * command "setseed <n>"
  *   seed with number <n>
-+* Only the second form counts as an explicit 'setseed' for the
++* command "setseed random"
++*   seed with the process id
++* Only the last two forms count as an explicit 'setseed' for the
 +* '.option seed=' warning in seed_from_option().
  */
  void
- com_sseed(wordlist *wl)
-@@ -315,6 +332,7 @@ com_sseed(wordlist *wl)
+ com_sseed(wordlist* wl)
+@@ -318,6 +338,7 @@ set_sseed(wordlist *wl)
+         cp_vset("rndseed", CP_NUM, &newseed);
+         srand((unsigned int)newseed);
+         TausSeed();
++        setseed_used = TRUE;
+     }
+     else if ((sscanf(wl->wl_word, " %d ", &newseed) != 1) ||
+         (newseed <= 0) || (newseed > INT_MAX))
+@@ -332,6 +353,7 @@ set_sseed(wordlist *wl)
          srand((unsigned int)newseed);
          TausSeed();
          cp_vset("rndseed", CP_NUM, &newseed);
@@ -159,14 +173,14 @@ index 5308a3b2b..fe567f231 100644
      }
  
      if (seedinfo)
-@@ -327,3 +345,75 @@ setseedinfo(void)
+@@ -344,3 +366,75 @@ setseedinfo(void)
  {
      seedinfo = TRUE;
  }
 +
 +
 +/* Seed from '.option seed=N' or '.option seed=random', for eval_opt().  This
-+   is the cp_vset() + com_sseed(NULL) pair eval_opt() has always done, with
++   is the cp_vset() + set_sseed(NULL) pair eval_opt() has always done, with
 +   the warning in front of it.  The warning quotes 'written', the value as
 +   the deck spells it, so '.option seed=05' is not shown as 'seed=5'. */
 +void
@@ -191,7 +205,7 @@ index 5308a3b2b..fe567f231 100644
 +        seed_override_warned = TRUE;
 +    }
 +    cp_vset("rndseed", CP_NUM, &seed);
-+    com_sseed(NULL);
++    set_sseed(NULL);
 +}
 +
 +
@@ -236,10 +250,10 @@ index 5308a3b2b..fe567f231 100644
 +    seed_unusable_warned = FALSE;
 +}
 diff --git a/src/sharedspice.c b/src/sharedspice.c
-index 902e50c97..d8fea3175 100644
+index ad8fb18f3..8e656a44a 100644
 --- a/src/sharedspice.c
 +++ b/src/sharedspice.c
-@@ -2577,6 +2577,7 @@ static int totalreset(void)
+@@ -2581,6 +2581,7 @@ static int totalreset(void)
      cp_remvar("prompt");
  
      destroy_wallace();

@@ -1,0 +1,13 @@
+p2 check setseedrandom
+.param rv=agauss(1k,100,1)
+.option seed=5
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed random
+reset
+op
+print @r1[r]
+quit 0
+.endc
+.end
