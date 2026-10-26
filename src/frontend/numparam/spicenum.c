@@ -29,6 +29,7 @@ Todo:
 #include "ngspice/fteext.h"
 #include "ngspice/stringskip.h"
 #include "ngspice/compatmode.h"
+#include "ngspice/drawlog.h"
 
 #ifdef SHARED_MODULE
 extern ATTRIBUTE_NORETURN void shared_exit(int status);
@@ -701,6 +702,12 @@ nupa_eval(struct card *card)
     dicoS->cardline = s;
 
     c = dicoS->dyncategory[linenum];
+
+    /* the draw log: the card's instance name is copied, because
+       nupa_substitute() may free s */
+    if (ng_drawlog_on())
+        ng_drawlog_card(s, (c == 'X') ? 'x' : '\0',
+                        (dicoS->stack_depth > 0) ? dicoS->inst_name[dicoS->stack_depth] : NULL);
 
 #ifdef TRACE_NUMPARAMS
     fprintf(stderr, "** SJB - in nupa_eval()\n");

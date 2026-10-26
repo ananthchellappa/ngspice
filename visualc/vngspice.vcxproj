@@ -1078,6 +1078,7 @@
     <ClInclude Include="..\src\include\ngspice\pssdefs.h" />
     <ClInclude Include="..\src\include\ngspice\pzdefs.h" />
     <ClInclude Include="..\src\include\ngspice\randnumb.h" />
+    <ClInclude Include="..\src\include\ngspice\drawlog.h" />
     <ClInclude Include="..\src\include\ngspice\sen2defs.h" />
     <ClInclude Include="..\src\include\ngspice\sensdefs.h" />
     <ClInclude Include="..\src\include\ngspice\sensgen.h" />
@@ -1681,6 +1682,7 @@
     <ClCompile Include="..\src\maths\misc\logb.c" />
     <ClCompile Include="..\src\maths\misc\norm.c" />
     <ClCompile Include="..\src\maths\misc\randnumb.c" />
+    <ClCompile Include="..\src\maths\misc\drawlog.c" />
     <ClCompile Include="..\src\maths\misc\scalb.c" />
     <ClCompile Include="..\src\maths\ni\niaciter.c" />
     <ClCompile Include="..\src\maths\ni\nicomcof.c" />

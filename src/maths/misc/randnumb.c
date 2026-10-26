@@ -77,6 +77,29 @@ static bool seedinfo = FALSE;
 static bool setseed_used = FALSE;
 static bool seed_override_warned = FALSE;
 
+/* The seed record, for the draw log (drawlog.c).  rng_calls counts the
+   CombLCGTaus() calls, rng_calls_at_seed is its value at the last seeding,
+   and rng_draw_mark its value when the last gauss1() or drand() began.  The
+   srand()/TausSeed() pairs below are unchanged; rng_note_seed() only records
+   what they did.  rng_src_next lets seed_from_option() name itself to
+   com_sseed(NULL), and rng_deck_seen tells a bare 'setseed' from the
+   startup seeding.  rnd_reset_state() clears all of it. */
+static unsigned long long rng_calls = 0;
+static unsigned long long rng_calls_at_seed = 0;
+static unsigned long long rng_draw_mark = 0;
+static int rng_seed = 0;
+static const char *rng_src = "startup";
+static const char *rng_src_next = NULL;
+static bool rng_deck_seen = FALSE;
+
+static void
+rng_note_seed(int seed, const char *src)
+{
+    rng_seed = seed;
+    rng_src = src;
+    rng_calls_at_seed = rng_calls;
+}
+
 
 /* Check if a seed has been set by the command 'set rndseed=value'
    in spinit, .spiceinit or in a .control section
@@ -93,6 +116,7 @@ void checkseed(void)
       if ((newseed > 0) && (oldseed != newseed)) {
          srand((unsigned int)newseed);
          TausSeed();
+         rng_note_seed(newseed, "checkseed");
          if (oldseed > 0) /* no printout upon start-up */
              printf("Seed value for random number generator is set to %d\n", newseed);
          oldseed = newseed;
@@ -104,6 +128,7 @@ void checkseed(void)
 /* uniform random number generator, interval [-1 .. +1[ */
 double drand(void)
 {
+   rng_draw_mark = rng_calls;
    return 2.0 * CombLCGTaus() - 1.0;
 }
 
@@ -149,6 +174,7 @@ static unsigned LGCS(unsigned *state, unsigned A1, unsigned A2)
 */
 double CombLCGTaus(void)
 {
+   rng_calls++;
    return 2.3283064365387e-10 * (
    TauS(&CombState1, 13, 19, 12, 4294967294UL) ^
    TauS(&CombState2, 2, 25, 4, 4294967288UL) ^
@@ -230,6 +256,7 @@ to be reproducible, we just use one value per pass */
 double gauss1(void)
 {
     double fac, r, v1, v2;
+    rng_draw_mark = rng_calls;
     do {
         v1 = 2.0 * CombLCGTaus() - 1.0;
         v2 = 2.0 * CombLCGTaus() - 1.0;
@@ -313,6 +340,8 @@ com_sseed(wordlist *wl)
         }
         srand((unsigned int)newseed);
         TausSeed();
+        rng_note_seed(newseed, rng_src_next ? rng_src_next :
+                      rng_deck_seen ? "setseed" : "startup");
     }
     else if ((sscanf(wl->wl_word, " %d ", &newseed) != 1) ||
         (newseed <= 0) || (newseed > INT_MAX))
@@ -328,6 +357,7 @@ com_sseed(wordlist *wl)
         TausSeed();
         cp_vset("rndseed", CP_NUM, &newseed);
         setseed_used = TRUE;
+        rng_note_seed(newseed, "setseed");
     }
 
     if (seedinfo)
@@ -364,7 +394,9 @@ seed_from_option(int seed, bool is_random)
         seed_override_warned = TRUE;
     }
     cp_vset("rndseed", CP_NUM, &seed);
+    rng_src_next = "option";
     com_sseed(NULL);
+    rng_src_next = NULL;
 }
 
 
@@ -374,4 +406,43 @@ rnd_reset_state(void)
 {
     setseed_used = FALSE;
     seed_override_warned = FALSE;
+    rng_calls = rng_calls_at_seed = rng_draw_mark = 0;
+    rng_seed = 0;
+    rng_src = "startup";
+    rng_src_next = NULL;
+    rng_deck_seen = FALSE;
+}
+
+
+/* For the draw log: the last seed, how it was set, and the uniform-generator
+   calls made since. */
+void
+rng_seed_info(int *seed, const char **src, unsigned long long *offset)
+{
+    *seed = rng_seed;
+    *src = rng_src;
+    *offset = rng_calls - rng_calls_at_seed;
+}
+
+
+unsigned long long
+rng_ncalls(void)
+{
+    return rng_calls;
+}
+
+
+/* rng_ncalls() when the last gauss1() or drand() began */
+unsigned long long
+rng_draw_start(void)
+{
+    return rng_draw_mark;
+}
+
+
+/* A deck is being parsed: a bare 'setseed' from now on is a 'setseed'. */
+void
+rng_deck_parsed(void)
+{
+    rng_deck_seen = TRUE;
 }

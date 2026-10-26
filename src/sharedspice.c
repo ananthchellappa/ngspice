@@ -82,6 +82,7 @@ myfputc(int inp, FILE* f)
 #include "ngspice/ngspice.h"
 #include "misc/misc_time.h"
 #include "ngspice/randnumb.h"
+#include "ngspice/drawlog.h"
 #include "ngspice/compatmode.h"
 
 /*Use Windows threads if on W32 without pthreads*/
@@ -2603,6 +2604,7 @@ static int totalreset(void)
 
     destroy_wallace();
     rnd_reset_state();
+    ng_drawlog_reset();
 
     rem_controls();
 

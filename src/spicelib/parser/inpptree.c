@@ -13,6 +13,7 @@ Author: 1987 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "ngspice/inpdefs.h"
 #include "ngspice/inpptree.h"
 #include "ngspice/randnumb.h"
+#include "ngspice/drawlog.h"
 #include "inpxx.h"
 
 #include "inpptree-parser.h"
@@ -1694,11 +1695,15 @@ void free_tree(INPparseNode *pt)
 static double
 gauss(double nominal_val, double rel_variation, double sigma)
 {
-    double stdvar;
+    double stdvar, z, r;
     if (rel_variation <= 0 || sigma <= 0)
         return nominal_val;
     stdvar = nominal_val * rel_variation / sigma;
-    return (nominal_val + stdvar * gauss1());
+    z = gauss1();
+    r = nominal_val + stdvar * z;
+    if (ng_drawlog_on())   /* the draw log, drawlog.c */
+        ng_drawlog_row("gauss", 3, nominal_val, rel_variation, sigma, z, r);
+    return r;
 }
 
 

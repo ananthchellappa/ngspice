@@ -29,11 +29,27 @@
 ##   setseed7-bit-identity.cir       'setseed 7' still draws the 45.2 value
 ##                                   (glibc rand(), so Linux-only)
 ##
+## The rnddraws-* decks are ver_51 batch item 4 (P4), the draw log.
+## 'set rnddraws=<file>' writes a tab-separated record set per parse, one row
+## per random draw; the .files beside each deck assert its structure with
+## grep, because the values are glibc rand() values:
+##
+##   rnddraws-mm.cir      two subckt instances over setseed 1-3, a reset
+##                        without setseed (offset != 0), an unset (nothing
+##                        logged), and a second set (a fresh file)
+##   rnddraws-order.cir   a third instance in a nested subckt ahead of the
+##                        two: the rows are keyed by instance path
+##   rnddraws-funcs.cir   one draw from every draw path, a repeated key
+##                        (r#2), a global .param ('?'); and the log-off
+##                        guard: the draws equal the pre-log values and do
+##                        not change when the log is on (glibc, Linux-only)
+##
 ## An empty .err is an assertion that stderr is empty, not a missing file.
 
 TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-nosetseed.cir option-seed-absent.cir \
-	startup-equals-setseed1.cir setseed7-bit-identity.cir
+	startup-equals-setseed1.cir setseed7-bit-identity.cir \
+	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -45,7 +61,10 @@ EXTRA_DIST = \
 	option-seed-nosetseed.status option-seed-nosetseed.err \
 	option-seed-absent.status option-seed-absent.err \
 	startup-equals-setseed1.status startup-equals-setseed1.err \
-	setseed7-bit-identity.status setseed7-bit-identity.err
+	setseed7-bit-identity.status setseed7-bit-identity.err \
+	rnddraws-mm.status rnddraws-mm.err rnddraws-mm.files \
+	rnddraws-order.status rnddraws-order.err rnddraws-order.files \
+	rnddraws-funcs.status rnddraws-funcs.err rnddraws-funcs.files
 
 # The driver captures each run's stdout and stderr into the build directory
 # and leaves them there when a deck fails.
@@ -62,6 +81,13 @@ CLEANFILES = \
 	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
 	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \
 	setseed7-bit-identity.stderr.filtered setseed7-bit-identity.stderr.expected \
+	rnddraws-mm.stdout rnddraws-mm.stderr \
+	rnddraws-mm.stderr.filtered rnddraws-mm.stderr.expected \
+	rnddraws-order.stdout rnddraws-order.stderr \
+	rnddraws-order.stderr.filtered rnddraws-order.stderr.expected \
+	rnddraws-funcs.stdout rnddraws-funcs.stderr \
+	rnddraws-funcs.stderr.filtered rnddraws-funcs.stderr.expected \
+	rnddraws-mm.tsv rnddraws-mm-2.tsv rnddraws-order.tsv rnddraws-funcs.tsv \
 	rawspice.raw
 
 MAINTAINERCLEANFILES = Makefile.in

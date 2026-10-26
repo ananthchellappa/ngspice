@@ -1,0 +1,30 @@
+* rnddraws: rows are keyed by instance, whatever the draw order
+* ver_51 batch item 4 (P4).  rnddraws-mm.cir with a third instance x0 placed
+* ahead of xm1.  The draws are made in deck order, so with the same seed xm1
+* now takes the z that x0 took in rnddraws-mm.cir's log, and xm2 takes xm1's.
+* The log cannot change that, but it makes it visible: every row names its
+* instance, so a diff of the two logs by key shows that xm1's z moved.  The
+* .files beside this deck assert one row per instance under setseed 1, and
+* the x0 subckt instance in a nested subckt path, r.xt.x0.r1.
+.subckt cell a b w=2 l=1
+.param sx={agauss(0,1,1)/sqrt(w*l)}
+r1 a b r={1k*(1+0.01*sx)}
+.ends
+.subckt top a b
+x0 a b cell
+.ends
+v1 1 0 1
+xt 1 0 top
+xm1 1 0 cell
+xm2 1 0 cell
+.control
+set numdgt=15
+set rnddraws=rnddraws-order.tsv
+setseed 1
+reset
+op
+print @r.xt.x0.r1[r] @r.xm1.r1[r] @r.xm2.r1[r]
+unset rnddraws
+quit 0
+.endc
+.end

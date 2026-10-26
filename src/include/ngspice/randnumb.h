@@ -8,6 +8,11 @@ extern void setseedinfo(void);
 /* '.option seed=N|random': seed, warning once if 'setseed N' was used */
 extern void seed_from_option(int seed, bool is_random);
 extern void rnd_reset_state(void);
+/* the seed record and the call counter, for the draw log (drawlog.h) */
+extern void rng_seed_info(int *seed, const char **src, unsigned long long *offset);
+extern unsigned long long rng_ncalls(void);
+extern unsigned long long rng_draw_start(void);
+extern void rng_deck_parsed(void);
 
 /* initialize random number generators */
 extern void initw(void);

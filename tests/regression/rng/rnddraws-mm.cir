@@ -1,0 +1,83 @@
+* rnddraws: the draw log of a two-instance mismatch deck
+* ver_51 batch item 4 (P4).  'set rnddraws=<file>' opens a tab-separated log
+* of every parse-time random draw, 'unset rnddraws' closes it.  Each parse
+* ('reset' included) writes one record set:
+*   #<TAB>rnddraws<TAB>v1<TAB>seed=N<TAB>src=...<TAB>offset=K
+*   seed<TAB>instance_path<TAB>param<TAB>func<TAB>args<TAB>z<TAB>value   (one per draw)
+*   #<TAB>end<TAB>logged=N<TAB>unlogged_calls=M
+* The .files beside this deck assert the structure; the values depend on
+* glibc rand() and are not frozen.  This deck counts the lines itself, which
+* proves that 'unset' stops the logging and that a new 'set' starts a new
+* file: rnddraws-mm.tsv holds four record sets (setseed 1, 2, 3, then a
+* reset without setseed, whose offset is not 0), the 'setseed 4' parse is
+* not logged, and rnddraws-mm-2.tsv holds the 'setseed 5' set alone.
+.subckt cell a b w=2 l=1
+.param sx={agauss(0,1,1)/sqrt(w*l)}
+r1 a b r={1k*(1+0.01*sx)}
+.ends
+v1 1 0 1
+xm1 1 0 cell
+xm2 1 0 cell
+.control
+set numdgt=15
+set rnddraws=rnddraws-mm.tsv
+foreach k 1 2 3
+  setseed $k
+  reset
+  op
+  echo SEED $k
+  print @r.xm1.r1[r] @r.xm2.r1[r]
+end
+reset
+op
+echo SEED 3+
+print @r.xm1.r1[r] @r.xm2.r1[r]
+unset rnddraws
+setseed 4
+reset
+op
+set rnddraws=rnddraws-mm-2.tsv
+setseed 5
+reset
+op
+echo SEED 5
+print @r.xm1.r1[r] @r.xm2.r1[r]
+unset rnddraws
+* count the lines of both logs
+let const.n1 = 0
+let const.n2 = 0
+fopen fh rnddraws-mm.tsv
+if $fh < 0
+  echo rnddraws-mm: no log rnddraws-mm.tsv
+  quit 1
+end
+fread line $fh len
+while $len >= 0
+  let const.n1 = const.n1 + 1
+  fread line $fh len
+end
+fclose $fh
+fopen fh rnddraws-mm-2.tsv
+if $fh < 0
+  echo rnddraws-mm: no log rnddraws-mm-2.tsv
+  quit 1
+end
+fread line $fh len
+while $len >= 0
+  let const.n2 = const.n2 + 1
+  fread line $fh len
+end
+fclose $fh
+echo rnddraws-mm: lines $&const.n1 and $&const.n2
+if const.n1 <> 16
+  echo rnddraws-mm: rnddraws-mm.tsv should hold 4 record sets of 4 lines
+  quit 1
+end
+if const.n2 <> 4
+  echo rnddraws-mm: rnddraws-mm-2.tsv should hold 1 record set of 4 lines
+  quit 1
+end
+echo rnddraws-mm: both logs have the expected record sets
+quit 0
+.endc
+.end

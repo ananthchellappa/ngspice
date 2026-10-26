@@ -43,6 +43,7 @@ Author: 1985 Wayne A. Christopher
 #include "numparam/numpaif.h"
 #include "ngspice/stringskip.h"
 #include "ngspice/randnumb.h"
+#include "ngspice/drawlog.h"
 #include "ngspice/compatmode.h"
 
 static struct card *com_options = NULL;
@@ -856,6 +857,11 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             wl_free(pre_controls);
         }
 
+        /* The draw log's record set for this parse starts here, after
+           eval_opt() and the pre_ commands have seeded, and ends before the
+           .control commands run. */
+        ng_drawlog_begin();
+
         /* We are done handling the control stuff.  Now process remainder of deck.
            Go on if there is something left after the controls.*/
         if (deck->nextcard) {
@@ -936,6 +942,7 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
                     line_free(realdeck, TRUE);
                     line_free(deck->actualLine, TRUE);
                     tfree(tt);
+                    ng_drawlog_end();
                     return 1;
                 }
 
@@ -1091,8 +1098,10 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             /* Parsing the circuit 5.
                This is the next major step:
                load deck into ft_curckt -- the current circuit. */
-            if(inp_dodeck(deck, tt, wl_first, FALSE, options, filename) != 0)
+            if(inp_dodeck(deck, tt, wl_first, FALSE, options, filename) != 0) {
+                ng_drawlog_end();
                 return 1;
+            }
 
             if (ft_curckt) {
                 ft_curckt->devtlist = devtlist;
@@ -1244,6 +1253,7 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
         inp_parse_temper_trees(ft_curckt);
         /* Get the actual data for model and device instance parameters */
         inp_evaluate_temper(ft_curckt);
+        ng_drawlog_end();
 
        /* linked list dbs is used to store the "save" or .save data (defined in breakp2.c),
           (When controls are executed later on, also stores TRACE, IPLOT, and STOP data) */
@@ -2338,13 +2348,18 @@ inp_parse_temper_trees(struct circ *circ)
 {
     struct pt_temper *d;
 
+    /* the draw log: wl is the name, the parameter, "=" */
     for(d = circ->devtlist; d; d = d->next) {
         char *expression = d->expression;
+        if (ng_drawlog_on())
+            ng_drawlog_context(d->wl->wl_word, d->wl->wl_next->wl_word);
         INPgetTree(&expression, &d->pt, circ->ci_ckt, NULL);
     }
 
     for(d = circ->modtlist; d; d = d->next) {
         char *expression = d->expression;
+        if (ng_drawlog_on())
+            ng_drawlog_context(d->wl->wl_word, d->wl->wl_next->wl_word);
         INPgetTree(&expression, &d->pt, circ->ci_ckt, NULL);
     }
 }
@@ -2507,46 +2522,68 @@ inp_savecurrents(struct card *deck, struct card *options, wordlist *wl, wordlist
 }
 
 
+/* Each helper keeps the draw z, so that the draw log (drawlog.c) can write
+   it; the arithmetic is the same expression as before. */
 static double
 agauss(double nominal_val, double abs_variation, double sigma)
 {
-    double stdvar;
+    double stdvar, z, r;
     if (abs_variation <= 0 || sigma <= 0)
         return nominal_val;
     stdvar = abs_variation / sigma;
-    return (nominal_val + stdvar * gauss1());
+    z = gauss1();
+    r = nominal_val + stdvar * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("agauss", 3, nominal_val, abs_variation, sigma, z, r);
+    return r;
 }
 
 
 static double
 gauss(double nominal_val, double rel_variation, double sigma)
 {
-    double stdvar;
+    double stdvar, z, r;
     if (rel_variation <= 0 || sigma <= 0)
         return nominal_val;
     stdvar = nominal_val * rel_variation / sigma;
-    return (nominal_val + stdvar * gauss1());
+    z = gauss1();
+    r = nominal_val + stdvar * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("gauss", 3, nominal_val, rel_variation, sigma, z, r);
+    return r;
 }
 
 
 static double
 unif(double nominal_val, double rel_variation)
 {
-    return (nominal_val + nominal_val * rel_variation * drand());
+    double z = drand();
+    double r = nominal_val + nominal_val * rel_variation * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("unif", 2, nominal_val, rel_variation, 0, z, r);
+    return r;
 }
 
 
 static double
 aunif(double nominal_val, double abs_variation)
 {
-    return (nominal_val + abs_variation * drand());
+    double z = drand();
+    double r = nominal_val + abs_variation * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("aunif", 2, nominal_val, abs_variation, 0, z, r);
+    return r;
 }
 
 
 static double
 limit(double nominal_val, double abs_variation)
 {
-    return (nominal_val + (drand() > 0 ? abs_variation : -1. * abs_variation));
+    double z = drand();
+    double r = nominal_val + (z > 0 ? abs_variation : -1. * abs_variation);
+    if (ng_drawlog_on())
+        ng_drawlog_row("limit", 2, nominal_val, abs_variation, 0, z, r);
+    return r;
 }
 
 
@@ -2625,6 +2662,10 @@ eval_agauss(struct card *deck, char *fcn)
             }
             y = INPevaluate(&tmp2str, &nerror, 1);
             tfree(delstr);
+            if (ng_drawlog_on()) {   /* the draw log: this card and key */
+                ng_drawlog_card(curr_line, '\0', NULL);
+                ng_drawlog_param_at(curr_line, ap);
+            }
             if (cieq(fcn, "agauss")) {
                 delstr = tmp2str = gettok_np(&tmp1str);
                 z = INPevaluate(&tmp2str, &nerror, 1);

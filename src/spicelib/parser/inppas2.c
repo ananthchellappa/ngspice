@@ -6,6 +6,7 @@ Author: 1985 Thomas L. Quarles
 #include "ngspice/ngspice.h"
 #include "ngspice/iferrmsg.h"
 #include "ngspice/inpmacs.h"
+#include "ngspice/drawlog.h"
 
 #include "inppas2.h"
 #include "inpxx.h"
@@ -97,6 +98,8 @@ int INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
         Current_parse_line = current->linenum_orig;
         Sourcefile = current->linesource;
         INPcurrent_card = current;
+        if (ng_drawlog_on())   /* the draw log: gauss() folded by INPgetTree() */
+            ng_drawlog_card(current->line, '\0', NULL);
 
         c = *(current->line);
         if(islower_c(c))

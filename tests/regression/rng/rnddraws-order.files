@@ -1,0 +1,8 @@
+# Rows of rnddraws-order.cir's log.  The gaps in the grep text are literal
+# tab characters.
+present rnddraws-order.tsv
+grep rnddraws-order.tsv ^#	rnddraws	v1	seed=1	src=setseed	offset=0$
+grep rnddraws-order.tsv ^1	r\.xt\.x0\.r1	r	agauss	0,1,1	
+grep rnddraws-order.tsv ^1	r\.xm1\.r1	r	agauss	0,1,1	
+grep rnddraws-order.tsv ^1	r\.xm2\.r1	r	agauss	0,1,1	
+grep rnddraws-order.tsv ^#	end	logged=3	unlogged_calls=0$

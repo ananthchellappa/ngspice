@@ -1,0 +1,87 @@
+* rnddraws: every draw path, and logging leaves the draws alone
+* ver_51 batch item 4 (P4).  One draw from each place that draws while a deck
+* is parsed: numparam's agauss, gauss, unif, aunif and limit (r1-r5), a
+* second draw under the same key (r8, keyed 'r' and 'r#2'), a global .param
+* drawn once through a .func (pq, instance '?'), eval_agauss() on a B line
+* (b1, keyed 'v'), and the gauss() that the B-source parser folds in a
+* .model expression with temper (rm, keyed 'rsh').
+* Two guards, both in this deck:
+*  - the log-off pass must draw the values ngspice drew before the log
+*    existed.  They are glibc rand() values, so the deck is Linux-only
+*    (glibc); the tolerance is 1e-9 in each value.
+*  - the log-on pass must draw exactly what the log-off pass drew: writing a
+*    row may not call the generator or reorder the arithmetic.
+* The .files beside this deck assert one row per draw.
+.func f() {agauss(0,1,1)}
+.param pq={f()}
+v1 1 0 1
+r1 1 0 r={agauss(1k,100,1)}
+r2 1 0 r={gauss(1k,0.1,1)}
+r3 1 0 r={unif(1k,0.1)}
+r4 1 0 r={aunif(1k,100)}
+r5 1 0 r={limit(1k,100)}
+b1 2 0 v=agauss(1,0.1,1)
+r6 2 0 1k
+.model rm r rsh='100*gauss(1,0.1,1)+0*temper'
+r7 1 0 rm l=10u w=1u
+r8 1 0 r={agauss(1k,100,1)+agauss(0,10,1)}
+r9 1 0 r={1k+pq}
+.control
+set numdgt=15
+* pass 1, log off
+setseed 3
+reset
+op
+print @r1[r] @r2[r] @r3[r] @r4[r] @r5[r] v(2) @r7[r] @r8[r] @r9[r]
+let const.off = vector(9)
+let const.off[0] = @r1[r]
+let const.off[1] = @r2[r]
+let const.off[2] = @r3[r]
+let const.off[3] = @r4[r]
+let const.off[4] = @r5[r]
+let const.off[5] = v(2)
+let const.off[6] = @r7[r]
+let const.off[7] = @r8[r]
+let const.off[8] = @r9[r]
+* the values before the draw log existed (build a6c67b795d990487275b)
+let const.gold = vector(9)
+let const.gold[0] = 9.123729229632748e+02
+let const.gold[1] = 9.922349127917782e+02
+let const.gold[2] = 1.068293522298336e+03
+let const.gold[3] = 1.099493417330086e+03
+let const.gold[4] = 1.100000000000000e+03
+let const.gold[5] = 9.678340000000000e-01
+let const.gold[6] = 9.551800000000001e+02
+let const.gold[7] = 1.169806671727795e+03
+let const.gold[8] = 9.983922770214971e+02
+* pass 2, log on
+set rnddraws=rnddraws-funcs.tsv
+setseed 3
+reset
+op
+unset rnddraws
+let const.on = vector(9)
+let const.on[0] = @r1[r]
+let const.on[1] = @r2[r]
+let const.on[2] = @r3[r]
+let const.on[3] = @r4[r]
+let const.on[4] = @r5[r]
+let const.on[5] = v(2)
+let const.on[6] = @r7[r]
+let const.on[7] = @r8[r]
+let const.on[8] = @r9[r]
+let const.dgold = vecmax(abs(const.off - const.gold))
+let const.don = vecmax(abs(const.on - const.off))
+echo rnddraws-funcs: max change from the old draws $&const.dgold, log on vs off $&const.don
+if const.dgold > 1e-9
+  echo rnddraws-funcs: the log-off draws are not the draws from before the log
+  quit 1
+end
+if const.don > 0
+  echo rnddraws-funcs: turning the log on changed a draw
+  quit 1
+end
+echo rnddraws-funcs: the draws are unchanged, with the log off and on
+quit 0
+.endc
+.end

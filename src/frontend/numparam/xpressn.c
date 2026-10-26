@@ -19,6 +19,7 @@
 
 /* random numbers in /maths/misc/randnumb.c */
 #include "ngspice/randnumb.h"
+#include "ngspice/drawlog.h"
 
 /************ keywords ************/
 
@@ -43,46 +44,68 @@ ternary_fcn(double conditional, double if_value, double else_value)
 }
 
 
+/* Each helper keeps the draw z, so that the draw log (drawlog.c) can write
+   it; the arithmetic is the same expression as before. */
 static double
 agauss(double nominal_val, double abs_variation, double sigma)
 {
-    double stdvar;
+    double stdvar, z, r;
     if (abs_variation <= 0 || sigma <= 0)
         return nominal_val;
     stdvar = abs_variation / sigma;
-    return (nominal_val + stdvar * gauss1());
+    z = gauss1();
+    r = nominal_val + stdvar * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("agauss", 3, nominal_val, abs_variation, sigma, z, r);
+    return r;
 }
 
 
 static double
 gauss(double nominal_val, double rel_variation, double sigma)
 {
-    double stdvar;
+    double stdvar, z, r;
     if (rel_variation <= 0 || sigma <= 0)
         return nominal_val;
     stdvar = nominal_val * rel_variation / sigma;
-    return (nominal_val + stdvar * gauss1());
+    z = gauss1();
+    r = nominal_val + stdvar * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("gauss", 3, nominal_val, rel_variation, sigma, z, r);
+    return r;
 }
 
 
 static double
 unif(double nominal_val, double rel_variation)
 {
-    return (nominal_val + nominal_val * rel_variation * drand());
+    double z = drand();
+    double r = nominal_val + nominal_val * rel_variation * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("unif", 2, nominal_val, rel_variation, 0, z, r);
+    return r;
 }
 
 
 static double
 aunif(double nominal_val, double abs_variation)
 {
-    return (nominal_val + abs_variation * drand());
+    double z = drand();
+    double r = nominal_val + abs_variation * z;
+    if (ng_drawlog_on())
+        ng_drawlog_row("aunif", 2, nominal_val, abs_variation, 0, z, r);
+    return r;
 }
 
 
 static double
 limit(double nominal_val, double abs_variation)
 {
-    return (nominal_val + (drand() > 0 ? abs_variation : -1. * abs_variation));
+    double z = drand();
+    double r = nominal_val + (z > 0 ? abs_variation : -1. * abs_variation);
+    if (ng_drawlog_on())
+        ng_drawlog_row("limit", 2, nominal_val, abs_variation, 0, z, r);
+    return r;
 }
 
 /* The list of built-in functions. Patch 'mathfunction', here to get more ...
@@ -1454,6 +1477,7 @@ nupa_substitute(dico_t *dico, const char *s, char **lp)
    anywhere we find a 25-char numstring in *lp, substitute it.
 */
 {
+    const char * const s_beg = s;
     const char * const s_end = s + strlen(s);
     bool err = 0;
 
@@ -1490,6 +1514,8 @@ nupa_substitute(dico_t *dico, const char *s, char **lp)
                 ds_clear(&qstr);
                 sadd(&qstr, "last");
             } else {
+                if (ng_drawlog_on())   /* the key the brace is assigned to */
+                    ng_drawlog_param_at(s_beg, s - 1);
                 err = evaluate_expr(dico, &qstr, s, kptr);
                 if (err) {
                     err = message(dico, "Cannot compute substitute\n");
@@ -1649,6 +1675,8 @@ nupa_assignment(dico_t *dico, const char *s, char mode)
 
         tmp = ds_get_buf(&ustr);
         if (dtype == NUPA_REAL) {
+            if (ng_drawlog_on())
+                ng_drawlog_param(t_p);
             rval = formula(dico, tmp, tmp + strlen(tmp), &error);
             if (error) {
                 message(dico,

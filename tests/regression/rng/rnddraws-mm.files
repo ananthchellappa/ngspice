@@ -1,0 +1,23 @@
+# Structure of the two logs written by rnddraws-mm.cir.  The text after the
+# path is a grep BRE; the gaps in it are literal tab characters, which the
+# driver's 'read' keeps inside the text.
+present rnddraws-mm.tsv
+present rnddraws-mm-2.tsv
+# a header per record set: seed tag after setseed, offset 0
+grep rnddraws-mm.tsv ^#	rnddraws	v1	seed=1	src=setseed	offset=0$
+grep rnddraws-mm.tsv ^#	rnddraws	v1	seed=2	src=setseed	offset=0$
+grep rnddraws-mm.tsv ^#	rnddraws	v1	seed=3	src=setseed	offset=0$
+# the reset without setseed: the same seed tag, and a non-zero offset
+grep rnddraws-mm.tsv ^#	rnddraws	v1	seed=3	src=setseed	offset=[1-9][0-9]*$
+# one row per instance, keyed by the flattened instance path and the
+# parameter the brace is assigned to
+grep rnddraws-mm.tsv ^1	r\.xm1\.r1	r	agauss	0,1,1	[-0-9.e+]*	[-0-9.e+]*$
+grep rnddraws-mm.tsv ^1	r\.xm2\.r1	r	agauss	0,1,1	
+grep rnddraws-mm.tsv ^2	r\.xm1\.r1	r	agauss	
+grep rnddraws-mm.tsv ^3	r\.xm2\.r1	r	agauss	
+# a footer per record set
+grep rnddraws-mm.tsv ^#	end	logged=2	unlogged_calls=0$
+# the second file starts with the setseed 5 set
+grep rnddraws-mm-2.tsv ^#	rnddraws	v1	seed=5	src=setseed	offset=0$
+grep rnddraws-mm-2.tsv ^5	r\.xm1\.r1	r	agauss	
+grep rnddraws-mm-2.tsv ^#	end	logged=2	unlogged_calls=0$

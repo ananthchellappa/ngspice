@@ -20,6 +20,7 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "variable.h"
 #include "control.h"
 #include "spiceif.h"
+#include "ngspice/drawlog.h"
 
 bool ft_acctprint = FALSE, ft_noacctprint = FALSE, ft_listprint = FALSE;
 bool ft_nodesprint = FALSE, ft_optsprint = FALSE, ft_noinitprint = FALSE;
@@ -346,6 +347,16 @@ cp_usrset(struct variable *var, bool isset)
         fprintf(cp_err, "Warning: %s compiled without debug messages\n",
                 cp_program);
 #endif
+    } else if (eqc(var->va_name, "rnddraws")) {
+        /* the draw log (drawlog.c): 'set rnddraws=<file>' closes any open
+           log and starts <file> afresh, 'unset rnddraws' closes it */
+        if (isset && var->va_type == CP_STRING) {
+            ng_drawlog_open(var->va_string);
+        } else {
+            if (isset)
+                fprintf(cp_err, "Warning: rnddraws needs a file name; the draw log is closed\n");
+            ng_drawlog_close();
+        }
     } else if (eqc(var->va_name, "rawfile")) {
         ft_rawfile = copy(var->va_string);
     } else if (eqc(var->va_name, "acct")) {
