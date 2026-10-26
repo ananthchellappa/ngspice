@@ -1,0 +1,43 @@
+* rnddraws fixture: two-instance sky130 mismatch, after xschem's mmA.cir
+* Writes rnddraws-sample.tsv in the current directory, five record sets:
+*   1 the initial load (pre_set opens the log before the parse): src=startup
+*   2 setseed 1; reset          3 setseed 2; reset
+*   4 reset without setseed: offset != 0, so the seed tag is stale
+*   5 setseed 1; reset again: the same rows as set 2
+* ver_51 batch item 4, ngspice build e53fb551360f6cea4f69.
+.lib /home/analog/private/xschem-private/sky130A/models/libs.tech/combined/sky130.lib.spice tt
+.param MC_MM_SWITCH=1
+V1 d 0 1.8
+
+XM1 d d 0 0 sky130_fd_pr__nfet_01v8 w=2 l=1
+XM2 d d 0 0 sky130_fd_pr__nfet_01v8 w=2 l=1
+.control
+pre_set rnddraws=rnddraws-sample.tsv
+set noaskquit
+set numdgt=15
+op
+echo SEED startup
+print @m.xm1.msky130_fd_pr__nfet_01v8[delvto] @m.xm2.msky130_fd_pr__nfet_01v8[delvto]
+alterparam mc_mm_switch=1
+setseed 1
+reset
+op
+echo SEED 1
+print @m.xm1.msky130_fd_pr__nfet_01v8[delvto] @m.xm2.msky130_fd_pr__nfet_01v8[delvto]
+setseed 2
+reset
+op
+echo SEED 2
+print @m.xm1.msky130_fd_pr__nfet_01v8[delvto] @m.xm2.msky130_fd_pr__nfet_01v8[delvto]
+reset
+op
+echo SEED 2+
+print @m.xm1.msky130_fd_pr__nfet_01v8[delvto] @m.xm2.msky130_fd_pr__nfet_01v8[delvto]
+setseed 1
+reset
+op
+echo SEED 1again
+print @m.xm1.msky130_fd_pr__nfet_01v8[delvto] @m.xm2.msky130_fd_pr__nfet_01v8[delvto]
+unset rnddraws
+.endc
+.end
