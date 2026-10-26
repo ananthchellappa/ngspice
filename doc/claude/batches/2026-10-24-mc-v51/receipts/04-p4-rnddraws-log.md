@@ -5,9 +5,12 @@ PLAN item **4 — P4: the draw log, `set rnddraws=<file>`**, from
 recommendation under *Decisions for the owner*. For this item that means
 decision 7: the field order `seed instance_path param func args z value` is
 kept, `instance_path` is ngspice's flattened form, `param` is the receiving
-parameter with a `#n` suffix on a repeat, `value` is the raw draw, and each
-record set is framed by a `#` header and footer. xschem accepted all of this
-(LEDGER, 2026-10-24) and treats it as a contract.
+parameter with a `#n` suffix on a repeat, and each record set is framed by a
+`#` header and footer. xschem accepted all of this (LEDGER, 2026-10-24) and
+treats it as a contract. That same LEDGER note, not decision 7, is the source
+for `value` being the raw draw: decision 7 does not mention `value`, and the
+item spec asked for the `%g`-rounded value from `eval_agauss` (falsified
+item 3 below). *Corrected by follow-up 4 (P4 fixes), review issue 4b.*
 
 Crew P4, 2026-10-26, branch `ver_51`. HEAD at start **`e955bc093`**
 (`docs: receipt for ver_51 item 3, no pid seeding at load`). The code commit
