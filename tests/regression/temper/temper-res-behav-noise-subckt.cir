@@ -56,12 +56,13 @@ end
 let spread = const.nhi/const.nlo - 1
 echo "Note: maxerr =" $&const.maxerr "spread =" $&spread
 
-if const.maxerr > 1e-9 or spread < 0.1
-  echo "ERROR: test failed"
-  quit 1
-else
+* success is the tested branch, so a vector that is missing fails the deck
+if const.maxerr <= 1e-9 and spread >= 0.1
   echo "INFO: success"
   quit 0
+else
+  echo "ERROR: test failed"
+  quit 1
 end
 
 .endc
