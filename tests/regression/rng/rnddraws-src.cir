@@ -1,0 +1,26 @@
+* rnddraws: the src=startup and src=checkseed headers
+* ver_51 follow-up (P4 fixes), review issue 4c.  rnddraws-mm.cir asserts
+* only src=setseed.  This deck asserts two more of the header's seed sources:
+*   startup    'pre_set rnddraws=' opens the log before the initial load,
+*              which is parsed from the startup seeding ($rndseed = 1)
+*   checkseed  'set rndseed=11', then a control-language draw: checkseed()
+*              re-seeds from $rndseed and the draw takes one uniform call,
+*              so the next parse is tagged seed=11 src=checkseed offset=1
+* rnddraws-option.cir asserts the fourth, src=option.  The .files beside this
+* deck hold the assertions; the row values depend on the libc's rand() and
+* are not frozen.
+.subckt cell a b w=2 l=1
+.param sx={agauss(0,1,1)/sqrt(w*l)}
+r1 a b r={1k*(1+0.01*sx)}
+.ends
+v1 1 0 1
+xm1 1 0 cell
+.control
+pre_set rnddraws=rnddraws-src.tsv
+set rndseed=11
+let u = sunif(1)
+reset
+unset rnddraws
+quit 0
+.endc
+.end

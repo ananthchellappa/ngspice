@@ -53,6 +53,14 @@
 ##                        the values from before the log existed (glibc
 ##                        rand(); skipped on another libc)
 ##
+## Two more from the ver_51 follow-up (P4 fixes).  rnddraws-mm.cir asserts
+## only the src=setseed header; these assert the other three seed sources:
+##
+##   rnddraws-src.cir     src=startup (the initial load, through pre_set) and
+##                        src=checkseed offset=1 ('set rndseed=11' and one
+##                        control-language draw before the reset)
+##   rnddraws-option.cir  src=option, on the initial load and on a reset
+##
 ## A deck with a .requires sibling ('libc glibc') is skipped, exit 77, when
 ## the platform does not provide it; check_status.sh's header has the format.
 ##
@@ -63,7 +71,7 @@ TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-spelling.cir option-seed-multiple.cir \
 	startup-equals-setseed1.cir setseed7-bit-identity.cir \
 	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir \
-	rnddraws-gold.cir
+	rnddraws-gold.cir rnddraws-src.cir rnddraws-option.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -83,7 +91,9 @@ EXTRA_DIST = \
 	rnddraws-order.status rnddraws-order.err rnddraws-order.files \
 	rnddraws-funcs.status rnddraws-funcs.err rnddraws-funcs.files \
 	rnddraws-gold.status rnddraws-gold.err rnddraws-gold.files \
-	rnddraws-gold.requires
+	rnddraws-gold.requires \
+	rnddraws-src.status rnddraws-src.err rnddraws-src.files \
+	rnddraws-option.status rnddraws-option.err rnddraws-option.files
 
 # The driver captures each run's stdout and stderr into the build directory
 # and leaves them there when a deck fails.
@@ -112,8 +122,12 @@ CLEANFILES = \
 	rnddraws-funcs.stderr.filtered rnddraws-funcs.stderr.expected \
 	rnddraws-gold.stdout rnddraws-gold.stderr \
 	rnddraws-gold.stderr.filtered rnddraws-gold.stderr.expected \
+	rnddraws-src.stdout rnddraws-src.stderr \
+	rnddraws-src.stderr.filtered rnddraws-src.stderr.expected \
+	rnddraws-option.stdout rnddraws-option.stderr \
+	rnddraws-option.stderr.filtered rnddraws-option.stderr.expected \
 	rnddraws-mm.tsv rnddraws-mm-2.tsv rnddraws-order.tsv rnddraws-funcs.tsv \
-	rnddraws-gold.tsv \
+	rnddraws-gold.tsv rnddraws-src.tsv rnddraws-option.tsv \
 	rawspice.raw
 
 MAINTAINERCLEANFILES = Makefile.in

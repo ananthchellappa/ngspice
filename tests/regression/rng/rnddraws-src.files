@@ -1,0 +1,12 @@
+# The log written by rnddraws-src.cir.  The text after the path is a grep
+# BRE; the gaps in it are literal tab characters, which the driver's 'read'
+# keeps inside the text.
+present rnddraws-src.tsv
+# the initial load, logged through pre_set from the startup seeding
+grep rnddraws-src.tsv ^#	rnddraws	v1	seed=1	src=startup	offset=0$
+grep rnddraws-src.tsv ^1	r\.xm1\.r1	r	agauss	0,1,1	
+# the reset after 'set rndseed=11' and one control-language draw
+grep rnddraws-src.tsv ^#	rnddraws	v1	seed=11	src=checkseed	offset=1$
+grep rnddraws-src.tsv ^11	r\.xm1\.r1	r	agauss	0,1,1	
+# a footer per record set
+grep rnddraws-src.tsv ^#	end	logged=1	unlogged_calls=0$

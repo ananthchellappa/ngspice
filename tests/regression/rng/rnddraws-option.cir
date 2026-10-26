@@ -1,0 +1,22 @@
+* rnddraws: the src=option header
+* ver_51 follow-up (P4 fixes), review issue 4c.  '.option seed=5' re-seeds
+* the generator on every parse (eval_opt(), through seed_from_option()), so
+* both the initial load, logged through 'pre_set rnddraws=', and the reset
+* are tagged seed=5 src=option offset=0.  There is no 'setseed' here, so the
+* P2 warning is not printed and stderr stays empty.  The .files beside this
+* deck hold the assertions; the row values depend on the libc's rand() and
+* are not frozen.
+.option seed=5
+.subckt cell a b w=2 l=1
+.param sx={agauss(0,1,1)/sqrt(w*l)}
+r1 a b r={1k*(1+0.01*sx)}
+.ends
+v1 1 0 1
+xm1 1 0 cell
+.control
+pre_set rnddraws=rnddraws-option.tsv
+reset
+unset rnddraws
+quit 0
+.endc
+.end

@@ -1,0 +1,8 @@
+# The log written by rnddraws-option.cir.  The text after the path is a grep
+# BRE; the gaps in it are literal tab characters, which the driver's 'read'
+# keeps inside the text.
+present rnddraws-option.tsv
+# each parse is seeded from the option
+grep rnddraws-option.tsv ^#	rnddraws	v1	seed=5	src=option	offset=0$
+grep rnddraws-option.tsv ^5	r\.xm1\.r1	r	agauss	0,1,1	
+grep rnddraws-option.tsv ^#	end	logged=1	unlogged_calls=0$
