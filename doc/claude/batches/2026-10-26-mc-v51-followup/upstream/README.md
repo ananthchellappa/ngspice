@@ -1,7 +1,6 @@
 # Upstream material for ver_51 items P1, P2 and P3
 
-Three patches for an upstream maintainer, one directory per item, each with a
-`REPORT.md` to read before the patch. P4 (the `rnddraws` draw log) is not
+Three patches for an upstream maintainer, one directory per item. P4 (the `rnddraws` draw log) is not
 here: it is fork work agreed with xschem, not an upstream fix.
 
 | dir | patch | what it fixes | files |
@@ -32,64 +31,12 @@ logic as on `ver_51`. The only changes are where upstream differs: the
 2-argument `model_name_match()` and `*line == 'r'`, because upstream lowercases
 the deck.
 
-Each patch's commit message has the problem, a minimal deck with the
-before/after numbers, the fix and the tests. Read it with `git am`, or as the
-head of the `.patch`. The upstream reports for this material were written as
-`p1/REPORT.md`, `p2/REPORT.md` and `p3/REPORT.md`, but this session's harness
-refused those files. Their text is in the crew's final response to the batch
-driver (receipt `../receipts/05-upstream-prep.md`, "For the owner" item 4).
-What each patch leaves out is below.
+Each patch's commit message is its report: the problem, a minimal deck with
+the before/after numbers, the fix and the tests. Read it with `git am`, or as the
+head of the `.patch`. There are no separate `REPORT.md` files. The harness
+refused the crew's writes of them, and their text was not kept anywhere else.
 
-## What each patch leaves out, compared with `ver_51`
-
-**P1.**
-- `tests/regression/exitstatus/behav-r-model-warn.*`. That deck asserts the
-  five new warnings on stderr under `tests/bin/check_status.sh`, a downstream
-  harness. Upstream's `check.sh` never captures stderr, and its filter deletes
-  `Warning` lines.
-- The fatal-exit hook (`behav_r_models_root`, freed in
-  `inp_netlist_read_reset()`). That function exists only in the fork. Without
-  the hook, a `controlled_exit()` inside `inp_compat()` in `libngspice` leaks
-  the model lists. Upstream already leaks the scope tree and the deck on that
-  path.
-- The fork's case-sensitive spellings. The fork's
-  `model_name_match(a, b, !inp_case_exact_ids())` becomes upstream's
-  `model_name_match(a, b)`, and `elem_letter(line)` becomes `*line`.
-- One comment's reference to the fork's batch ("decision 4"). The code has no
-  identity-lint annotations to remove.
-
-**P2.**
-- All of its tests. That is `tests/regression/rng/` (the `option-seed-*`
-  decks), plus its `configure.ac` and `tests/regression/Makefile.am` lines and
-  `check_status.sh`. They assert stderr, which no upstream harness can see.
-- The fork's draw-log (P4) code in the same functions. That is the seed record
-  and call counter in `randnumb.c`, the `rng_*` declarations, `drawlog.h` and
-  the `ng_drawlog_*` calls.
-- `eval_opt()`'s comparisons are left as upstream spells them (`strstr`/`eq`;
-  the fork has `cistrstr`/`eqc`).
-
-**P3.**
-- `startup-equals-setseed1.cir`, which reports through its exit status under
-  `check_status.sh`. It is replaced by `tests/regression/misc/startup-seed.cir`
-  in `check.sh` form. That deck keeps the first draw in a control-language
-  variable, so it also runs on 45.2, and fails there for the right reason.
-- `setseed7-bit-identity.cir`, a glibc-only guard that the fork skips through
-  a `.requires` file only `check_status.sh` reads, and that `.requires`
-  support itself.
-- The fork's P4 hunks in `sharedspice.c`.
-
-## Test results behind the patches
-
-| deck | ngspice-45.2 | fork, pre-patch (`7e7b5610a68aa28a079e`) | fork, patched (`c1341e751ffd39377859`) |
-| --- | --- | --- | --- |
-| P1 `temper-res-behav-1.cir` | FAIL (no const-plot `let`) | FAIL, maxerr 0.314 | PASS |
-| P1 `temper-res-behav-noise.cir` | FAIL | FAIL, maxerr 0.145 | PASS |
-| P1 `temper-res-behav-noise-subckt.cir` | FAIL | FAIL, maxerr 0.156 | PASS |
-| P3 `startup-seed.cir` | FAIL, 3 of 3 runs | FAIL | PASS, 3 of 3 runs |
-
-All of these runs used `pre-master-47`'s own `tests/bin/check.sh`, which is
-byte-identical to the fork's. The P1 decks need `785be3194`
-(`let plot.vec`), which `pre-master-47` has and 45.2 lacks.
-
-**Nothing here has been sent.** No mail, bug report or merge request exists
-for any of it. Whether to send it is the owner's decision.
+**Library paths not run.** P2 and P3 both change `src/sharedspice.c`, which is
+compiled only in a `--with-ngshared` build. Those hunks were syntax-checked, not
+run. Before sending P2 or P3, do a one-off library build and run
+`../../2026-10-24-mc-v51/probes/rnddraws_reset_probe.c` against it.
