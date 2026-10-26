@@ -96,5 +96,87 @@ report, and `identity.baseline` is unchanged.
 ## 5. Upstream
 
 The same fix goes into `p4-crash/on-p1`, the patch that adds the check
-inside `inp_collect_models()`. See section 6, which is added with the
-upstream commit.
+inside `inp_collect_models()`. See section 6.
+
+## 6. Upstream: `p4-crash/on-p1` amended
+
+Scratch clone of `https://git.code.sf.net/p/ngspice/ngspice`, tip
+`a1148c969` (`pre-master-48`), with the local `tests/xspice/analog` revert
+from `01-verify.md` (not committed). Built out of tree with plain
+`../configure`, `ngheavy make -j4`. The clone, its worktrees and builds
+were deleted at the end.
+
+**Change.** `git am` of `p1` and `p4-crash/on-p1`, then the commit was
+amended: the same three-line skip and comment in `inp_collect_models()` as
+the fork, the reworded comment above `inp_chk_model_types()`, and a new
+`tests/regression/model/model-typeless-if-dead-behav.cir` + `.out`
+(check.sh; the deck of section 1 with `print` replaced by a check that
+v(1) is 0.99506 mV, so it also asserts that `rm` is carried). Message
+changes, so every claim is true:
+- "factored out of inp_collect_models()" (it said
+  `inp_rem_unused_models()`, which is true only of the version without
+  `p1`);
+- a new Fix bullet for the skip;
+- "Tests" lists both decks;
+- the recheck paragraph says both decks crash (exit 139, 3 of 3) without
+  the fix and pass with it;
+- the last paragraph says this version adds the skip and its test, which
+  only a tree with `p1` needs.
+
+`p2` was then applied with `git am`. Regenerated, `p1` and `p2` differ from
+the committed files only in the `From <sha>` line, so only the `on-p1`
+`.patch` was overwritten.
+
+**RED on the upstream tree** (`p1` + the old `on-p1`):
+
+```
+Error: no model type given in line .model bad!
+    line no. 14 from file ../../../../tests/regression/model/model-typeless-if-dead-behav.cir!
+
+ERROR: fatal error in ngspice, exit(1)
+--- model-typeless-if-dead-behav.out_tmp
++++ model-typeless-if-dead-behav.test_tmp
+@@ -1 +1,2 @@
+-INFO: success
++
++
+FAIL: model-typeless-if-dead-behav.cir
+PASS: model-typeless-if-dead.cir
+```
+
+**Before and after**, the new deck:
+
+| tree | result |
+| --- | --- |
+| ngspice-45.2 (`/usr/bin/ngspice`) | exit 139 |
+| `a1148c969` unpatched | exit 139, 3 of 3; check.sh FAIL |
+| `a1148c969` + `p1` + old `on-p1` | exit 1, "no model type given"; FAIL |
+| `a1148c969` + `p1` + new `on-p1` | exit 0, 3 of 3; check.sh PASS |
+
+The `.if (1)` variant exits 1 with the error on the patched tree (139
+unpatched). `model-typeless-if-dead.cir` is 139, 3 of 3, unpatched.
+
+**Full make check**, `a1148c969` + `p1`, new `on-p1`, `p2`: exit 0,
+63 PASS, 0 FAIL (62 before, plus the new deck).
+
+**Apply check.** `git am` of the three committed `.patch` files on a fresh
+worktree of `a1148c969` applies with no fuzz, and its tree is identical to
+the built one. Standalone `p1`, `p4-crash` and `p2` still pass
+`git apply --check` on the tip.
+
+**Numbers re-measured for the drafts** (45.2 / unpatched tip / patched):
+- p1 deck at 125 C, v(a): 7.300000e-02 / 7.300000e-02 / 5.694000e-02;
+  v(b) 5.694000e-02 everywhere.
+- p4 deck: `.if (0)` 139 / 139 / v(1) = 1.000000e-03, exit 0; `.if (1)`
+  139 / 139 / error, exit 1.
+- section 1's deck: 139 / 139 / v(1) = 9.950600e-04, exit 0.
+- seed=5: 9.312134e+02 / 7.974070e+02 / 7.974070e+02 on both samples; the
+  override warning 0 / 0 / 1 time.
+- seed=abc, `setseed 3 / reset / op` three times: 8.392277e+02 /
+  8.432359e+02 / 8.432359e+02; "Cannot convert" 4 / 4 / 1.
+- Two `.option seed=5` lines, the same loop: "Multiple" 4 / 4 / 1. A
+  single `seed=abc` line prints no "Multiple" at all, because
+  `eval_opt()` counts only seeds it could use, so the draft's "Multiple
+  goes from 4 to 1" belongs to this deck, not to the seed=abc one.
+- p1 tests on the unpatched tip: maxerr 0.314112, 0.144911, 0.156474,
+  0.282051.

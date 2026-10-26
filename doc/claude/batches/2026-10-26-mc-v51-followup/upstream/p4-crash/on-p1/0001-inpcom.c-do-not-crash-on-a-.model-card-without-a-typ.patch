@@ -1,4 +1,4 @@
-From f99e14c96e0655314aa3b81d3b3244cb2dc4f7d0 Mon Sep 17 00:00:00 2001
+From cf91ea68326dcfa226ccd3470c5befc22d180d1f Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
 Date: Mon, 26 Oct 2026 10:33:17 -0700
 Subject: [PATCH] inpcom.c: do not crash on a .model card without a type in a
@@ -41,40 +41,55 @@ The fix:
   which never returns NULL, and gives the type its own pointer.
 - modtranslate() leaves a '.model' card with no name as it is.
 - The "no model type given" check is factored out of
-  inp_rem_unused_models() into inp_chk_model_type(), and a new
+  inp_collect_models() into inp_chk_model_type(), and a new
   inp_chk_model_types() runs it on the flat deck.  inp_spsource() calls
   it right after dotifeval(), so a card in a branch that is not taken is
   already a comment and is not reported, and a deck with .if gets the
   same error and exit 1 as one without.  The text of the error is
   unchanged; in a subcircuit it shows the card as expansion left it
   (".model x1:bad "), with the deck's own line number.
+- In a deck with .if, inp_collect_models() skips a typeless card instead
+  of making the check.  inp_readall() calls it there only to build the
+  model lists for the R->B rewrite, before dotifeval(), when the card
+  may still be in a branch that is not taken.  inp_chk_model_types()
+  reports the card later if its branch is taken.
 
 Behaviour change: none for a deck without .if.  A deck with .if and a
 typeless .model in a live branch now stops with the error instead of
 crashing, and one with the card in a dead branch runs.
 
-Test (tests/regression/model, check.sh):
+Tests (tests/regression/model, check.sh):
 - model-typeless-if-dead.cir: '.model bad' in an '.if (0)' branch.  The
   deck must run, so a crash leaves "INFO: success" out of its output.
-  The error cases exit 1 with their message on stderr, which check.sh
-  does not see, so they have no test here.
+- model-typeless-if-dead-behav.cir: the same, plus an R that the R->B
+  rewrite converts and that names a .model, so the model lists are
+  built before the .if is decided.  It also checks the carried value.
+The error cases exit 1 with their message on stderr, which check.sh
+does not see, so they have no test here.
 
-Rechecked on pre-master-48 a1148c969: the deck crashes (exit 139)
-without the fix and passes with it, and make check passes.
+Rechecked on pre-master-48 a1148c969: both decks crash (exit 139, 3 of
+3 runs) without the fix and pass with it, and make check passes.
 
 This version is for a tree that already has 'inpcom.c: carry the R model
 through the R->B rewrite', which moved the check into
-inp_collect_models().  The change is the same.
+inp_collect_models() and calls that function for the rewrite in a deck
+with .if.  The change is the same as in the version without that patch,
+plus the skip in inp_collect_models() and its second test, which only
+this tree needs.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
  src/frontend/inp.c                            |  4 +
- src/frontend/inpcom.c                         | 78 +++++++++++++++----
+ src/frontend/inpcom.c                         | 86 ++++++++++++++++---
  src/frontend/subckt.c                         |  5 ++
  tests/regression/model/Makefile.am            |  3 +-
- .../model/model-typeless-if-dead.cir          | 26 +++++++
+ .../model/model-typeless-if-dead-behav.cir    | 30 +++++++
+ .../model/model-typeless-if-dead-behav.out    |  1 +
+ .../model/model-typeless-if-dead.cir          | 26 ++++++
  .../model/model-typeless-if-dead.out          |  1 +
- 6 files changed, 103 insertions(+), 14 deletions(-)
+ 8 files changed, 142 insertions(+), 14 deletions(-)
+ create mode 100644 tests/regression/model/model-typeless-if-dead-behav.cir
+ create mode 100644 tests/regression/model/model-typeless-if-dead-behav.out
  create mode 100644 tests/regression/model/model-typeless-if-dead.cir
  create mode 100644 tests/regression/model/model-typeless-if-dead.out
 
@@ -101,7 +116,7 @@ index deea842e0..ef75dfd6b 100644
                 in plot 'const' of a .control section */
              for (dd = deck; dd; dd = dd->nextcard) {
 diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
-index 76e31884a..06d835eff 100644
+index 76e31884a..afab84ead 100644
 --- a/src/frontend/inpcom.c
 +++ b/src/frontend/inpcom.c
 @@ -185,6 +185,8 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck);
@@ -132,7 +147,7 @@ index 76e31884a..06d835eff 100644
      }
      // printf("%s: enter(\"%s\")\n", __FUNCTION__, str);
      while ((open_paren_ptr = strchr(search_ptr, '(')) != NULL) {
-@@ -9850,16 +9856,9 @@ static int inp_collect_models(struct card *deck)
+@@ -9850,16 +9856,16 @@ static int inp_collect_models(struct card *deck)
  
          if (ciprefix(".model", curr_line)) {
              struct modellist *modl_new;
@@ -146,12 +161,19 @@ index 76e31884a..06d835eff 100644
 -                tfree(modl_new);
 -                controlled_exit(EXIT_BAD);
 -            }
++            /* In a deck with .if, the R->B rewrite builds these lists
++               before dotifeval() has decided the branches, so a typeless
++               card may be in a branch that is not taken.  Leave it out of
++               the lists; inp_chk_model_types() reports it once the deck is
++               flat, if it is still there. */
++            if (!model_type && has_if)
++                continue;
 +            inp_chk_model_type(card, model_type);
 +            modl_new = TMALLOC(struct modellist, 1);
              modl_new->elemb = inp_get_elem_ident(model_type);
              modl_new->modelname = get_subckt_model_name(curr_line);
              modl_new->model = card;
-@@ -9874,6 +9873,59 @@ static int inp_collect_models(struct card *deck)
+@@ -9874,6 +9880,60 @@ static int inp_collect_models(struct card *deck)
  }
  
  
@@ -171,8 +193,9 @@ index 76e31884a..06d835eff 100644
 +
 +/* Stop the run on any .model card of deck that gives no model type.
 +   inp_collect_models() makes this check while it builds the model lists,
-+   but inp_readall() does not call it for a deck that has .if, because a
-+   model may be in a branch that is not taken.  inp_spsource() calls this
++   but not for a deck that has .if, because a model may be in a branch that
++   is not taken: inp_readall() then calls it only for the R->B rewrite, and
++   it skips a typeless card.  inp_spsource() calls this
 +   once the branches are decided and the deck is flat, so a deck with .if
 +   gets the same diagnostic as one without.  The title line is skipped. */
 +void inp_chk_model_types(struct card *deck)
@@ -228,7 +251,7 @@ index a0fed2696..d4f173911 100644
  
              /* remember the translation */
 diff --git a/tests/regression/model/Makefile.am b/tests/regression/model/Makefile.am
-index d2fcd85ba..8dda9eb78 100644
+index d2fcd85ba..959d7ff84 100644
 --- a/tests/regression/model/Makefile.am
 +++ b/tests/regression/model/Makefile.am
 @@ -1,7 +1,8 @@
@@ -237,10 +260,53 @@ index d2fcd85ba..8dda9eb78 100644
  
 -TESTS = binning-1.cir special-names-1.cir instance-defaults.cir
 +TESTS = binning-1.cir special-names-1.cir instance-defaults.cir \
-+	model-typeless-if-dead.cir
++	model-typeless-if-dead.cir model-typeless-if-dead-behav.cir
  
  TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
  
+diff --git a/tests/regression/model/model-typeless-if-dead-behav.cir b/tests/regression/model/model-typeless-if-dead-behav.cir
+new file mode 100644
+index 000000000..34d830085
+--- /dev/null
++++ b/tests/regression/model/model-typeless-if-dead-behav.cir
+@@ -0,0 +1,30 @@
++regression test model-typeless-if-dead-behav.cir, a typeless .model in a false .if branch, with an R->B rewrite
++
++* As model-typeless-if-dead.cir, plus r1: its value names v(), so
++* inp_compat() rewrites it into a B source, and it names a .model, so
++* inp_readall() builds the .model lists for that rewrite.  That happens
++* before dotifeval() decides the branches, so '.model bad' is still a card
++* then, and the list pass must not stop the run on it.  The deck must run,
++* so an exit leaves INFO: success out of the output.  The value also checks
++* that rm is carried: at 27 C, tc1=-2.47e-3 and tnom=25 give
++* 1k*(1-2*2.47e-3) = 995.06 Ohm.
++
++.model rm r tc1=-2.47e-3 tnom=25
++.if (0)
++.model bad
++.endif
++i1 0 1 1u
++r1 1 0 rm r={1k+0*v(1)}
++
++.control
++op
++if abs(v(1)/0.99506m - 1) < 1e-9
++  echo "INFO: success"
++  quit 0
++else
++  echo "ERROR: v(1) is not 0.99506 mV"
++  quit 1
++end
++.endc
++
++.end
+diff --git a/tests/regression/model/model-typeless-if-dead-behav.out b/tests/regression/model/model-typeless-if-dead-behav.out
+new file mode 100644
+index 000000000..8e9036969
+--- /dev/null
++++ b/tests/regression/model/model-typeless-if-dead-behav.out
+@@ -0,0 +1 @@
++INFO: success
 diff --git a/tests/regression/model/model-typeless-if-dead.cir b/tests/regression/model/model-typeless-if-dead.cir
 new file mode 100644
 index 000000000..60c4a4886
