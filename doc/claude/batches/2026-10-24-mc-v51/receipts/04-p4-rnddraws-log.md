@@ -381,3 +381,79 @@ one `make check` ran on.
 
 Nothing was pushed. Two commits on `ver_51`: `29940ed39` (code and tests)
 and the docs commit with this receipt, the fixture and the probe.
+
+## Review round 1
+
+- **Crew:** item 4 fix crew. **Date:** 2026-10-26. **Branch:** `ver_51`.
+  **HEAD at start:** `8ce1ea5e9`.
+- **Finding (blocking), accepted.** `totalreset()` in `src/sharedspice.c`
+  called `rnd_reset_state()`, which zeroes `rng_calls`, before
+  `ng_drawlog_reset()`. When a parse aborts through `controlled_exit()` (an
+  undefined parameter in numparam, `spicenum.c`), its record set is still
+  open. The footer that `ng_drawlog_reset()` → `ng_drawlog_end()` then
+  writes computes `rng_ncalls() - set_start_calls - set_logged_calls` from
+  a zeroed counter, and the unsigned result wraps. The earlier static review
+  ("closed or zeroed") checked that each static is reset, but not the order
+  in which they are reset.
+
+### What changed
+
+- `src/sharedspice.c`: `ng_drawlog_reset()` now runs before
+  `rnd_reset_state()`, with a comment saying why. No other change. The
+  subtraction in `drawlog.c` is left as it is, because with this order it
+  can no longer see a counter that went backwards.
+- `doc/claude/batches/2026-10-24-mc-v51/probes/rnddraws_reset_probe.c`:
+  a third session. Init, `setseed 1`, Circ (the good deck, so the set does
+  not start at call 0), `set rnddraws=probe-d.tsv`, Circ (a deck with an
+  `agauss` and `r={nosuchparam*2}`), `ngSpice_Reset`. It checks that the
+  log is closed and that the footer reads exactly
+  `logged=1	unlogged_calls=0`.
+
+### RED evidence
+
+The extended probe was run against the unchanged `build-ver_51-shared`
+library (`libngspice.so.0.0.15` sha `32a0b82c1831a3f2cd42`, the item-4
+build). Trimmed:
+
+```
+EXIT 1
+ok    session 3: ngSpice_Reset after an aborted parse closes the log
+      session 3 footer: #	end	logged=1	unlogged_calls=18446744073709544674
+FAIL  session 3: the aborted set's footer has logged=1 and a small unlogged_calls
+FAILED: 1 failure(s)
+```
+
+(`EXIT 1` is the library's exit callback from the aborted parse.) After the
+fix, rebuilt with `ngheavy make -j4` (library sha `5c5a899d86a5d96bf23f`),
+the check was tightened to the exact value. All 19 checks pass:
+
+```
+ok    session 3: ngSpice_Reset after an aborted parse closes the log
+      session 3 footer: #	end	logged=1	unlogged_calls=0
+ok    session 3: the aborted set's footer reads logged=1 unlogged_calls=0
+PASSED: 0 failure(s)
+```
+
+Sessions 1 and 2 print the same lines as before.
+
+### Checks
+
+- `build-ver_50` rebuilt and reinstalled. `ngspice` sha256 is
+  `e53fb551360f6cea4f69`, unchanged, because `sharedspice.c` is linked only
+  into libngspice.
+- `tests/regression/rng`: 9 PASS / 0 FAIL.
+- Full `make check`: 347 PASS / 0 FAIL / 0 XFAIL / 0 XPASS / 0 SKIP /
+  0 ERROR, make exit 0. The single `^ERROR:` line is the known
+  `tried to destroy non-existent graph` output.
+- Identity lint: 264 comparisons, baseline matches; 11 comparisons, baseline
+  matches. The fix adds no comparisons.
+
+### For the owner
+
+- The probe is still outside `make check`, because the tree has no
+  shared-library test harness. A session that leaves a record set open across
+  `ngSpice_Reset` is now covered there.
+- In the standalone `ngspice` binary, `controlled_exit` ends the process, so
+  this ordering can't happen there.
+
+Commits this round: `a269a8a54` (fix + probe) and this receipt update.
