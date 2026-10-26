@@ -1,0 +1,185 @@
+From 9ff9dc7ebf338396a9ae5c1cfd01265c26a52df7 Mon Sep 17 00:00:00 2001
+From: Ananth <ananth.chellappa@outlook.com>
+Date: Mon, 26 Oct 2026 09:47:03 -0700
+Subject: [PATCH] wallace.c: do not re-seed from the process id at startup
+
+main.c and ngSpice_Init() set rndseed=1 and seed the generator from it
+with com_sseed(NULL).  initw() then runs and re-seeds from getpid(),
+while $rndseed still reads 1.  So a deck that never calls setseed draws
+different values in every process, and a 'setseed N' in .spiceinit is
+overridden.  On ngspice-45.2, the same deck run twice:
+
+    .param rv=agauss(1k,100,1)
+    r1 1 0 {rv}
+    op / print @r1[r]          run 1: 9.900914e+02    run 2: 1.084044e+03
+    echo $rndseed              1                      1
+
+initw() no longer seeds.  main.c and ngSpice_Init() call com_sseed(NULL)
+again after initw(), which draws from the generator to fill the Wallace
+pools, so the first parse draws exactly what 'setseed 1' draws, and
+$rndseed tells the truth.  com_sseed() and TausSeed() are unchanged, and
+an explicit 'setseed 7' draws what it drew before.  getpid() and its
+includes go from wallace.c.
+
+Behaviour change: a deck that never calls setseed is now reproducible
+from one process to the next, TRNOISE included.  For runs that differ,
+use '.option seed=random', or 'unset rndseed' in .spiceinit.
+
+Test: tests/regression/misc/startup-seed.cir compares a deck's first draw
+with its draw after 'setseed 1', in one process, so it does not depend
+on the C library's rand().
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/frontend/trannoise/wallace.c       | 16 +++++--------
+ src/main.c                             |  3 +++
+ src/sharedspice.c                      |  3 +++
+ tests/regression/misc/Makefile.am      |  3 ++-
+ tests/regression/misc/startup-seed.cir | 32 ++++++++++++++++++++++++++
+ tests/regression/misc/startup-seed.out | 22 ++++++++++++++++++
+ 6 files changed, 68 insertions(+), 11 deletions(-)
+ create mode 100644 tests/regression/misc/startup-seed.cir
+ create mode 100644 tests/regression/misc/startup-seed.out
+
+diff --git a/src/frontend/trannoise/wallace.c b/src/frontend/trannoise/wallace.c
+index affdc7579..a0e9c792c 100644
+--- a/src/frontend/trannoise/wallace.c
++++ b/src/frontend/trannoise/wallace.c
+@@ -11,12 +11,6 @@
+ #include "ngspice/ngspice.h"
+ #endif
+ #endif
+-#ifdef _MSC_VER
+-#include <process.h>
+-#define getpid _getpid
+-#else
+-#include <unistd.h>
+-#endif
+ #include <math.h>
+ #include "ngspice/wallace.h"
+ #include "ngspice/FastNorm3.h"
+@@ -79,10 +73,12 @@ initw(void)
+     double totsqr, nomsqr;
+     unsigned int coa;
+ 
+-    /* initialize the uniform generator */
+-    srand((unsigned int) getpid());
+-    // srand(17);
+-    TausSeed();
++    /* The uniform generators are not seeded here.  In ngspice, main.c and
++       sharedspice.c have already seeded them from $rndseed with
++       com_sseed(NULL), and call it again after initw() returns, so the
++       startup stream equals 'setseed 1' instead of depending on the
++       process id.  The HasMain test main() at the end of this file does
++       not seed them before calling initw(). */
+ 
+     ScaleGauss = 1.;
+     newpools = 1;
+diff --git a/src/main.c b/src/main.c
+index 67ada5d8e..21251a3d7 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -1369,6 +1369,9 @@ int main(int argc, char **argv)
+         }
+ #elif defined(WaGauss)
+         initw();
++        /* filling the Wallace pools drew from the generator: start the
++           deck's stream from $rndseed again */
++        com_sseed(NULL);
+ #endif
+         /* write out the ngspice start command */
+         if (ft_ngdebug)
+diff --git a/src/sharedspice.c b/src/sharedspice.c
+index 902e50c97..3214644dd 100644
+--- a/src/sharedspice.c
++++ b/src/sharedspice.c
+@@ -1078,6 +1078,9 @@ ngSpice_Init(SendChar* printfcn, SendStat* statusfcn, ControlledExit* ngspiceexi
+     }
+ #elif defined (WaGauss)
+         initw();
++        /* filling the Wallace pools drew from the generator: start the
++           deck's stream from $rndseed again */
++        com_sseed(NULL);
+ #endif
+ 
+     fprintf(cp_out,
+diff --git a/tests/regression/misc/Makefile.am b/tests/regression/misc/Makefile.am
+index d485a8f10..b2410fb5d 100644
+--- a/tests/regression/misc/Makefile.am
++++ b/tests/regression/misc/Makefile.am
+@@ -1,7 +1,8 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ 
+-TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-functions-1.cir alter-vec.cir test-noise-2.cir test-noise-3.cir ac-zero.cir asrc-tc-1.cir asrc-tc-2.cir if-elseif.cir convergence.cir
++TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-functions-1.cir alter-vec.cir test-noise-2.cir test-noise-3.cir ac-zero.cir asrc-tc-1.cir asrc-tc-2.cir if-elseif.cir convergence.cir \
++	startup-seed.cir
+ 
+ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
+ 
+diff --git a/tests/regression/misc/startup-seed.cir b/tests/regression/misc/startup-seed.cir
+new file mode 100644
+index 000000000..503780001
+--- /dev/null
++++ b/tests/regression/misc/startup-seed.cir
+@@ -0,0 +1,32 @@
++regression test startup-seed.cir, the first draw of a deck equals 'setseed 1'
++
++* Startup seeds the random number generator from rndseed=1 with
++* com_sseed(NULL), but initw() (src/frontend/trannoise/wallace.c) used to
++* run afterwards and re-seed it from the process id, while $rndseed still
++* read 1.  So a deck that never called 'setseed' drew a different value in
++* every process.  Both draws below are made in one process, so the test does
++* not depend on the C library's rand().  The startup draw is kept in a
++* control-language variable, because 'reset' drops a plain 'let' vector.
++
++.param rv=agauss(1k,100,1)
++v1 1 0 1
++r1 1 0 {rv}
++
++.control
++op
++let startup = @r1[r]
++set startup = $&startup
++setseed 1
++reset
++op
++let seed1 = @r1[r]
++set seed1 = $&seed1
++if $startup = $seed1
++  echo "INFO: success"
++else
++  echo "ERROR: the startup draw differs from the draw after setseed 1"
++end
++quit 0
++.endc
++
++.end
+diff --git a/tests/regression/misc/startup-seed.out b/tests/regression/misc/startup-seed.out
+new file mode 100644
+index 000000000..9e11a31a6
+--- /dev/null
++++ b/tests/regression/misc/startup-seed.out
+@@ -0,0 +1,22 @@
++
++Note: No compatibility mode selected!
++
++
++Circuit: regression test startup-seed.cir, the first draw of a deck equals 'setseed 1'
++
++Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
++
++Using SPARSE 1.3 as Direct Linear Solver
++
++No. of Data Rows : 1
++Reset re-loads circuit regression test startup-seed.cir, the first draw of a deck equals 'setseed 1'
++
++Circuit: regression test startup-seed.cir, the first draw of a deck equals 'setseed 1'
++
++Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
++
++Using SPARSE 1.3 as Direct Linear Solver
++
++No. of Data Rows : 1
++INFO: success
++ngspice-46+ done

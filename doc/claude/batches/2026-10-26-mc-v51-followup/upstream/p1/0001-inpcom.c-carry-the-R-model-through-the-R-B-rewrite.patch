@@ -1,0 +1,962 @@
+From 44da6f8de9dd18cd90741bcb08428884ca2af7de Mon Sep 17 00:00:00 2001
+From: Ananth <ananth.chellappa@outlook.com>
+Date: Mon, 26 Oct 2026 09:47:03 -0700
+Subject: [PATCH] inpcom.c: carry the R model through the R->B rewrite
+
+An R card whose value needs a behavioural source (it names v(), i(),
+temper, hertz or time) is rewritten by inp_compat() into a B source.  The
+B line is built from the equation, the instance tc1/tc2 and m only, so a
+.model named on the card is dropped, together with its tc1/tc2/tnom, and
+so are the instance dtemp/temp.  The converted resistor is flat with
+temperature.  On ngspice-45.2, at 125 C, with 1 uA into each:
+
+    .model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
+    r1 a 0 rm r={73k*(1+1e-9*abs(v(a)))}    v(a) = 7.300000e-02
+    r2 b 0 rm r=73k                          v(b) = 5.694000e-02
+
+The converted resistor is 28% off.  sky130's xhigh_po is such a card.
+
+The rewrite now carries the model, as text, because numparam has not run
+yet and every value may be a {expression}:
+
+- The .model lists that inp_add_levels() scoped are rebuilt for the
+  rewrite (inp_rem_unused_models() has freed them, and a deck with .if
+  never builds them), by the collection loop factored out of
+  inp_rem_unused_models(), and freed again afterwards without commenting
+  any model out.  A model may be defined after the instance.
+- The model name is the token after one optional value (a number or a
+  whole {...} group), accepted by is_a_modelname().  get_model_name()
+  skips a {...} value too, so 'R n1 n2 {eq} model' keeps its model when
+  unused models are removed.
+- The lookup walks the card's scope outwards and accepts only an exact
+  name; R has no binning.  Not found, or more than one exact match in the
+  winning scope (the branches of an .if, resolved later): a warning, and
+  the line is exactly what it was before.
+- tc1|tc1r, tc2|tc2r and tnom come from the model; instance tc/tc1 and tc2
+  override them per parameter.  A model tnom becomes an offset of the
+  temperature the ASRC sees: dtemp={<dtemp|0>+27-(tnom)}, or
+  temp={<temp>+27-(tnom)} when the instance gives temp, because the ASRC
+  ignores dtemp when temp is given.  Without a model tnom, instance
+  dtemp/temp are passed through; before, they were dropped even with no
+  model.  Under '.option tnom' other than 27, a model without tnom keeps
+  the ASRC's 27 C reference.
+- A model with tce (not expressible) or one whose text uses temper:
+  a warning, and the model is not applied.  An expression that uses
+  temper while the model adds a TC the card does not show: both are
+  applied, with a warning.
+- Noise: the existing switch (set enable_noisy_r, or noisy=1) is
+  unchanged.  When it is on and a model resolved, the 1 ohm resistor of
+  the noise branch carries the model name and the instance's own
+  tc1/tc2/dtemp/temp, so the real resistor device applies the TC, the
+  tnom and the noise temperature.  With the switch off nothing is added.
+
+A card without a model token is rewritten exactly as before.
+
+Behaviour change: every R that is rewritten into a B source and names a
+.model now has that model's temperature coefficients.  A PDK patch that
+folded the TC into the expression by hand must be reverted.
+
+Tests (tests/regression/temper, check.sh):
+- temper-res-behav-1.cir: eight cases (top level, subckt with the model
+  after the instance and a {expr} tc1, a .lib section, instance dtemp,
+  instance temp, instance tc1 over the model, a model without tnom, value
+  before the model) against references, at 0, 25 and 125 C, within 1e-9.
+- temper-res-behav-noise.cir: the noise branch, off and on, against a
+  plain model R, with dtemp and temp.
+- temper-res-behav-noise-subckt.cir: the same in a subckt whose model
+  shadows a global one.
+The decks keep vectors across 'reset' in the const plot (let const.x),
+which needs 785be3194; their success line is the tested branch, so a
+missing vector fails them.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/frontend/inpcom.c                         | 382 +++++++++++++++++-
+ tests/regression/temper/Makefile.am           |   9 +-
+ .../regression/temper/temper-res-behav-1.cir  | 133 ++++++
+ .../regression/temper/temper-res-behav-1.lib  |   6 +
+ .../regression/temper/temper-res-behav-1.out  |   1 +
+ .../temper/temper-res-behav-noise-subckt.cir  |  70 ++++
+ .../temper/temper-res-behav-noise-subckt.out  |   1 +
+ .../temper/temper-res-behav-noise-subckt.sp   |  28 ++
+ .../temper/temper-res-behav-noise.cir         |  73 ++++
+ .../temper/temper-res-behav-noise.out         |   1 +
+ .../temper/temper-res-behav-noise.sp          |  27 ++
+ 11 files changed, 724 insertions(+), 7 deletions(-)
+ create mode 100644 tests/regression/temper/temper-res-behav-1.cir
+ create mode 100644 tests/regression/temper/temper-res-behav-1.lib
+ create mode 100644 tests/regression/temper/temper-res-behav-1.out
+ create mode 100644 tests/regression/temper/temper-res-behav-noise-subckt.cir
+ create mode 100644 tests/regression/temper/temper-res-behav-noise-subckt.out
+ create mode 100644 tests/regression/temper/temper-res-behav-noise-subckt.sp
+ create mode 100644 tests/regression/temper/temper-res-behav-noise.cir
+ create mode 100644 tests/regression/temper/temper-res-behav-noise.out
+ create mode 100644 tests/regression/temper/temper-res-behav-noise.sp
+
+diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
+index 0ec7189aa..d6ae18f19 100644
+--- a/src/frontend/inpcom.c
++++ b/src/frontend/inpcom.c
+@@ -182,6 +182,13 @@ void inp_rem_levels(struct nscope *root);
+ void inp_rem_unused_models(struct nscope *root, struct card *deck);
+ static struct modellist *inp_find_model(
+         struct nscope *scope, const char *name);
++static int inp_collect_models(struct card *deck);
++static void inp_free_models(struct nscope *level);
++static bool behav_r_models_wanted(struct card *deck);
++static char *behav_r_model_token(const char *rest, const char *line);
++static char *behav_r_model_args(struct card *card, const char *rname,
++        const char *mname, const char *rest, char *equation,
++        char **noise_args);
+ 
+ void tprint(struct card *deck);
+ static char* libprint(struct card* t, const char *dir);
+@@ -1202,8 +1209,18 @@ struct card *inp_readall(FILE *fp, const char *dir_name, const char* file_name,
+             /* Do all the compatibility stuff here */
+             working = cc->nextcard;
+             inp_meas_current(working);
+-            /* E, G, L, R, C compatibility transformations */
++            /* E, G, L, R, C compatibility transformations.  An R card that
++               becomes a B source and names a .model needs that model's
++               tc1/tc2/tnom, so the .model lists are rebuilt for the rewrite
++               (they were freed above, or never built in a deck with .if) */
++            bool r_models = behav_r_models_wanted(working);
++            if (r_models) {
++                inp_collect_models(working);
++            }
+             inp_compat(working);
++            if (r_models) {
++                inp_free_models(root);
++            }
+             working = cc->nextcard;
+             /* B source numparam compatibility transformation */
+             inp_bsource_compat(working);
+@@ -3005,11 +3022,20 @@ static char *get_model_name(char *line, int num_terminals)
+     for (i = 0; i < num_terminals; i++)
+         beg_ptr = skip_token(beg_ptr); // Eat terminal.
+ 
+-    if (*line == 'r') /* special dealing for r models */
++    if (*line == 'r') { /* special dealing for r models */
+         if ((*beg_ptr == '+') || (*beg_ptr == '-') ||
+                 isdigit_c(*beg_ptr)) { /* looking for a value before model */
+             beg_ptr = skip_token(beg_ptr); /* Skip the value, */
+         }
++        else if (*beg_ptr == '{') { /* or an expression, which may hold blanks */
++            char *v = beg_ptr;
++            char *e = gettok_char(&v, '}', TRUE, TRUE);
++            if (e) {
++                tfree(e);
++                beg_ptr = v;
++            }
++        }
++    }
+     end_ptr = skip_non_ws(beg_ptr);
+     return copy_substring(beg_ptr, end_ptr);
+ }
+@@ -6889,17 +6915,32 @@ static void inp_compat(struct card *card)
+             else if (strstr(cut_line, "noisy=0") || strstr(cut_line, "noise=0"))
+                 rnoise = FALSE;
+ 
++            /* A card naming a .model carries the model's tc1/tc2/tnom,
++               overridden by the instance's, plus the instance dtemp/temp.
++               Unresolved: nothing is carried, and the line is today's. */
++            char *margs = NULL, *nargs = NULL;
++            char *rmodel = behav_r_model_token(cut_line, card->line);
++            if (rmodel)
++                margs = behav_r_model_args(card, title_tok, rmodel,
++                        cut_line, equation, &nargs);
++
+             /* tc1, tc2, and m are enabled */
+             xline = tprintf("b%s %s %s i = v(%s, %s)/(%s) %s %s reciproctc=1 reciprocm=0",
+-                    title_tok, node1, node2, node1, node2, equation, tcrstr, mstr);
++                    title_tok, node1, node2, node1, node2, equation,
++                    margs ? margs : tcrstr, mstr);
+             if (rnoise) {
+                 x2line = tprintf("b%s_1 %s %s i = i(v%s_3)/sqrt(%s)",
+                         title_tok, node1, node2, title_tok, equation);
++                /* with a model, the real resistor applies the TC, the tnom
++                   and the noise temperature itself */
+                 x3line = tprintf("r%s_2 %s_3 0 1.0 %s",
+-                        title_tok, title_tok, tcrstr);
++                        title_tok, title_tok, nargs ? nargs : tcrstr);
+                 x4line = tprintf("v%s_3 %s_3 0 0", title_tok, title_tok);
+             }
+ 
++            tfree(rmodel);
++            tfree(margs);
++            tfree(nargs);
+             tfree(tcrstr);
+             tfree(mstr);
+ 
+@@ -9575,7 +9616,10 @@ static void mark_all_binned(struct nscope *scope, char *name)
+ }
+ 
+ 
+-void inp_rem_unused_models(struct nscope *root, struct card *deck)
++/* Add every .model card of deck to the models list of its scope.  Returns
++   the .control nesting count at the end of the deck, which
++   inp_rem_unused_models() carries into its second walk as it always has. */
++static int inp_collect_models(struct card *deck)
+ {
+     struct card *card;
+     int skip_control = 0;
+@@ -9623,6 +9667,35 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
+         }
+     }
+ 
++    return skip_control;
++}
++
++
++/* Free the models lists of level and of every scope below it, and leave
++   the .model cards alone: unlike rem_unused_xxx(), nothing is commented
++   out. */
++static void inp_free_models(struct nscope *level)
++{
++    struct modellist *m = level->models;
++    while (m) {
++        struct modellist *next_m = m->next;
++        tfree(m->modelname);
++        tfree(m);
++        m = next_m;
++    }
++    level->models = NULL;
++
++    struct card_assoc *p = level->subckts;
++    for (; p; p = p->next)
++        inp_free_models(p->line->level);
++}
++
++
++void inp_rem_unused_models(struct nscope *root, struct card *deck)
++{
++    struct card *card;
++    int skip_control = inp_collect_models(deck);
++
+     /* scan through all element lines  that require or may need a model */
+     for (card = deck; card; card = card->nextcard) {
+ 
+@@ -9700,6 +9773,305 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck)
+     rem_unused_xxx(root);
+ }
+ 
++
++/* The R->B rewrite of inp_compat() and the R card's .model.
++ *
++ * 'Rxxx n1 n2 [value] model r={equation} ...' becomes a B source.  The B
++ * source has no model, so what the model contributes to the resistance has
++ * to be written onto the B line as text: numparam has not run yet, and a
++ * value may be a {expression}.  An ASRC applies
++ *     1 + tc1*d + tc2*d^2,   d = temp + dtemp - 300.15
++ * so a model tnom becomes an offset of the instance temperature, dtemp (or
++ * temp, because an ASRC ignores dtemp when temp is given), of 27 - tnom.
++ * A model without tnom keeps the ASRC's fixed 27 C reference, which differs
++ * from a real resistor's only under '.option tnom' other than 27. */
++
++/* the next blank separated token of *s, a {...} group kept whole */
++static char *behav_r_next_token(const char **s)
++{
++    const char *p = skip_ws(*s);
++    const char *b = p;
++    int lvl = 0;
++
++    if (*p == '\0')
++        return NULL;
++    for (; *p; p++) {
++        if (*p == '{')
++            lvl++;
++        else if (*p == '}') {
++            if (lvl > 0)
++                lvl--;
++        }
++        else if (lvl == 0 && isspace_c(*p))
++            break;
++    }
++    *s = p;
++    return copy_substring(b, p);
++}
++
++
++/* The model name of an R card, from rest, the text after its two nodes:
++   one optional value token (a number or a whole {...} group) may come
++   first.  Returns NULL when the card names no model. */
++static char *behav_r_model_token(const char *rest, const char *line)
++{
++    const char *s = rest;
++    char *tok = behav_r_next_token(&s);
++
++    if (tok && (*tok == '{' || *tok == '+' || *tok == '-' || *tok == '.' ||
++            isdigit_c(*tok))) {
++        tfree(tok);
++        tok = behav_r_next_token(&s);
++    }
++    if (tok && is_a_modelname(tok, line))
++        return tok;
++    tfree(tok);
++    return NULL;
++}
++
++
++/* TRUE if some R card of deck will be rewritten into a B source by
++   inp_compat() and names a model */
++static bool behav_r_models_wanted(struct card *deck)
++{
++    struct card *card;
++    int skip_control = 0;
++    bool wanted = FALSE;
++
++    for (card = deck; card && !wanted; card = card->nextcard) {
++        char *curr_line = card->line;
++
++        if (ciprefix(".control", curr_line)) {
++            skip_control++;
++            continue;
++        }
++        else if (ciprefix(".endc", curr_line)) {
++            skip_control--;
++            continue;
++        }
++        else if (skip_control > 0) {
++            continue;
++        }
++        if (*curr_line == '*' || *curr_line != 'r')
++            continue;
++
++        char *cut_line = curr_line;
++        char *title_tok = gettok(&cut_line);
++        char *node1 = gettok(&cut_line);
++        char *node2 = gettok(&cut_line);
++        if (b_transformation_wanted(cut_line)) {
++            char *m = behav_r_model_token(cut_line, curr_line);
++            wanted = (m != NULL);
++            tfree(m);
++        }
++        tfree(title_tok);
++        tfree(node1);
++        tfree(node2);
++    }
++
++    return wanted;
++}
++
++
++/* the parameters the rewrite reads from a model card or an R card */
++struct behav_r_kv {
++    char *tc1, *tc2, *tnom, *tce, *dtemp, *temp;
++};
++
++
++static void behav_r_kv_set(char **slot, const char *b, const char *e)
++{
++    tfree(*slot);
++    *slot = copy_substring(b, e);
++}
++
++
++/* Collect the key=value pairs of s, a model card's parameters (model) or
++   an R card's text after its nodes.  Tokens are separated by blanks,
++   parentheses and commas outside braces; a later pair wins, as it does in
++   the device's own parameter parsing.  Keys are the aliases the R device
++   accepts: model tc1|tc1r, tc2|tc2r, tce, tnom; instance tc|tc1, tc2, tce,
++   dtemp, temp. */
++static void behav_r_kv_scan(const char *s, bool model, struct behav_r_kv *kv)
++{
++    const char *p = s;
++
++    while (*p) {
++        while (*p && (isspace_c(*p) || *p == '(' || *p == ')' || *p == ','))
++            p++;
++        if (*p == '\0')
++            break;
++
++        const char *tb = p, *eqp = NULL;
++        int lvl = 0;
++        for (; *p; p++) {
++            if (*p == '{')
++                lvl++;
++            else if (*p == '}') {
++                if (lvl > 0)
++                    lvl--;
++            }
++            else if (lvl == 0) {
++                if (isspace_c(*p) || *p == '(' || *p == ')' || *p == ',')
++                    break;
++                if (*p == '=' && !eqp)
++                    eqp = p;
++            }
++        }
++        if (!eqp || eqp == tb || eqp + 1 == p)
++            continue;
++
++        char *key = copy_substring(tb, eqp);
++        const char *vb = eqp + 1;
++        if (cieq(key, "tc1") || (model && cieq(key, "tc1r")) ||
++                (!model && cieq(key, "tc")))
++            behav_r_kv_set(&kv->tc1, vb, p);
++        else if (cieq(key, "tc2") || (model && cieq(key, "tc2r")))
++            behav_r_kv_set(&kv->tc2, vb, p);
++        else if (cieq(key, "tce"))
++            behav_r_kv_set(&kv->tce, vb, p);
++        else if (model && cieq(key, "tnom"))
++            behav_r_kv_set(&kv->tnom, vb, p);
++        else if (!model && cieq(key, "dtemp"))
++            behav_r_kv_set(&kv->dtemp, vb, p);
++        else if (!model && cieq(key, "temp"))
++            behav_r_kv_set(&kv->temp, vb, p);
++        tfree(key);
++    }
++}
++
++
++static void behav_r_kv_free(struct behav_r_kv *kv)
++{
++    tfree(kv->tc1);
++    tfree(kv->tc2);
++    tfree(kv->tnom);
++    tfree(kv->tce);
++    tfree(kv->dtemp);
++    tfree(kv->temp);
++}
++
++
++/* a value as an operand of a new expression: {expr} -> (expr), 1k -> (1k) */
++static char *behav_r_operand(const char *v)
++{
++    size_t n = strlen(v);
++
++    if (n >= 2 && v[0] == '{' && v[n - 1] == '}')
++        return tprintf("(%.*s)", (int) (n - 2), v + 1);
++    return tprintf("(%s)", v);
++}
++
++
++/* What the B line of R card rname (the card) carries from model mname.
++   rest is the card's text after its nodes, equation its {...} value.
++   Returns the B line's tc1/tc2/dtemp|temp arguments and sets *noise_args
++   to the arguments of the 1 ohm resistor of the noise branch, or returns
++   NULL, with a warning, when nothing is carried.
++   The model is looked up from the card's own scope outwards; only an exact
++   name counts, as an R has no binning.  Two or more exact matches in the
++   scope that has any (the branches of an .if, which is resolved later) are
++   not resolved. */
++static char *behav_r_model_args(struct card *card, const char *rname,
++        const char *mname, const char *rest, char *equation,
++        char **noise_args)
++{
++    struct modellist *m = NULL;
++    struct nscope *scope;
++    int nfound = 0;
++
++    *noise_args = NULL;
++
++    for (scope = card->level; scope && nfound == 0; scope = scope->next) {
++        struct modellist *p;
++        for (p = scope->models; p; p = p->next)
++            if (p->elemb == 'r' &&
++                    model_name_match(mname, p->modelname) == 1) {
++                if (!m)
++                    m = p;
++                nfound++;
++            }
++    }
++
++    if (nfound != 1) {
++        fprintf(stderr, "Warning: behavioral R %s: model %s not resolved, "
++                "tc1/tc2/tnom not applied\n", rname, mname);
++        return NULL;
++    }
++
++    if (search_plain_identifier(m->model->line, "temper")) {
++        fprintf(stderr, "Warning: behavioral R %s: model %s uses temper, "
++                "tc1/tc2/tnom not applied\n", rname, mname);
++        return NULL;
++    }
++
++    struct behav_r_kv mk = { NULL, NULL, NULL, NULL, NULL, NULL };
++    struct behav_r_kv ik = { NULL, NULL, NULL, NULL, NULL, NULL };
++
++    /* the parameters follow '.model name' */
++    behav_r_kv_scan(skip_token(skip_token(m->model->line)), TRUE, &mk);
++
++    if (mk.tce) {
++        fprintf(stderr, "Warning: behavioral R %s: model %s has tce, which "
++                "a B source cannot express, model not applied\n",
++                rname, mname);
++        behav_r_kv_free(&mk);
++        return NULL;
++    }
++
++    behav_r_kv_scan(rest, FALSE, &ik);
++
++    /* the instance overrides the model, parameter by parameter */
++    const char *tc1 = ik.tc1 ? ik.tc1 : mk.tc1;
++    const char *tc2 = ik.tc2 ? ik.tc2 : mk.tc2;
++
++    /* Warn when the model adds a TC the card does not show.  A
++       tc1/tc2 the instance gives itself was carried before the model was,
++       and is carried the same way without a model, so it is not warned
++       about on either path. */
++    bool mtc1 = mk.tc1 && !ik.tc1, mtc2 = mk.tc2 && !ik.tc2;
++    if ((mtc1 || mtc2) && search_plain_identifier(equation, "temper"))
++        fprintf(stderr, "Warning: behavioral R %s: the expression uses "
++                "temper and model %s adds %s, both are applied\n",
++                rname, mname, mtc1 ? (mtc2 ? "tc1/tc2" : "tc1") : "tc2");
++
++    char *tcs = tprintf("%s%s%s%s", tc1 ? "tc1=" : "", tc1 ? tc1 : "",
++            tc2 ? " tc2=" : "", tc2 ? tc2 : "");
++
++    char *temps;
++    if (mk.tnom) {
++        char *tn = behav_r_operand(mk.tnom);
++        char *t = behav_r_operand(ik.temp ? ik.temp :
++                (ik.dtemp ? ik.dtemp : "0"));
++        temps = tprintf("%s={%s+27-%s}", ik.temp ? "temp" : "dtemp", t, tn);
++        tfree(tn);
++        tfree(t);
++    }
++    else if (ik.temp)
++        temps = tprintf("temp=%s", ik.temp);
++    else if (ik.dtemp)
++        temps = tprintf("dtemp=%s", ik.dtemp);
++    else
++        temps = copy("");
++
++    char *args = tprintf("%s %s", tcs, temps);
++
++    /* the noise branch's resistor is a real one: it takes the model and the
++       instance's own values, and applies the model itself */
++    *noise_args = tprintf("%s%s%s%s%s%s%s", mname,
++            ik.tc1 ? " tc1=" : "", ik.tc1 ? ik.tc1 : "",
++            ik.tc2 ? " tc2=" : "", ik.tc2 ? ik.tc2 : "",
++            ik.temp ? " temp=" : (ik.dtemp ? " dtemp=" : ""),
++            ik.temp ? ik.temp : (ik.dtemp ? ik.dtemp : ""));
++
++    tfree(tcs);
++    tfree(temps);
++    behav_r_kv_free(&mk);
++    behav_r_kv_free(&ik);
++
++    return args;
++}
++
+ /* Markus Kuhn <http://www.cl.cam.ac.uk/~mgk25/> -- 2005-03-30
+  * License: Modified BSD (see http://www.cl.cam.ac.uk/~mgk25/short-license.html)
+  * The utf8_check() function scans the '\0'-terminated string starting
+diff --git a/tests/regression/temper/Makefile.am b/tests/regression/temper/Makefile.am
+index fb32354a2..a709a64b6 100644
+--- a/tests/regression/temper/Makefile.am
++++ b/tests/regression/temper/Makefile.am
+@@ -1,12 +1,17 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ 
+-TESTS = temper-1.cir temper-2.cir temper-3.cir temper-res-1.cir
++TESTS = temper-1.cir temper-2.cir temper-3.cir temper-res-1.cir \
++	temper-res-behav-1.cir temper-res-behav-noise.cir \
++	temper-res-behav-noise-subckt.cir
+ 
+ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
+ 
+ EXTRA_DIST = \
+ 	$(TESTS) \
+-	$(TESTS:.cir=.out)
++	$(TESTS:.cir=.out) \
++	temper-res-behav-1.lib \
++	temper-res-behav-noise.sp \
++	temper-res-behav-noise-subckt.sp
+ 
+ MAINTAINERCLEANFILES = Makefile.in
+diff --git a/tests/regression/temper/temper-res-behav-1.cir b/tests/regression/temper/temper-res-behav-1.cir
+new file mode 100644
+index 000000000..0100491a2
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-1.cir
+@@ -0,0 +1,133 @@
++regression test temper-res-behav-1.cir, R model through the R->B rewrite
++
++* An R card whose value needs a behavioral source (it names v(), i(),
++* temper, hertz or time) is rewritten by inp_compat() into a B source.
++* That rewrite used to drop the card's .model: the B line carried the
++* equation, the instance tc1/tc2 and m only, so the model's tc1/tc2/tnom
++* were lost and the converted resistor was flat with temperature.  At
++* 125 C, 73k with tc1=-2.47e-3 tc2=2.7e-6 tnom=25 under 1 uA read 73 mV
++* where a plain model R reads 56.94 mV.
++*
++* Each pair below drives 1 uA into a converted R that has a model and into
++* a reference, at 0, 25 and 125 C, and every ratio must be 1 within 1e-9.
++*   A  top level, model before the instance; reference is the same
++*      expression times (1+tc1*(temper-25)+tc2*(temper-25)^2), no model
++*   B  in a subckt, model defined after the instance, tc1={...*rsq} from a
++*      global .param; reference as A
++*   C  model from a '.lib file section'; reference as A
++*   D  instance dtemp=10; reference a plain model R with dtemp=10
++*   E  instance temp=50; reference a plain model R with temp=50
++*   F  instance tc1 overrides the model's, the model's tc2 is kept;
++*      reference a plain model R with the same instance tc1
++*   G  model without tnom (27 C reference); reference a plain model R
++*   H  value given first, model after it: 'R n 0 {eq} model'; reference
++*      as D but without dtemp
++* The vectors that span 'reset' live in the const plot: a plain 'let'
++* vector is gone after reset.
++
++.param rsq=0.5
++
++.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
++
++* A
++ia 0 a 1u
++ra a 0 rm r={73k*(1+1e-9*abs(v(a)))}
++iar 0 ar 1u
++rar ar 0 r={73k*(1+1e-9*abs(v(ar)))*(1+(-2.47e-3)*(temper-25)+2.7e-6*(temper-25)^2)}
++
++* B
++xb b rsub
++ibr 0 br 1u
++rbr br 0 r={73k*(1+1e-9*abs(v(br)))*(1+(-2.47e-3)*(temper-25)+2.7e-6*(temper-25)^2)}
++.subckt rsub n
++ib 0 n 1u
++r1 n 0 rs r={146k*rsq*(1+1e-9*abs(v(n)))}
++.model rs r tc1={-4.94e-3*rsq} tc2=2.7e-6 tnom=25
++.ends
++
++* C
++.lib temper-res-behav-1.lib rsec
++ic 0 c 1u
++rc c 0 rlib r={73k*(1+1e-9*abs(v(c)))}
++icr 0 cr 1u
++rcr cr 0 r={73k*(1+1e-9*abs(v(cr)))*(1+(-2.47e-3)*(temper-25)+2.7e-6*(temper-25)^2)}
++
++* D
++id 0 d 1u
++rd d 0 rm r={73k+0*v(d)} dtemp=10
++idr 0 dr 1u
++rdr dr 0 rm r=73k dtemp=10
++
++* E
++ie 0 e 1u
++re e 0 rm r={73k+0*v(e)} temp=50
++ier 0 er 1u
++rer er 0 rm r=73k temp=50
++
++* F
++iff 0 f 1u
++rf f 0 rm r={73k+0*v(f)} tc1=1e-3
++ifr 0 fr 1u
++rfr fr 0 rm r=73k tc1=1e-3
++
++* G
++.model rn r tc1=-2.47e-3 tc2=2.7e-6
++ig 0 g 1u
++rg g 0 rn r={73k+0*v(g)}
++igr 0 gr 1u
++rgr gr 0 rn r=73k
++
++* H
++ih 0 h 1u
++rh h 0 {73k+0*v(h)} rm
++ihr 0 hr 1u
++rhr hr 0 rm r=73k
++
++.control
++
++let const.maxerr = 0
++let const.spread = 0
++let const.v25 = 0
++
++foreach tk 0 25 125
++  reset
++  set temp=$tk
++  op
++  let ratio = vector(8)
++  let ratio[0] = v(a)/v(ar)
++  let ratio[1] = v(b)/v(br)
++  let ratio[2] = v(c)/v(cr)
++  let ratio[3] = v(d)/v(dr)
++  let ratio[4] = v(e)/v(er)
++  let ratio[5] = v(f)/v(fr)
++  let ratio[6] = v(g)/v(gr)
++  let ratio[7] = v(h)/v(hr)
++  let err = vecmax(abs(ratio - 1))
++  echo "Note: temp =" $tk "err =" $&err
++  echo "Note: ratio =" $&ratio
++  if err > const.maxerr
++    let const.maxerr = err
++  end
++  if $tk = 25
++    let const.v25 = v(a)
++  end
++  if $tk = 125
++    let const.spread = abs(v(a)/const.v25 - 1)
++  end
++end
++
++* the TC must actually move the converted R: 25 C -> 125 C is about -22 %
++echo "Note: maxerr =" $&const.maxerr "spread =" $&const.spread
++
++* success is the tested branch, so a vector that is missing fails the deck
++if const.maxerr <= 1e-9 and const.spread >= 0.1
++  echo "INFO: success"
++  quit 0
++else
++  echo "ERROR: test failed"
++  quit 1
++end
++
++.endc
++
++.end
+diff --git a/tests/regression/temper/temper-res-behav-1.lib b/tests/regression/temper/temper-res-behav-1.lib
+new file mode 100644
+index 000000000..24b18a2e3
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-1.lib
+@@ -0,0 +1,6 @@
++* library for temper-res-behav-1.cir, pair C: a resistor model that
++* reaches the deck through '.lib file section'
++
++.lib rsec
++.model rlib r tc1r=-2.47e-3 tc2r=2.7e-6 tnom=25
++.endl rsec
+diff --git a/tests/regression/temper/temper-res-behav-1.out b/tests/regression/temper/temper-res-behav-1.out
+new file mode 100644
+index 000000000..8e9036969
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-1.out
+@@ -0,0 +1 @@
++INFO: success
+diff --git a/tests/regression/temper/temper-res-behav-noise-subckt.cir b/tests/regression/temper/temper-res-behav-noise-subckt.cir
+new file mode 100644
+index 000000000..42ec10b59
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-noise-subckt.cir
+@@ -0,0 +1,70 @@
++regression test temper-res-behav-noise-subckt.cir, subckt R model on the noise branch
++
++* temper-res-behav-noise.cir, for a converted resistor inside a subcircuit.
++* With 'set enable_noisy_r', the R->B rewrite adds a noise branch whose
++* 1 ohm resistor carries the card's model name.  The rewrite runs before
++* subcircuit expansion, so that name is translated afterwards, and it must
++* end up naming the subcircuit's own model, which here shadows a global
++* model of the same name with a different TC and tnom.
++*
++* The switch is read while the netlist is parsed, so this deck sources
++* temper-res-behav-noise-subckt.sp with the switch on.  Each converted R
++* must match a plain R in the same subcircuit within 1e-9 at 0, 25 and
++* 125 C, and its noise must move with temperature (spread), so that a
++* noiseless or flat branch cannot pass.  The vectors that span 'reset' live
++* in the const plot.  check.sh's filter deletes every line containing
++* 'oise', so the integrated noise values are copied into vectors with
++* other names.
++
++.control
++
++let const.maxerr = 0
++let const.nlo = 0
++let const.nhi = 0
++
++set enable_noisy_r
++source $inputdir/temper-res-behav-noise-subckt.sp
++
++foreach tk 0 25 125
++  reset
++  set temp=$tk
++  noise v(a) ia lin 2 1k 2k
++  let const.na = onoise_total
++  noise v(b) ib lin 2 1k 2k
++  let const.nb = onoise_total
++  noise v(d) id lin 2 1k 2k
++  let const.nd = onoise_total
++  noise v(e) ie lin 2 1k 2k
++  let const.ne = onoise_total
++  let ratio = vector(2)
++  let ratio[0] = const.na/const.nb
++  let ratio[1] = const.nd/const.ne
++  let err = vecmax(abs(ratio - 1))
++  echo "Note: temp =" $tk "err =" $&err
++  echo "Note: ratio =" $&ratio
++  if err > const.maxerr
++    let const.maxerr = err
++  end
++  if $tk = 0
++    let const.nlo = const.na
++  end
++  if $tk = 125
++    let const.nhi = const.na
++  end
++end
++
++let spread = const.nhi/const.nlo - 1
++echo "Note: maxerr =" $&const.maxerr "spread =" $&spread
++
++* success is the tested branch, so a vector that is missing fails the deck
++if const.maxerr <= 1e-9 and spread >= 0.1
++  echo "INFO: success"
++  quit 0
++else
++  echo "ERROR: test failed"
++  quit 1
++end
++
++.endc
++
++.end
+diff --git a/tests/regression/temper/temper-res-behav-noise-subckt.out b/tests/regression/temper/temper-res-behav-noise-subckt.out
+new file mode 100644
+index 000000000..8e9036969
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-noise-subckt.out
+@@ -0,0 +1 @@
++INFO: success
+diff --git a/tests/regression/temper/temper-res-behav-noise-subckt.sp b/tests/regression/temper/temper-res-behav-noise-subckt.sp
+new file mode 100644
+index 000000000..a8fb7cd20
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-noise-subckt.sp
+@@ -0,0 +1,28 @@
++netlist for temper-res-behav-noise-subckt.cir, sourced from its .control block
++
++* The noise branch of a converted R inside a subcircuit.  Its 1 ohm
++* resistor names the model as the card wrote it, and subcircuit expansion
++* has to translate that name to the subckt's own model (xs:rm), not to the
++* global one of the same name, whose TC and tnom are different on purpose.
++* The local model also comes after the instances that use it, as sky130's do.
++*   a  converted R, local model           b  plain R, the same model
++*   d  converted R, instance dtemp=10     e  plain R, dtemp=10
++* 'r={73k+0*v(x)}' forces the R->B rewrite without changing the value.
++
++.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
++
++.subckt sr a b d e
++ra a 0 rm r={73k+0*v(a)}
++rb b 0 rm r=73k
++rd d 0 rm r={73k+0*v(d)} dtemp=10
++re e 0 rm r=73k dtemp=10
++.model rm r tc1=4e-3 tc2=-1e-6 tnom=40
++.ends
++
++ia 0 a dc 1u ac 1
++ib 0 b dc 1u ac 1
++id 0 d dc 1u ac 1
++ie 0 e dc 1u ac 1
++xs a b d e sr
++
++.end
+diff --git a/tests/regression/temper/temper-res-behav-noise.cir b/tests/regression/temper/temper-res-behav-noise.cir
+new file mode 100644
+index 000000000..f13098b7e
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-noise.cir
+@@ -0,0 +1,73 @@
++regression test temper-res-behav-noise.cir, R model on the noise branch
++
++* A resistor rewritten into a B source by inp_compat() is noiseless unless
++* 'set enable_noisy_r' is given before the netlist is read (or the
++* instance has noisy=1).  With the switch on, the rewrite adds a noise
++* branch: a 1 ohm resistor whose noise current is scaled into the B source.
++* That 1 ohm resistor has to carry the original card's model and its
++* dtemp/temp, so that the real resistor device applies the TC, the tnom and
++* the noise temperature.  Before, it carried neither, and the converted
++* resistor's thermal noise was flat with temperature and blind to dtemp/temp.
++*
++* The switch is read while the netlist is parsed, so this deck has no
++* netlist of its own: it sources temper-res-behav-noise.sp twice, first
++* with the switch off (a converted R must stay noiseless), then with it on
++* (every converted R must match a plain model R within 1e-9 at 0, 25 and
++* 125 C).  The vectors that span 'reset' live in the const plot.
++* check.sh's filter deletes every line containing 'oise', so the integrated
++* noise values are copied into vectors with other names.
++
++.control
++
++let const.maxerr = 0
++let const.quiet = 1
++
++unset enable_noisy_r
++source $inputdir/temper-res-behav-noise.sp
++noise v(a) ia lin 2 1k 2k
++let const.quiet = onoise_total
++
++set enable_noisy_r
++source $inputdir/temper-res-behav-noise.sp
++
++foreach tk 0 25 125
++  reset
++  set temp=$tk
++  noise v(a) ia lin 2 1k 2k
++  let const.na = onoise_total
++  noise v(b) ib lin 2 1k 2k
++  let const.nb = onoise_total
++  noise v(d) id lin 2 1k 2k
++  let const.nd = onoise_total
++  noise v(e) ie lin 2 1k 2k
++  let const.ne = onoise_total
++  noise v(f) iff lin 2 1k 2k
++  let const.nf = onoise_total
++  noise v(g) ig lin 2 1k 2k
++  let const.ng = onoise_total
++  let ratio = vector(3)
++  let ratio[0] = const.na/const.nb
++  let ratio[1] = const.nd/const.ne
++  let ratio[2] = const.nf/const.ng
++  let err = vecmax(abs(ratio - 1))
++  echo "Note: temp =" $tk "err =" $&err
++  echo "Note: ratio =" $&ratio
++  if err > const.maxerr
++    let const.maxerr = err
++  end
++end
++
++echo "Note: maxerr =" $&const.maxerr "quiet =" $&const.quiet
++
++* success is the tested branch, so a vector that is missing fails the deck
++if const.maxerr <= 1e-9 and const.quiet = 0
++  echo "INFO: success"
++  quit 0
++else
++  echo "ERROR: test failed"
++  quit 1
++end
++
++.endc
++
++.end
+diff --git a/tests/regression/temper/temper-res-behav-noise.out b/tests/regression/temper/temper-res-behav-noise.out
+new file mode 100644
+index 000000000..8e9036969
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-noise.out
+@@ -0,0 +1 @@
++INFO: success
+diff --git a/tests/regression/temper/temper-res-behav-noise.sp b/tests/regression/temper/temper-res-behav-noise.sp
+new file mode 100644
+index 000000000..3403b4273
+--- /dev/null
++++ b/tests/regression/temper/temper-res-behav-noise.sp
+@@ -0,0 +1,27 @@
++netlist for temper-res-behav-noise.cir, sourced from its .control block
++
++* Each output node has one resistor to ground and its own 1 uA source, so
++* the output noise at a node is the thermal noise of that resistor alone.
++*   a  converted R with a tnom=25 model     b  plain R, the same model
++*   d  converted R, instance dtemp=10       e  plain R, dtemp=10
++*   f  converted R, instance temp=50        g  plain R, temp=50
++* 'r={73k+0*v(x)}' forces the R->B rewrite without changing the value.
++
++.model rm r tc1=-2.47e-3 tc2=2.7e-6 tnom=25
++
++ia 0 a dc 1u ac 1
++ra a 0 rm r={73k+0*v(a)}
++ib 0 b dc 1u ac 1
++rb b 0 rm r=73k
++
++id 0 d dc 1u ac 1
++rd d 0 rm r={73k+0*v(d)} dtemp=10
++ie 0 e dc 1u ac 1
++re e 0 rm r=73k dtemp=10
++
++iff 0 f dc 1u ac 1
++rf f 0 rm r={73k+0*v(f)} temp=50
++ig 0 g dc 1u ac 1
++rg g 0 rm r=73k temp=50
++
++.end
