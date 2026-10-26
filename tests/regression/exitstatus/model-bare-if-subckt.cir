@@ -1,0 +1,19 @@
+* a .model card with neither name nor type, inside a subcircuit, with .if
+* doc/codex/issues/0074 criterion 3, second shape.  In a deck with .if
+* nothing reports the card before subcircuit expansion, and modtranslate()
+* in subckt.c, which renames the models of a subcircuit, took a NULL name
+* from it and died of SIGSEGV (rc=139) in wl_find().
+.if (1)
+.endif
+.subckt foo a b
+.model
+r1 a b 1k
+.ends
+x1 1 0 foo
+i1 0 1 1u
+r1 1 0 1k
+.control
+op
+quit 0
+.endc
+.end

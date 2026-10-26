@@ -1,0 +1,3 @@
+# rc=139, 128+SIGSEGV, before the fix.  The criterion is a normal error exit
+# with the same diagnostic as the deck without .if.
+1

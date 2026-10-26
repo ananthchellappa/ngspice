@@ -111,13 +111,29 @@
 ## onto an expression that already has one, it says so on stderr, and
 ## check.sh's FILTER would delete every one of those lines.  The numbers are
 ## asserted by tests/regression/temper/temper-res-behav-1.cir.
+##
+## The seven model-* decks are doc/codex/issues/0074: a .model card with no
+## type, or with no name either, used to kill a deck that has .if with
+## SIGSEGV, where the same card without .if stops with "no model type given"
+## and 1.  model-typeless-noif.cir is that unchanged control.
+## model-typeless-if.cir and model-bare-if.cir are the two ways into the macro
+## expander's crash, model-bare-if-subckt.cir the way into modtranslate()'s,
+## and model-typeless-if-subckt.cir a subcircuit card that crashed in the
+## expander and would otherwise have reached the parser as a warning.
+## model-typeless-if-dead.cir puts the card in a branch that is not taken, so
+## its status is 0.  model-typeless-after-if.cir has no .if itself: its
+## .control block reads a deck with .if and then one with the bad card,
+## because the flag that marks a deck as having .if is never cleared.
 
 TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
 	sim-status-properties.cir sim-status-unset.cir \
 	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir \
 	op-empty-stdin.cir op-empty-notty.cir op-empty-raw.cir \
-	behav-r-model-warn.cir
+	behav-r-model-warn.cir \
+	model-typeless-noif.cir model-typeless-if.cir model-bare-if.cir \
+	model-typeless-if-subckt.cir model-bare-if-subckt.cir \
+	model-typeless-if-dead.cir model-typeless-after-if.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) \
 	$(SHELL) $(top_srcdir)/tests/bin/check_status.sh $(top_builddir)/src/ngspice
@@ -157,7 +173,21 @@ EXTRA_DIST = \
 	op-empty-raw.invoke \
 	op-empty-raw.files \
 	behav-r-model-warn.status \
-	behav-r-model-warn.err
+	behav-r-model-warn.err \
+	model-typeless-noif.status \
+	model-typeless-noif.err \
+	model-typeless-if.status \
+	model-typeless-if.err \
+	model-bare-if.status \
+	model-bare-if.err \
+	model-typeless-if-subckt.status \
+	model-typeless-if-subckt.err \
+	model-bare-if-subckt.status \
+	model-bare-if-subckt.err \
+	model-typeless-if-dead.status \
+	model-typeless-if-dead.err \
+	model-typeless-after-if.status \
+	model-typeless-after-if.err
 
 # The driver captures each run's stdout and stderr into the build directory
 # and filters the latter in place; tran-empty-netlist.files asserts that the
@@ -170,7 +200,9 @@ EXTRA_DIST = \
 # 'flags -r' line causes, and selftest-invoke.evidence, which its .control
 # block writes so that the route can be read off a file.  op-empty-raw.cir
 # leaves one for the same reason -- op-empty-raw.raw, which its own 'flags -r'
-# line causes and which its .files asserts on.
+# line causes and which its .files asserts on.  model-typeless-after-if.cir
+# leaves the two decks its .control block writes, mtai_if.cir and
+# mtai_bad.cir.
 #
 # 'core' and 'core.*' are here for five of the six op-empty-* decks -- every
 # one but op-empty-raw.cir, whose whole subject is that its route never
@@ -211,6 +243,24 @@ CLEANFILES = \
 	op-empty-raw.stderr.filtered op-empty-raw.stderr.expected \
 	behav-r-model-warn.stdout behav-r-model-warn.stderr \
 	behav-r-model-warn.stderr.filtered behav-r-model-warn.stderr.expected \
+	model-typeless-noif.stdout model-typeless-noif.stderr \
+	model-typeless-noif.stderr.filtered model-typeless-noif.stderr.expected \
+	model-typeless-if.stdout model-typeless-if.stderr \
+	model-typeless-if.stderr.filtered model-typeless-if.stderr.expected \
+	model-bare-if.stdout model-bare-if.stderr \
+	model-bare-if.stderr.filtered model-bare-if.stderr.expected \
+	model-typeless-if-subckt.stdout model-typeless-if-subckt.stderr \
+	model-typeless-if-subckt.stderr.filtered \
+	model-typeless-if-subckt.stderr.expected \
+	model-bare-if-subckt.stdout model-bare-if-subckt.stderr \
+	model-bare-if-subckt.stderr.filtered model-bare-if-subckt.stderr.expected \
+	model-typeless-if-dead.stdout model-typeless-if-dead.stderr \
+	model-typeless-if-dead.stderr.filtered \
+	model-typeless-if-dead.stderr.expected \
+	model-typeless-after-if.stdout model-typeless-after-if.stderr \
+	model-typeless-after-if.stderr.filtered \
+	model-typeless-after-if.stderr.expected \
+	mtai_if.cir mtai_bad.cir \
 	op-empty-raw.raw \
 	rawspice.raw core core.*
 

@@ -1,0 +1,12 @@
+* a .model card with no type, in a deck without .if
+* doc/codex/issues/0074, the control for model-typeless-if.cir.  This deck
+* has always stopped cleanly; it is here so that the two decks assert one
+* diagnostic, and a change to either shape shows up as a difference.
+.model bad
+i1 0 1 1u
+r1 1 0 1k
+.control
+op
+quit 0
+.endc
+.end

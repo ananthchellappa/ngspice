@@ -1,0 +1,4 @@
+# rc=139 before the fix.  The check runs on the flat deck, so the
+# diagnostic names the card as subcircuit expansion left it, '.model x1:bad ',
+# while the line number and file are those of the card the deck wrote.
+1

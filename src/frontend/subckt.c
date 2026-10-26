@@ -1865,6 +1865,11 @@ modtranslate(struct card *c, char *subname, wordlist *new_modnames)
 
             model_name = gettok(&t);
 
+            /* a '.model' card with no name is left as it is: there is
+               nothing to rename, and inp_chk_model_types() reports it */
+            if (!model_name)
+                continue;
+
             new_model_name = tprintf("%s:%s", subname, model_name);
 
             /* remember the translation */

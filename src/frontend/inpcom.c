@@ -183,6 +183,8 @@ void inp_rem_unused_models(struct nscope *root, struct card *deck);
 static struct modellist *inp_find_model(
         struct nscope *scope, const char *name);
 static int inp_collect_models(struct card *deck);
+static void inp_chk_model_type(struct card *card, char *model_type);
+void inp_chk_model_types(struct card *deck);
 static void inp_free_models(struct nscope *level);
 static bool behav_r_models_wanted(struct card *deck);
 static char *behav_r_model_token(const char *rest, const char *line);
@@ -5229,10 +5231,14 @@ static char *inp_expand_macro_in_str(struct function_env *env, char *str)
     /* If we have '.model mymod mdname(params)', don't treat this as a function,
     but skip '.model mymod mdname' and only then start searching for functions. */
     if (ciprefix(".model", search_ptr)){
-        search_ptr = nexttok(search_ptr);
-        search_ptr = nexttok(search_ptr);
-        char *end;
-        findtok_noparen(&search_ptr, &search_ptr, &end);
+        /* The card may stop short of the type, or of the name: skip_token()
+           never returns NULL, and the type gets its own pointer, because
+           findtok_noparen() sets it to NULL when there is no type.  A card
+           without a type is reported by inp_chk_model_type(). */
+        search_ptr = skip_token(search_ptr); /* .model */
+        search_ptr = skip_token(search_ptr); /* model name */
+        char *type, *end;
+        findtok_noparen(&search_ptr, &type, &end);
     }
     // printf("%s: enter(\"%s\")\n", __FUNCTION__, str);
     while ((open_paren_ptr = strchr(search_ptr, '(')) != NULL) {
@@ -10192,16 +10198,9 @@ static int inp_collect_models(struct card *deck)
 
         if (ciprefix(".model", curr_line)) {
             struct modellist *modl_new;
-            modl_new = TMALLOC(struct modellist, 1);
             char *model_type = get_model_type(curr_line);
-            if (!model_type) {
-                fprintf(stderr, "Error: no model type given in line %s!\n", curr_line);
-                fprintf(stderr,
-                    "    line no. %d from file %s!\n",
-                    card->linenum_orig, card->linesource);
-                tfree(modl_new);
-                controlled_exit(EXIT_BAD);
-            }
+            inp_chk_model_type(card, model_type);
+            modl_new = TMALLOC(struct modellist, 1);
             modl_new->elemb = inp_get_elem_ident(model_type);
             modl_new->modelname = get_subckt_model_name(curr_line);
             modl_new->model = card;
@@ -10213,6 +10212,59 @@ static int inp_collect_models(struct card *deck)
     }
 
     return skip_control;
+}
+
+
+/* Stop the run if the .model card card gave no model type: model_type is
+   what get_model_type() returned for it. */
+static void inp_chk_model_type(struct card *card, char *model_type)
+{
+    if (model_type)
+        return;
+    fprintf(stderr, "Error: no model type given in line %s!\n", card->line);
+    fprintf(stderr,
+        "    line no. %d from file %s!\n",
+        card->linenum_orig, card->linesource);
+    controlled_exit(EXIT_BAD);
+}
+
+
+/* Stop the run on any .model card of deck that gives no model type.
+   inp_collect_models() makes this check while it builds the model lists,
+   but inp_readall() does not call it for a deck that has .if, because a
+   model may be in a branch that is not taken.  inp_spsource() calls this
+   once the branches are decided and the deck is flat, so a deck with .if
+   gets the same diagnostic as one without.  The title line is skipped. */
+void inp_chk_model_types(struct card *deck)
+{
+    struct card *card;
+    int skip_control = 0;
+
+    for (card = deck->nextcard; card; card = card->nextcard) {
+
+        char *curr_line = card->line;
+
+        if (ciprefix(".control", curr_line)) {
+            skip_control++;
+            continue;
+        }
+        else if (ciprefix(".endc", curr_line)) {
+            skip_control--;
+            continue;
+        }
+        else if (skip_control > 0) {
+            continue;
+        }
+
+        if (*curr_line == '*')
+            continue;
+
+        if (ciprefix(".model", curr_line)) {
+            char *model_type = get_model_type(curr_line);
+            inp_chk_model_type(card, model_type);
+            tfree(model_type);
+        }
+    }
 }
 
 

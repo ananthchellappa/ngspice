@@ -1,0 +1,4 @@
+Error: no model type given in line .model bad!
+    line no. 2 from file mtai_bad.cir!
+
+ERROR: fatal error in ngspice, exit(1)

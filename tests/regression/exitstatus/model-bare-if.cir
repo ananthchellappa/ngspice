@@ -1,0 +1,15 @@
+* a .model card with neither name nor type, in a deck with .if
+* doc/codex/issues/0074 criterion 1, second shape.  '.model bad' leaves the
+* macro expander an empty string to scan for the type; '.model' alone leaves
+* it no string at all (nexttok() returns NULL), which is a second way to the
+* same SIGSEGV (rc=139).
+.if (1)
+.endif
+.model
+i1 0 1 1u
+r1 1 0 1k
+.control
+op
+quit 0
+.endc
+.end

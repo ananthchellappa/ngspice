@@ -1,0 +1,17 @@
+* a .model card with no type, in a deck that also has .if
+* doc/codex/issues/0074 criterion 1.  The deck's only mistake is '.model bad'
+* with no type after the name.  Without the .if block this deck stops with
+* "no model type given" (model-typeless-noif.cir).  The .if block, empty as
+* it is, sets has_if in inp_readall(), which skips the unused-model pass that
+* gives that diagnostic.  Before the fix the run then died of SIGSEGV
+* (rc=139) in inp_expand_macro_in_str().
+.if (1)
+.endif
+.model bad
+i1 0 1 1u
+r1 1 0 1k
+.control
+op
+quit 0
+.endc
+.end

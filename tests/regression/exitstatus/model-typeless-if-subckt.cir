@@ -1,0 +1,20 @@
+* a .model card with no type, inside a subcircuit, in a deck with .if
+* doc/codex/issues/0074 criterion 3.  The subcircuit is used, so its model
+* is part of the circuit.  Without the .if block this deck stops with "no
+* model type given".  Before the fix the run died of SIGSEGV (rc=139); with
+* only the macro expander mended it went on to warn "Unknown model type -
+* ignored" and exit 0, because a deck with .if never meets the check.
+.if (1)
+.endif
+.subckt foo a b
+.model bad
+r1 a b 1k
+.ends
+x1 1 0 foo
+i1 0 1 1u
+r1 1 0 1k
+.control
+op
+quit 0
+.endc
+.end

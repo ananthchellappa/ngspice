@@ -1,0 +1,3 @@
+# rc=139 before the fix.  The second deck read has the mistake, and a batch
+# run stops on it with 1.
+1

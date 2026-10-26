@@ -81,6 +81,7 @@ extern struct nscope* inp_add_levels(struct card *deck);
 extern void inp_rem_levels(struct nscope* root);
 extern void comment_out_unused_subckt_models(struct card *deck);
 extern void inp_rem_unused_models(struct nscope *root, struct card *deck);
+extern void inp_chk_model_types(struct card *deck);
 
 extern void modprobenames(INPtables * tab);
 
@@ -1025,6 +1026,9 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
 
             /* handle .if ... .elseif ... .else ... .endif statements. */
             dotifeval(deck);
+
+            /* a .model card without a type, in a deck with .if */
+            inp_chk_model_types(deck);
 
             /* get csparams and create vectors, available
                in plot 'const' of a .control section */

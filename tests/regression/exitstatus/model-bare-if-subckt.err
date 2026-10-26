@@ -1,0 +1,4 @@
+Error: no model type given in line .model!
+    line no. 9 from file model-bare-if-subckt.cir!
+
+ERROR: fatal error in ngspice, exit(1)

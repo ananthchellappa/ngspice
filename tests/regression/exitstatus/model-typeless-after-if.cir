@@ -1,0 +1,25 @@
+* a .model card with no type, in a deck without .if, read after one with .if
+* doc/codex/issues/0074 criterion 4.  has_if in inpcom.c is set by the first
+* deck with .if a session reads and never cleared, so a later deck without
+* .if is treated as if it had one.  This deck has neither .if nor a bad
+* model.  Its .control block writes two decks: mtai_if.cir, clean and with
+* an .if block, and mtai_bad.cir, with a typeless .model and no .if.  It
+* reads them in that order.  Alone, mtai_bad.cir stops with "no model type
+* given"; read second, it used to die of SIGSEGV (rc=139).
+i1 0 1 1u
+r1 1 0 1k
+.control
+echo "mtai_if" > mtai_if.cir
+echo ".if (1)" >> mtai_if.cir
+echo ".endif" >> mtai_if.cir
+echo "r1 1 0 1k" >> mtai_if.cir
+echo ".end" >> mtai_if.cir
+echo "mtai_bad" > mtai_bad.cir
+echo ".model bad" >> mtai_bad.cir
+echo "r1 1 0 1k" >> mtai_bad.cir
+echo ".end" >> mtai_bad.cir
+source mtai_if.cir
+source mtai_bad.cir
+quit 0
+.endc
+.end

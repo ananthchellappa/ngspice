@@ -1,0 +1,16 @@
+* a .model card with no type, in the false branch of an .if
+* doc/codex/issues/0074 criterion 2.  dotifeval() in inp.c comments out the
+* lines of a false branch, so '.model bad' is not part of the circuit and the
+* deck has no mistake.  Before the fix the run died of SIGSEGV (rc=139)
+* anyway, because macro expansion in inpcom.c runs long before dotifeval()
+* and reads every line.
+.if (0)
+.model bad
+.endif
+i1 0 1 1u
+r1 1 0 1k
+.control
+op
+quit 0
+.endc
+.end

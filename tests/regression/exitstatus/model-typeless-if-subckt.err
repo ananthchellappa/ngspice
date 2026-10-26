@@ -1,0 +1,4 @@
+Error: no model type given in line .model x1:bad !
+    line no. 10 from file model-typeless-if-subckt.cir!
+
+ERROR: fatal error in ngspice, exit(1)
