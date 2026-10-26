@@ -3,17 +3,24 @@
 * or time into a B source, and carries the card's .model onto the B line as
 * text: tc1/tc2 (the instance's override the model's) and a tnom offset in
 * dtemp or temp.  tests/regression/temper/temper-res-behav-1.cir asserts the
-* numbers.  This deck asserts the five cases in which the rewrite says what
-* it did not do, or did twice; they go to stderr, which tests/bin/check.sh
-* never sees, hence this directory:
+* numbers.  This deck asserts the cases in which the rewrite says what it
+* did not do, or did twice, and three in which it must stay silent; they go
+* to stderr, which tests/bin/check.sh never sees, hence this directory:
 *
 *   r1  the model does not exist                  -> not resolved, nothing carried
 *   r2  the model has tce, which an ASRC lacks    -> model not applied
-*   r3  the expression already has a temper TC    -> applied anyway, and said so
+*   r3  the expression already has a temper TC    -> applied anyway, and said so,
+*       and the model's TC is tc1 alone              naming tc1 only
 *   r4  the model's own values use temper         -> nothing carried
 *   r5  two exact models in scope (.if/.else; the -> not resolved, nothing
 *       .if is resolved after the rewrite)           carried
 *   r6  a model that resolves                     -> no warning
+*   r7  a temper expression, the instance's tc1   -> no warning: the model adds
+*       overrides the model's only TC                nothing, and the card shows
+*                                                    its own tc1
+*   r8  as r7, but the model also has tc2         -> the warning names tc2 only
+*   r9  a temper expression and an instance tc1,  -> no warning, as for r7, and
+*       no model                                     the line is today's
 *
 * The deck has an .if, so inp_rem_unused_models() does not run and adds no
 * "can't find model" line of its own.  Every case still simulates: the
@@ -22,6 +29,7 @@
 .model rt r tc1=1e-3 tce=2m tnom=25
 .model rtemp r tc1={1e-3*temper/25}
 .model rok r tc1=1e-3 tnom=25
+.model rboth r tc1=1e-3 tc2=1e-6
 .if (sel == 1)
 .model ramb r tc1=1e-3
 .else
@@ -39,6 +47,12 @@ i5 0 5 1u
 r5 5 0 ramb r={1k+0*v(5)}
 i6 0 6 1u
 r6 6 0 rok r={1k+0*v(6)}
+i7 0 7 1u
+r7 7 0 rok r={1k*(1+1e-3*(temper-25))} tc1=2e-3
+i8 0 8 1u
+r8 8 0 rboth r={1k*(1+1e-3*(temper-25))} tc1=2e-3
+i9 0 9 1u
+r9 9 0 r={1k*(1+1e-3*(temper-25))} tc1=2e-3
 .control
 op
 quit 0

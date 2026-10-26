@@ -112,7 +112,7 @@
 ## check.sh's FILTER would delete every one of those lines.  The numbers are
 ## asserted by tests/regression/temper/temper-res-behav-1.cir.
 
-TESTS =tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
+TESTS = tran-empty-netlist.cir selftest-status.cir selftest-invoke.cir \
 	sim-status-guard.cir sim-status-guard-ok.cir \
 	sim-status-properties.cir sim-status-unset.cir \
 	op-empty-netlist.cir op-empty-tran.cir op-empty-control.cir \

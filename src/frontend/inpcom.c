@@ -1356,9 +1356,19 @@ bool inp_reading_netlist(void)
    binary only the first exists: controlled_exit() there calls exit() and the
    process is gone, so no state of ours outlives a fatal read. */
 
+/* The scope tree whose .model lists inp_readall_cards() has built for the
+   R->B rewrite and not yet freed, or NULL.  A fatal error inside inp_compat()
+   (or in collecting the lists) leaves through one of the paths above, which
+   all come here, so this is where those lists are freed. */
+static struct nscope *behav_r_models_root = NULL;
+
 void inp_netlist_read_reset(void)
 {
     inp_netlist_read_depth = 0;
+    if (behav_r_models_root) {
+        inp_free_models(behav_r_models_root);
+        behav_r_models_root = NULL;
+    }
 }
 
 static struct card *inp_readall_cards(FILE *fp, const char *dir_name,
@@ -1582,11 +1592,15 @@ static struct card *inp_readall_cards(FILE *fp, const char *dir_name,
                tc1/tc2/tnom, so the .model lists are rebuilt for the rewrite
                (they were freed above, or never built in a deck with .if) */
             bool r_models = behav_r_models_wanted(working);
-            if (r_models)
+            if (r_models) {
+                behav_r_models_root = root;
                 inp_collect_models(working);
+            }
             inp_compat(working);
-            if (r_models)
+            if (r_models) {
                 inp_free_models(root);
+                behav_r_models_root = NULL;
+            }
             working = cc->nextcard;
             /* B source numparam compatibility transformation */
             inp_bsource_compat(working);
@@ -10557,10 +10571,15 @@ static char *behav_r_model_args(struct card *card, const char *rname,
     const char *tc1 = ik.tc1 ? ik.tc1 : mk.tc1;
     const char *tc2 = ik.tc2 ? ik.tc2 : mk.tc2;
 
-    if ((tc1 || tc2) && search_plain_identifier(equation, "temper"))
+    /* decision 4: warn when the model adds a TC the card does not show.  A
+       tc1/tc2 the instance gives itself was carried before the model was,
+       and is carried the same way without a model, so it is not warned
+       about on either path. */
+    bool mtc1 = mk.tc1 && !ik.tc1, mtc2 = mk.tc2 && !ik.tc2;
+    if ((mtc1 || mtc2) && search_plain_identifier(equation, "temper"))
         fprintf(stderr, "Warning: behavioral R %s: the expression uses "
-                "temper and model %s adds tc1/tc2, both are applied\n",
-                rname, mname);
+                "temper and model %s adds %s, both are applied\n",
+                rname, mname, mtc1 ? (mtc2 ? "tc1/tc2" : "tc1") : "tc2");
 
     char *tcs = tprintf("%s%s%s%s", tc1 ? "tc1=" : "", tc1 ? tc1 : "",
             tc2 ? " tc2=" : "", tc2 ? tc2 : "");

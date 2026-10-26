@@ -1,0 +1,69 @@
+regression test temper-res-behav-noise-subckt.cir, subckt R model on the noise branch
+
+* temper-res-behav-noise.cir, for a converted resistor inside a subcircuit.
+* With 'set enable_noisy_r', the R->B rewrite adds a noise branch whose
+* 1 ohm resistor carries the card's model name.  The rewrite runs before
+* subcircuit expansion, so that name is translated afterwards, and it must
+* end up naming the subcircuit's own model, which here shadows a global
+* model of the same name with a different TC and tnom.
+*
+* The switch is read while the netlist is parsed, so this deck sources
+* temper-res-behav-noise-subckt.sp with the switch on.  Each converted R
+* must match a plain R in the same subcircuit within 1e-9 at 0, 25 and
+* 125 C, and its noise must move with temperature (spread), so that a
+* noiseless or flat branch cannot pass.  The vectors that span 'reset' live
+* in the const plot.  check.sh's filter deletes every line containing
+* 'oise', so the integrated noise values are copied into vectors with
+* other names.
+
+.control
+
+let const.maxerr = 0
+let const.nlo = 0
+let const.nhi = 0
+
+set enable_noisy_r
+source $inputdir/temper-res-behav-noise-subckt.sp
+
+foreach tk 0 25 125
+  reset
+  set temp=$tk
+  noise v(a) ia lin 2 1k 2k
+  let const.na = onoise_total
+  noise v(b) ib lin 2 1k 2k
+  let const.nb = onoise_total
+  noise v(d) id lin 2 1k 2k
+  let const.nd = onoise_total
+  noise v(e) ie lin 2 1k 2k
+  let const.ne = onoise_total
+  let ratio = vector(2)
+  let ratio[0] = const.na/const.nb
+  let ratio[1] = const.nd/const.ne
+  let err = vecmax(abs(ratio - 1))
+  echo "Note: temp =" $tk "err =" $&err
+  echo "Note: ratio =" $&ratio
+  if err > const.maxerr
+    let const.maxerr = err
+  end
+  if $tk = 0
+    let const.nlo = const.na
+  end
+  if $tk = 125
+    let const.nhi = const.na
+  end
+end
+
+let spread = const.nhi/const.nlo - 1
+echo "Note: maxerr =" $&const.maxerr "spread =" $&spread
+
+if const.maxerr > 1e-9 or spread < 0.1
+  echo "ERROR: test failed"
+  quit 1
+else
+  echo "INFO: success"
+  quit 0
+end
+
+.endc
+
+.end
