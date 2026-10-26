@@ -10,6 +10,8 @@ extern void setseedinfo(void);
 extern void seed_from_option(int seed, bool is_random, const char *written);
 /* more than one '.option seed=': warn, once per session */
 extern void seed_option_multiple(void);
+/* a '.option seed=' value that is not a seed: warn, once per session */
+extern void seed_option_unusable(const char *written);
 extern void rnd_reset_state(void);
 /* the seed record and the call counter, for the draw log (drawlog.h) */
 extern void rng_seed_info(int *seed, const char **src, unsigned long long *offset);

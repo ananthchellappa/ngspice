@@ -461,7 +461,7 @@ eval_opt(struct card* deck)
             else {
                 int sr = atoi(token);
                 if (sr <= 0)
-                    fprintf(cp_err, "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n", token);
+                    seed_option_unusable(token);
                 else {
                     seed_from_option(sr, FALSE, token);
                     has_seed = TRUE;

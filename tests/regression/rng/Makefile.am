@@ -27,6 +27,12 @@
 ##   option-seed-multiple.cir        two '.option seed=' cards: the existing
 ##                                   'Multiple' warning, once over four parses
 ##
+## One more from the ver_51 follow-up batch 2 (item 3):
+##
+##   option-seed-unusable.cir        '.option seed=abc': the 'Cannot convert'
+##                                   warning, once over four parses, and the
+##                                   skipped option leaves 'setseed' alone
+##
 ## The next two are ver_51 batch item 3 (P3).  initw() used to re-seed the
 ## generator from the process id after startup had seeded it from
 ## rndseed=1; now startup re-seeds from $rndseed after initw():
@@ -69,6 +75,7 @@
 TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-nosetseed.cir option-seed-absent.cir \
 	option-seed-spelling.cir option-seed-multiple.cir \
+	option-seed-unusable.cir \
 	startup-equals-setseed1.cir setseed7-bit-identity.cir \
 	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir \
 	rnddraws-gold.cir rnddraws-src.cir rnddraws-option.cir
@@ -84,6 +91,7 @@ EXTRA_DIST = \
 	option-seed-absent.status option-seed-absent.err \
 	option-seed-spelling.status option-seed-spelling.err \
 	option-seed-multiple.status option-seed-multiple.err \
+	option-seed-unusable.status option-seed-unusable.err \
 	startup-equals-setseed1.status startup-equals-setseed1.err \
 	setseed7-bit-identity.status setseed7-bit-identity.err \
 	setseed7-bit-identity.requires \
@@ -110,6 +118,8 @@ CLEANFILES = \
 	option-seed-spelling.stderr.filtered option-seed-spelling.stderr.expected \
 	option-seed-multiple.stdout option-seed-multiple.stderr \
 	option-seed-multiple.stderr.filtered option-seed-multiple.stderr.expected \
+	option-seed-unusable.stdout option-seed-unusable.stderr \
+	option-seed-unusable.stderr.filtered option-seed-unusable.stderr.expected \
 	startup-equals-setseed1.stdout startup-equals-setseed1.stderr \
 	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
 	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \

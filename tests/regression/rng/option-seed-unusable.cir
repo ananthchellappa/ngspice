@@ -1,0 +1,26 @@
+* an '.option seed=' value that is not a seed: the warning, once per session
+* eval_opt() (src/frontend/inp.c) skips a 'seed=' value that atoi() does not
+* turn into a positive integer, and says so.  It runs on every parse, and
+* 'reset' is a parse, so before ver_51 follow-up 2, item 3, the warning was
+* printed again on every reset: a 1000-sample Monte Carlo loop printed it
+* 1000 times.  It is now printed once per session, like the two other
+* '.option seed=' warnings.  This deck parses four times (the load and three
+* resets), and its .err holds the warning exactly once.  The skipped option
+* does not seed, so 'setseed 3' made before each reset must still hold.
+.param rv=agauss(1k,100,1)
+.option seed=abc
+v1 1 0 1
+r1 1 0 {rv}
+.control
+foreach k 1 2 3
+  setseed 3
+  reset
+  op
+  if $rndseed <> 3
+    echo option-seed-unusable: the skipped option changed the seed
+    quit 1
+  end
+end
+quit 0
+.endc
+.end

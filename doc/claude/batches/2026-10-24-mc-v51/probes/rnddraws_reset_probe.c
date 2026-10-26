@@ -238,7 +238,7 @@ int main(void)
         const char *u = strstr(footer, "unlogged_calls=");
         if (u)
             unlogged = strtoull(u + 15, NULL, 10);
-        check(strncmp(footer, "#\tend\tlogged=1\t", 14) == 0 && u && unlogged == 0,
+        check(strncmp(footer, "#\tend\tlogged=1\t", 15) == 0 && u && unlogged == 0,
               "session 3: the aborted set's footer reads logged=1 unlogged_calls=0");
     }
     printf("%s: %d failure(s)\n", failures ? "FAILED" : "PASSED", failures);

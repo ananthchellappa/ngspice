@@ -72,13 +72,15 @@ static bool seedinfo = FALSE;
    made before the reset.  The option keeps winning; seed_from_option() only
    says so, once per session, and only after an explicit 'setseed N'.  A bare
    'setseed', which re-seeds from $rndseed, does not set setseed_used.
-   eval_opt()'s warning about more than one '.option seed=' is printed once
-   per session too, by seed_option_multiple(), not on every parse.  The
+   eval_opt()'s warnings about more than one '.option seed=', and about a
+   'seed=' value that is not a seed, are printed once per session too, by
+   seed_option_multiple() and seed_option_unusable(), not on every parse.  The
    flags are cleared by rnd_reset_state(), called from totalreset() in
    sharedspice.c, so a new shared-library session warns again. */
 static bool setseed_used = FALSE;
 static bool seed_override_warned = FALSE;
 static bool seed_multiple_warned = FALSE;
+static bool seed_unusable_warned = FALSE;
 
 /* The seed record, for the draw log (drawlog.c).  rng_calls counts the
    CombLCGTaus() calls, rng_calls_at_seed is its value at the last seeding,
@@ -422,6 +424,22 @@ seed_option_multiple(void)
 }
 
 
+/* For eval_opt(): a 'seed=' value that atoi() does not turn into a positive
+   seed, quoted as the deck wrote it.  The option is skipped on every parse;
+   this says so once per session. */
+void
+seed_option_unusable(const char *written)
+{
+    if (!seed_unusable_warned) {
+        fprintf(cp_err,
+            "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n"
+            "    (This warning is printed once per session.)\n",
+            written);
+        seed_unusable_warned = TRUE;
+    }
+}
+
+
 /* Forget the setseed and warning flags, for a new session. */
 void
 rnd_reset_state(void)
@@ -429,6 +447,7 @@ rnd_reset_state(void)
     setseed_used = FALSE;
     seed_override_warned = FALSE;
     seed_multiple_warned = FALSE;
+    seed_unusable_warned = FALSE;
     rng_calls = rng_calls_at_seed = rng_draw_mark = 0;
     rng_seed = 0;
     rng_src = "startup";
