@@ -1,0 +1,10 @@
+58e4cf26b: a "(" ends a token. r3 gnd(x) 0 1k now gives nodes gnd, x and value 0: "Value of resistor r3 is too small", and the 1k is gone. 45.2 took a node named gnd(x).
+v1 1 0 1
+r1 1 x 1k
+r2 x 0 1k
+r3 gnd(x) 0 1k
+.control
+op
+print v(x)
+.endc
+.end

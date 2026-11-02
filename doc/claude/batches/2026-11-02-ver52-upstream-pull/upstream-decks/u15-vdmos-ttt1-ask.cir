@@ -1,0 +1,18 @@
+b3594401c: VDMOSmAsk has no ttt1/ttt2/tm1/tm2; ttt1 before tt is lost
+.model A VDMOS nchan Vto=4 Kp=5.9 Tt=1u Ttt1=1e-3 Vp=0.5 Is=1e-9
+.model B VDMOS nchan Vto=4 Kp=5.9 Ttt1=1e-3 Tt=1u Vp=0.5 Is=1e-9
+.temp 100
+vs1 0 a pulse(-1 5 1u 10n 10n 1u)
+rs1 a b 1
+m1 b 0 0 A
+vs2 0 c pulse(-1 5 1u 10n 10n 1u)
+rs2 c d 1
+m2 d 0 0 B
+.control
+set numdgt=8
+tran 5n 3u
+meas tran pk1 max i(vs1) from=2u to=3u
+meas tran pk2 max i(vs2) from=2u to=3u
+showmod m1 : ttt1 tt
+.endc
+.end

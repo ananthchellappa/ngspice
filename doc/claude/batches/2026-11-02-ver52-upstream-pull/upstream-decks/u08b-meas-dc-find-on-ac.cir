@@ -1,0 +1,11 @@
+meas dc find on an AC plot: exit 139
+v3 4 0 dc 0 ac 1
+r3 4 5 1k
+c3 5 0 1u
+.ac dec 1 10 100
+.control
+run
+meas dc x find v(5) at=20
+echo survived
+.endc
+.end

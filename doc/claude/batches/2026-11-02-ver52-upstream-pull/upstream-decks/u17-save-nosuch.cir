@@ -1,0 +1,11 @@
+b2f9fefa3: "no data saved" check under #if 0: a save of a typo runs silently with only the scale
+v1 1 0 1
+r1 1 2 1k
+r2 2 0 1k
+.tran 10u 50u
+.save v(nosuch)
+.control
+run
+display
+.endc
+.end

@@ -1,0 +1,32 @@
+.sens on a BJT against central difference, and op after sens differs from op before
+vcc vc 0 12
+vb vbb 0 1
+rb vbb b 10k
+rc vc c 1k
+q1 c b 0 qn
+.model qn npn is=1e-15 bf=100 vaf=50 rb=10
+.control
+set numdgt=8
+op
+print v(c)
+altermod @qn[bf]=101
+op
+print v(c)
+altermod @qn[bf]=99
+op
+print v(c)
+altermod @qn[bf]=100
+altermod @qn[vaf]=50.5
+op
+print v(c)
+altermod @qn[vaf]=49.5
+op
+print v(c)
+altermod @qn[vaf]=50
+sens v(c)
+display
+print all
+op
+print v(c)
+.endc
+.end

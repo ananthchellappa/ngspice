@@ -1,0 +1,13 @@
+95d7f2c2b: setseed k; reset leaves rndseed at the deck's value (1), so $rndseed lies. 45.2 prints 1 2 3.
+.param rv=agauss(1k,100,1)
+r1 a 0 {rv}
+v1 a 0 1
+.control
+foreach k 1 2 3
+setseed $k
+reset
+op
+echo rndseed=$rndseed
+end
+.endc
+.end

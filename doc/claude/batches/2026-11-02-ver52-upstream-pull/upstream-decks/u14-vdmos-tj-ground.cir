@@ -1,0 +1,12 @@
+b3594401c: thermal VDMOS with Tj tied to ground goes singular
+.model MA VDMOS nchan Vto=4 Kp=5.9 Rd=61m Rs=18m Rg=3 Cgdmax=2n Cgdmin=70p Cgs=1.3n Cjo=1.5n Is=1e-9 Rb=8m Rthjc=0.5 Cthj=1e-3 Rthca=10
+vdd vd 0 10
+vg g 0 dc 5.5 ac 1
+rl vd c 1
+m1 c g 0 0 tc MA thermal
+rtc tc 0 1
+.control
+op
+print v(c) @m1[id]
+.endc
+.end

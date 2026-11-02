@@ -1,0 +1,21 @@
+dangling ci_dbs: b2f9fefa3 save none purge leaves ci_dbs on a freed node. Run under valgrind
+V1 1 0 1
+R1 1 0 1k
+.tran 1n 3n
+.control
+save v(1)
+trace v(1)
+save none
+circbyline second
+circbyline V2 2 0 1
+circbyline R2 2 0 1k
+circbyline .tran 1n 3n
+circbyline .end
+setcirc 1
+status
+setcirc 2
+status
+setcirc 1
+status
+.endc
+.end

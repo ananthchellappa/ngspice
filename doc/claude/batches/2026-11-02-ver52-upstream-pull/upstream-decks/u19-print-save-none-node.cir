@@ -1,0 +1,11 @@
+b2f9fefa3: v(none) on a node really called none is taken for "none"
+v1 none 0 1
+r1 none 2 1k
+r2 2 0 1k
+.tran 10u 50u
+.control
+save v(none)
+run
+display
+.endc
+.end

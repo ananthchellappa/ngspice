@@ -1,0 +1,10 @@
+a when crossing in the first interval of a sweep is not found. v(2) = v1/2.
+v1 1 0 dc 1
+r1 1 2 1k
+r2 2 0 1k
+.control
+dc v1 10 30 10
+meas dc w1 find v(1) when v(2)=7
+meas dc w2 find v(1) when v(2)=12
+.endc
+.end

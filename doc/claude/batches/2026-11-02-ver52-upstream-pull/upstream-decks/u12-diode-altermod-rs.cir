@@ -1,0 +1,14 @@
+8533ad9fb DIOunsetup: rs=0 at setup, altermod rs=100, resistor stays shorted. i(v1) must equal i(v2).
+v1 a 0 0.8
+d1 a 0 dx
+.model dx d is=1e-14 rs=0
+v2 b 0 0.8
+d2 b 0 dy
+.model dy d is=1e-14 rs=100
+.control
+op
+altermod @dx[rs]=100
+op
+print i(v1) i(v2)
+.endc
+.end

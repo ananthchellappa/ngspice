@@ -1,0 +1,10 @@
+sky130 no longer loads: "; sign expected". Set the .lib path to your sky130.lib.spice; .spiceinit has set ngbehavior=hsa and set ng_nomodcheck
+.lib "sky130A/models/libs.tech/combined/sky130.lib.spice" tt
+xm1 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+vd d 0 1
+vg g 0 0.9
+.control
+op
+print i(vd)
+.endc
+.end

@@ -1,0 +1,10 @@
+sens ac under KLU: exit 139
+.options klu
+v1 1 0 dc 1 ac 1
+r1 1 2 1k
+c1 2 0 1u
+.control
+sens v(2) ac dec 5 1 1k
+echo survived
+.endc
+.end

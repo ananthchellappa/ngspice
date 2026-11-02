@@ -1,0 +1,10 @@
+meas deriv/find scan by the vector's length, not the scale's: run under valgrind
+v1 1 0 dc 1
+r1 1 0 1k
+.control
+dc v1 10 20 10
+let a = vector(5000)
+meas dc u1 deriv a at=99999999
+meas dc u2 find a at=99999999
+.endc
+.end

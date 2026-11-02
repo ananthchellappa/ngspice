@@ -1,0 +1,8 @@
+.print pz all next to .op: upstream prints no poles and no message, exit 0. Expect a pole at -1000 rad per s
+v1 1 0 dc 0 ac 1
+r1 1 2 1k
+c1 2 0 1u
+.op
+.pz 1 0 2 0 vol pol
+.print pz all
+.end

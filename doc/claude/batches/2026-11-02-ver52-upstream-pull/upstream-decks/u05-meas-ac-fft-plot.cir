@@ -1,0 +1,14 @@
+meas ac avg/rms on an fft plot (real scale): exit 139
+v1 a 0 sin(0 1 1k)
+r1 a 0 1k
+.tran 10u 5m
+.control
+run
+linearize v(a)
+fft v(a)
+meas ac x1 avg vm(a)
+echo survived-avg
+meas ac x2 rms vm(a)
+echo survived-rms
+.endc
+.end

@@ -1,0 +1,14 @@
+95d7f2c2b: .option seed=random repeats one sample on every reset. Values must differ.
+.param rv=agauss(1k,100,1)
+r1 a 0 {rv}
+v1 a 0 1
+.option seed=random
+.control
+set numdgt=15
+foreach k 1 2 3
+reset
+op
+print @r1[r]
+end
+.endc
+.end

@@ -1,0 +1,19 @@
+level 3: rsw=100 with no ns does not limit the sidewall current; rsw=0 disconnects the sidewall.
+* d1 js=jsw, no rsw: reference. d2 same with rsw=100, no ns. d3 ns=1 rsw=0.
+v1 a 0 0.65
+d1 a 0 d1m area=1 pj=1
+.model d1m d level=3 js=1e-14 jsw=1e-14 ns=1
+v2 b 0 0.65
+d2 b 0 d2m area=1 pj=1
+.model d2m d level=3 js=1e-14 jsw=1e-14 rsw=100
+v3 c 0 0.65
+d3 c 0 d3m area=1 pj=1
+.model d3m d level=3 js=1e-14 jsw=1e-14 ns=1 rsw=0
+v4 e 0 0.65
+d4 e 0 d4m area=1 pj=1
+.model d4m d level=3 js=1e-14 jsw=1e-14 ns=1 rsw=100
+.control
+op
+print i(v1) i(v2) i(v3) i(v4)
+.endc
+.end
