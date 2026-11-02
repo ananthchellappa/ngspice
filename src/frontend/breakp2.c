@@ -139,11 +139,13 @@ settrace(wordlist *wl, int what, char *name)
                     continue;
                 }
             } else {
-                /* Ignore duplicates. */
+                /* Ignore duplicates, except for the token "all": each
+                 * analysis of a deck may ask for its own (.print pz all). */
 
                 for (dbcheck = dbs; dbcheck; dbcheck = dbcheck->db_next) {
                     if (dbcheck->db_type == DB_SAVE &&
-                        eq(dbcheck->db_nodename1, db_nodename1)) {
+                        eq(dbcheck->db_nodename1, db_nodename1) &&
+                        !eqc("all", db_nodename1)) {
                         tfree(db_nodename1);
                         break;
                     }
