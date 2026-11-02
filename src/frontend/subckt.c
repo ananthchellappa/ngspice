@@ -447,6 +447,129 @@ find_ends(struct card *l)
 }
 
 
+/* The name a binned .model card shares with its siblings, without the .N, or
+   NULL for a card with no such suffix.  Caller frees. */
+static char *
+bin_base_name(char *line)
+{
+    char *s = line, *name, *dot, *p;
+
+    s = nexttok(s);
+    name = gettok(&s);
+    if (!name)
+        return NULL;
+    dot = strrchr(name, '.');
+    if (!dot || !dot[1]) {
+        tfree(name);
+        return NULL;
+    }
+    for (p = dot + 1; *p; p++)
+        if (!isdigit_c(*p)) {
+            tfree(name);
+            return NULL;
+        }
+    *dot = '\0';
+    return name;
+}
+
+
+/* The value of a bin limit on a .model line, " lmin=" for example. */
+static bool
+bin_limit(char *line, const char *key, double *value)
+{
+    int err;
+    char *s = cistrstr(line, key);
+
+    if (!s)
+        return FALSE;
+    s += strlen(key);
+    *value = INPevaluate(&s, &err, 0);
+    return !err;
+}
+
+
+/* For a size that fits no bin under the half open rule, every card with the
+   size on its limits has stayed, and more than one can.  Keep the one
+   INPgetModBin() will take, per model name: it searches the last parsed first
+   and moves on only to a card with lmin and wmin both at least as large.  A
+   card that stays makes its agauss calls and moves the draws after it.
+   Returns the deck, whose first card may have gone. */
+static struct card *
+keep_binners_card(struct card *deck)
+{
+    struct kept {
+        struct card *card;
+        char *base;
+        double lmin, wmin;
+        bool best;
+    } *kept;
+    struct card *c, *prev;
+    int i, j, n = 0;
+
+    for (c = deck; c; c = c->nextcard)
+        if (ciprefix(".model", c->line))
+            n++;
+    if (n < 2)
+        return deck;
+
+    kept = TMALLOC(struct kept, n);
+    n = 0;
+    for (c = deck; c; c = c->nextcard) {
+        double lmin, wmin;
+        char *base;
+        if (!ciprefix(".model", c->line) ||
+            !bin_limit(c->line, " lmin=", &lmin) ||
+            !bin_limit(c->line, " wmin=", &wmin) ||
+            (base = bin_base_name(c->line)) == NULL)
+            continue;
+        kept[n].card = c;
+        kept[n].base = base;
+        kept[n].lmin = lmin;
+        kept[n].wmin = wmin;
+        kept[n].best = FALSE;
+        n++;
+    }
+
+    for (i = n - 1; i >= 0; i--) {
+        for (j = n - 1; j > i; j--)
+            if (kept[j].best && ng_ideq(kept[j].base, kept[i].base))
+                break;
+        if (j == i) {
+            kept[i].best = TRUE;
+        }
+        else if (kept[i].lmin >= kept[j].lmin && kept[i].wmin >= kept[j].wmin) {
+            kept[j].best = FALSE;
+            kept[i].best = TRUE;
+        }
+    }
+
+    prev = NULL;
+    c = deck;
+    for (i = 0; i < n; i++) {
+        struct card *next;
+        while (c != kept[i].card) {
+            prev = c;
+            c = c->nextcard;
+        }
+        next = c->nextcard;
+        if (!kept[i].best) {
+            line_free_x(c, FALSE);
+            if (prev)
+                prev->nextcard = next;
+            else
+                deck = next;
+        }
+        else {
+            prev = c;
+        }
+        c = next;
+        tfree(kept[i].base);
+    }
+    tfree(kept);
+    return deck;
+}
+
+
 #define MAXNEST 21
 /*-------------------------------------------------------------------*/
 /*  doit does the actual substitution of .subckts.                   */
@@ -760,6 +883,8 @@ doit(struct card *deck, wordlist *modnames) {
                             max_included = TRUE;
                             goto bin_pass;
                         }
+                        if (max_included)
+                            su_deck = keep_binners_card(su_deck);
                     }
 
                     if (!su_deck) {

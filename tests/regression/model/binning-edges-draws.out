@@ -1,0 +1,133 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: a size on the top edge of the bin table keeps the one card the binner takes
+
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * draws l=10
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Reset re-loads circuit * draws l=10
+
+Circuit: * draws l=10
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+l=10 w=3
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x1:card.4
+
+      model             ?????????
+
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x2:card.1
+
+      model             ?????????
+
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * draws l=20.2
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Reset re-loads circuit * draws l=20.2
+
+Circuit: * draws l=20.2
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+l=20.2 w=3
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x1:card.4
+
+      model             ?????????
+
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x2:card.1
+
+      model             ?????????
+
+draws: x2 draws the same after either size of x1
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * two models in one subckt
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+two models
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model               x1:nc.2
+
+      model             ?????????
+
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model               x1:pc.2
+
+      model             ?????????
+
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * overlapping cards order 1
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+overlapping order 1: x1 is pruned literally and x2 goes to the binner
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x1:card.2
+
+      model             ?????????
+
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x2:card.2
+
+      model             ?????????
+
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * overlapping cards order 2
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+overlapping order 2: x1 is pruned literally and x2 goes to the binner
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x1:card.1
+
+      model             ?????????
+
+ BSIM4v5 models (Berkeley Short Channel IGFET Model-4)
+      model             x2:card.1
+
+      model             ?????????
+
+Note: Simulation executed from .control section 

@@ -1,0 +1,99 @@
+a size on the top edge of the bin table keeps the one card the binner takes
+
+* Under hsa subckt.c prunes the bins of a literal size before binning, so a card
+* that goes makes no agauss calls.  A size on the top edge fits no card under the
+* half open rule, and the fallback pass includes the max.  l=20.2 w=3 is on the
+* top edge in l and on an inner edge in w, so two cards then fit.  The binner
+* takes card.4; card.3 used to stay and draw, which moved the next device's draws.
+* On sky130 tt_mm: 3 more log rows, xm2 vth 0.64218 where it should be 0.63318.
+*
+* l=10 w=3 is the same card inside the table, so x2 must draw the same from both.
+* The second part has two models in one subckt: each keeps its own card.
+* The third has overlapping cards, where neither has the larger lmin and wmin:
+* binning searches the last parsed first, so the card kept depends on the order.
+
+.control
+set ngbehavior=hsa
+
+foreach size 10 20.2
+  circbyline * draws l=$size
+  circbyline .option scale=1u
+  circbyline .subckt dut d g s b l=1 w=1 nf=1
+  circbyline mn d g s b card l=\{l\} w=\{w\} nf=\{nf\}
+  circbyline .model card.4 nmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=3e-6 wmax=1.01e-3 vth0=\{agauss(0.5,0.05,1)\}
+  circbyline .model card.3 nmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=4.2e-7 wmax=3e-6 vth0=\{agauss(0.5,0.05,1)\}
+  circbyline .model card.2 nmos level=54 version=4.5 lmin=1.5e-7 lmax=1e-6 wmin=3e-6 wmax=1.01e-3 vth0=\{agauss(0.5,0.05,1)\}
+  circbyline .model card.1 nmos level=54 version=4.5 lmin=1.5e-7 lmax=1e-6 wmin=4.2e-7 wmax=3e-6 vth0=\{agauss(0.5,0.05,1)\}
+  circbyline .ends dut
+  circbyline vd d 0 0.9
+  circbyline vg g 0 0.7
+  circbyline x1 d g 0 0 dut l=$size w=3
+  circbyline x2 d g 0 0 dut l=0.5 w=1
+  circbyline .end
+  setseed 1
+  reset
+  op
+  echo l=$size w=3
+  showmod m.x1.mn : model
+  showmod m.x2.mn : model
+  let const.vth$size = @m.x2.mn[vth]
+  destroy all
+  remcirc
+end
+if abs(const.vth10 - const.vth20.2) = 0
+  echo draws: x2 draws the same after either size of x1
+else
+  echo draws: x2 draws differently after l=20.2
+  print const.vth10 const.vth20.2
+end
+
+circbyline * two models in one subckt
+circbyline .option scale=1u
+circbyline .subckt two d g s b l=1 w=1
+circbyline mn d g s b nc l=\{l\} w=\{w\}
+circbyline mp s g d b pc l=\{l\} w=\{w\}
+circbyline .model nc.2 nmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=3e-6 wmax=1.01e-3
+circbyline .model nc.1 nmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=4.2e-7 wmax=3e-6
+circbyline .model pc.2 pmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=3e-6 wmax=1.01e-3
+circbyline .model pc.1 pmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=4.2e-7 wmax=3e-6
+circbyline .ends two
+circbyline vd d 0 0.9
+circbyline vg g 0 0.7
+circbyline x1 d g 0 0 two l=20.2 w=3
+circbyline .end
+op
+echo two models
+showmod m.x1.mn : model
+showmod m.x1.mp : model
+destroy all
+remcirc
+
+foreach order 1 2
+  circbyline * overlapping cards, order $order
+  circbyline .option scale=1u
+  circbyline .subckt dut d g s b l=1 w=1
+  circbyline mn d g s b card l=\{l\} w=\{w\}
+  if $order = 1
+    circbyline .model card.1 nmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=1e-6 wmax=3e-6
+    circbyline .model card.2 nmos level=54 version=4.5 lmin=2e-6 lmax=2.02e-5 wmin=5e-7 wmax=3e-6
+  else
+    circbyline .model card.2 nmos level=54 version=4.5 lmin=2e-6 lmax=2.02e-5 wmin=5e-7 wmax=3e-6
+    circbyline .model card.1 nmos level=54 version=4.5 lmin=1e-6 lmax=2.02e-5 wmin=1e-6 wmax=3e-6
+  end
+  circbyline .ends dut
+  circbyline vd d 0 0.9
+  circbyline vg g 0 0.7
+  circbyline .param pl=20.2 pw=3
+  circbyline x1 d g 0 0 dut l=20.2 w=3
+  circbyline x2 d g 0 0 dut l=\{pl\} w=\{pw\}
+  circbyline .end
+  op
+  echo overlapping order $order: x1 is pruned literally and x2 goes to the binner
+  showmod m.x1.mn : model
+  showmod m.x2.mn : model
+  destroy all
+  remcirc
+end
+.endc
+
+.end
