@@ -13,6 +13,7 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	wildcard-rename.cir meas-deriv-two-points.cir \
 	diode-rs-altermod.cir save-none.cir save-none-circuits.cir \
 	save-none-node.cir save-none-node-cards.cir save-none-node-print.cir \
+	save-none-node-diff.cir save-none-node-diff-print.cir \
 	meas-dc-on-ac.cir meas-scale-length.cir meas-window-exact.cir
 
 # meas-sp-window.cir runs the .sp analysis, which --disable-sp leaves out.

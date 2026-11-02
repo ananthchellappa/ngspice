@@ -1,0 +1,31 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: a .save card with a node called none as either side of a differential
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+1                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+Here are the vectors currently active:
+
+Title: a .save card with a node called none as either side of a differential
+Name: tran1 (Transient Analysis)
+Date: Mon Nov  2 15:19:22  2026
+
+    V(1)                : voltage, real, 59 long
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+ngspice-46+ done

@@ -1,0 +1,11 @@
+.print with a node called none as the second side of a differential
+* Its saves take the path of the .save card.  Left to the keyword, the run printed
+* 'vector none is not available' and one row.  v(1) - v(none) is -0.5.
+* v(none,1) on the same card would hide it: a v(none) after the keyword keeps the saves.
+v1 none 0 dc 1
+r1 none 1 1k
+r2 1 0 1k
+.tran 500u 2m
+.print tran v(1,none)
+.options noacct
+.end

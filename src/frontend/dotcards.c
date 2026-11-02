@@ -705,7 +705,11 @@ gettoks(char *s)
 
         if (c != r) {
             *r = '\0';
-            wl = wl_cons(copy(c + 1), NULL);
+            /* the second node of v(a,none), the same as the first */
+            if (eqc(c + 1, "none"))
+                wl = wl_cons(tprintf("v(%s)", c + 1), NULL);
+            else
+                wl = wl_cons(copy(c + 1), NULL);
             *prevp = wl;
             prevp = &wl->wl_next;
         }

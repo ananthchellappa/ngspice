@@ -1,0 +1,15 @@
+a .save card with a node called none as either side of a differential
+* gettoks() splits v(a,b) into two words and settrace() takes a bare "none" for
+* the keyword, so the second side has to stay wrapped as well as the first.  With
+* v(1,none) left bare, every save was purged and only a point of the scale kept.
+v1 none 0 dc 1
+r1 none 1 1k
+r2 1 0 1k
+.tran 1m 2m
+.save v(1,none)
+.control
+run
+display
+quit 0
+.endc
+.end
