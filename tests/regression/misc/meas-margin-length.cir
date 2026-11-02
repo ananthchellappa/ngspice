@@ -1,0 +1,53 @@
+meas phase_margin and gain_margin of a vector longer than the scale
+*
+* measure_margin() read the frequency of every sample of the vector.  Past the scale
+* that is outside the allocation: valgrind has an invalid read, and a crossover out
+* there came back as a margin at a frequency from the heap.  Only samples with a
+* frequency count, as in measure_at() and measure_deriv_at().
+*
+* The u lines cross only past the third sample: gain up through 1 at sample 10, and a
+* phase of -10 degrees a sample through -180 at sample 18.  They have to find nothing.
+* The n lines cross inside, with frequencies 1 2 3 and each t = 0.5 in log space:
+*     n1       gain 2 then 0.5, phase 0                  180 deg at sqrt(1*2)
+*     n3       gain 1, phase -170 then -190 at 2 and 3   0 dB    at sqrt(2*3)
+* n5, n6 are the same as n1, n3 on vectors as long as the scale.
+v1 1 0 dc 0 ac 1
+r1 1 0 1
+.ac lin 3 1 3
+.control
+run
+let up = j(vector(5000)) / j(1) / 10
+meas ac u1 phase_margin up
+echo after a gain crossover past the scale
+let phs = vector(5000) * 10 * pi / 180
+let turn = cos(phs) - j(sin(phs))
+meas ac u2 gain_margin turn
+echo after a phase crossover past the scale
+
+let gl = j(0 * vector(5000))
+let gl[0] = 2 + j(0)
+let gl[1] = 0.5 + j(0)
+meas ac n1 phase_margin gl
+let tl = j(0 * vector(5000))
+let tl[0] = 1 + j(0)
+let tl[1] = cos(170 * pi / 180) - j(sin(170 * pi / 180))
+let tl[2] = cos(190 * pi / 180) - j(sin(190 * pi / 180))
+meas ac n3 gain_margin tl
+
+let gs = j(0 * v(1))
+let gs[0] = 2 + j(0)
+let gs[1] = 0.5 + j(0)
+meas ac n5 phase_margin gs
+let ts = j(0 * v(1))
+let ts[0] = 1 + j(0)
+let ts[1] = cos(170 * pi / 180) - j(sin(170 * pi / 180))
+let ts[2] = cos(190 * pi / 180) - j(sin(190 * pi / 180))
+meas ac n6 gain_margin ts
+
+let bad = 0
+let bad = bad + (abs(n1 - 180) > 1e-3) + (abs(n5 - 180) > 1e-3)
+let bad = bad + (abs(n3) > 1e-3) + (abs(n6) > 1e-3)
+echo margin misses: $&bad
+quit 0
+.endc
+.end

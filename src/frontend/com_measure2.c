@@ -1180,7 +1180,8 @@ measure_margin(
         return MEASUREMENT_FAILURE;
     }
 
-    n = d->v_length;
+    /* only samples with a value in the vector and the scale */
+    n = MIN(d->v_length, dScale->v_length);
     if (n < 2)
         return MEASUREMENT_FAILURE;
     gdb = TMALLOC(double, n);

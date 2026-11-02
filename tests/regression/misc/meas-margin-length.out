@@ -1,0 +1,19 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: meas phase_margin and gain_margin of a vector longer than the scale
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 3
+after a gain crossover past the scale
+after a phase crossover past the scale
+n1                  =  1.80000e+02 deg at=  1.41421e+00
+n3                  =  -0.00000e+00 dB at=  2.44949e+00
+n5                  =  1.80000e+02 deg at=  1.41421e+00
+n6                  =  -0.00000e+00 dB at=  2.44949e+00
+margin misses: 0
+ngspice-46+ done
