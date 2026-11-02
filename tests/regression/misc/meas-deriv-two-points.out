@@ -1,0 +1,17 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * meas deriv on a sweep of two points
+
+twolow              =  5.00000e-01
+twomid              =  5.00000e-01
+twohigh             =  5.00000e-01
+downlow             =  5.00000e-01
+downhigh            =  5.00000e-01
+threelow            =  5.00000e-01
+threemid            =  5.00000e-01
+threehigh           =  5.00000e-01
+aclow               =  -1.68110e-03
+acmid               =  -1.68110e-03
+achigh              =  -1.68110e-03

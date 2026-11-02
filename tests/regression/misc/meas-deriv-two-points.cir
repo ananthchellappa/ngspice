@@ -1,0 +1,45 @@
+* meas deriv on a sweep of two points
+*
+* measure_deriv_at() fits a quadratic through three samples and shifts the
+* stencil inward at the ends of the sweep.  With only two samples there is no
+* third to shift to: the stencil started at index -1, read the heap in front of
+* both vectors, and returned a wrong number with no error, 0.475 and 0.525 where
+* the line through the two samples has the slope 0.5 everywhere.
+*
+* v(2) = (v1 - 1) / 2, so the dc slope is 0.5 for any sweep.  The ac answer is
+* worked by hand on the RC, tau = 1 ms, |H(f)| = 1 / sqrt(1 + (2 pi f tau)^2):
+* |H(10)| = 0.998032, |H(100)| = 0.846733, slope over the 90 Hz = -1.68110e-03.
+* The three point sweep is here to show the stencil itself did not move.
+
+v1 1 0 dc 1
+v2 3 2 dc 1
+r1 1 2 1k
+r2 3 0 1k
+v3 4 0 dc 0 ac 1
+r3 4 5 1k
+c3 5 0 1u
+
+.control
+
+dc v1 10 20 10
+meas dc twolow deriv v(2) at=10
+meas dc twomid deriv v(2) at=15
+meas dc twohigh deriv v(2) at=20
+
+dc v1 20 10 -10
+meas dc downlow deriv v(2) at=10
+meas dc downhigh deriv v(2) at=20
+
+dc v1 10 30 10
+meas dc threelow deriv v(2) at=10
+meas dc threemid deriv v(2) at=20
+meas dc threehigh deriv v(2) at=30
+
+ac dec 1 10 100
+meas ac aclow deriv vm(5) at=10
+meas ac acmid deriv vm(5) at=50
+meas ac achigh deriv vm(5) at=100
+
+.endc
+
+.end

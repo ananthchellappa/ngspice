@@ -811,7 +811,8 @@ measure_at(
  * evaluated: it fell into the 'currently not supported' stub).
  * A quadratic through the three samples around `at` is
  * differentiated analytically, handling a nonuniform timestep; at
- * the interval ends it degrades to the two-point slope.
+ * the interval ends the stencil shifts inward.  A sweep of only two
+ * samples has no third point: the slope of the line through them.
  * ----------------------------------------------------------------- */
 static int
 measure_deriv_at(
@@ -867,6 +868,14 @@ measure_deriv_at(
     }
     if (j >= d->v_length) {
         meas->m_measured = NAN;
+        return MEASUREMENT_OK;
+    }
+
+    /* two samples: no stencil to shift to, i - 1 below would be -1 */
+    if (d->v_length == 2) {
+        double sa = DERIV_SCL(0), sb = DERIV_SCL(1);
+        meas->m_measured = (sb == sa) ? NAN :
+            (DERIV_VAL(1) - DERIV_VAL(0)) / (sb - sa);
         return MEASUREMENT_OK;
     }
 
