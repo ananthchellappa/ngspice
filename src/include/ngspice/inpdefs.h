@@ -103,9 +103,9 @@ struct card {
     struct card *nextcard;
     struct card *actualLine;
     struct nscope *level;
-    float w;
-    float l;
-    float nf;
+    double w;
+    double l;
+    double nf;
     int compmod;
     /* The card as the deck wrote it, before inp_readall() lower cased it, or
        NULL when this card has no such text: a card the preprocessor built,
@@ -164,6 +164,7 @@ double INPevaluateRKM_L(char **, int *, int);
 char *INPfindLev(char *, int *);
 char *INPgetMod(CKTcircuit *, char *, INPmodel **, INPtables *);
 char *INPgetModBin(CKTcircuit *, char *, INPmodel **, INPtables *, char *);
+bool INPbinFits(double l, double w, double lmin, double lmax, double wmin, double wmax, bool max_included);
 int INPgetTok(char **, char **, int);
 int INPgetNetTok(char **, char **, int);
 void INPgetTree(char **, INPparseTree **, CKTcircuit *, INPtables *);
