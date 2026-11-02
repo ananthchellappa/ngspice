@@ -1,0 +1,2 @@
+mc_r.identical_to_ref = yes
+mc_sky130.identical_to_ref = yes
