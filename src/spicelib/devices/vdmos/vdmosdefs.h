@@ -32,8 +32,10 @@ VDMOS: 2018 Holger Vogt, 2020 Dietmar Warning
 #define VDIOrevrec(inst) \
     ((inst)->VDIOqpNode > 0 && VDIOrevrecMod(VDMOSmodPtr(inst)))
 
+/* Node 0 is a legal Tj: thermal nodes hold degrees C, so a grounded Tj is a
+   junction held at 0 C.  -1 is an instance VDMOSsetup() has not seen yet. */
 #define VDMOSselfheat(inst) \
-    ((inst)->VDMOStempNode > 0 && \
+    ((inst)->VDMOStempNode >= 0 && \
      (inst)->VDMOSthermal && VDMOSselfheatMod(VDMOSmodPtr(inst)))
 
 /* indices to the array of MOSFET(1) noise sources */

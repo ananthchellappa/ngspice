@@ -1,0 +1,17 @@
+VDMOS SOA check with Tj tied to ground
+
+* A grounded Tj takes the heat directly, past Rthjc, so the power does not show
+* in the thermal network.  3.5 V across 6.5 A is 22.75 W and pd_max is 10.  Read
+* from the thermal network the power comes out near zero and no warning prints.
+
+.model MS VDMOS nchan Vto=4 Kp=5.9 Rd=61m Rs=18m Rg=3 Cgdmax=2n Cgdmin=70p Cgs=1.3n Cjo=1.5n Is=1e-9 Rb=8m Rthjc=0.5 Cthj=1e-3 Rthca=10 pd_max=10
+vdd vd 0 10
+vg g 0 5.5
+rl vd c 1
+m1 c g 0 0 0 MS thermal
+.option warn=1
+.control
+op
+print v(c)
+.endc
+.end

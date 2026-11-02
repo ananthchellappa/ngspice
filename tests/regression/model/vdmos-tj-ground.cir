@@ -1,0 +1,85 @@
+VDMOS thermal instance with its thermal nodes tied to ground
+
+* The thermal nodes hold a temperature in degrees C, so a Tj node tied to ground
+* is a junction held at 0 C by an ideal heat sink: self-heating stays on and the
+* junction does not rise.  Upstream b3594401c made VDMOSselfheat() false for
+* node 0 while VDMOSsetup() still made the cktTemp node and its branch.  Nothing
+* stamped them, so the matrix went singular: v(c1) 4.245122, no AC result at all.
+*
+* m1, m2  Tj grounded, with a case node and with the case grounded too
+* m3      Tj on a node a 0 V source holds, which needs no special case
+* m4      no thermal network, the instance simply at temp=0
+* All four are one physical device at 0 C and must agree in op, ac and tran.
+*
+* m5, m6  the same pairs for a p-channel device.
+* m7      Tc grounded alone: the junction does rise, by Rthjc * P.
+
+.model MA VDMOS nchan Vto=4 Kp=5.9 Rd=61m Rs=18m Rg=3 Cgdmax=2n Cgdmin=70p Cgs=1.3n Cjo=1.5n Is=1e-9 Rb=8m Rthjc=0.5 Cthj=1e-3 Rthca=10
+.model MP VDMOS pchan Vto=-4 Kp=5.9 Rd=61m Rs=18m Rg=3 Cgdmax=2n Cgdmin=70p Cgs=1.3n Cjo=1.5n Is=1e-9 Rb=8m Rthjc=0.5 Cthj=1e-3 Rthca=10
+
+vdd vd 0 10
+vss vs 0 -10
+vg g 0 dc 5.5 ac 1 sin(5.5 0.5 100k)
+
+rl1 vd c1 1
+m1 c1 g 0 0 tc1 MA thermal
+rtc1 tc1 0 1
+
+rl2 vd c2 1
+m2 c2 g 0 0 0 MA thermal
+
+rl3 vd c3 1
+m3 c3 g 0 tj3 tc3 MA thermal
+rtc3 tc3 0 1
+vtj3 tj3 0 0
+
+rl4 vd c4 1
+m4 c4 g 0 MA temp=0
+
+rl5 vs c5 1
+m5 c5 gp 0 0 tc5 MP thermal
+rtc5 tc5 0 1
+
+rl6 vs c6 1
+m6 c6 gp 0 MP temp=0
+eg gp 0 g 0 -1
+
+rl7 vd c7 1
+m7 c7 g 0 tj7 0 MA thermal
+
+.option noinit
+
+.control
+op
+print v(c1) v(c2) v(c3) v(c4)
+print v(c5) v(c6)
+print v(tj7) v(c7)
+print v(tc1) @m1[id]
+* A hand balance: the channel heats Tj7 above the case at 0 C, by Rthjc * P,
+* with P the power the device dissipates.
+let pdiss = v(c7)*(10-v(c7))/1
+let rise = v(tj7)/0.5
+if abs(rise - pdiss) < 1e-6*pdiss
+  echo balance: Tj7 rise equals Rthjc x power
+else
+  echo balance: Tj7 rise is not Rthjc x power
+end
+if abs(v(c1)-v(c3)) < 1e-9 and abs(v(c2)-v(c4)) < 1e-9 and abs(v(c1)-v(c4)) < 1e-9
+  echo op: grounded and held at 0 V and temp=0 agree
+else
+  echo op: grounded and held at 0 V and temp=0 differ
+end
+ac dec 1 1k 1k
+print vm(c1) vm(c2) vm(c3) vm(c4) vm(c5) vm(c6)
+tran 100n 20u
+let a = vecmax(abs(v(c1)-v(c3)))
+let b = vecmax(abs(v(c2)-v(c3)))
+let d = vecmax(abs(v(c3)-v(c4)))
+if a < 1e-6 and b < 1e-6 and d < 1e-3
+  echo tran: grounded and held at 0 V and temp=0 agree
+else
+  echo tran: grounded and held at 0 V and temp=0 differ
+  print a b d
+end
+.endc
+.end

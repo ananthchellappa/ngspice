@@ -1,0 +1,14 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: vdmos soa check with tj tied to ground
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+Instance: m1 Model: ms Pd=22.75 W at Vd=3.501 V and Te=0 C has exceeded Pd_max=10 W
+
+No. of Data Rows : 1
+v(c) = 3.500527e+00
+Note: Simulation executed from .control section 

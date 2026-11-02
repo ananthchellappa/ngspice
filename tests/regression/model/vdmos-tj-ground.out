@@ -1,0 +1,41 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: vdmos thermal instance with its thermal nodes tied to ground
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+v(c1) = 3.500527e+00
+v(c2) = 3.500527e+00
+v(c3) = 3.500527e+00
+v(c4) = 3.500527e+00
+v(c5) = -3.50053e+00
+v(c6) = -3.50053e+00
+v(tj7) = 1.183432e+01
+v(c7) = 3.846150e+00
+v(tc1) = 8.709677e-01
+@m1[id] = 6.499473e+00
+balance: Tj7 rise equals Rthjc x power
+op: grounded and held at 0 V and temp=0 agree
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+vm(c1) = 8.038966e+00
+vm(c2) = 8.038966e+00
+vm(c3) = 8.038966e+00
+vm(c4) = 8.038966e+00
+vm(c5) = 8.038966e+00
+vm(c6) = 8.038966e+00
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 208
+tran: grounded and held at 0 V and temp=0 agree
+Note: Simulation executed from .control section 

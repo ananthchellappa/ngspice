@@ -170,8 +170,10 @@ VDMOSsoaCheck(CKTcircuit *ckt, GENmodel *inModel)
             /* Calculate max power including derating:
                up to tnom the derating is zero,
                at maximum temp allowed the derating is 100%.
-               Device temperature by self-heating or given externally. */
-            if (VDMOSselfheat(here)) {
+               Device temperature by self-heating or given externally.
+               A grounded Tj takes the heat directly, past Rthjc, so the
+               thermal network does not carry the power. */
+            if (VDMOSselfheat(here) && here->VDMOStempNode > 0) {
                 double gthjc = here->VDMOSm / model->VDMOSrthjc;
                 pd = (ckt->CKTrhsOld[here->VDMOStempNode]
                     - ckt->CKTrhsOld[here->VDMOStcaseNode]) * gthjc
