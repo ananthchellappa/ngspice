@@ -704,6 +704,24 @@ com_measure_when(
 }
 
 
+/* A dc or tran measure reads the vector and the scale as real.  An ac plot has
+   neither, and a 'let' can make the vector real but not the scale. */
+static bool
+measure_real_plot(
+    MEASUREPTR meas,            /* in : parsed measurement data request */
+    struct dvec *d,             /* in : vector to measure */
+    struct dvec *dScale         /* in : its scale */
+    )
+{
+    if (d->v_realdata && dScale->v_realdata)
+        return TRUE;
+
+    fprintf(stderr, "Error: no real data available for measurement (no %s simulation?)\n",
+            meas->m_analysis);
+    return FALSE;
+}
+
+
 /* -----------------------------------------------------------------
  * Function: process an AT measurement statement which has been
  * parsed into a measurement structure.  We make sure to interpolate
@@ -754,13 +772,11 @@ measure_at(
         sp_check = TRUE;
     else if (cieq (meas->m_analysis, "dc"))
         dc_check = TRUE;
-    else {
+    else
         tran_check = TRUE;
-        if (!d->v_realdata) {
-            fprintf(stderr, "Error: no real data available for measurement (no tran simulation?)\n");
-            return MEASUREMENT_FAILURE;
-        }
-    }
+
+    if ((dc_check || tran_check) && !measure_real_plot(meas, d, dScale))
+        return MEASUREMENT_FAILURE;
 
     for (i = 0; i < d->v_length; i++) {
         if (ac_check) {
@@ -845,10 +861,8 @@ measure_deriv_at(
         ac_check = TRUE;
     else if (cieq(meas->m_analysis, "sp"))
         sp_check = TRUE;
-    else if (!cieq(meas->m_analysis, "dc") && !d->v_realdata) {
-        fprintf(stderr, "Error: no real data available for measurement (no tran simulation?)\n");
+    else if (!measure_real_plot(meas, d, dScale))
         return MEASUREMENT_FAILURE;
-    }
 
     if (d->v_length < 2) {
         meas->m_measured = NAN;

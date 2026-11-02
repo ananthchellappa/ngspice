@@ -1,0 +1,32 @@
+meas dc and meas tran, deriv and find, on a plot that holds neither
+*
+* An ac plot has a complex scale and complex nodes.  measure_at() and
+* measure_deriv_at() read v_realdata of both for a dc or tran measure, and that is
+* NULL: a segfault, where deriv used to say 'not supported'.  They have to refuse
+* with an error and let the script run on.  A real 'let' on the same plot still
+* has the complex scale under it.
+v3 4 0 dc 0 ac 1
+r3 4 5 1k
+c3 5 0 1u
+.ac dec 1 10 100
+.control
+run
+let ry = real(v(5))
+meas dc a1 deriv v(5) at=20
+echo after dc deriv of a complex node
+meas dc a2 find v(5) at=20
+echo after dc find of a complex node
+meas dc a3 deriv ry at=20
+echo after dc deriv of a real one
+meas dc a4 find ry at=20
+echo after dc find of a real one
+meas tran a5 deriv ry at=20
+echo after tran deriv of a real one
+meas tran a6 find ry at=20
+echo after tran find of a real one
+* what an ac plot can answer it still answers
+meas ac a7 find vm(5) at=100
+meas ac a8 deriv vm(5) at=50
+quit 0
+.endc
+.end
