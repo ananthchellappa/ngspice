@@ -1,0 +1,22 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: save none, then switching circuits away and back
+
+
+Note: No compatibility mode selected!
+
+
+Circuit: second
+
+list of the circuit just loaded:
+move to the circuit just loaded:
+	second
+move to the deck with the purge:
+	save none, then switching circuits away and back
+2    trace 1
+3    save none
+and back:
+	second
+ngspice-46+ done

@@ -132,6 +132,7 @@ settrace(wordlist *wl, int what, char *name)
                         dpp = &dbcheck->db_next;
                     }
                 }
+                ft_curckt->ci_dbs = dbs;
                 if (wl->wl_next) {
                     // More to come, forget this.
 

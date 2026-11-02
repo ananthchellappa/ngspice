@@ -1,0 +1,33 @@
+save none, then switching circuits away and back
+*
+* 'save none' purges the save entries from the list of the current circuit.  When
+* the first entry was among them, ci_dbs kept pointing at the freed node, and the
+* next 'setcirc' back to this circuit restored the list from it: reads of freed
+* memory, and whatever the allocator had put there since.  Each circuit has to
+* come back with what it had.  Valgrind counted 4 invalid reads on this deck.
+V1 1 0 1
+R1 1 0 1k
+.tran 1n 3n
+.control
+save v(1)
+trace v(1)
+save none
+circbyline second
+circbyline V2 2 0 1
+circbyline R2 2 0 1k
+circbyline .tran 1n 3n
+circbyline .end
+echo list of the circuit just loaded:
+status
+echo move to the circuit just loaded:
+setcirc 1
+status
+echo move to the deck with the purge:
+setcirc 2
+status
+echo and back:
+setcirc 1
+status
+quit 0
+.endc
+.end
