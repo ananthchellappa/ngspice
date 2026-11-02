@@ -465,8 +465,9 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
             tfree(savesused);
         }
 
-#if 0
-        if (numNames &&
+        /* "save none" asks for this.  A save list that names nothing real
+         * did not, and must still be told. */
+        if (!savenone && numNames &&
             ((run->numData == 1 && run->refIndex != -1) ||
              (run->numData == 0 && run->refIndex == -1)))
         {
@@ -474,7 +475,7 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
                     spice_analysis_get_description(analysisPtr->JOBtype));
             return E_NOTFOUND;
         }
-#endif
+
         /* Now that we have our own data structures built up, let's see what
          * nutmeg wants us to do.
          */

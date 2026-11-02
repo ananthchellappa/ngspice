@@ -1,0 +1,24 @@
+save none runs and keeps one point, a name that exists nowhere still stops
+V1 1 2 1
+R1 2 0 1k
+R2 1 0 1k
+.tran 10u 50u
+.control
+save none
+run
+echo plot after save none: $curplot
+let npts = length(tran1.time)
+echo points after save none: $&npts
+delete all
+save v(nosuch)
+run
+echo plot after a name that is nowhere: $curplot
+delete all
+save v(2)
+run
+echo plot after save v(2): $curplot
+let npts = length(v(2))
+echo points after save v(2): $&npts
+quit
+.endc
+.end
