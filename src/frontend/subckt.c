@@ -649,7 +649,14 @@ doit(struct card *deck, wordlist *modnames) {
                        We try to reduce the models to the one really used.
                        Otherwise su_deck is full of unused binning models.*/
                     if ((newcompat.hs || newcompat.spe) && c->w > 0 && c->l > 0) {
+                        /* A size on the top edge of the bin table fits no card
+                           under the half open rule, so start over with the max
+                           included.  Keeping those cards for every size would
+                           change which agauss calls a deck makes. */
+                        bool max_included = FALSE;
+                    bin_pass: ;
                         /* extract wmin, wmax, lmin, lmax */
+                        bool have_bins = FALSE, bin_kept = FALSE;
                         struct card* new_deck = su_deck;
                         struct card* prev = NULL;
                         while (su_deck) {
@@ -660,12 +667,12 @@ doit(struct card *deck, wordlist *modnames) {
                             }
 
                             char* curr_line = su_deck->line;
-                            float fwmin, fwmax, flmin, flmax;
+                            double fwmin, fwmax, flmin, flmax;
                             char *wmin = cistrstr(curr_line, " wmin=");
                             if (wmin) {
                                 int err;
                                 wmin = wmin + 6;
-                                fwmin = (float)INPevaluate(&wmin, &err, 0);
+                                fwmin = INPevaluate(&wmin, &err, 0);
                                 if (err) {
                                     prev = su_deck;
                                     su_deck = su_deck->nextcard;
@@ -681,7 +688,7 @@ doit(struct card *deck, wordlist *modnames) {
                             if (wmax) {
                                 int err;
                                 wmax = wmax + 6;
-                                fwmax = (float)INPevaluate(&wmax, &err, 0);
+                                fwmax = INPevaluate(&wmax, &err, 0);
                                 if (err) {
                                     prev = su_deck;
                                     su_deck = su_deck->nextcard;
@@ -698,7 +705,7 @@ doit(struct card *deck, wordlist *modnames) {
                             if (lmin) {
                                 int err;
                                 lmin = lmin + 6;
-                                flmin = (float)INPevaluate(&lmin, &err, 0);
+                                flmin = INPevaluate(&lmin, &err, 0);
                                 if (err) {
                                     prev = su_deck;
                                     su_deck = su_deck->nextcard;
@@ -714,7 +721,7 @@ doit(struct card *deck, wordlist *modnames) {
                             if (lmax) {
                                 int err;
                                 lmax = lmax + 6;
-                                flmax = (float)INPevaluate(&lmax, &err, 0);
+                                flmax = INPevaluate(&lmax, &err, 0);
                                 if (err) {
                                     prev = su_deck;
                                     su_deck = su_deck->nextcard;
@@ -727,12 +734,15 @@ doit(struct card *deck, wordlist *modnames) {
                                 continue;
                             }
 
-                            float csl = (float)scale * c->l;
+                            double csl = scale * c->l;
                             /* scale by nf */
-                            float csw = (float)scale * c->w / c->nf;
+                            double csw = scale * c->w / c->nf;
                             /*fprintf(stdout, "Debug: nf = %f\n", c->nf);*/
-                            if (csl >= flmin && csl < flmax && csw >= fwmin && csw < fwmax) {
+                            /* The rule INPgetModBin() will apply to what stays. */
+                            have_bins = TRUE;
+                            if (INPbinFits(csl, csw, flmin, flmax, fwmin, fwmax, max_included)) {
                                 /* use the current .model card */
+                                bin_kept = TRUE;
                                 prev = su_deck;
                                 su_deck = su_deck->nextcard;
                                 continue;
@@ -744,6 +754,12 @@ doit(struct card *deck, wordlist *modnames) {
                             }
                         }
                         su_deck = new_deck;
+                        if (have_bins && !bin_kept && !max_included) {
+                            line_free_x(su_deck, TRUE);
+                            su_deck = inp_deckcopy(sss->su_def);
+                            max_included = TRUE;
+                            goto bin_pass;
+                        }
                     }
 
                     if (!su_deck) {

@@ -250,11 +250,32 @@ in_range(double value, double min, double max)
 }
 
 
+/* A size on the top edge of a bin table has no bin under the half open rule,
+   but it is legal: it is the lmax or wmax the card itself states. So a size
+   that fits no bin is tried again with the max included.  An inner edge never
+   gets here while the upper bin exists, so it still goes to the upper bin. */
+static bool
+on_or_in_range(double value, double min, double max)
+{
+    return in_range(value, min, max) || is_equal(value, max);
+}
+
+
+bool
+INPbinFits(double l, double w, double lmin, double lmax, double wmin, double wmax, bool max_included)
+{
+    if (max_included)
+        return on_or_in_range(l, lmin, lmax) && on_or_in_range(w, wmin, wmax);
+    return in_range(l, lmin, lmax) && in_range(w, wmin, wmax);
+}
+
+
 char *
 INPgetModBin(CKTcircuit *ckt, char *name, INPmodel **model, INPtables *tab, char *line)
 {
-    INPmodel    *modtmp;
+    INPmodel    *modtmp, *found = NULL;
     double       l, w, lmin, lmax, wmin, wmax;
+    double       found_lmin = 0., found_wmin = 0.;
     double       parse_values[4];
     bool         parse_found[4];
     static char *instance_tokens[] = { "l", "w", "nf", "wnflag" };
@@ -334,17 +355,31 @@ INPgetModBin(CKTcircuit *ckt, char *name, INPmodel **model, INPtables *tab, char
         lmin = parse_values[0]; lmax = parse_values[1];
         wmin = parse_values[2]; wmax = parse_values[3];
 
-        if (in_range(l, lmin, lmax) && in_range(w, wmin, wmax)) {
-            /* create unless model is already defined */
-            if (!modtmp->INPmodfast) {
-                int error = create_model(ckt, modtmp, tab);
-                if (error)
-                    return NULL;
-            }
-
-            *model = modtmp;
-            return NULL;
+        if (INPbinFits(l, w, lmin, lmax, wmin, wmax, FALSE)) {
+            found = modtmp;
+            break;
         }
+
+        /* No bin holds this size so far: remember one that has it on its max.
+           On the top edge in one axis and an inner edge in the other, two
+           cards qualify, and the inner edge belongs to the upper one. */
+        if (INPbinFits(l, w, lmin, lmax, wmin, wmax, TRUE) &&
+            (!found || (lmin >= found_lmin && wmin >= found_wmin))) {
+            found = modtmp;
+            found_lmin = lmin;
+            found_wmin = wmin;
+        }
+    }
+
+    if (found) {
+        /* create unless model is already defined */
+        if (!found->INPmodfast) {
+            int error = create_model(ckt, found, tab);
+            if (error)
+                return NULL;
+        }
+
+        *model = found;
     }
 
     return NULL;
