@@ -7,10 +7,9 @@
 * over 1.3g to 4.1g, avg = 2.7g and integ = (4.1^2-1.3^2)/2 e18 = 7.56e18.
 * zramp has a real part f and an imaginary part 2f, so vr, vi and vm each give a
 * different known answer and show the interpolation honours the requested part.
-* The rms is checked to 1e-3, against a true 2.81839e9: its y is f^2, not linear,
-* and measure_rms_integral() puts the from point in place of the first sample in
-* the window, which on a curve is a chord across two steps.  'avg' does the same,
-* which a ramp cannot show, so the S parameter checks below use to= alone.
+* The rms is true to the printed digits, 2.81839e9 and 3.21455e9: on a ramp the
+* line through the samples is the curve.  The S parameter checks below use to=
+* alone, which was the only window 'avg' had right before meas-window-exact.cir.
 
 v1 p1 0 dc 0 ac 1 portnum 1 z0 50 sin(0 1 1g)
 v2 p2 0 dc 0 ac 0 portnum 2 z0 50
@@ -63,13 +62,13 @@ let bad = bad + (near(spavgc, 2.7e9, 1e-12) = 0)
 let bad = bad + (near(spavgr, 2.7e9, 1e-12) = 0)
 let bad = bad + (near(spintc, 7.56e18, 1e-12) = 0)
 let bad = bad + (near(spintr, 7.56e18, 1e-12) = 0)
-let bad = bad + (near(sprmsc, 2.81839e9, 1e-3) = 0)
-let bad = bad + (near(sprmsr, 2.81839e9, 1e-3) = 0)
+let bad = bad + (near(sprmsc, 2.81839e9, 2e-6) = 0)
+let bad = bad + (near(sprmsr, 2.81839e9, 2e-6) = 0)
 let bad = bad + (near(spavgfrom, 3.15e9, 1e-12) = 0)
 let bad = bad + (near(spavgto, 2.55e9, 1e-12) = 0)
 let bad = bad + (near(spavgall, 3e9, 1e-12) = 0)
 let bad = bad + (near(spintall, 12e18, 1e-12) = 0)
-let bad = bad + (near(sprmsall, 3.21455e9, 1e-3) = 0)
+let bad = bad + (near(sprmsall, 3.21455e9, 2e-6) = 0)
 let bad = bad + (near(zr, 2.7e9, 1e-12) = 0)
 let bad = bad + (near(zi, 5.4e9, 1e-12) = 0)
 * meas stores its result as %e, seven digits, and this answer is not a round number

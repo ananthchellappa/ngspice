@@ -1,0 +1,128 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: meas avg, integ and rms over a from/to window of piecewise-linear data
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 6
+ua1                 =  4.37500e-01 from=  1.30000e+00 to=  1.70000e+00
+ui1                 =  1.75000e-01 from=  1.30000e+00 to=  1.70000e+00
+ur1                 =  5.59017e-01 from=  1.30000e+00 to=  1.70000e+00
+ua2                 =  5.00000e-01 from=  1.20000e+00 to=  1.60000e+00
+ui2                 =  2.00000e-01 from=  1.20000e+00 to=  1.60000e+00
+ur2                 =  5.77350e-01 from=  1.20000e+00 to=  1.60000e+00
+ua3                 =  5.00000e-01 from=  1.42000e+00 to=  1.58000e+00
+ui3                 =  8.00000e-02 from=  1.42000e+00 to=  1.58000e+00
+ur3                 =  5.50757e-01 from=  1.42000e+00 to=  1.58000e+00
+ua4                 =  2.50000e-01 from=  1.10000e+00 to=  1.90000e+00
+ui4                 =  2.00000e-01 from=  1.10000e+00 to=  1.90000e+00
+ur4                 =  4.08248e-01 from=  1.10000e+00 to=  1.90000e+00
+ua5                 =  2.50000e-01 from=  1.30000e+00 to=  2.00000e+00
+ui5                 =  1.75000e-01 from=  1.30000e+00 to=  2.00000e+00
+ur5                 =  4.22577e-01 from=  1.30000e+00 to=  2.00000e+00
+ua6                 =  2.85714e-01 from=  -1.00000e+99 to=  1.70000e+00
+ui6                 =  2.00000e-01 from=  1.00000e+00 to=  1.70000e+00
+ur6                 =  4.36436e-01 from=  1.00000e+00 to=  1.70000e+00
+ua7                 =  2.00000e-01 from=  -1.00000e+99 to=  2.00000e+00
+ui7                 =  2.00000e-01 from=  1.00000e+00 to=  2.00000e+00
+ur7                 =  3.65148e-01 from=  1.00000e+00 to=  2.00000e+00
+dc up misses: 0
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 6
+da1                 =  4.37500e-01 from=  1.30000e+00 to=  1.70000e+00
+di1                 =  1.75000e-01 from=  1.30000e+00 to=  1.70000e+00
+dr1                 =  5.59017e-01 from=  1.30000e+00 to=  1.70000e+00
+da2                 =  4.37500e-01 from=  1.30000e+00 to=  1.70000e+00
+di2                 =  1.75000e-01 from=  1.30000e+00 to=  1.70000e+00
+dr2                 =  5.59017e-01 from=  1.30000e+00 to=  1.70000e+00
+da3                 =  5.00000e-01 from=  1.42000e+00 to=  1.58000e+00
+di3                 =  8.00000e-02 from=  1.42000e+00 to=  1.58000e+00
+dr3                 =  5.50757e-01 from=  1.42000e+00 to=  1.58000e+00
+da4                 =  2.50000e-01 from=  1.10000e+00 to=  1.90000e+00
+di4                 =  2.00000e-01 from=  1.10000e+00 to=  1.90000e+00
+dr4                 =  4.08248e-01 from=  1.10000e+00 to=  1.90000e+00
+da7                 =  2.00000e-01 from=  -1.00000e+99 to=  2.00000e+00
+di7                 =  2.00000e-01 from=  1.00000e+00 to=  2.00000e+00
+dr7                 =  3.65148e-01 from=  1.00000e+00 to=  2.00000e+00
+dc down misses: 0
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 5
+za1                 =  1.16667e+00 from=  0.00000e+00 to=  7.50000e-01
+zi1                 =  8.75000e-01 from=  0.00000e+00 to=  7.50000e-01
+zr1                 =  1.29099e+00 from=  0.00000e+00 to=  7.50000e-01
+za2                 =  -5.00000e-01 from=  -7.50000e-01 to=  0.00000e+00
+zi2                 =  -3.75000e-01 from=  -7.50000e-01 to=  0.00000e+00
+zr2                 =  5.77350e-01 from=  -7.50000e-01 to=  0.00000e+00
+dc through zero misses: 0
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 6
+aa1                 =  4.37500e-01 from=  1.30000e+09 to=  1.70000e+09
+ai1                 =  1.75000e+08 from=  1.30000e+09 to=  1.70000e+09
+ar1                 =  5.59017e-01 from=  1.30000e+09 to=  1.70000e+09
+ca1                 =  4.37500e-01 from=  1.30000e+09 to=  1.70000e+09
+ci1                 =  1.75000e+08 from=  1.30000e+09 to=  1.70000e+09
+cr1                 =  5.59017e-01 from=  1.30000e+09 to=  1.70000e+09
+ia1                 =  8.75000e-01 from=  1.30000e+09 to=  1.70000e+09
+ii1                 =  3.50000e+08 from=  1.30000e+09 to=  1.70000e+09
+ir1                 =  1.11803e+00 from=  1.30000e+09 to=  1.70000e+09
+ma1                 =  9.78280e-01 from=  1.30000e+09 to=  1.70000e+09
+mi1                 =  3.91312e+08 from=  1.30000e+09 to=  1.70000e+09
+mr1                 =  1.25000e+00 from=  1.30000e+09 to=  1.70000e+09
+aa4                 =  2.50000e-01 from=  1.10000e+09 to=  1.90000e+09
+ai4                 =  2.00000e+08 from=  1.10000e+09 to=  1.90000e+09
+ar4                 =  4.08248e-01 from=  1.10000e+09 to=  1.90000e+09
+aa3                 =  5.00000e-01 from=  1.42000e+09 to=  1.58000e+09
+ai3                 =  8.00000e+07 from=  1.42000e+09 to=  1.58000e+09
+ar3                 =  5.50757e-01 from=  1.42000e+09 to=  1.58000e+09
+sa1                 =  4.37500e-01 from=  1.30000e+09 to=  1.70000e+09
+si1                 =  1.75000e+08 from=  1.30000e+09 to=  1.70000e+09
+sr1                 =  5.59017e-01 from=  1.30000e+09 to=  1.70000e+09
+ac misses: 0
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+1                                            0
+2                                            0
+3                                            0
+v3#branch                                    0
+v2#branch                                    0
+v1#branch                                    0
+
+
+No. of Data Rows : 68
+ta1                 =  4.68750e-01 from=  1.30000e-09 to=  1.70000e-09
+ti1                 =  1.87500e-10 from=  1.30000e-09 to=  1.70000e-09
+tr1                 =  5.99479e-01 from=  1.30000e-09 to=  1.70000e-09
+ta4                 =  3.76858e-01 from=  1.13000e-09 to=  1.87000e-09
+ti4                 =  2.78875e-10 from=  1.13000e-09 to=  1.87000e-09
+tr4                 =  5.13892e-01 from=  1.13000e-09 to=  1.87000e-09
+ta5                 =  2.67857e-01 from=  1.30000e-09 to=  2.00000e-09
+ti5                 =  1.87500e-10 from=  1.30000e-09 to=  2.00000e-09
+tr5                 =  4.53163e-01 from=  1.30000e-09 to=  2.00000e-09
+ta6                 =  1.76471e-01 from=  0.00000e+00 to=  1.70000e-09
+ti6                 =  3.00000e-10 from=  0.00000e+00 to=  1.70000e-09
+tr6                 =  3.42997e-01 from=  0.00000e+00 to=  1.70000e-09
+ta7                 =  3.54435e-01 from=  1.39000e-09 to=  1.70000e-09
+ti7                 =  1.09875e-10 from=  1.39000e-09 to=  1.70000e-09
+tr7                 =  4.96500e-01 from=  1.39000e-09 to=  1.70000e-09
+tran misses: 0
+ngspice-46+ done

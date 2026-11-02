@@ -1,0 +1,189 @@
+meas avg, integ and rms over a from/to window of piecewise-linear data
+*
+* The samples are all a run keeps of a signal, and the line between two of them is
+* all it can say about the rest: the true value of each measure here is worked by
+* hand on that line.  Over [a,b] the segment from u to v, of width h, adds
+*     avg, integ    h * (u + v) / 2
+*     rms           h * (u*u + u*v + v*v) / 3
+* and each of them has to come out exact: the edges of the window interpolated, each
+* sample inside used, on every analysis, on a sweep up and on a sweep down.
+*
+* Before: from= put its interpolated point in place of the first sample inside the
+* window (avg 0.1875 and integ 0.075 where the first deck has 0.4375 and 0.175),
+* integ and rms ran Simpson's rule across any three equal steps, which is not
+* the line through the samples (integ 0.225 over the whole sweep, where 0.2 is
+* true), rms worked on a trapezoid of y*y, a window inside one step gave 0, and
+* from=0 and to=0 on a dc sweep through 0 did not clip.
+*
+* y is 1 at 1.4, 0 at the other samples of 1 1.2 1.4 1.6 1.8 2.
+*
+*    window        avg           integ   rms
+*    1.3 .. 1.7    0.4375        0.175   sqrt(0.3125)      both edges interpolated
+*    1.2 .. 1.6    0.5           0.2     sqrt(1/3)         both edges on a sample
+*    1.42 .. 1.58  0.5           0.08    sqrt(91/300)      inside the one step 1.4 .. 1.6
+*    1.1 .. 1.9    0.25          0.2     sqrt(1/6)         equal steps inside
+*    1.3 .. end    0.25          0.175   sqrt(0.125/0.7)
+*    start .. 1.7  0.2/0.7       0.2     sqrt(0.13333/0.7)
+*    all of it     0.2           0.2     sqrt(2/15)
+
+v1 1 0 dc 0 ac 1
+r1 1 0 1
+v2 2 0 pwl(0 0 1n 0 1.4n 1 1.6n 0 2n 0)
+r2 2 0 1
+v3 3 0 dc 0
+r3 3 0 1
+
+.control
+
+define near(val, gold) abs(val - (gold)) <= 2e-6 * abs(gold)
+let bad = 0
+
+* ---- dc, up ----
+dc v1 1 2 0.2
+let y = 0 * v(1)
+let y[2] = 1
+meas dc ua1 avg y from=1.3 to=1.7
+meas dc ui1 integ y from=1.3 to=1.7
+meas dc ur1 rms y from=1.3 to=1.7
+meas dc ua2 avg y from=1.2 to=1.6
+meas dc ui2 integ y from=1.2 to=1.6
+meas dc ur2 rms y from=1.2 to=1.6
+meas dc ua3 avg y from=1.42 to=1.58
+meas dc ui3 integ y from=1.42 to=1.58
+meas dc ur3 rms y from=1.42 to=1.58
+meas dc ua4 avg y from=1.1 to=1.9
+meas dc ui4 integ y from=1.1 to=1.9
+meas dc ur4 rms y from=1.1 to=1.9
+meas dc ua5 avg y from=1.3
+meas dc ui5 integ y from=1.3
+meas dc ur5 rms y from=1.3
+meas dc ua6 avg y to=1.7
+meas dc ui6 integ y to=1.7
+meas dc ur6 rms y to=1.7
+meas dc ua7 avg y
+meas dc ui7 integ y
+meas dc ur7 rms y
+let bad = bad + (near(ua1, 0.4375) = 0) + (near(ui1, 0.175) = 0) + (near(ur1, sqrt(0.3125)) = 0)
+let bad = bad + (near(ua2, 0.5) = 0) + (near(ui2, 0.2) = 0) + (near(ur2, sqrt(1/3)) = 0)
+let bad = bad + (near(ua3, 0.5) = 0) + (near(ui3, 0.08) = 0) + (near(ur3, sqrt(91/300)) = 0)
+let bad = bad + (near(ua4, 0.25) = 0) + (near(ui4, 0.2) = 0) + (near(ur4, sqrt(1/6)) = 0)
+let bad = bad + (near(ua5, 0.25) = 0) + (near(ui5, 0.175) = 0) + (near(ur5, sqrt(0.125/0.7)) = 0)
+let bad = bad + (near(ua6, 0.2/0.7) = 0) + (near(ui6, 0.2) = 0) + (near(ur6, sqrt(0.1333333333/0.7)) = 0)
+let bad = bad + (near(ua7, 0.2) = 0) + (near(ui7, 0.2) = 0) + (near(ur7, sqrt(2/15)) = 0)
+echo dc up, misses: $&bad
+
+* ---- dc, down: the same samples from the other end ----
+let bad = 0
+dc v1 2 1 -0.2
+let y = 0 * v(1)
+let y[3] = 1
+meas dc da1 avg y from=1.3 to=1.7
+meas dc di1 integ y from=1.3 to=1.7
+meas dc dr1 rms y from=1.3 to=1.7
+meas dc da2 avg y from=1.7 to=1.3
+meas dc di2 integ y from=1.7 to=1.3
+meas dc dr2 rms y from=1.7 to=1.3
+meas dc da3 avg y from=1.42 to=1.58
+meas dc di3 integ y from=1.42 to=1.58
+meas dc dr3 rms y from=1.42 to=1.58
+meas dc da4 avg y from=1.1 to=1.9
+meas dc di4 integ y from=1.1 to=1.9
+meas dc dr4 rms y from=1.1 to=1.9
+meas dc da7 avg y
+meas dc di7 integ y
+meas dc dr7 rms y
+let bad = bad + (near(da1, 0.4375) = 0) + (near(di1, 0.175) = 0) + (near(dr1, sqrt(0.3125)) = 0)
+let bad = bad + (near(da2, 0.4375) = 0) + (near(di2, 0.175) = 0) + (near(dr2, sqrt(0.3125)) = 0)
+let bad = bad + (near(da3, 0.5) = 0) + (near(di3, 0.08) = 0) + (near(dr3, sqrt(91/300)) = 0)
+let bad = bad + (near(da4, 0.25) = 0) + (near(di4, 0.2) = 0) + (near(dr4, sqrt(1/6)) = 0)
+let bad = bad + (near(da7, 0.2) = 0) + (near(di7, 0.2) = 0) + (near(dr7, sqrt(2/15)) = 0)
+echo dc down, misses: $&bad
+
+* ---- dc through zero, where from=0 and to=0 are windows and not 'unset' ----
+* y at -1 -0.5 0 0.5 1 is 1 -1 0 2 0.
+let bad = 0
+dc v1 -1 1 0.5
+let y = 0 * v(1)
+let y[0] = 1
+let y[1] = -1
+let y[3] = 2
+meas dc za1 avg y from=0 to=0.75
+meas dc zi1 integ y from=0 to=0.75
+meas dc zr1 rms y from=0 to=0.75
+meas dc za2 avg y from=-0.75 to=0
+meas dc zi2 integ y from=-0.75 to=0
+meas dc zr2 rms y from=-0.75 to=0
+let bad = bad + (near(za1, 0.875/0.75) = 0) + (near(zi1, 0.875) = 0) + (near(zr1, sqrt(5/3)) = 0)
+let bad = bad + (near(za2, -0.5) = 0) + (near(zi2, -0.375) = 0) + (near(zr2, sqrt(1/3)) = 0)
+echo dc through zero, misses: $&bad
+
+* ---- ac: complex scale; a real y, and the parts of a complex one ----
+* z = (1 + 2j) y: the real part is y, the imaginary part 2y, the magnitude sqrt(5) y.
+let bad = 0
+ac lin 6 1g 2g
+let z = 0 * v(1)
+let z[2] = 1 + j(2)
+let ry = real(z)
+meas ac aa1 avg ry from=1.3g to=1.7g
+meas ac ai1 integ ry from=1.3g to=1.7g
+meas ac ar1 rms ry from=1.3g to=1.7g
+meas ac ca1 avg z from=1.3g to=1.7g
+meas ac ci1 integ z from=1.3g to=1.7g
+meas ac cr1 rms z from=1.3g to=1.7g
+meas ac ia1 avg vi(z) from=1.3g to=1.7g
+meas ac ii1 integ vi(z) from=1.3g to=1.7g
+meas ac ir1 rms vi(z) from=1.3g to=1.7g
+meas ac ma1 avg vm(z) from=1.3g to=1.7g
+meas ac mi1 integ vm(z) from=1.3g to=1.7g
+meas ac mr1 rms vm(z) from=1.3g to=1.7g
+meas ac aa4 avg ry from=1.1g to=1.9g
+meas ac ai4 integ ry from=1.1g to=1.9g
+meas ac ar4 rms ry from=1.1g to=1.9g
+meas ac aa3 avg ry from=1.42g to=1.58g
+meas ac ai3 integ ry from=1.42g to=1.58g
+meas ac ar3 rms ry from=1.42g to=1.58g
+meas sp sa1 avg ry from=1.3g to=1.7g
+meas sp si1 integ ry from=1.3g to=1.7g
+meas sp sr1 rms ry from=1.3g to=1.7g
+let bad = bad + (near(aa1, 0.4375) = 0) + (near(ai1, 0.175e9) = 0) + (near(ar1, sqrt(0.3125)) = 0)
+let bad = bad + (near(ca1, 0.4375) = 0) + (near(ci1, 0.175e9) = 0) + (near(cr1, sqrt(0.3125)) = 0)
+let bad = bad + (near(ia1, 0.875) = 0) + (near(ii1, 0.35e9) = 0) + (near(ir1, 2 * sqrt(0.3125)) = 0)
+let bad = bad + (near(ma1, sqrt(5) * 0.4375) = 0) + (near(mi1, sqrt(5) * 0.175e9) = 0)
+let bad = bad + (near(mr1, sqrt(5) * sqrt(0.3125)) = 0)
+let bad = bad + (near(aa4, 0.25) = 0) + (near(ai4, 0.2e9) = 0) + (near(ar4, sqrt(1/6)) = 0)
+let bad = bad + (near(aa3, 0.5) = 0) + (near(ai3, 0.08e9) = 0) + (near(ar3, sqrt(91/300)) = 0)
+let bad = bad + (near(sa1, 0.4375) = 0) + (near(si1, 0.175e9) = 0) + (near(sr1, sqrt(0.3125)) = 0)
+echo ac, misses: $&bad
+
+* ---- tran: a pwl source, whose corners are breakpoints and so are samples ----
+* v(2) is 0 to 1n, up to 1 at 1.4n, down to 0 at 1.6n, 0 to 2n.
+let bad = 0
+tran 0.1n 2n
+meas tran ta1 avg v(2) from=1.3n to=1.7n
+meas tran ti1 integ v(2) from=1.3n to=1.7n
+meas tran tr1 rms v(2) from=1.3n to=1.7n
+meas tran ta4 avg v(2) from=1.13n to=1.87n
+meas tran ti4 integ v(2) from=1.13n to=1.87n
+meas tran tr4 rms v(2) from=1.13n to=1.87n
+meas tran ta5 avg v(2) from=1.3n
+meas tran ti5 integ v(2) from=1.3n
+meas tran tr5 rms v(2) from=1.3n
+meas tran ta6 avg v(2) to=1.7n
+meas tran ti6 integ v(2) to=1.7n
+meas tran tr6 rms v(2) to=1.7n
+meas tran ta7 avg v(2) from=1.39n to=1.7n
+meas tran ti7 integ v(2) from=1.39n to=1.7n
+meas tran tr7 rms v(2) from=1.39n to=1.7n
+let bad = bad + (near(ta7, 0.109875/0.31) = 0) + (near(ti7, 0.109875e-9) = 0)
+let bad = bad + (near(tr7, sqrt((0.01 * (0.950625 + 0.975 + 1) / 3 + 0.2/3) / 0.31)) = 0)
+let bad = bad + (near(ta1, 0.46875) = 0) + (near(ti1, 0.1875e-9) = 0) + (near(tr1, sqrt(0.359375)) = 0)
+let bad = bad + (near(ta4, 0.2788750/0.74) = 0) + (near(ti4, 0.2788750e-9) = 0) + (near(tr4, sqrt(0.26408502252)) = 0)
+let bad = bad + (near(ta5, 0.1875/0.7) = 0) + (near(ti5, 0.1875e-9) = 0) + (near(tr5, sqrt(0.205357142857)) = 0)
+let bad = bad + (near(ta6, 0.3/1.7) = 0) + (near(ti6, 0.3e-9) = 0) + (near(tr6, sqrt(0.117647058824)) = 0)
+echo tran, misses: $&bad
+
+quit 0
+
+.endc
+
+.end

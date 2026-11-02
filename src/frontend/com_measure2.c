@@ -936,25 +936,19 @@ measure_deriv_at(
 
 
 /* -----------------------------------------------------------------
- * Function: process an MIN, MAX, or AVG statement which has been
- * parsed into a measurement structure.  We should make sure to interpolate
- * the value here when we have m_from and m_to constraints * so this
- * function is slightly wrong.   Need to fix in future rev.
+ * Function: process an MIN or MAX statement which has been
+ * parsed into a measurement structure.  These keep whole samples:
+ * the window is not interpolated.
  * ----------------------------------------------------------------- */
 static int
 measure_minMaxAvg(
     MEASUREPTR meas,                /* in : parsed measurement data request */
-    ANALYSIS_TYPE_T mFunctionType   /* in: one of AT_AVG, AT_MIN, AT_MAX, AT_MIN_AT, AT_MAX_AT */
+    ANALYSIS_TYPE_T mFunctionType   /* in: one of AT_MIN, AT_MAX, AT_MIN_AT, AT_MAX_AT */
     )
 {
     int i;
     struct dvec *d, *dScale;
     double value, svalue, mValue, mValueAt;
-    double pvalue = 0.0, sprev = 0.0, Tsum = 0.0;
-    /* Enhancement-303: the immediately preceding RAW sample (in or out of the window),
-       needed to interpolate the exact point where a dc sweep crosses `from` or `to`. */
-    double prev_s = 0.0, prev_v = 0.0;
-    bool have_prev = FALSE;
     int first;
     bool ac_check = FALSE, sp_check = FALSE, dc_check = FALSE, tran_check = FALSE;
 
@@ -1061,43 +1055,6 @@ measure_minMaxAvg(
             /* dc: start from pos or neg scale value */
             bool in_win = !((svalue < meas->m_from) || (svalue > meas->m_to));
 
-            /* Enhancement-303: clip an AVG window to exactly [from, to] on a dc sweep
-               too. Unlike time, a dc sweep may DESCEND (`dc v1 2 0 -0.001`), so the
-               boundary cannot be assumed to be the lower one: work from the actual
-               crossing between the previous raw sample and this one, which is
-               direction-agnostic and simply never fires on a sweep that does not
-               cross. Without this the window silently began at the first sweep point
-               inside it and ended at the last -- the same O(step) truncation fixed for
-               tran/ac/sp in Enhancement-302. */
-            if (mFunctionType == AT_AVG && have_prev && svalue != prev_s) {
-                bool prev_in = !((prev_s < meas->m_from) || (prev_s > meas->m_to));
-
-                if (in_win && !prev_in && first == 0) {
-                    /* crossing INTO the window: open it at the exact boundary */
-                    double b = (prev_s < meas->m_from) ? meas->m_from : meas->m_to;
-                    double t = (b - prev_s) / (svalue - prev_s);
-                    mValue = 0.0;
-                    Tsum = 0.0;
-                    pvalue = prev_v + t * (value - prev_v);
-                    sprev = b;
-                    mValueAt = b;
-                    first = 1;          /* this sample now accumulates against `b` */
-                } else if (!in_win && prev_in && first != 0) {
-                    /* crossing OUT of it: close at the exact boundary and stop */
-                    double b = (svalue > meas->m_to) ? meas->m_to : meas->m_from;
-                    double t = (b - prev_s) / (svalue - prev_s);
-                    double bv = prev_v + t * (value - prev_v);
-                    mValue += 0.5 * (bv + pvalue) * (b - sprev);
-                    Tsum += (b - sprev);
-                    sprev = b;
-                    break;
-                }
-            }
-
-            prev_s = svalue;
-            prev_v = value;
-            have_prev = TRUE;
-
             if (!in_win)
                 continue;
         } else {
@@ -1105,39 +1062,8 @@ measure_minMaxAvg(
             if (svalue < meas->m_from)
                 continue;
 
-            if ((meas->m_to != 0.0e0) && (svalue > meas->m_to)) {
-                /* Enhancement-302: AVG integrates a trapezoid over the window and
-                   divides by its span, so the window has to END AT EXACTLY `to`.
-                   Without this it ended at the last sample BEFORE `to`, dropping the
-                   final partial interval -- an O(dt) error that made `avg` disagree
-                   with `integ`/(to-from) computed over the same window, even though
-                   they are the same quantity. RMS and INTEG already clip this way in
-                   measure_rms_integral(); do the same here. MIN/MAX keep their
-                   whole-sample semantics. */
-                if (mFunctionType == AT_AVG && first != 0 && i > 0) {
-                    /* Enhancement-316: always add the final partial interval up to `to`.
-                       The !AlmostEqualUlps guard used to gate the whole accumulation, so
-                       when the first out-of-window sample fell within 100 ULPs of `to`
-                       the entire final trapezoid [sprev, to] -- a full timestep -- was
-                       dropped, ending AVG's window one step short of `to`. That made
-                       `avg` disagree with `integ`/(to-from) over the same window (they
-                       are the same quantity -- the Enhancement-302 contract). INTEG/RMS
-                       in measure_rms_integral() ALWAYS add the final point, interpolating
-                       only when the sample overshoots `to`; match that here -- interpolate
-                       to `to` only when the sample is more than 100 ULPs beyond it, else
-                       use it as-is, but add the trapezoid either way. */
-                    if (!AlmostEqualUlps(svalue, meas->m_to, 100)) {
-                        value = measure_interpolate(dScale, d, i - 1, i, meas->m_to,
-                                                    'y', meas);
-                        svalue = meas->m_to;
-                    }
-                    mValue += 0.5 * (value + pvalue) * (svalue - sprev);
-                    Tsum += (svalue - sprev);
-                    pvalue = value;
-                    sprev = svalue;
-                }
+            if ((meas->m_to != 0.0e0) && (svalue > meas->m_to))
                 break;
-            }
         }
 
         if (first == 0) {
@@ -1151,28 +1077,8 @@ measure_minMaxAvg(
                 mValue = value;
                 mValueAt = svalue;
                 break;
-            case AT_AVG:
-                mValue = 0.0;
-                mValueAt = svalue;
-                Tsum = 0.0;
-                /* Enhancement-302: and START at exactly `from`, for the same reason --
-                   otherwise the first partial interval is dropped as well.
-                   NOT for a dc sweep: only time/frequency scales are guaranteed to
-                   ascend. A descending `dc v1 2 0 -0.001` enters the window at its
-                   HIGH end, where forcing svalue to `from` would extrapolate far
-                   outside [i-1, i] and poison every later trapezoid. */
-                if (!dc_check && meas->m_from != 0.0e0 && i > 0 &&
-                        !AlmostEqualUlps(svalue, meas->m_from, 100)) {
-                    value = measure_interpolate(dScale, d, i - 1, i, meas->m_from,
-                                                'y', meas);
-                    svalue = meas->m_from;
-                    mValueAt = svalue;
-                }
-                pvalue = value;
-                sprev = svalue;
-                break;
             default:
-                fprintf(cp_err, "Error: improper min/max/avg call.\n");
+                fprintf(cp_err, "Error: improper min/max call.\n");
                 return MEASUREMENT_FAILURE;
             }
         } else {
@@ -1193,15 +1099,8 @@ measure_minMaxAvg(
                 }
                 break;
             }
-            case AT_AVG: {
-                mValue += 0.5 * (value + pvalue) * (svalue - sprev);
-                Tsum += (svalue - sprev);
-                pvalue = value;
-                sprev = svalue;
-                break;
-            }
             default :
-                fprintf(cp_err, "Error: improper min/max/avg call.\n");
+                fprintf(cp_err, "Error: improper min/max call.\n");
                 return MEASUREMENT_FAILURE;
             }
 
@@ -1210,19 +1109,6 @@ measure_minMaxAvg(
 
     switch (mFunctionType)
     {
-    case AT_AVG: {
-        meas->m_measured = mValue / (first ? Tsum : 1.0);
-        /* Enhancement-302: report the END OF THE WINDOW, not `svalue` -- which, when
-           the loop broke on the first out-of-window sample, was a time the average
-           never covered (a 250us window was echoed as "to=2.50280e-04"). `sprev` is
-           the last point actually accumulated, i.e. the true window end.
-           Enhancement-303: this now holds for dc as well -- but a dc sweep may DESCEND,
-           and then the accumulation ends at the LOW bound, which would print as
-           "from= 0.25 to= 0.25". The covered window is [mValueAt, sprev] in traversal
-           order, so report its upper end and the echo reads the same either way. */
-        meas->m_measured_at = first ? ((mValueAt > sprev) ? mValueAt : sprev) : svalue;
-        break;
-    }
     case AT_MIN:
     case AT_MAX:
     case AT_MIN_AT:
@@ -1232,7 +1118,7 @@ measure_minMaxAvg(
         break;
     }
     default :
-        fprintf(cp_err, "Error: improper min/max/avg call.\n");
+        fprintf(cp_err, "Error: improper min/max call.\n");
         return MEASUREMENT_FAILURE;
     }
     return MEASUREMENT_OK;
@@ -1349,39 +1235,35 @@ measure_margin(
 
 
 /* -----------------------------------------------------------------
- * Function: process an RMS or INTEG statement which has been
- * parsed into a measurement structure.  Here we do interpolate
- * the starting and stopping time window so the answer is correct.
+ * Function: process an AVG, RMS or INTEG statement which has been
+ * parsed into a measurement structure.
+ *
+ * All three integrate the line through the samples, which is all a run
+ * knows of a signal, over exactly [from, to]: the edges are interpolated
+ * and every sample between them is used, so that each is exact for
+ * piecewise-linear data, with the scale running up or down, and
+ * avg = integ / (to - from).  No rule that weighs samples otherwise can be:
+ * a smooth curve and the corner-to-corner line through its samples hand
+ * in the same numbers.
  * ----------------------------------------------------------------- */
 static int
 measure_rms_integral(
     MEASUREPTR meas,              /* in : parsed measurement data request */
-    ANALYSIS_TYPE_T mFunctionType /* in: one of AT_RMS, or AT_INTEG */
+    ANALYSIS_TYPE_T mFunctionType /* in: one of AT_AVG, AT_RMS or AT_INTEG */
     )
 {
-    int i;                      /* counter */
-    /* Enhancement-304: `n` walks the samples in order of increasing scale (which is
-       index order unless a dc sweep descends); `i` is the index it maps to and `iprev`
-       the one before it in that order. */
-    int n, iprev;
-    bool ascending = TRUE;
-    int xy_size;                /* # of temp array elements */
-    struct dvec *d, *xScale;    /* value and indpendent (x-axis) vectors */
-    double value, xvalue;       /* current value and independent value */
-    double *x;                  /* temp x array */
-    double *y;                  /* temp y array */
-    double toVal;               /* to time value */
-    double *width;              /* temp width array */
-    double sum1;                /* first sum */
-    double sum2;                /* second sum */
-    double sum3;                /* third sum */
-    int first;
+    int i;
+    struct dvec *d, *xScale;      /* value and independent (x-axis) vectors */
+    double value = 0.0, xvalue = 0.0;   /* this sample */
+    double yprev = 0.0, xprev = 0.0;    /* the point before it on the line */
+    double xstart = 0.0;          /* where the window was opened */
+    double from, to;
+    double sum = 0.0, span = 0.0;
+    bool open = FALSE;            /* inside the window? */
     bool ac_check = FALSE, sp_check = FALSE, dc_check = FALSE, tran_check = FALSE;
 
-    xvalue = 0;
     meas->m_measured = NAN;
     meas->m_measured_at = NAN;
-    first = 0;
 
     if (cieq (meas->m_analysis, "ac"))
         ac_check = TRUE;
@@ -1433,163 +1315,103 @@ measure_rms_integral(
     }
 
     if (xScale->v_realdata == NULL && xScale->v_compdata == NULL) {
-        fprintf(cp_err, "Error: scale vector time, frequency or ?-sweep has no data.\n");
+        fprintf(cp_err, "Error: scale vector %s has no data.\n", xScale->v_name);
         return MEASUREMENT_FAILURE;
     }
 
-    /* Allocate buffers for calculation. */
-    x     = TMALLOC(double, xScale->v_length);
-    y     = TMALLOC(double, xScale->v_length);
-    width = TMALLOC(double, xScale->v_length + 1);
-
-    xy_size = 0;
-    toVal = -1;
-
-    /* Enhancement-304: this loop assumes the scale ASCENDS -- it clips at `from` on the
-       way in and at `to` on the way out, and the segment widths x[i+1]-x[i] it builds
-       must come out positive for the Simpson / trapezoid sums below. A dc sweep may
-       DESCEND (`dc v1 2 0 -0.001`), and then the very first sample is already above
-       `to`: the clip fired at once, interpolated against index i-1 == -1 (an OUT-OF-
-       BOUNDS read) and broke with a single point, so the sums ran zero times and the
-       measurement came back 0.0 with `from= nan`. Walk the samples in order of
-       increasing scale instead of index order; for ascending data this is the identity
-       and every step below is unchanged. */
-    {
-        double s0, sN;
-        if (ac_check) {
-            s0 = xScale->v_compdata[0].cx_real;
-            sN = xScale->v_compdata[d->v_length - 1].cx_real;
-        } else if (xScale->v_realdata) {
-            s0 = xScale->v_realdata[0];
-            sN = xScale->v_realdata[d->v_length - 1];
-        } else {
-            s0 = xScale->v_compdata[0].cx_real;
-            sN = xScale->v_compdata[d->v_length - 1].cx_real;
-        }
-        if (d->v_length > 1 && sN < s0)
-            ascending = FALSE;
+    if (d->v_length != xScale->v_length) {
+        fprintf(cp_err, "Error: length of scale vector (%s) does not match length of data vector (%s).\n", xScale->v_name, d->v_name);
+        fprintf(cp_err, "    Analysis is not possible.\n");
+        return MEASUREMENT_FAILURE;
     }
 
-    /* create new set of values over interval [from, to] -- interpolate if necessary */
-    for (n = 0; n < d->v_length; n++) {
-        /* index of this sample, and of the one before it IN TRAVERSAL ORDER */
-        i = ascending ? n : (d->v_length - 1 - n);
-        iprev = ascending ? (i - 1) : (i + 1);
+    /* to=0 means 'not given', except on a dc sweep, where the parser sets the
+       outer limits because 0 may be inside the range */
+    from = meas->m_from;
+    to = (dc_check || meas->m_to != 0.0e0) ? meas->m_to : HUGE_VAL;
 
-        if (ac_check) {
-            if (d->v_compdata) {
-                value = get_value(meas, d, i); //d->v_compdata[i].cx_real;
+/* the value on the line at edge b, between the sample before this one and this one */
+#define WINDOW_EDGE(b) \
+    (AlmostEqualUlps(xvalue, (b), 100) ? value : \
+     measure_interpolate(xScale, d, i - 1, i, (b), 'y', meas))
+#define WINDOW_SEGMENT(x, y) \
+    do { \
+        double w_ = fabs((x) - xprev), v_ = (y); \
+        sum += (mFunctionType == AT_RMS) \
+            ? w_ * (yprev * yprev + yprev * v_ + v_ * v_) / 3.0 \
+            : w_ * (yprev + v_) / 2.0; \
+        span += w_; \
+        xprev = (x); \
+        yprev = v_; \
+    } while (0)
+#define WINDOW_OPEN(x, y) \
+    do { \
+        xstart = xprev = (x); \
+        yprev = (y); \
+        open = TRUE; \
+    } while (0)
+
+    /* In index order: a dc sweep may run down, so an edge is where the line between
+       two samples crosses from or to, and each width is taken unsigned. */
+    for (i = 0; i < d->v_length; i++) {
+        double s_prev = xvalue;
+        bool in_win;
+
+        value = d->v_compdata ? get_value(meas, d, i) : d->v_realdata[i];
+        xvalue = xScale->v_compdata ? xScale->v_compdata[i].cx_real : xScale->v_realdata[i];
+        in_win = !((xvalue < from) || (xvalue > to));
+
+        if (open) {
+            if (in_win) {
+                WINDOW_SEGMENT(xvalue, value);
             } else {
-                value = d->v_realdata[i];
-                // fprintf(cp_err, "Warning: 'meas ac' input vector is real!\n");
+                double b = (xvalue > to) ? to : from;
+                WINDOW_SEGMENT(b, WINDOW_EDGE(b));
+                break;
             }
-            xvalue = xScale->v_compdata[i].cx_real;
-        } else if (sp_check) {
-            if (d->v_compdata)
-                value = get_value(meas, d, i);
-            else
-                value = d->v_realdata[i];
-            if (xScale->v_compdata) // .sp, s-param.
-                xvalue = xScale->v_compdata[i].cx_real;
-            else // fft
-                xvalue = xScale->v_realdata[i];
-        } else {
-            value = d->v_realdata[i];
-            xvalue = xScale->v_realdata[i];
-        }
-
-        if (xvalue < meas->m_from)
-            continue;
-
-        if ((meas->m_to != 0.0e0) && (xvalue > meas->m_to)) {
-            /* interpolate ending value if necessary. `n > 0` is what keeps `iprev` in
-               range -- it is the guard the old `i-1` lacked. With no preceding sample
-               there is nothing to interpolate against, so the window simply has not
-               been entered yet. */
-            if (n > 0 && !AlmostEqualUlps(xvalue, meas->m_to, 100)) {
-                value = measure_interpolate(xScale, d, iprev, i, meas->m_to, 'y', meas);
-                xvalue = meas->m_to;
-            } else if (n == 0) {
-                continue;
+        } else if (in_win) {
+            if (i > 0) {
+                double b = (s_prev < from) ? from : to;
+                WINDOW_OPEN(b, WINDOW_EDGE(b));
+                WINDOW_SEGMENT(xvalue, value);
+            } else {
+                WINDOW_OPEN(xvalue, value);
             }
-            x[xy_size] = xvalue;
-            if (mFunctionType == AT_RMS)
-                y[xy_size++] = value * value;
-            else
-                y[xy_size++] = value;
-            toVal = xvalue;
+        } else if (i > 0 && from < to &&
+                   ((s_prev < from && xvalue > to) || (s_prev > to && xvalue < from))) {
+            /* the whole window lies inside this one step */
+            double near_edge = (s_prev < from) ? from : to;
+            double far_edge = (s_prev < from) ? to : from;
+            WINDOW_OPEN(near_edge, measure_interpolate(xScale, d, i - 1, i, near_edge, 'y', meas));
+            WINDOW_SEGMENT(far_edge, measure_interpolate(xScale, d, i - 1, i, far_edge, 'y', meas));
             break;
         }
-
-        if (first == 0) {
-            if (meas->m_from != 0.0e0 && (n > 0)) {
-                // interpolate starting value.
-                if (!AlmostEqualUlps(xvalue, meas->m_from, 100)) {
-                    value = measure_interpolate(xScale, d, iprev, i, meas->m_from, 'y' , meas);
-                    xvalue = meas->m_from;
-                }
-            }
-            meas->m_measured_at = xvalue;
-            first = 1;
-        }
-        x[xy_size] = xvalue;
-        if (mFunctionType == AT_RMS)
-            y[xy_size++] = value * value;
-        else
-            y[xy_size++] = value;
     }
 
-    // evaluate segment width
-    for (i = 0; i < xy_size-1; i++)
-        width[i] = x[i+1] - x[i];
-    width[i++] = 0;
-    width[i++] = 0;
+#undef WINDOW_EDGE
+#undef WINDOW_SEGMENT
+#undef WINDOW_OPEN
 
-    // Compute Integral (area under curve)
-    i = 0;
-    sum1 = sum2 = sum3 = 0.0;
-    while (i < xy_size-1) {
-        // Simpson's 3/8 Rule
-        if (AlmostEqualUlps(width[i], width[i+1], 100) &&
-            AlmostEqualUlps(width[i], width[i+2], 100)) {
-            sum1 += 3*width[i] * (y[i] + 3*(y[i+1] + y[i+2]) + y[i+3]) / 8.0;
-            i += 3;
-        }
-        // Simpson's 1/3 Rule
-        else if (AlmostEqualUlps(width[i], width[i+1], 100)) {
-            sum2 += width[i] * (y[i] + 4*y[i+1] + y[i+2]) / 3.0;
-            i += 2;
-        }
-        // Trapezoidal Rule
-        else {
-            sum3 += width[i] * (y[i] + y[i+1]) / 2;
-            i++;
-        }
+    if (mFunctionType == AT_AVG) {
+        /* the end of the window, not a sample past it; the start is what was asked for */
+        meas->m_measured = open ? sum / span : 0.0;
+        meas->m_measured_at = open ? MAX(xstart, xprev) : xvalue;
+        return MEASUREMENT_OK;
     }
 
-    /* Now set the measurement values if not set.
-       Enhancement-304: the window ran to the end of the data rather than hitting `to`,
-       so the end of it is simply the last point appended. Reading
-       `xScale->...[d->v_length-1]` was wrong whenever the scale descends (that is the
-       SMALLEST scale value, not the last one traversed), and the `value`/`xvalue` reads
-       that used to sit here indexed with the integration loop's counter -- past the end
-       of the data -- into variables nothing reads again. Both are gone. */
-    if (toVal < 0.0)
-        toVal = (xy_size > 0) ? x[xy_size-1] : meas->m_measured_at;
-    meas->m_from = meas->m_measured_at;
-    meas->m_to = toVal;
-
-    if (mFunctionType == AT_RMS) {
-        meas->m_measured = (sum1 + sum2 + sum3)/ (toVal - meas->m_measured_at);
-        meas->m_measured = sqrt(meas->m_measured);
-
+    /* what the window turned out to be, low end first */
+    if (open) {
+        meas->m_from = MIN(xstart, xprev);
+        meas->m_to = MAX(xstart, xprev);
     } else {
-        meas->m_measured = (sum1 + sum2 + sum3);
+        meas->m_from = meas->m_to = NAN;
     }
 
-    txfree(x);
-    txfree(y);
-    txfree(width);
+    if (mFunctionType == AT_RMS)
+        meas->m_measured = sqrt(sum / span);
+    else
+        meas->m_measured = sum;
+
     return MEASUREMENT_OK;
 }
 
@@ -2433,7 +2255,7 @@ err_ret4:
         }
 
         // measure
-        measure_minMaxAvg(meas, mFunctionType);
+        measure_rms_integral(meas, AT_AVG);
         if (isnan(meas->m_measured)) {
             snprintf(errbuf, MEAS_ERRBUF_SIZE, "out of interval\n");
             measure_errMessage(mName, mFunction, "TRIG", errbuf, autocheck); // ??
