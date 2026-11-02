@@ -1,0 +1,14 @@
+@@ ring
+per = 4.202223000000000e-10
+iavg = -2.25341100000000e-04
+m_n1 = 8.800228318586251e-01
+m_idd = -2.57627333798603e-04
+s_n1 = 1.868164749040107e+00
+rusage.Total_iterations = 22833
+rusage.Transient_iterations = 22833
+rusage.Circuit_Equations = 58
+rusage.Circuit_original_non-zeroes = 318
+rusage.Transient_timepoints = 8016
+rusage.Accepted_timepoints = 8015
+rusage.Rejected_timepoints = 1
+exit = 0

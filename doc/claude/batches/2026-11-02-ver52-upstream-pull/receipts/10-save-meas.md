@@ -246,3 +246,87 @@ meas dc w1 when ry=0.5
 .endc
 .end
 ```
+
+## Fix round
+
+An independent reviewer raised two items. Both reproduced, both fixed.
+
+| | commit | test in `make check` |
+|---|---|---|
+| R5, second operand | `5fed2d161` | `save-none-node-diff.cir`, `save-none-node-diff-print.cir` |
+| R3, `when` loop | `6a8cfa3d5` | `meas-when-length.cir` |
+
+Gates: `make` exit 0, `make install`, `make -k check` **385 PASS, 1 FAIL** (the named
+`resource-keyword-case.cmd`), 0 SKIP. 382 + 3 new. `identity.lint` passes, baseline untouched.
+`measure/`: `compare.sh after-10 after-10-fix` **TOTAL changed: 0**; `mc_r` and `mc_sky130`
+identical to 45.2.
+
+**Corrections to the sections above.** R5's "the same defect was on the cards, so they are fixed"
+covered `v(none)` and `v(none,1)` only. R3's table covered the `at=` forms only.
+
+### R5: `v(1,none)` on a card
+
+`gettoks()` wrapped the first operand and passed the second on bare, so `settrace()` took it for the
+keyword. The second operand is now wrapped the same way.
+
+| `.save`, vectors kept | before | after |
+|---|---|---|
+| `v(1,none)` | `time`, 1 long | `V(1)`, `none`, `time`, 59 long |
+| `vm(1,none)`, `v(1, NONE)` | `time`, 1 long (`vm`, `v(1, none)`) | the same three, 59 long |
+| `v(none,none)` | `time`, 1 long | `none`, `time`, 59 long |
+| `none` | | `time`, 1 long, unchanged |
+| `v(1,0)`, `i(v1)` | | saved as before |
+
+ver_50 and 45.2 give the three vectors on `v(1,none)`, so this was a regression from R5's commit.
+
+RED, seen by `check.sh`, binary built from the commit before the fix:
+```
+-    V(1)                : voltage, real, 59 long
+-    none                : voltage, real, 59 long
+FAIL: save-none-node-diff.cir
+-0	0.000000e+00	-5.00000e-01
+-1	2.000000e-07	-5.00000e-01
+(59 rows lost in all)
+FAIL: save-none-node-diff-print.cir
+```
+The first draft of the print deck also had `v(none,1)` on the card and passed on the old binary:
+`save none v(none)` keeps what follows the keyword. That operand was taken off, and the deck's
+comment says why.
+
+Both differential forms in control language, `save v(1,none)` and `save v(1,2)`, end in `no data
+saved`, on this binary, ver_50 and 45.2. `.meas tran x min v(1,none)` and `v(1,3)` give `no such
+vector` on all three. Neither is this defect, and neither was touched.
+
+### R3: `com_measure_when()`
+
+The loop stops at `min` of the vector, the scale and, when there is one, the second vector. The
+reviewer named the first two; a short second vector read past its end in the same way.
+
+| valgrind, invalid reads | before | after |
+|---|---|---|
+| `meas-when-length.cir` | 6 | 0 |
+| the reviewer's forms in one deck: `find`, `deriv`, plain `when`, `when a=b`, `trig`/`targ` | 5 | 0 |
+
+RED, seen by `check.sh`, same binary. The numbers come from the heap and differ per run:
+```
++u4                  =  1.97710e-319 targ=  -9.11444e-317 trig=  -9.13421e-317
++u5                  =  1.33333e+00
+FAIL: meas-when-length.cir
+```
+By hand on old binaries `u3` also gave `5.2e+01`. Whether `u1` to `u3` give a number depends on the
+heap, so the deck's sure RED lines are `u4` and `u5`. GREEN: all `u` lines `out of interval`,
+`n1` 1.5, `n2` 1.5, `n3` 1, `n4` 1.25, worked by hand from the deck's vectors.
+
+ver_50 has this overrun too, per the reviewer; not re-measured here.
+
+### Seen on the way, not changed
+
+- **`measure_margin()` has the same overrun.** `n = d->v_length`, then `dScale->...[i]`. A
+  complex `vector(5000)` on a 3-point `.ac`, `meas ac pm phase_margin y`: valgrind reports an invalid
+  read on this binary. 0 on ver_50 and 45.2, whose handling of that line I did not look into. The
+  function came with `c0d49a574`.
+- A crossing in the first step of a sweep is not reported by a plain `when`: the loop only
+  initialises its side there. That is why a 2-point sweep gives `out of interval`, and why the deck
+  crosses in its second step. Not a length defect.
+- `meas dc w1 when ry=0.5` on an AC plot still exits 139 (see the appendix). This round bounds the
+  loop; it does not add the missing guard.
