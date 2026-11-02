@@ -1,0 +1,35 @@
+bjt: sky130 npn and pnp, forward and reverse, temperature sweep
+.lib @SKY130@ tt
+vcn cn 0 1
+vbn bn 0 0.7
+xn1 cn bn 0 0 sky130_fd_pr__npn_05v5_W1p00L1p00
+vep ep 0 0.7
+vbp bp 0 0
+xp1 cp bp ep sky130_fd_pr__pnp_05v5_W3p40L3p40
+vcp cp 0 0
+.control
+set numdgt=15
+foreach t -40 27 125
+  option temp=$t
+  echo @@ forward temp=$t
+  alter vbn 0.7
+  alter vcn 1
+  alter vep 0.7
+  alter vcp 0
+  op
+  print i(vcn) i(vbn) i(vep) i(vcp)
+  echo @@ mid injection temp=$t
+  alter vbn 0.6
+  alter vep 0.6
+  op
+  print i(vcn) i(vbn) i(vep) i(vcp)
+  echo @@ reverse temp=$t
+  alter vbn -2
+  alter vcn 1
+  alter vep -2
+  alter vcp -1
+  op
+  print i(vcn) i(vbn) i(vep) i(vcp)
+end
+.endc
+.end

@@ -1,0 +1,61 @@
+tran_inv: sky130 inverter chain, meas avg rise rms, and dc-sweep meas
+.lib @SKY130@ tt
+vdd vdd 0 1.8
+vin in 0 dc 0 pulse(0 1.8 1n 100p 100p 4.9n 10n)
+xp1 o1 in vdd vdd sky130_fd_pr__pfet_01v8 w=2 l=0.15
+xn1 o1 in 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.15
+xp2 o2 o1 vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
+xn2 o2 o1 0 0 sky130_fd_pr__nfet_01v8 w=2 l=0.15
+cl o2 0 20f
+* a repeating PWL clock: at the end of each repeat the source must not glitch
+vck ck 0 pwl(0 0 0.1n 1.8 1n 1.8 1.1n 0 2n 0 r=0)
+rck ck 0 1k
+.control
+set numdgt=15
+tran 10p 25n
+echo @@ tran
+meas tran iavg avg i(vdd) from=2n to=22n
+meas tran ioavg avg v(o2) from=2.003n to=7.007n
+meas tran irms rms i(vdd) from=2n to=22n
+meas tran vrms rms v(o1) from=2.5n to=12.5n
+meas tran vint integ v(o2) from=2n to=12n
+meas tran trise trig v(o2) val=0.18 rise=1 targ v(o2) val=1.62 rise=1
+meas tran tfall trig v(o2) val=1.62 fall=1 targ v(o2) val=0.18 fall=1
+meas tran tpd trig v(in) val=0.9 rise=2 targ v(o2) val=0.9 rise=2
+print iavg
+print ioavg
+print irms
+print vrms
+print vint
+print trise
+print tfall
+print tpd
+* meas stores about 7 digits; these show smaller shifts
+let m_o1 = mean(v(o1))
+let m_o2 = mean(v(o2))
+let m_idd = mean(i(vdd))
+let s_o2 = v(o2)[2000]
+print m_o1 m_o2 m_idd s_o2
+let npts = length(time)
+let tlast = time[npts-1]
+let ckmin = minimum(v(ck))
+print npts tlast ckmin
+rusage all
+dc vin 0 1.8 0.02
+echo @@ dc ascending
+meas dc davg avg v(o1) from=0.3 to=1.5
+meas dc drms rms v(o1) from=0.3 to=1.5
+print davg
+print drms
+meas dc vtrip when v(o1)=0.9
+print vtrip
+dc vin 1.8 0 -0.02
+echo @@ dc descending
+meas dc davg2 avg v(o1) from=0.3 to=1.5
+meas dc drms2 rms v(o1) from=0.3 to=1.5
+meas dc dint2 integ v(o1) from=0.3 to=1.5
+print davg2
+print drms2
+print dint2
+.endc
+.end

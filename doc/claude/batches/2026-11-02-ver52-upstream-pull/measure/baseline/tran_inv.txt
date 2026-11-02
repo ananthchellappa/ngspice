@@ -1,0 +1,33 @@
+@@ tran
+iavg = -5.87806700000000e-06
+ioavg = 1.489977000000000e+00
+irms = 4.763981000000000e-05
+vrms = 1.268701000000000e+00
+vint = 9.003461000000001e-09
+trise = 6.741508999999999e-11
+tfall = 4.711558000000000e-11
+tpd = 8.434516999999999e-11
+m_o1 = 7.994050771172717e-01
+m_o2 = 9.937451101115845e-01
+m_idd = -8.16005148375649e-06
+s_o2 = 1.776212459103390e-07
+npts = 2.655000000000000e+03
+tlast = 2.500000000000000e-08
+ckmin = -2.97785020519090e-14
+rusage.Total_iterations = 5769
+rusage.Transient_iterations = 5761
+rusage.Circuit_Equations = 29
+rusage.Circuit_original_non-zeroes = 135
+rusage.Transient_timepoints = 2655
+rusage.Accepted_timepoints = 2655
+rusage.Rejected_timepoints = 0
+@@ dc ascending
+davg = 8.566408000000000e-01
+drms = 1.202470000000000e+00
+vtrip = 8.698558000000001e-01
+@@ dc descending
+davg2 = 8.421223000000000e-01
+dint2 = 0.000000000000000e+00
+msg 1 Error: measure  drms2  rms(TRIG) : out of interval
+msg 1 Warning from checkvalid: vector drms2 is not available or has zero length.
+exit = 0

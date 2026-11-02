@@ -1,0 +1,28 @@
+tran_perf: sky130 five-stage ring oscillator, for step counts and elapsed time
+.lib @SKY130@ tt
+vdd vdd 0 1.8
+.subckt inv in out vdd
+xp out in vdd vdd sky130_fd_pr__pfet_01v8 w=2 l=0.15
+xn out in 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.15
+c1 out 0 5f
+.ends
+x1 n5 n1 vdd inv
+x2 n1 n2 vdd inv
+x3 n2 n3 vdd inv
+x4 n3 n4 vdd inv
+x5 n4 n5 vdd inv
+.ic v(n1)=0 v(n2)=1.8 v(n3)=0 v(n4)=1.8 v(n5)=0
+.control
+set numdgt=15
+tran 5p 40n uic
+echo @@ ring
+meas tran per trig v(n1) val=0.9 rise=5 targ v(n1) val=0.9 rise=6
+meas tran iavg avg i(vdd) from=10n to=40n
+print per iavg
+let m_n1 = mean(v(n1))
+let m_idd = mean(i(vdd))
+let s_n1 = v(n1)[4000]
+print m_n1 m_idd s_n1
+rusage all
+.endc
+.end

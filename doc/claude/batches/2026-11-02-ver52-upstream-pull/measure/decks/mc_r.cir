@@ -1,0 +1,22 @@
+mc_r: Monte Carlo loop on plain resistors, agauss at top level and per instance
+.subckt cell a b w=2 l=1
+.param sx={agauss(0,1,1)/sqrt(w*l)}
+r1 a b r={1k*(1+0.01*sx)}
+.ends
+v1 1 0 1
+xm1 1 0 cell
+xm2 1 0 cell
+r3 1 0 r={agauss(1k,100,1)}
+r4 1 0 r={gauss(1k,0.1,1)}
+r5 1 0 r={aunif(1k,100)}
+.control
+set numdgt=17
+foreach k 1 2 3 4 5 6 7 8 9 10 11 12
+  setseed $k
+  reset
+  op
+  echo @@ seed $k
+  print @r.xm1.r1[r] @r.xm2.r1[r] @r3[r] @r4[r] @r5[r]
+end
+.endc
+.end

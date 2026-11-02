@@ -1,0 +1,133 @@
+fet_op: sky130 nfet and pfet op data, sizes mid-bin and on bin edges
+.lib @SKY130@ tt
+* x?1-x?5 mid-bin; x?6-x?11 on bin edges (w or l equal to a bin limit); x?12 four fingers
+vgn gn 0 0.9
+vdn dn 0 0.9
+vbn bn 0 0
+vdd vdd 0 1.8
+vgp gp 0 0.9
+vdp dp 0 0.9
+vbp bp 0 1.8
+xn1 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=1.5 l=0.165 nf=1
+xp1 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=1.5 l=0.165 nf=1
+xn2 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=2 l=0.4 nf=1
+xp2 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=2 l=0.4 nf=1
+xn3 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=4 l=1.5 nf=1
+xp3 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=4 l=1.5 nf=1
+xn4 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=0.7 l=0.2 nf=1
+xp4 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=0.7 l=0.2 nf=1
+xn5 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=0.48 l=0.75 nf=1
+xp5 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=0.48 l=0.75 nf=1
+xn6 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=1 l=0.15 nf=1
+xp6 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=1 l=0.15 nf=1
+xn7 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=3 l=0.18 nf=1
+xp7 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=3 l=0.18 nf=1
+xn8 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=5 l=0.25 nf=1
+xp8 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=5 l=0.25 nf=1
+xn9 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=7 l=0.5 nf=1
+xp9 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=7 l=0.5 nf=1
+xn10 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=0.55 l=1 nf=1
+xp10 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=0.55 l=1 nf=1
+xn11 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=0.42 l=0.15 nf=1
+xp11 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=0.42 l=0.15 nf=1
+xn12 dn gn 0 bn sky130_fd_pr__nfet_01v8 w=10 l=0.15 nf=4
+xp12 dp gp vdd bp sky130_fd_pr__pfet_01v8 w=10 l=0.15 nf=4
+.control
+set numdgt=15
+* bias vgs vds vbs; the pfet is mirrored about vdd
+op
+foreach x xn1 xn2 xn3 xn4 xn5 xn6 xn7 xn8 xn9 xn10 xn11 xn12
+  echo @@ sat vgs=0.9 vds=0.9 $x
+  let id = @m.{$x}.msky130_fd_pr__nfet_01v8[id]
+  let gm = @m.{$x}.msky130_fd_pr__nfet_01v8[gm]
+  let gds = @m.{$x}.msky130_fd_pr__nfet_01v8[gds]
+  let gmbs = @m.{$x}.msky130_fd_pr__nfet_01v8[gmbs]
+  let vth = @m.{$x}.msky130_fd_pr__nfet_01v8[vth]
+  let cgs = @m.{$x}.msky130_fd_pr__nfet_01v8[cgs]
+  let cgd = @m.{$x}.msky130_fd_pr__nfet_01v8[cgd]
+  let cbd = @m.{$x}.msky130_fd_pr__nfet_01v8[cbd]
+  print id gm gds gmbs vth cgs cgd cbd
+end
+foreach x xp1 xp2 xp3 xp4 xp5 xp6 xp7 xp8 xp9 xp10 xp11 xp12
+  echo @@ sat vgs=0.9 vds=0.9 $x
+  let id = @m.{$x}.msky130_fd_pr__pfet_01v8[id]
+  let gm = @m.{$x}.msky130_fd_pr__pfet_01v8[gm]
+  let gds = @m.{$x}.msky130_fd_pr__pfet_01v8[gds]
+  let gmbs = @m.{$x}.msky130_fd_pr__pfet_01v8[gmbs]
+  let vth = @m.{$x}.msky130_fd_pr__pfet_01v8[vth]
+  let cgs = @m.{$x}.msky130_fd_pr__pfet_01v8[cgs]
+  let cgd = @m.{$x}.msky130_fd_pr__pfet_01v8[cgd]
+  let cbd = @m.{$x}.msky130_fd_pr__pfet_01v8[cbd]
+  print id gm gds gmbs vth cgs cgd cbd
+end
+alter vgn 1.8
+alter vdn 0.05
+alter vbn 0
+alter vgp 0
+alter vdp 1.75
+alter vbp 1.8
+op
+foreach x xn1 xn2 xn3 xn4 xn5 xn6 xn7 xn8 xn9 xn10 xn11 xn12
+  echo @@ lin vgs=1.8 vds=0.05 $x
+  let id = @m.{$x}.msky130_fd_pr__nfet_01v8[id]
+  let gm = @m.{$x}.msky130_fd_pr__nfet_01v8[gm]
+  let gds = @m.{$x}.msky130_fd_pr__nfet_01v8[gds]
+  let gmbs = @m.{$x}.msky130_fd_pr__nfet_01v8[gmbs]
+  let vth = @m.{$x}.msky130_fd_pr__nfet_01v8[vth]
+  let cgs = @m.{$x}.msky130_fd_pr__nfet_01v8[cgs]
+  let cgd = @m.{$x}.msky130_fd_pr__nfet_01v8[cgd]
+  let cbd = @m.{$x}.msky130_fd_pr__nfet_01v8[cbd]
+  print id gm gds gmbs vth cgs cgd cbd
+end
+foreach x xp1 xp2 xp3 xp4 xp5 xp6 xp7 xp8 xp9 xp10 xp11 xp12
+  echo @@ lin vgs=1.8 vds=0.05 $x
+  let id = @m.{$x}.msky130_fd_pr__pfet_01v8[id]
+  let gm = @m.{$x}.msky130_fd_pr__pfet_01v8[gm]
+  let gds = @m.{$x}.msky130_fd_pr__pfet_01v8[gds]
+  let gmbs = @m.{$x}.msky130_fd_pr__pfet_01v8[gmbs]
+  let vth = @m.{$x}.msky130_fd_pr__pfet_01v8[vth]
+  let cgs = @m.{$x}.msky130_fd_pr__pfet_01v8[cgs]
+  let cgd = @m.{$x}.msky130_fd_pr__pfet_01v8[cgd]
+  let cbd = @m.{$x}.msky130_fd_pr__pfet_01v8[cbd]
+  print id gm gds gmbs vth cgs cgd cbd
+end
+alter vgn 0.3
+alter vdn 0.9
+alter vbn -0.4
+alter vgp 1.5
+alter vdp 0.9
+alter vbp 2.2
+op
+foreach x xn1 xn2 xn3 xn4 xn5 xn6 xn7 xn8 xn9 xn10 xn11 xn12
+  echo @@ weak vgs=0.3 vds=0.9 vbs=-0.4 $x
+  let id = @m.{$x}.msky130_fd_pr__nfet_01v8[id]
+  let gm = @m.{$x}.msky130_fd_pr__nfet_01v8[gm]
+  let gds = @m.{$x}.msky130_fd_pr__nfet_01v8[gds]
+  let gmbs = @m.{$x}.msky130_fd_pr__nfet_01v8[gmbs]
+  let vth = @m.{$x}.msky130_fd_pr__nfet_01v8[vth]
+  let cgs = @m.{$x}.msky130_fd_pr__nfet_01v8[cgs]
+  let cgd = @m.{$x}.msky130_fd_pr__nfet_01v8[cgd]
+  let cbd = @m.{$x}.msky130_fd_pr__nfet_01v8[cbd]
+  print id gm gds gmbs vth cgs cgd cbd
+end
+foreach x xp1 xp2 xp3 xp4 xp5 xp6 xp7 xp8 xp9 xp10 xp11 xp12
+  echo @@ weak vgs=0.3 vds=0.9 vbs=-0.4 $x
+  let id = @m.{$x}.msky130_fd_pr__pfet_01v8[id]
+  let gm = @m.{$x}.msky130_fd_pr__pfet_01v8[gm]
+  let gds = @m.{$x}.msky130_fd_pr__pfet_01v8[gds]
+  let gmbs = @m.{$x}.msky130_fd_pr__pfet_01v8[gmbs]
+  let vth = @m.{$x}.msky130_fd_pr__pfet_01v8[vth]
+  let cgs = @m.{$x}.msky130_fd_pr__pfet_01v8[cgs]
+  let cgd = @m.{$x}.msky130_fd_pr__pfet_01v8[cgd]
+  let cbd = @m.{$x}.msky130_fd_pr__pfet_01v8[cbd]
+  print id gm gds gmbs vth cgs cgd cbd
+end
+echo @@ bins
+foreach x xn1 xn2 xn3 xn4 xn5 xn6 xn7 xn8 xn9 xn10 xn11 xn12
+  showmod m.{$x}.msky130_fd_pr__nfet_01v8 : version
+end
+foreach x xp1 xp2 xp3 xp4 xp5 xp6 xp7 xp8 xp9 xp10 xp11 xp12
+  showmod m.{$x}.msky130_fd_pr__pfet_01v8 : version
+end
+.endc
+.end

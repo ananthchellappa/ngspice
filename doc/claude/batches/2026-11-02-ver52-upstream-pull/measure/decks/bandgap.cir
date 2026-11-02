@@ -1,0 +1,39 @@
+bandgap: small sky130 bandgap-style core with an ideal amplifier, temperature sweep
+.lib @SKY130@ tt
+vdd vdd 0 1.8
+xp1 a g vdd vdd sky130_fd_pr__pfet_01v8 w=10 l=2
+xp2 b g vdd vdd sky130_fd_pr__pfet_01v8 w=10 l=2
+xp3 ref g vdd vdd sky130_fd_pr__pfet_01v8 w=10 l=2
+xq1 0 0 a sky130_fd_pr__pnp_05v5_W3p40L3p40
+xr1 b e2 0 sky130_fd_pr__res_xhigh_po_0p35 l=3.5
+xq2a 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2b 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2c 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2d 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2e 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2f 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2g 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xq2h 0 0 e2 sky130_fd_pr__pnp_05v5_W3p40L3p40
+xr2 ref e3 0 sky130_fd_pr__res_xhigh_po_0p35 l=30
+xq3 0 0 e3 sky130_fd_pr__pnp_05v5_W3p40L3p40
+eamp g 0 vol='max(0,min(1.8,0.8+1000*(v(b)-v(a))))'
+.nodeset v(a)=0.7 v(b)=0.7 v(g)=0.8 v(ref)=1.2 v(e2)=0.65 v(e3)=0.7
+.control
+set numdgt=15
+foreach t -40 -10 27 60 85 125
+  option temp=$t
+  op
+  echo @@ temp=$t
+  print v(ref) v(a) v(b) v(g) i(vdd)
+end
+dc vdd 1.5 2.0 0.1
+echo @@ line
+let n = length(v(ref))
+let k = 0
+while k lt n
+  let vr = v(ref)[k]
+  print vr
+  let k = k + 1
+end
+.endc
+.end

@@ -1,0 +1,27 @@
+dio_res: sky130 diode and xhigh_po, forward and reverse, temperature sweep
+.lib @SKY130@ tt
+vd a 0 0.6
+xd a 0 sky130_fd_pr__diode_pw2nd_05v5 area=4 perim=8
+vr r0 0 1
+xr r0 0 0 sky130_fd_pr__res_xhigh_po w=0.35 l=10
+vs r2 0 1
+xs r2 0 0 sky130_fd_pr__res_xhigh_po_0p35 l=10
+.control
+set numdgt=15
+foreach t -40 27 125
+  option temp=$t
+  foreach v 0.75 0.6 0.3 -1 -4
+    echo @@ temp=$t v=$v
+    alter vd $v
+    alter vr $v
+    alter vs $v
+    op
+    print i(vr) i(vs)
+    let id = @d.xd.dsky130_fd_pr__diode_pw2nd_05v5[id]
+    let gd = @d.xd.dsky130_fd_pr__diode_pw2nd_05v5[gd]
+    let cd = @d.xd.dsky130_fd_pr__diode_pw2nd_05v5[cd]
+    print id gd cd
+  end
+end
+.endc
+.end

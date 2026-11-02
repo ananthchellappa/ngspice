@@ -1,0 +1,50 @@
+ac_noise: sky130 common-source stage with pfet load, self-biased, AC and noise
+.lib @SKY130@ tt
+vdd vdd 0 1.8
+vb pb 0 0.9
+vg vi 0 dc 0 ac 1
+cc vi in 1u
+rf out in 10g
+xm1 out in 0 0 sky130_fd_pr__nfet_01v8 w=4 l=0.5 nf=2
+xm2 out pb vdd vdd sky130_fd_pr__pfet_01v8 w=8 l=0.5 nf=2
+cl out 0 50f
+.control
+set numdgt=15
+op
+echo @@ op
+print v(out) i(vdd)
+ac dec 5 1 10g
+echo @@ ac
+let n = length(frequency)
+let k = 0
+while k lt n
+  let m = vdb(out)[k]
+  let p = vp(out)[k]
+  print m p
+  let k = k + 5
+end
+meas ac adc find vdb(out) at=10
+let tgt = adc - 3
+meas ac f3db when vdb(out)=$&tgt
+meas ac ugf when vdb(out)=0
+meas ac pm find vp(out) when vdb(out)=0
+print adc
+print f3db
+print ugf
+print pm
+noise v(out) vg dec 5 1 10g 5
+setplot noise1
+echo @@ noise spectrum
+let n = length(frequency)
+let k = 0
+while k lt n
+  let on = onoise_spectrum[k]
+  let in = inoise_spectrum[k]
+  print on in
+  let k = k + 5
+end
+setplot noise2
+echo @@ noise total
+print onoise_total inoise_total
+.endc
+.end

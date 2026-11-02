@@ -1,0 +1,28 @@
+sens: sky130 sensitivity, finite differences first, then .sens on the stage
+.lib @SKY130@ tt
+vdd vdd 0 1.8
+vg g 0 0.7
+rl vdd out 20k
+cl out 0 100f
+xm1 out g 0 0 sky130_fd_pr__nfet_01v8 w=2 l=0.5 nf=1
+.control
+set numdgt=15
+* central differences of v(out) and the drain current, against bsim's own gm
+op
+let gm0 = @m.xm1.msky130_fd_pr__nfet_01v8[gm]
+alter vg 0.701
+op
+alter vg 0.699
+op
+alter vg 0.7
+echo @@ finite difference
+let dvout_dvg = (op2.v(out)-op3.v(out))/0.002
+let gm_fd = -(op2.i(vdd)-op3.i(vdd))/0.002
+print op1.gm0 op1.v(out) op1.i(vdd) dvout_dvg gm_fd
+op
+sens v(out)
+echo @@ sens v(out)
+print vg vdd rl:r
+print m.xm1.msky130_fd_pr__nfet_01v8:vth0 m.xm1.msky130_fd_pr__nfet_01v8:u0 m.xm1.msky130_fd_pr__nfet_01v8:k1 m.xm1.msky130_fd_pr__nfet_01v8:k2 m.xm1.msky130_fd_pr__nfet_01v8:vsat m.xm1.msky130_fd_pr__nfet_01v8:lint m.xm1.msky130_fd_pr__nfet_01v8:wint m.xm1.msky130_fd_pr__nfet_01v8:nfactor m.xm1.msky130_fd_pr__nfet_01v8:voff m.xm1.msky130_fd_pr__nfet_01v8:a0 m.xm1.msky130_fd_pr__nfet_01v8:rdsw
+.endc
+.end

@@ -1,0 +1,21 @@
+drawlog_sky130: draw log of two sky130 nfets, a pnp and an xhigh_po with mismatch, tt_mm, one seed
+.lib @SKY130@ tt_mm
+vd d 0 0.9
+vg g 0 0.7
+xm1 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+xm2 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+xq1 0 0 e sky130_fd_pr__pnp_05v5_W3p40L3p40
+ie 0 e 10u
+xr1 d r 0 sky130_fd_pr__res_xhigh_po w=0.35 l=10
+rr r 0 1k
+.control
+set numdgt=15
+set rnddraws=drawlog_sky130.tsv
+setseed 1
+reset
+op
+echo @@ seed 1
+print i(vd) @m.xm1.msky130_fd_pr__nfet_01v8[vth] @m.xm2.msky130_fd_pr__nfet_01v8[vth]
+unset rnddraws
+.endc
+.end

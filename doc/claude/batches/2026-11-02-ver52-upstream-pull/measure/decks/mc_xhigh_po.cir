@@ -1,0 +1,27 @@
+mc_xhigh_po: Monte Carlo loop with an xhigh_po ahead of an nfet, tt_mm
+.lib @SKY130@ tt_mm
+* Not compared with 45.2, only with the baseline. ver_51's R-to-B rewrite carries
+* the model TC onto the B line, which changes the resistor's value and adds a
+* row b.xr1.brbody tc1 to its draws, so devices after it see a different stream.
+vd d 0 0.9
+vg g 0 0.7
+xm1 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+vr rr 0 0.9
+xr1 rr r 0 sky130_fd_pr__res_xhigh_po_0p35 l=10
+rr r 0 1k
+xm3 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+.control
+set numdgt=17
+foreach k 1 2 3 4
+  setseed $k
+  reset
+  op
+  echo @@ seed $k
+  let vth1 = @m.xm1.msky130_fd_pr__nfet_01v8[vth]
+  let vth3 = @m.xm3.msky130_fd_pr__nfet_01v8[vth]
+  let rh1 = @r.xr1.x0.rend1[r]
+  let rh2 = @r.xr1.x0.rend2[r]
+  print vth1 vth3 rh1 rh2 v(r)
+end
+.endc
+.end

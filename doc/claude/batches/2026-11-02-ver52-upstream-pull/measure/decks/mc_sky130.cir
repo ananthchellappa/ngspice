@@ -1,0 +1,31 @@
+mc_sky130: Monte Carlo loop on sky130 tt_mm, nfets, pfet, pnp
+.lib @SKY130@ tt_mm
+* Compared bit for bit with 45.2. xm3 comes after the pnp: its vth being identical
+* proves the devices before it took the same draws from the stream. An xhigh_po
+* would break this, by design of ver_51: see mc_xhigh_po.cir.
+vd d 0 0.9
+vg g 0 0.7
+xm1 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+xm2 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+xp1 p g d d sky130_fd_pr__pfet_01v8 w=1 l=0.5
+xq1 0 0 e sky130_fd_pr__pnp_05v5_W3p40L3p40
+ie 0 e 10u
+rp p 0 1meg
+xm3 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+.control
+set numdgt=17
+foreach k 1 2 3 4 5 6
+  setseed $k
+  reset
+  op
+  echo @@ seed $k
+  let vth1 = @m.xm1.msky130_fd_pr__nfet_01v8[vth]
+  let vth2 = @m.xm2.msky130_fd_pr__nfet_01v8[vth]
+  let vth3 = @m.xm3.msky130_fd_pr__nfet_01v8[vth]
+  let vthp = @m.xp1.msky130_fd_pr__pfet_01v8[vth]
+  let id1 = @m.xm1.msky130_fd_pr__nfet_01v8[id]
+  let id3 = @m.xm3.msky130_fd_pr__nfet_01v8[id]
+  print vth1 vth2 vth3 vthp id1 id3 v(e) v(p)
+end
+.endc
+.end

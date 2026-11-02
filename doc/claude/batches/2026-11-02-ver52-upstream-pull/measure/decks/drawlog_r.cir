@@ -1,0 +1,26 @@
+drawlog_r: draw log of a two-instance mismatch deck, plain resistors
+.subckt cell a b w=2 l=1
+.param sx={agauss(0,1,1)/sqrt(w*l)}
+r1 a b r={1k*(1+0.01*sx)}
+.ends
+v1 1 0 1
+xm1 1 0 cell
+xm2 1 0 cell
+.control
+set numdgt=15
+set rnddraws=drawlog_r.tsv
+foreach k 1 2 3
+  setseed $k
+  reset
+  op
+  echo @@ seed $k
+  print @r.xm1.r1[r] @r.xm2.r1[r]
+end
+* a reset without setseed: its header carries a non-zero offset
+reset
+op
+echo @@ seed 3+
+print @r.xm1.r1[r] @r.xm2.r1[r]
+unset rnddraws
+.endc
+.end
