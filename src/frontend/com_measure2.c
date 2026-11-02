@@ -1239,17 +1239,42 @@ measure_margin(
 }
 
 
+/* The integral of y over samples x[0..n-1], x ascending: Simpson's 3/8 rule over three
+   equal steps, else his 1/3 rule over two, else the trapezoid. */
+static double
+measure_samples_integral(const double *x, const double *y, int n)
+{
+    double sum = 0.0;
+    int i = 0;
+
+    while (i < n - 1) {
+        double w = x[i+1] - x[i];
+
+        if (i + 3 < n && AlmostEqualUlps(w, x[i+2] - x[i+1], 100) &&
+                AlmostEqualUlps(w, x[i+3] - x[i+2], 100)) {
+            sum += 3 * w * (y[i] + 3 * (y[i+1] + y[i+2]) + y[i+3]) / 8.0;
+            i += 3;
+        } else if (i + 2 < n && AlmostEqualUlps(w, x[i+2] - x[i+1], 100)) {
+            sum += w * (y[i] + 4 * y[i+1] + y[i+2]) / 3.0;
+            i += 2;
+        } else {
+            sum += w * (y[i] + y[i+1]) / 2.0;
+            i++;
+        }
+    }
+    return sum;
+}
+
+
 /* -----------------------------------------------------------------
  * Function: process an AVG, RMS or INTEG statement which has been
  * parsed into a measurement structure.
  *
- * All three integrate the line through the samples, which is all a run
- * knows of a signal, over exactly [from, to]: the edges are interpolated
- * and every sample between them is used, so that each is exact for
- * piecewise-linear data, with the scale running up or down, and
- * avg = integ / (to - from).  No rule that weighs samples otherwise can be:
- * a smooth curve and the corner-to-corner line through its samples hand
- * in the same numbers.
+ * integ integrates y and rms y*y.  A run's waveforms are smooth between samples, so
+ * the samples inside the window go through measure_samples_integral().  The edges are
+ * interpolated and the partial step from each edge to the nearest sample is added with
+ * the trapezoid.  A dc sweep may run down, which changes nothing: the samples are
+ * taken from the low end.  avg = integ / (to - from).
  * ----------------------------------------------------------------- */
 static int
 measure_rms_integral(
@@ -1257,14 +1282,15 @@ measure_rms_integral(
     ANALYSIS_TYPE_T mFunctionType /* in: one of AT_AVG, AT_RMS or AT_INTEG */
     )
 {
-    int i;
+    int i, n = 0;
     struct dvec *d, *xScale;      /* value and independent (x-axis) vectors */
     double value = 0.0, xvalue = 0.0;   /* this sample */
-    double yprev = 0.0, xprev = 0.0;    /* the point before it on the line */
-    double xstart = 0.0;          /* where the window was opened */
+    double *x, *y;                /* the samples inside the window */
+    double xstart = 0.0, xend = 0.0;    /* the ends of the window */
     double from, to;
-    double sum = 0.0, span = 0.0;
+    double sum = 0.0, edge_;
     bool open = FALSE;            /* inside the window? */
+    bool rms = (mFunctionType == AT_RMS);
     bool ac_check = FALSE, sp_check = FALSE, dc_check = FALSE, tran_check = FALSE;
 
     meas->m_measured = NAN;
@@ -1335,87 +1361,97 @@ measure_rms_integral(
     from = meas->m_from;
     to = (dc_check || meas->m_to != 0.0e0) ? meas->m_to : HUGE_VAL;
 
-/* the value on the line at edge b, between the sample before this one and this one */
+    x = TMALLOC(double, d->v_length);
+    y = TMALLOC(double, d->v_length);
+
+/* y, or y*y for rms, at edge b: on the line between the sample before this one and this one */
 #define WINDOW_EDGE(b) \
-    (AlmostEqualUlps(xvalue, (b), 100) ? value : \
-     measure_interpolate(xScale, d, i - 1, i, (b), 'y', meas))
-#define WINDOW_SEGMENT(x, y) \
-    do { \
-        double w_ = fabs((x) - xprev), v_ = (y); \
-        sum += (mFunctionType == AT_RMS) \
-            ? w_ * (yprev * yprev + yprev * v_ + v_ * v_) / 3.0 \
-            : w_ * (yprev + v_) / 2.0; \
-        span += w_; \
-        xprev = (x); \
-        yprev = v_; \
-    } while (0)
-#define WINDOW_OPEN(x, y) \
-    do { \
-        xstart = xprev = (x); \
-        yprev = (y); \
-        open = TRUE; \
-    } while (0)
+    (edge_ = measure_interpolate(xScale, d, i - 1, i, (b), 'y', meas), \
+     rms ? edge_ * edge_ : edge_)
+/* the partial step from sample k to edge b */
+#define WINDOW_PARTIAL(k, b) (fabs((b) - x[k]) * (y[k] + WINDOW_EDGE(b)) / 2.0)
 
     /* In index order: a dc sweep may run down, so an edge is where the line between
-       two samples crosses from or to, and each width is taken unsigned. */
+       two samples crosses from or to. */
     for (i = 0; i < d->v_length; i++) {
         double s_prev = xvalue;
         bool in_win;
 
         value = d->v_compdata ? get_value(meas, d, i) : d->v_realdata[i];
         xvalue = xScale->v_compdata ? xScale->v_compdata[i].cx_real : xScale->v_realdata[i];
-        in_win = !((xvalue < from) || (xvalue > to));
+        /* a sample a rounding error outside is on the edge */
+        in_win = (xvalue >= from || AlmostEqualUlps(xvalue, from, 100)) &&
+                 (xvalue <= to || AlmostEqualUlps(xvalue, to, 100));
 
-        if (open) {
-            if (in_win) {
-                WINDOW_SEGMENT(xvalue, value);
-            } else {
-                double b = (xvalue > to) ? to : from;
-                WINDOW_SEGMENT(b, WINDOW_EDGE(b));
-                break;
+        if (in_win) {
+            x[n] = xvalue;
+            y[n++] = rms ? value * value : value;
+            if (!open) {
+                xstart = xvalue;
+                if (i > 0) {
+                    double b = (s_prev < from) ? from : to;
+                    if (!AlmostEqualUlps(xvalue, b, 100)) {
+                        sum += WINDOW_PARTIAL(0, b);
+                        xstart = b;
+                    }
+                }
+                open = TRUE;
             }
-        } else if (in_win) {
-            if (i > 0) {
-                double b = (s_prev < from) ? from : to;
-                WINDOW_OPEN(b, WINDOW_EDGE(b));
-                WINDOW_SEGMENT(xvalue, value);
-            } else {
-                WINDOW_OPEN(xvalue, value);
+            xend = xvalue;
+        } else if (open) {
+            double b = (xvalue > to) ? to : from;
+            if (!AlmostEqualUlps(x[n-1], b, 100)) {
+                sum += WINDOW_PARTIAL(n - 1, b);
+                xend = b;
             }
+            break;
         } else if (i > 0 && from < to &&
                    ((s_prev < from && xvalue > to) || (s_prev > to && xvalue < from))) {
             /* the whole window lies inside this one step */
-            double near_edge = (s_prev < from) ? from : to;
-            double far_edge = (s_prev < from) ? to : from;
-            WINDOW_OPEN(near_edge, measure_interpolate(xScale, d, i - 1, i, near_edge, 'y', meas));
-            WINDOW_SEGMENT(far_edge, measure_interpolate(xScale, d, i - 1, i, far_edge, 'y', meas));
+            double y_from = WINDOW_EDGE(from);
+            sum = (to - from) * (y_from + WINDOW_EDGE(to)) / 2.0;
+            xstart = from;
+            xend = to;
+            open = TRUE;
             break;
         }
     }
 
 #undef WINDOW_EDGE
-#undef WINDOW_SEGMENT
-#undef WINDOW_OPEN
+#undef WINDOW_PARTIAL
+
+    /* from the low end, so a sweep down gives what the same samples give on the way up */
+    if (n > 1 && x[0] > x[n-1]) {
+        int lo, hi;
+        for (lo = 0, hi = n - 1; lo < hi; lo++, hi--) {
+            SWAP(double, x[lo], x[hi]);
+            SWAP(double, y[lo], y[hi]);
+        }
+    }
+    sum += measure_samples_integral(x, y, n);
+
+    txfree(x);
+    txfree(y);
+
+    if (rms && open)
+        sum /= fabs(xend - xstart);
 
     if (mFunctionType == AT_AVG) {
         /* the end of the window, not a sample past it; the start is what was asked for */
-        meas->m_measured = open ? sum / span : 0.0;
-        meas->m_measured_at = open ? MAX(xstart, xprev) : xvalue;
+        meas->m_measured = open ? sum / fabs(xend - xstart) : 0.0;
+        meas->m_measured_at = open ? MAX(xstart, xend) : xvalue;
         return MEASUREMENT_OK;
     }
 
     /* what the window turned out to be, low end first */
     if (open) {
-        meas->m_from = MIN(xstart, xprev);
-        meas->m_to = MAX(xstart, xprev);
+        meas->m_from = MIN(xstart, xend);
+        meas->m_to = MAX(xstart, xend);
     } else {
         meas->m_from = meas->m_to = NAN;
     }
 
-    if (mFunctionType == AT_RMS)
-        meas->m_measured = sqrt(sum / span);
-    else
-        meas->m_measured = sum;
+    meas->m_measured = rms ? (open ? sqrt(sum) : NAN) : sum;
 
     return MEASUREMENT_OK;
 }

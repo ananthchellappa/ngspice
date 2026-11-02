@@ -1,30 +1,35 @@
-meas avg, integ and rms over a from/to window of piecewise-linear data
+meas avg, integ and rms over a from/to window of data with known samples
 *
-* The samples are all a run keeps of a signal, and the line between two of them is
-* all it can say about the rest: the true value of each measure here is worked by
-* hand on that line.  Over [a,b] the segment from u to v, of width h, adds
-*     avg, integ    h * (u + v) / 2
-*     rms           h * (u*u + u*v + v*v) / 3
-* and each of them has to come out exact: the edges of the window interpolated, each
-* sample inside used, on every analysis, on a sweep up and on a sweep down.
+* The rule, with h a step and u, v two samples:
+*     integ   Simpson over equal steps of y on the samples inside the window (3/8 over
+*             three steps while three are equal, else 1/3 over two, else the trapezoid),
+*             taken from the low end of the scale, with the trapezoid h * (u + v) / 2
+*             added for each partial step between an edge and the nearest sample
+*     rms     sqrt(the same integral of y*y / width)
+*     avg     integ / width
+* An edge is interpolated on the line between its two samples.  Every value below is
+* worked by hand from that rule, so a corner under Simpson's weights is the rule's
+* value and not the area under the line: integ 0.225 over all of the first y, where
+* the line has 0.2.  Simulator data is smooth between samples, where this rule beats
+* the line (g10-meas-smooth-analytic.cir, receipts 10 and 10b of ver_52).
 *
 * Before: from= put its interpolated point in place of the first sample inside the
-* window (avg 0.1875 and integ 0.075 where the first deck has 0.4375 and 0.175),
-* integ and rms ran Simpson's rule across any three equal steps, which is not
-* the line through the samples (integ 0.225 over the whole sweep, where 0.2 is
-* true), rms worked on a trapezoid of y*y, a window inside one step gave 0, and
-* from=0 and to=0 on a dc sweep through 0 did not clip.
+* window, so a corner there was lost (integ 0.075 where the first window has 0.175),
+* a window inside one step gave 0, and from=0 and to=0 on a dc sweep through 0 did
+* not clip.  A sweep down gives what the same samples give on the way up.
 *
-* y is 1 at 1.4, 0 at the other samples of 1 1.2 1.4 1.6 1.8 2.
+* y is 1 at 1.4, 0 at the other samples of 1 1.2 1.4 1.6 1.8 2.  y*y is y inside the
+* samples, so the sums for rms differ from integ's only in the partial steps.
 *
-*    window        avg           integ   rms
-*    1.3 .. 1.7    0.4375        0.175   sqrt(0.3125)      both edges interpolated
-*    1.2 .. 1.6    0.5           0.2     sqrt(1/3)         both edges on a sample
-*    1.42 .. 1.58  0.5           0.08    sqrt(91/300)      inside the one step 1.4 .. 1.6
-*    1.1 .. 1.9    0.25          0.2     sqrt(1/6)         equal steps inside
-*    1.3 .. end    0.25          0.175   sqrt(0.125/0.7)
-*    start .. 1.7  0.2/0.7       0.2     sqrt(0.13333/0.7)
-*    all of it     0.2           0.2     sqrt(2/15)
+*    window        steps inside     integ   integ of y*y    width
+*    1.3 .. 1.7    1 trapezoid      0.175   0.1625          0.4   head 0.075, 0.0625
+*    1.2 .. 1.6    2 Simpson 1/3    0.8/3   0.8/3           0.4
+*    1.42 .. 1.58  none             0.08    0.0656          0.16  y 0.9, 0.1 at the edges
+*    1.3 .. 1.5    none, a sample   0.15    0.125           0.2   head and tail meet at 1.4
+*    1.1 .. 1.9    3 Simpson 3/8    0.225   0.225           0.8
+*    1.3 .. end    3 Simpson 3/8    0.15    0.1375          0.7   0.075 + head
+*    start .. 1.7  3 Simpson 3/8    0.225   0.225           0.7
+*    all of it     3/8, then 1/3    0.225   0.225           1
 
 v1 1 0 dc 0 ac 1
 r1 1 0 1
@@ -36,6 +41,8 @@ r3 3 0 1
 .control
 
 define near(val, gold) abs(val - (gold)) <= 2e-6 * abs(gold)
+* from line up to 0.5% above it
+define above(val, line) abs(val / (line) - 1.0025) <= 0.002502
 let bad = 0
 
 * ---- dc, up ----
@@ -63,13 +70,17 @@ meas dc ur6 rms y to=1.7
 meas dc ua7 avg y
 meas dc ui7 integ y
 meas dc ur7 rms y
-let bad = bad + (near(ua1, 0.4375) = 0) + (near(ui1, 0.175) = 0) + (near(ur1, sqrt(0.3125)) = 0)
-let bad = bad + (near(ua2, 0.5) = 0) + (near(ui2, 0.2) = 0) + (near(ur2, sqrt(1/3)) = 0)
-let bad = bad + (near(ua3, 0.5) = 0) + (near(ui3, 0.08) = 0) + (near(ur3, sqrt(91/300)) = 0)
-let bad = bad + (near(ua4, 0.25) = 0) + (near(ui4, 0.2) = 0) + (near(ur4, sqrt(1/6)) = 0)
-let bad = bad + (near(ua5, 0.25) = 0) + (near(ui5, 0.175) = 0) + (near(ur5, sqrt(0.125/0.7)) = 0)
-let bad = bad + (near(ua6, 0.2/0.7) = 0) + (near(ui6, 0.2) = 0) + (near(ur6, sqrt(0.1333333333/0.7)) = 0)
-let bad = bad + (near(ua7, 0.2) = 0) + (near(ui7, 0.2) = 0) + (near(ur7, sqrt(2/15)) = 0)
+meas dc ua8 avg y from=1.3 to=1.5
+meas dc ui8 integ y from=1.3 to=1.5
+meas dc ur8 rms y from=1.3 to=1.5
+let bad = bad + (near(ua1, 0.4375) = 0) + (near(ui1, 0.175) = 0) + (near(ur1, sqrt(0.40625)) = 0)
+let bad = bad + (near(ua2, 2/3) = 0) + (near(ui2, 0.8/3) = 0) + (near(ur2, sqrt(2/3)) = 0)
+let bad = bad + (near(ua3, 0.5) = 0) + (near(ui3, 0.08) = 0) + (near(ur3, sqrt(0.41)) = 0)
+let bad = bad + (near(ua4, 0.28125) = 0) + (near(ui4, 0.225) = 0) + (near(ur4, sqrt(0.28125)) = 0)
+let bad = bad + (near(ua5, 0.15/0.7) = 0) + (near(ui5, 0.15) = 0) + (near(ur5, sqrt(0.1375/0.7)) = 0)
+let bad = bad + (near(ua6, 0.225/0.7) = 0) + (near(ui6, 0.225) = 0) + (near(ur6, sqrt(0.225/0.7)) = 0)
+let bad = bad + (near(ua7, 0.225) = 0) + (near(ui7, 0.225) = 0) + (near(ur7, sqrt(0.225)) = 0)
+let bad = bad + (near(ua8, 0.75) = 0) + (near(ui8, 0.15) = 0) + (near(ur8, sqrt(0.625)) = 0)
 echo dc up, misses: $&bad
 
 * ---- dc, down: the same samples from the other end ----
@@ -92,15 +103,17 @@ meas dc dr4 rms y from=1.1 to=1.9
 meas dc da7 avg y
 meas dc di7 integ y
 meas dc dr7 rms y
-let bad = bad + (near(da1, 0.4375) = 0) + (near(di1, 0.175) = 0) + (near(dr1, sqrt(0.3125)) = 0)
-let bad = bad + (near(da2, 0.4375) = 0) + (near(di2, 0.175) = 0) + (near(dr2, sqrt(0.3125)) = 0)
-let bad = bad + (near(da3, 0.5) = 0) + (near(di3, 0.08) = 0) + (near(dr3, sqrt(91/300)) = 0)
-let bad = bad + (near(da4, 0.25) = 0) + (near(di4, 0.2) = 0) + (near(dr4, sqrt(1/6)) = 0)
-let bad = bad + (near(da7, 0.2) = 0) + (near(di7, 0.2) = 0) + (near(dr7, sqrt(2/15)) = 0)
+let bad = bad + (near(da1, 0.4375) = 0) + (near(di1, 0.175) = 0) + (near(dr1, sqrt(0.40625)) = 0)
+let bad = bad + (near(da2, 0.4375) = 0) + (near(di2, 0.175) = 0) + (near(dr2, sqrt(0.40625)) = 0)
+let bad = bad + (near(da3, 0.5) = 0) + (near(di3, 0.08) = 0) + (near(dr3, sqrt(0.41)) = 0)
+let bad = bad + (near(da4, 0.28125) = 0) + (near(di4, 0.225) = 0) + (near(dr4, sqrt(0.28125)) = 0)
+let bad = bad + (near(da7, 0.225) = 0) + (near(di7, 0.225) = 0) + (near(dr7, sqrt(0.225)) = 0)
 echo dc down, misses: $&bad
 
 * ---- dc through zero, where from=0 and to=0 are windows and not 'unset' ----
-* y at -1 -0.5 0 0.5 1 is 1 -1 0 2 0.
+* y at -1 -0.5 0 0.5 1 is 1 -1 0 2 0.  One step inside each window, so no Simpson:
+* 0 .. 0.75     integ 0.5 + 0.375, of y*y 1 + 0.625, y(0.75) = 1
+* -0.75 .. 0    integ -0.125 - 0.25, of y*y 0.125 + 0.25, y(-0.75) = 0
 let bad = 0
 dc v1 -1 1 0.5
 let y = 0 * v(1)
@@ -113,8 +126,8 @@ meas dc zr1 rms y from=0 to=0.75
 meas dc za2 avg y from=-0.75 to=0
 meas dc zi2 integ y from=-0.75 to=0
 meas dc zr2 rms y from=-0.75 to=0
-let bad = bad + (near(za1, 0.875/0.75) = 0) + (near(zi1, 0.875) = 0) + (near(zr1, sqrt(5/3)) = 0)
-let bad = bad + (near(za2, -0.5) = 0) + (near(zi2, -0.375) = 0) + (near(zr2, sqrt(1/3)) = 0)
+let bad = bad + (near(za1, 0.875/0.75) = 0) + (near(zi1, 0.875) = 0) + (near(zr1, sqrt(1.625/0.75)) = 0)
+let bad = bad + (near(za2, -0.5) = 0) + (near(zi2, -0.375) = 0) + (near(zr2, sqrt(0.5)) = 0)
 echo dc through zero, misses: $&bad
 
 * ---- ac: complex scale; a real y, and the parts of a complex one ----
@@ -145,18 +158,21 @@ meas ac ar3 rms ry from=1.42g to=1.58g
 meas sp sa1 avg ry from=1.3g to=1.7g
 meas sp si1 integ ry from=1.3g to=1.7g
 meas sp sr1 rms ry from=1.3g to=1.7g
-let bad = bad + (near(aa1, 0.4375) = 0) + (near(ai1, 0.175e9) = 0) + (near(ar1, sqrt(0.3125)) = 0)
-let bad = bad + (near(ca1, 0.4375) = 0) + (near(ci1, 0.175e9) = 0) + (near(cr1, sqrt(0.3125)) = 0)
-let bad = bad + (near(ia1, 0.875) = 0) + (near(ii1, 0.35e9) = 0) + (near(ir1, 2 * sqrt(0.3125)) = 0)
+let bad = bad + (near(aa1, 0.4375) = 0) + (near(ai1, 0.175e9) = 0) + (near(ar1, sqrt(0.40625)) = 0)
+let bad = bad + (near(ca1, 0.4375) = 0) + (near(ci1, 0.175e9) = 0) + (near(cr1, sqrt(0.40625)) = 0)
+let bad = bad + (near(ia1, 0.875) = 0) + (near(ii1, 0.35e9) = 0) + (near(ir1, 2 * sqrt(0.40625)) = 0)
 let bad = bad + (near(ma1, sqrt(5) * 0.4375) = 0) + (near(mi1, sqrt(5) * 0.175e9) = 0)
-let bad = bad + (near(mr1, sqrt(5) * sqrt(0.3125)) = 0)
-let bad = bad + (near(aa4, 0.25) = 0) + (near(ai4, 0.2e9) = 0) + (near(ar4, sqrt(1/6)) = 0)
-let bad = bad + (near(aa3, 0.5) = 0) + (near(ai3, 0.08e9) = 0) + (near(ar3, sqrt(91/300)) = 0)
-let bad = bad + (near(sa1, 0.4375) = 0) + (near(si1, 0.175e9) = 0) + (near(sr1, sqrt(0.3125)) = 0)
+let bad = bad + (near(mr1, sqrt(5) * sqrt(0.40625)) = 0)
+let bad = bad + (near(aa4, 0.28125) = 0) + (near(ai4, 0.225e9) = 0) + (near(ar4, sqrt(0.28125)) = 0)
+let bad = bad + (near(aa3, 0.5) = 0) + (near(ai3, 0.08e9) = 0) + (near(ar3, sqrt(0.41)) = 0)
+let bad = bad + (near(sa1, 0.4375) = 0) + (near(si1, 0.175e9) = 0) + (near(sr1, sqrt(0.40625)) = 0)
 echo ac, misses: $&bad
 
 * ---- tran: a pwl source, whose corners are breakpoints and so are samples ----
-* v(2) is 0 to 1n, up to 1 at 1.4n, down to 0 at 1.6n, 0 to 2n.
+* v(2) is 0 to 1n, up to 1 at 1.4n, down to 0 at 1.6n, 0 to 2n.  No equal steps reach
+* across a corner on the samples this run takes, and y is straight between corners, so
+* each rule is exact for integ and avg.  y*y is curved there, the trapezoid reads it
+* high and Simpson exact, so rms lies just above the sqrt() of the line's own value.
 let bad = 0
 tran 0.1n 2n
 meas tran ta1 avg v(2) from=1.3n to=1.7n
@@ -175,12 +191,50 @@ meas tran ta7 avg v(2) from=1.39n to=1.7n
 meas tran ti7 integ v(2) from=1.39n to=1.7n
 meas tran tr7 rms v(2) from=1.39n to=1.7n
 let bad = bad + (near(ta7, 0.109875/0.31) = 0) + (near(ti7, 0.109875e-9) = 0)
-let bad = bad + (near(tr7, sqrt((0.01 * (0.950625 + 0.975 + 1) / 3 + 0.2/3) / 0.31)) = 0)
-let bad = bad + (near(ta1, 0.46875) = 0) + (near(ti1, 0.1875e-9) = 0) + (near(tr1, sqrt(0.359375)) = 0)
-let bad = bad + (near(ta4, 0.2788750/0.74) = 0) + (near(ti4, 0.2788750e-9) = 0) + (near(tr4, sqrt(0.26408502252)) = 0)
-let bad = bad + (near(ta5, 0.1875/0.7) = 0) + (near(ti5, 0.1875e-9) = 0) + (near(tr5, sqrt(0.205357142857)) = 0)
-let bad = bad + (near(ta6, 0.3/1.7) = 0) + (near(ti6, 0.3e-9) = 0) + (near(tr6, sqrt(0.117647058824)) = 0)
+let bad = bad + (above(tr7, sqrt((0.01 * (0.950625 + 0.975 + 1) / 3 + 0.2/3) / 0.31)) = 0)
+let bad = bad + (near(ta1, 0.46875) = 0) + (near(ti1, 0.1875e-9) = 0) + (above(tr1, sqrt(0.359375)) = 0)
+let bad = bad + (near(ta4, 0.2788750/0.74) = 0) + (near(ti4, 0.2788750e-9) = 0) + (above(tr4, sqrt(0.26408502252)) = 0)
+let bad = bad + (near(ta5, 0.1875/0.7) = 0) + (near(ti5, 0.1875e-9) = 0) + (above(tr5, sqrt(0.205357142857)) = 0)
+let bad = bad + (near(ta6, 0.3/1.7) = 0) + (near(ti6, 0.3e-9) = 0) + (above(tr6, sqrt(0.117647058824)) = 0)
 echo tran, misses: $&bad
+
+* ---- tran again on equal steps of 0.1n, where the corners do fall under Simpson ----
+* y at 1.1n .. 1.6n is 0.25 0.5 0.75 1 0.5 0, and 0 after.  y(1.35n) = 0.875.
+*    1.3n .. 1.7n     3/8 from 1.3n, trapezoid   integ 0.196875    of y*y 0.16171875
+*    1.35n .. 1.75n   head, 3/8 from 1.4n, tail  integ 0.140625    of y*y 0.10976562
+*    1.42n .. 1.48n   one partial step, y 0.9 0.6  integ 0.045     of y*y 0.0351
+* Worked in units of n: 0.3 * (0.75 + 3 * (1 + 0.5) + 0) / 8 and 0.05 * (0.875 + 1) / 2
+* + 0.3 * (1 + 3 * (0.5 + 0) + 0) / 8, with y*y for y in the same sums.
+let bad = 0
+linearize v(2)
+meas tran la1 avg v(2) from=1.3n to=1.7n
+meas tran li1 integ v(2) from=1.3n to=1.7n
+meas tran lr1 rms v(2) from=1.3n to=1.7n
+meas tran la2 avg v(2) from=1.35n to=1.75n
+meas tran li2 integ v(2) from=1.35n to=1.75n
+meas tran lr2 rms v(2) from=1.35n to=1.75n
+meas tran la3 avg v(2) from=1.42n to=1.48n
+meas tran li3 integ v(2) from=1.42n to=1.48n
+meas tran lr3 rms v(2) from=1.42n to=1.48n
+let bad = bad + (near(la1, 0.196875/0.4) = 0) + (near(li1, 0.196875e-9) = 0) + (near(lr1, sqrt(0.16171875/0.4)) = 0)
+let bad = bad + (near(la2, 0.140625/0.4) = 0) + (near(li2, 0.140625e-9) = 0) + (near(lr2, sqrt(0.109765625/0.4)) = 0)
+let bad = bad + (near(la3, 0.75) = 0) + (near(li3, 0.045e-9) = 0) + (near(lr3, sqrt(0.0351/0.06)) = 0)
+echo tran equal steps, misses: $&bad
+
+* ---- where the rule is exact: a cubic on equal steps, windows on samples ----
+* y = x^3 on 1 1.2 1.4 1.6 1.8 2, and rms of x, whose y*y is x^2.
+let bad = 0
+dc v1 1 2 0.2
+let x = v(1)
+let cube = x * x * x
+meas dc ei1 integ cube from=1.2 to=1.8
+meas dc ei2 integ cube
+meas dc ea2 avg cube
+meas dc er1 rms x from=1.2 to=1.8
+meas dc er2 rms x
+let bad = bad + (near(ei1, (1.8^4 - 1.2^4) / 4) = 0) + (near(ei2, 15/4) = 0) + (near(ea2, 15/4) = 0)
+let bad = bad + (near(er1, sqrt((1.8^3 - 1.2^3) / 3 / 0.6)) = 0) + (near(er2, sqrt(7/3)) = 0)
+echo exact on a cubic, misses: $&bad
 
 quit 0
 
