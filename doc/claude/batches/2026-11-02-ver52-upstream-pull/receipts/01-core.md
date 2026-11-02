@@ -152,3 +152,73 @@ that pick alone, and no reference simulator confirms the new values.
 - `make check` prints "ERROR: (internal) tried to destroy non-existent graph" in the passing test
   `vector-probe-report.cir`. No pick touches plotting. It did not appear running that deck alone
   under either binary, and the baseline's log was not kept, so I cannot say it predates this group.
+
+## Fix round
+
+The independent reviewer found one blocking issue: the meas series segfaults on `.sp`.
+
+**Confirmed, on a two-port deck of my own** (`portnum` V sources, 100 ohm, 1 pF, `sp lin 21 1g 5g`),
+so the numbers differ from the reviewer's but the pattern is the same:
+
+| `meas sp a ...` | ver_50 binary | ver_52 before | ver_52 after |
+|---|---|---|---|
+| `avg s_1_1 from=1.3g to=4.1g` | 4.52269e-01 | exit 139 | 4.52287e-01 |
+| `avg s_1_1 from=1.3g` | 4.41083e-01 | exit 139 | 4.42256e-01 |
+| `avg s_1_1 to=4.1g` | 4.56973e-01 | exit 139 | 4.55799e-01 |
+| `avg vm(s_1_1) from=1.3g to=4.1g` | 4.58195e-01 | exit 139 | 4.58167e-01 |
+| `avg s_1_1 from=1g to=5g` | 4.45730e-01 | 4.45730e-01 | 4.45730e-01 |
+| `integ s_1_1 from=1.3g to=4.1g` | exit 139 | exit 139 | 1.26640e+09 |
+| `rms s_1_1 from=1.3g to=4.1g` | exit 139 | exit 139 | 4.52712e-01 |
+
+`meas ac ... avg` on the same plot agrees with the new `meas sp`: 4.52287e-01 and 4.58167e-01.
+Upstream tip has the same `measure_interpolate()`, so the defect is upstream's as well.
+
+**Wider than reported.** Two more new crashes had the same cause, both exit 139 before and 0 after:
+`meas ac avg` of a real `let` vector with a window (the ac branch read `v_compdata`), and `meas sp avg`
+on an `fft` plot, whose scale is real.
+
+**Fix, `27d02928d`, fork-written:** `measure_interpolate()` reads x and y by what each holds, not by analysis
+name. `measure_rms_integral()` gets an sp branch. Tran and dc data have no `v_compdata`, so they take
+the same values as before.
+
+**RED:** new `tests/regression/misc/meas-sp-window.cir` on the unfixed ver_52 binary: exit 139 with no
+measurement printed. It also crashes `build-ver_50` and `/usr/bin/ngspice` 45.2 (exit 139), on the
+rms and integ lines. It was then extended after the fix, with `zramp` and `to=`-only S parameter lines, so that
+final text ran only against the fixed binary. To show its checks can fail, I changed 4 gold values in a copy: it reported
+`sp bad = 2`, `ac bad = 1`, `fft bad = 1`.
+
+**Oracle:** ramps, whose answers are exact: `avg` 2.7e9 and `integ` 7.56e18 on sp, ac and fft plots; `vr`, `vi`, `vm`
+of `f + 2fj` give 2.7e9, 5.4e9, 6.03738e9. The windowed `rms` of a ramp is 2.81869e9 against a true 2.81839e9;
+a Python replica of the sum, with the first-sample rule below, gives 2.81869e9. The deck is gated on `SP_WANTED`.
+A `--disable-sp` build was not run.
+
+### Gates
+
+- `make`, `make install`: exit 0.
+- `make -k check`: **364 PASS, 1 FAIL, 0 SKIP**. One more PASS than before, the new test. The FAIL is still
+  `resource-keyword-case.cmd`, the baseline's. No existing `.out` changed; `identity.baseline` untouched.
+- `measure/run.sh`, saved in `measure/after-01-fix/`: exit 0, `mc_r` and `mc_sky130` `identical_to_ref = yes`.
+  Against `after-01` at tolerance 0: **0 changed**, timing aside.
+
+### Found, not fixed: for the driver to decide
+
+1. **`avg` with `from=` skips the first sample in the window.** On interpolating, the picked code puts the
+   boundary value in place of sample `i`, so the first segment is a chord across two steps. This is in
+   `b277f48c0` and at upstream tip, on every analysis. `rms` and `integ` have long done the same.
+   Measured with a 1 MHz sine, 25 ns steps, `tran`, `from=0.26u to=1.13u`:
+
+   | | avg |
+   |---|---|
+   | ver_50 | -1.57622e-01 |
+   | ver_52 | -1.36497e-01 |
+   | Python trapezoid, all samples | -1.36432e-01 |
+   | Python trapezoid, first sample skipped | -1.36497e-01 |
+   | analytic | -1.36716e-01 |
+
+   The `.sp` deck above shows the same: 4.52294e-01 with all samples, 4.52287e-01 skipped, and `meas` gives
+   the latter. The pick is still a large net gain, and the error shrinks with the step. The ramp table earlier
+   in this receipt could not see this, as a ramp's chord is exact. Fixing it would move `meas avg` results
+   again and depart from upstream, so I left it. The new deck avoids freezing it: its S parameter lines use `to=` alone
+   (`avg` 4.55799e-01, Python 4.55799e-01), and only the ramp `rms` above carries the rule into `.out`.
+2. **`meas sp ... when` still segfaults**, on `build-ver_50` and `ver_52` alike: `measure_when()` reads
+   `dScale->v_realdata` on sp, NULL for a `.sp` scale. Not from this series and not part of the issue. No test covers it.
