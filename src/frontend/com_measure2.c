@@ -427,7 +427,7 @@ com_measure_when(
     MEASUREPTR meas     /* in : parsed measurement structure */
     )
 {
-    int i, first;
+    int i, first, length;
     int riseCnt = 0;
     int fallCnt = 0;
     int crossCnt = 0;
@@ -499,7 +499,12 @@ com_measure_when(
         }
     }
 
-    for (i = 0; i < d->v_length; i++) {
+    /* only samples with a value in the vector, the scale and a second vector */
+    length = MIN(d->v_length, dScale->v_length);
+    if (has_d2)
+        length = MIN(length, d2->v_length);
+
+    for (i = 0; i < length; i++) {
 
         if (ac_check) {
             if (d->v_compdata)

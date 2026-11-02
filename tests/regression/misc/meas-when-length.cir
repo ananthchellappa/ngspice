@@ -1,0 +1,33 @@
+meas when, find when and deriv when on vectors longer than the scale
+*
+* com_measure_when() walked to the length of the first vector, past the end of the
+* scale and of a second vector, into the heap.  What it read there gave a number
+* with no error.  Only samples with a value in all of them count.
+*
+* The u lines have no crossing inside the sweep, so they must not give a value.
+* A crossing in the first step is not seen by this loop, so the n lines cross later.
+v1 1 0 dc 1
+r1 1 0 1k
+.control
+dc v1 0 2 1
+let a = vector(5000)
+let b = vector(5000)
+meas dc u1 find b when a=4000
+meas dc u2 deriv b when a=4000
+meas dc u3 when a=4000
+meas dc u4 trig a val=4000 rise=1 targ b val=4001 rise=1
+* what the sweep does cover is still measured: a, b and the scale are all 0, 1, 2
+meas dc n1 when a=1.5
+meas dc n2 find b when a=1.5
+meas dc n3 deriv b when a=1.5
+* the second vector is the short one: c is 3, 2 and a2 is 0, 1, 2, 3, 4
+dc v1 0 4 1
+let a2 = vector(5)
+let c = 3 - vector(2)
+meas dc u5 when a2=c
+* e is 2.5, 1.5, 0.5: the lines cross at 1.25, inside what both of them have
+let e = 2.5 - vector(3)
+meas dc n4 when a2=e
+quit 0
+.endc
+.end
