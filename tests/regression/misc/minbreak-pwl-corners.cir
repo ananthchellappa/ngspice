@@ -1,0 +1,32 @@
+several PWL corners close together stop a transient unless minbreak has a floor
+
+* SourceForge bugs 887 and 888.  The corners sit 1 us to 8 us before t = 1 ms and
+* the maximum step is 4 ns, so 10*delmin is 4e-19, under one ulp at 1 ms.  With no
+* floor the run stops at 1 ms with a zero timestep.  The final point must be
+* 1.002e-03 from 'run', and from a 'tran' command, which must also see the option.
+
+V0 a0 0 PWL(0 0 0.000999992 0 0.001 0 0.001000001 1)
+V1 a1 0 PWL(0 0 0.000999993 0 0.001 0 0.001000001 1)
+V2 a2 0 PWL(0 0 0.000999996 0 0.001 0 0.001000001 1)
+V3 a3 0 PWL(0 0 0.000999997 0 0.001 0 0.001000001 1)
+R0 a0 out 1k
+R1 a1 out 1k
+R2 a2 out 1k
+R3 a3 out 1k
+C1 out 0 1n
+.option noinit
+.tran 2n 0.001002 0.000999 4n
+
+.control
+run
+let last = vecmax(time)
+print last
+tran 2n 0.001002 0.000999 4n
+let last = vecmax(time)
+print last
+option minbreak=1e-15
+tran 2n 0.001002 0.000999 4n
+let last = vecmax(time)
+print last
+.endc
+.end

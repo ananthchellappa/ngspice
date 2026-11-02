@@ -138,7 +138,7 @@ CKTnewTask(CKTcircuit *ckt, TSKtask **taskPtr, IFuid taskName, TSKtask **defPtr)
         tsk->TSKabsDv           = 0.5;
         tsk->TSKrelDv           = 2.0;
         tsk->TSKepsmin          = 1e-28;
-        tsk->TSKminBreak        = 1e-15;
+        tsk->TSKminBreak        = 0; /* unset: the analysis picks it from its step */
 #ifdef KLU
         tsk->TSKkluMODE         = CKTkluOFF;
         tsk->TSKkluMemGrowFactor = 1.2 ;

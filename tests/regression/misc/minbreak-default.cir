@@ -1,0 +1,35 @@
+default of option minbreak on a long transient
+
+* Unset, minbreak is 10*delmin with a floor of 1e-15.  Here delmin is 1e-11 of
+* the 1 ms step, so the default must behave as an explicit 1e-13, and an explicit
+* 1e-15 is a different run: at t = 100 one ulp is 1.4e-14, so a source's
+* time + minBreak rounds back to time and it steps over edges.
+* A flat default of 1e-15 makes the first two differ and the last two agree.
+
+V1 in 0 PULSE(0 1 0.1 1e-6 1e-6 33.3e-3 77.7e-3)
+R1 in out 1k
+C1 out 0 100p
+.option noinit
+
+.control
+tran 1m 100
+let ndef = length(v(in))
+option minbreak=1e-13
+tran 1m 100
+let nold = length(v(in))
+option minbreak=1e-15
+tran 1m 100
+let nsmall = length(v(in))
+if tran1.ndef = tran2.nold
+  echo default: the same run as minbreak=1e-13
+else
+  echo default: not the same run as minbreak=1e-13
+  print tran1.ndef tran2.nold
+end
+if tran3.nsmall = tran1.ndef
+  echo option: minbreak=1e-15 did not change the run
+else
+  echo option: minbreak=1e-15 is honoured and gives another run
+end
+.endc
+.end

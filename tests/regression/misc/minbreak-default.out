@@ -1,0 +1,24 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: default of option minbreak on a long transient
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 162254
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+ Reference value :  3.63238e+01
+No. of Data Rows : 162254
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+ Reference value :  9.04757e+01
+No. of Data Rows : 150370
+default: the same run as minbreak=1e-13
+option: minbreak=1e-15 is honoured and gives another run
+Note: Simulation executed from .control section 

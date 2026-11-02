@@ -389,6 +389,10 @@ OPtran(CKTcircuit *ckt, int oldconverged)
         opbreaks[1] = opfinaltime;
         OPbreakSize = 2;
 
+        /* In a tran job dctran.c has set it.  An op job has not. */
+        if (ckt->CKTminBreak == 0)
+            ckt->CKTminBreak = CKT_MINBREAK_FLOOR;
+
 #ifdef SHARED_MODULE
         add_bkpt();
 #endif
@@ -423,7 +427,7 @@ OPtran(CKTcircuit *ckt, int oldconverged)
     } else {
         /* saj As traninit resets CKTmode */
         ckt->CKTmode = (ckt->CKTmode&MODEUIC) | MODETRAN | MODEINITPRED;
-        if(ckt->CKTminBreak==0) ckt->CKTminBreak=ckt->CKTmaxStep*5e-5;
+        if(ckt->CKTminBreak==0) ckt->CKTminBreak=MAX(CKT_MINBREAK_FLOOR, ckt->CKTmaxStep*5e-5);
         firsttime=0;
         goto resume;
     }

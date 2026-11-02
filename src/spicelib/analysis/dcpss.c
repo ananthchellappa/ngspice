@@ -203,11 +203,11 @@ DCpss(CKTcircuit *ckt,
                ckt->CKTminBreak = ckt->CKTmaxStep * 5e-5 ; */
 
         /* Set to 10 times delmin for ATESSE 1 compatibity */
-        if(ckt->CKTminBreak==0) ckt->CKTminBreak = 10.0 * ckt->CKTdelmin;
+        if(ckt->CKTminBreak==0) ckt->CKTminBreak = MAX(CKT_MINBREAK_FLOOR, 10.0 * ckt->CKTdelmin);
 /* gtri - end - wbk - 12/19/90 - Modify setting of CKTminBreak */
 #else
         /* Minimum Breakpoint Setup */
-        if(ckt->CKTminBreak==0) ckt->CKTminBreak=ckt->CKTmaxStep*5e-5;
+        if(ckt->CKTminBreak==0) ckt->CKTminBreak=MAX(CKT_MINBREAK_FLOOR, ckt->CKTmaxStep*5e-5);
 #endif
 
 #ifdef XSPICE
@@ -335,7 +335,7 @@ DCpss(CKTcircuit *ckt,
         ckt->CKTmode = (ckt->CKTmode&MODEUIC) | MODETRAN | MODEINITPRED;
         /* saj */
         INIT_STATS();
-        if(ckt->CKTminBreak==0) ckt->CKTminBreak=ckt->CKTmaxStep*5e-5;
+        if(ckt->CKTminBreak==0) ckt->CKTminBreak=MAX(CKT_MINBREAK_FLOOR, ckt->CKTmaxStep*5e-5);
         firsttime=0;
         /* To get rawfile working saj*/
         error = SPfrontEnd->OUTpBeginPlot (NULL, NULL,

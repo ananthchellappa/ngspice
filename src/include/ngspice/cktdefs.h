@@ -63,6 +63,10 @@ enum {
     PARM_NODETYPE,
 };
 
+/* 'option minbreak' unset (0): each analysis derives it from its own step, and
+   never goes below this.  Closer breakpoints than this stop a transient. */
+#define CKT_MINBREAK_FLOOR 1e-15
+
 struct CKTcircuit {
 
 /* gtri - begin - wbk - change declaration to allow dynamic sizing */

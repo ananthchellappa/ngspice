@@ -155,19 +155,19 @@ DCtran(CKTcircuit *ckt,
         ckt->CKTbreaks[1] = ckt->CKTfinalTime;
         ckt->CKTbreakSize = 2;
 
-#ifdef SHARED_MODULE
-        add_bkpt();
-#endif
-
 #ifdef XSPICE
         /* Modify setting of CKTminBreak
            Set to 10 times delmin (minimum delta step time). */
         if(ckt->CKTminBreak == 0)
-            ckt->CKTminBreak = 10.0 * ckt->CKTdelmin;
+            ckt->CKTminBreak = MAX(CKT_MINBREAK_FLOOR, 10.0 * ckt->CKTdelmin);
 
 #else
         if(ckt->CKTminBreak == 0)
-            ckt->CKTminBreak = ckt->CKTmaxStep * 5e-5;
+            ckt->CKTminBreak = MAX(CKT_MINBREAK_FLOOR, ckt->CKTmaxStep * 5e-5);
+#endif
+
+#ifdef SHARED_MODULE
+        add_bkpt();
 #endif
 
 #ifdef XSPICE
@@ -339,7 +339,7 @@ DCtran(CKTcircuit *ckt,
 
         INIT_STATS();
         if(ckt->CKTminBreak == 0)
-            ckt->CKTminBreak = ckt->CKTmaxStep * 5e-5;
+            ckt->CKTminBreak = MAX(CKT_MINBREAK_FLOOR, ckt->CKTmaxStep * 5e-5);
         firsttime=0;
         /* To get rawfile working */
         error = SPfrontEnd->OUTpBeginPlot (NULL, NULL,
