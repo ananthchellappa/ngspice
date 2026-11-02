@@ -1,0 +1,12 @@
+meas dc when on an AC plot: exit 139 in com_measure_when(). Same with tran, find ... when, and trig/targ.
+v3 4 0 dc 0 ac 1
+r3 4 5 1k
+c3 5 0 1u
+.ac dec 1 10 100
+.control
+run
+let ry=real(v(5))
+meas dc w1 when ry=0.5
+echo survived
+.endc
+.end

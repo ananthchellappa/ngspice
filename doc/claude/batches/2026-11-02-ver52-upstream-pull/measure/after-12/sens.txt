@@ -1,0 +1,39 @@
+@@ finite difference
+op1.gm0 = 7.400236139728609e-05
+op1.v(out) = 1.706614066350771e+00
+op1.i(vdd) = -4.66929668246147e-06
+dvout_dvg = -1.46276480151930e+00
+gm_fd = 7.313824007596615e-05
+@@ sens v(out)
+vg = -1.46275269075427e+00
+vdd = 9.912180056891315e-01
+rl:r = -0.000000000000000e+00
+xm1:vth0 = 1.450662757181488e+00
+xm1:u0 = -4.08658749164841e+00
+xm1:k1 = 1.676692629438547e-01
+xm1:k2 = 7.020831182262839e-02
+xm1:vsat = -2.60951820008123e-09
+xm1:lint = 8.309955180507993e+04
+xm1:wint = 2.270286560238839e+04
+xm1:nfactor = 8.744264566523836e-03
+xm1:voff = 7.397033095436032e-01
+xm1:a0 = 1.175915837652906e-02
+xm1:rdsw = -2.78328421806728e-08
+msg 1  Reference value :  0.00000e+00Fatal error: BSIM4v5: mosfet xm1:nshort_model.29, model m.xm1.msky130_fd_pr__nfet_01v8: Effective channel length <= 0
+msg 82 Fatal error: BSIM4v5: mosfet xm1:nshort_model.29, model m.xm1.msky130_fd_pr__nfet_01v8: Effective channel length <= 0
+msg 3 Fatal error: BSIM4v5: mosfet xm1:nshort_model.29, model m.xm1.msky130_fd_pr__nfet_01v8: Effective channel length for C-V <= 0
+msg 3 Fatal error: BSIM4v5: mosfet xm1:nshort_model.29, model m.xm1.msky130_fd_pr__nfet_01v8: Effective channel width <= 0
+msg 4 Fatal error: BSIM4v5: mosfet xm1:nshort_model.29, model m.xm1.msky130_fd_pr__nfet_01v8: Effective channel width for C-V <= 0
+msg 1 Fatal error: BSIM4v5: mosfet xm1:nshort_model.29, model m.xm1.msky130_fd_pr__nfet_01v8: Effective channel width for S/D junctions <= 0
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam lintnoi (289)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam llambda (435)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam lvtl (436)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam lxn (437)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam plambda (825)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam pvtl (826)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam pxn (827)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam wlambda (615)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam wvtl (616)
+msg 3 GET ERROR: BSIM4v5:xm1:nshort_model.29:m.xm1.msky130_fd_pr__nfet_01v8 -> mparam wxn (617)
+msg 2 Warning: toxe, toxp and dtox all given and toxe != toxp + dtox; dtox ignored.
+exit = 0

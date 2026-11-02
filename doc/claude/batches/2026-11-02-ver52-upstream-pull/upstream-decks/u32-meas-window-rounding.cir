@@ -1,0 +1,13 @@
+from= with a sign or an exponent reaches the window rounded to 7 digits. On a ramp, a2 and a4 use all the digits; a1 and a3 print from= rounded, and a3 differs from a4 though both write 0.123456789.
+v1 1 0 dc 0
+r1 1 0 1k
+.dc v1 -5 5 0.5
+.control
+set numdgt=12
+run
+meas dc a1 avg v(1) from=-1.23456789 to=2
+meas dc a2 avg v(1) from=1.23456789 to=2
+meas dc a3 avg v(1) from=1.23456789e-1 to=2
+meas dc a4 avg v(1) from=0.123456789 to=2
+.endc
+.end

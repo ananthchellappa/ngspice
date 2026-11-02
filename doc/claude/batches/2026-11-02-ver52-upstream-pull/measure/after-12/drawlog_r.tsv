@@ -1,0 +1,16 @@
+#	rnddraws	v1	seed=1	src=setseed	offset=0
+1	r.xm1.r1	r	agauss	0,1,1	-1.13965849367679	-1.13965849367679
+1	r.xm2.r1	r	agauss	0,1,1	0.90407562066411662	0.90407562066411662
+#	end	logged=2	unlogged_calls=0
+#	rnddraws	v1	seed=2	src=setseed	offset=0
+2	r.xm1.r1	r	agauss	0,1,1	-0.74866667403207465	-0.74866667403207465
+2	r.xm2.r1	r	agauss	0,1,1	-1.5564227233915324	-1.5564227233915324
+#	end	logged=2	unlogged_calls=0
+#	rnddraws	v1	seed=3	src=setseed	offset=0
+3	r.xm1.r1	r	agauss	0,1,1	-1.6077229785030163	-1.6077229785030163
+3	r.xm2.r1	r	agauss	0,1,1	-0.87627077036725287	-0.87627077036725287
+#	end	logged=2	unlogged_calls=0
+#	rnddraws	v1	seed=3	src=setseed	offset=6
+3	r.xm1.r1	r	agauss	0,1,1	-0.07765087208221734	-0.07765087208221734
+3	r.xm2.r1	r	agauss	0,1,1	0.59637250709027112	0.59637250709027112
+#	end	logged=2	unlogged_calls=0
