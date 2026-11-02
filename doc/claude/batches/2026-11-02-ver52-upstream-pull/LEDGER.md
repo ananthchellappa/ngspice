@@ -18,6 +18,10 @@ Plan: `PLAN.md`. Receipts: `receipts/`.
 | 07 | OSDI, narrow, 27 of 29 | landed; 3 fork fixes; `58e4cf26b` declined, `af240ba02` reverted | 370, 1 | pass |
 | 08 | seed, fork-written | landed | 375, 1 | pass |
 | 09 | close | 91 commits at close | 375, 1 | — |
+| 10 | save and meas regressions | R1, R2, R3, R5 fixed; R6's rule later replaced | 385, 1 | pass |
+| 11 | device, tran, misc | R4, `minbreak`, pruner, seed warning, `--disable-xspice` | 392, 1 | pass |
+| 10b | meas rule, `when`, margin | `875ddd529`, `9b87d50bc`, `1a0955462`; replaces `ef6445218`'s rule | 394, 1 | pass, 6 minor |
+| 12 | final close | 113 commits, 68 picks (one reverted), 26 fork code, 19 docs | 394, 1 | receipt lists R1–R4 |
 
 ## Notes
 
@@ -32,3 +36,19 @@ quotes these hashes, and this line records the correction.
 
 *Attribution.* Clean upstream picks keep upstream's message with no Claude trailer, since
 they are not co-authored. Hand-resolved and fork-written commits carry it.
+
+*Driver's error on R6.* The brief for group 10 asked for a rule exact on every
+piecewise-linear signal. That worsened `rms` and `integ` on smooth signals. Group 10b puts
+the interior rule back and fixes only the window edges and the skipped first sample.
+
+*Driver's calls on receipt 12's four regressions.*
+- R1, diode op 16 s to 218 s on one last-resort path: accepted. The same pick ends 13 of 45
+  sky130 transient aborts, and a slow answer on a rare path beats an abort on a common one.
+- R2, a size up to 1 nm outside the table now stops: accepted. Literal hsa sizes already
+  stopped there on ver_51, the size is outside the PDK's characterised range, and the error
+  is loud. Carried in the release note.
+- R3, VDMOS `.sens` `GET ERROR` and a silently lost `ttt1`: fix, group 13.
+- R4, `meas` further in a few narrow cases: accepted with the rule, stated in the release note.
+
+*`efe72da1e`'s trailer.* Left as it is, since every receipt quotes these hashes. The right
+hash is recorded above.
