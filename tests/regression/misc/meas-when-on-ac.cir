@@ -1,0 +1,72 @@
+meas dc and meas tran when, in every form, on a plot that holds neither
+*
+* An ac plot has a complex scale and complex nodes.  com_measure_when() reads
+* v_realdata of the vector, a second vector and the scale for a dc or tran measure,
+* and on a real 'let' that is a segfault in the scale, where the tran check before it
+* looked at the vector alone.  Each has to refuse and let the script run on.  'deriv
+* ... when' failed cleanly on ver_50 and came to this crash with ver_52's deriv picks.
+* A complex node on tran was refused, and then printed a value of 0.
+v3 4 0 dc 0 ac 1
+r3 4 5 1k
+c3 5 0 1u
+v6 6 0 pulse(0 1 0 1n 1n 1 2)
+r6 6 7 1k
+c6 7 0 1u
+.ac dec 5 10 1000
+.control
+run
+let ry = real(v(5))
+let half = 0.5 + 0 * ry
+meas dc n1 when ry=0.5
+echo after dc when
+meas dc n2 find ry when ry=0.5
+echo after dc find when
+meas dc n3 deriv ry when ry=0.5
+echo after dc deriv when
+meas dc n4 trig ry val=0.5 fall=1 targ ry val=0.5 fall=1
+echo after dc trig targ
+meas dc n5 trig at=20 targ ry val=0.5 fall=1
+echo after dc trig at, targ
+meas dc n6 when v(5)=0.5
+echo after dc when of a complex node
+meas dc n7 when ry=half
+echo after dc when of two
+meas dc n8 when ry=v(5)
+echo after dc when of a real and a complex
+meas tran n11 when ry=0.5
+echo after tran when
+meas tran n12 find ry when ry=0.5
+echo after tran find when
+meas tran n13 deriv ry when ry=0.5
+echo after tran deriv when
+meas tran n14 trig ry val=0.5 fall=1 targ ry val=0.5 fall=1
+echo after tran trig targ
+meas tran n15 trig ry val=0.5 fall=1 targ at=20
+echo after tran trig, targ at
+meas tran n16 when v(5)=0.5
+echo after tran when of a complex node
+meas tran n17 when ry=half
+echo after tran when of two
+meas tran n18 when ry=v(5)
+echo after tran when of a real and a complex
+* what an ac plot can answer it still answers
+meas ac k1 when vm(5)=0.9
+meas ac k2 find vp(5) when vm(5)=0.9
+meas ac k3 deriv vm(5) when vm(5)=0.9
+meas ac k4 trig vm(5) val=0.95 fall=1 targ vm(5) val=0.9 fall=1
+* and a real plot still has every form, on a sweep and a step
+dc v3 0 1 0.1
+let d2 = v(5) - 0.05
+meas dc r1 when v(5)=0.55
+meas dc r2 find d2 when v(5)=0.55
+meas dc r3 deriv v(5) when v(5)=0.55
+meas dc r4 trig v(5) val=0.25 rise=1 targ v(5) val=0.75 rise=1
+tran 100u 5m
+let t2 = v(7) - 0.05
+meas tran r5 when v(7)=0.5
+meas tran r6 find t2 when v(7)=0.5
+meas tran r7 deriv v(7) when v(7)=0.5
+meas tran r8 trig v(7) val=0.25 rise=1 targ v(7) val=0.75 rise=1
+quit 0
+.endc
+.end

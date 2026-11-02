@@ -418,6 +418,24 @@ measure_extract_variables(char *line)
 }
 
 
+/* A dc or tran measure reads the vector and the scale as real.  An ac plot has
+   neither, and a 'let' can make the vector real but not the scale. */
+static bool
+measure_real_plot(
+    MEASUREPTR meas,            /* in : parsed measurement data request */
+    struct dvec *d,             /* in : vector to measure */
+    struct dvec *dScale         /* in : its scale */
+    )
+{
+    if (d->v_realdata && dScale->v_realdata)
+        return TRUE;
+
+    fprintf(stderr, "Error: no real data available for measurement (no %s simulation?)\n",
+            meas->m_analysis);
+    return FALSE;
+}
+
+
 /* -----------------------------------------------------------------
  * Function: process a WHEN measurement statement which has been
  * parsed into a measurement structure.
@@ -443,6 +461,9 @@ com_measure_when(
     enum ValEdge { E_RISING, E_FALLING };
 
     struct dvec *d, *d2, *dScale;
+
+    /* the callers read this for 'not found': a failure below must not read as 0 */
+    meas->m_measured = NAN;
 
     d = vec_get(meas->m_vec);
 
@@ -491,13 +512,12 @@ com_measure_when(
         sp_check = TRUE;
     else if (cieq (meas->m_analysis, "dc"))
         dc_check = TRUE;
-    else {
+    else
         tran_check = TRUE;
-        if (!d->v_realdata) {
-            fprintf(stderr, "Error: no real data available for measurement (no tran simulation?)\n");
-            return MEASUREMENT_FAILURE;
-        }
-    }
+
+    if ((dc_check || tran_check) && (!measure_real_plot(meas, d, dScale) ||
+            (has_d2 && !measure_real_plot(meas, d2, dScale))))
+        return MEASUREMENT_FAILURE;
 
     /* only samples with a value in the vector, the scale and a second vector */
     length = MIN(d->v_length, dScale->v_length);
@@ -706,24 +726,6 @@ com_measure_when(
         meas->m_measured = NAN;
 
     return MEASUREMENT_OK;
-}
-
-
-/* A dc or tran measure reads the vector and the scale as real.  An ac plot has
-   neither, and a 'let' can make the vector real but not the scale. */
-static bool
-measure_real_plot(
-    MEASUREPTR meas,            /* in : parsed measurement data request */
-    struct dvec *d,             /* in : vector to measure */
-    struct dvec *dScale         /* in : its scale */
-    )
-{
-    if (d->v_realdata && dScale->v_realdata)
-        return TRUE;
-
-    fprintf(stderr, "Error: no real data available for measurement (no %s simulation?)\n",
-            meas->m_analysis);
-    return FALSE;
 }
 
 
