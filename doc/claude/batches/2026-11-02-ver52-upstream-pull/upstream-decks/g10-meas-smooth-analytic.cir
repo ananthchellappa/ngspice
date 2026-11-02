@@ -1,0 +1,48 @@
+smooth analytic signals
+v1 1 0 dc 0 ac 1
+r1 1 0 1
+v2 2 0 sin(0 1 1k)
+r2 2 0 1
+v3 3 0 pulse(0 1 0 1n 1n 1 2)
+r3 3 4 1k
+c3 4 0 1u
+v4 5 0 dc 0 ac 1
+r4 5 6 1k
+c4 6 0 1u
+.control
+set numdgt=12
+* dc uniform: sin(x), h=0.1 and from/to between samples
+dc v1 0 3.2 0.1
+let y = sin(v(1))
+meas dc dca avg y from=0.25 to=2.85
+meas dc dci integ y from=0.25 to=2.85
+meas dc dcr rms y from=0.25 to=2.85
+* tran sine, 10u
+tran 10u 5m
+meas tran sa avg v(2) from=0.3m to=2.1m
+meas tran si integ v(2) from=0.3m to=2.1m
+meas tran sr rms v(2) from=0.3m to=2.1m
+meas tran srp rms v(2) from=1m to=4m
+* tran sine, coarser
+tran 50u 5m 0 50u
+meas tran ca avg v(2) from=0.3m to=2.1m
+meas tran ci integ v(2) from=0.3m to=2.1m
+meas tran cr rms v(2) from=0.3m to=2.1m
+meas tran crp rms v(2) from=1m to=4m
+* tran RC exponential after a step, adaptive
+tran 20u 5m
+meas tran ea avg v(4) from=0.5m to=4.5m
+meas tran ei integ v(4) from=0.5m to=4.5m
+meas tran er rms v(4) from=0.5m to=4.5m
+* ac lin, RC magnitude
+ac lin 41 10 1010
+meas ac la avg vm(6) from=125 to=875
+meas ac li integ vm(6) from=125 to=875
+meas ac lr rms vm(6) from=125 to=875
+* ac dec
+ac dec 20 10 10k
+meas ac da avg vm(6) from=125 to=875
+meas ac di integ vm(6) from=125 to=875
+meas ac dr rms vm(6) from=125 to=875
+.endc
+.end
