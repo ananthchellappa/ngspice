@@ -1,0 +1,13 @@
+* 'option seed=random' over '.option seed=random': the seed=random wording, once
+.param rv=agauss(1k,100,1)
+.option seed=random
+v1 1 0 1
+r1 1 0 {rv}
+.control
+option seed=random
+reset
+option seed=5
+reset
+quit 0
+.endc
+.end

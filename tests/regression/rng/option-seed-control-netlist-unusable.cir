@@ -1,0 +1,12 @@
+* 'option seed=abc' over '.option seed=7': the command seeded nothing
+* So the parse overrides nothing and only the command's own warning prints.
+.param rv=agauss(1k,100,1)
+.option seed=7
+v1 1 0 1
+r1 1 0 {rv}
+.control
+option seed=abc
+reset
+quit 0
+.endc
+.end

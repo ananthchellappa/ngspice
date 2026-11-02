@@ -1,0 +1,5 @@
+Warning: '.option seed=random' re-seeds the random number generator from the clock
+    each time the circuit is parsed, by 'source' and by every 'reset', so it
+    overrides 'option seed='. Each seed it uses is stored in $rndseed. Remove the
+    option to let 'option seed=' choose the seed.
+    (This warning is printed once per session.)

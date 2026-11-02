@@ -1,12 +1,14 @@
 * 'option seed=5' over '.option seed=7': the command seeds, the next parse re-seeds
-* The netlist form still wins on every parse, as its warning says.  That warning
-* speaks of 'setseed' and stays tied to an explicit 'setseed N', so the command
-* does not arm it: stderr stays empty.
+* The netlist form still wins on every parse.  Since the command is an explicit
+* choice the parse overrides, it says so: this deck's .err holds the warning once
+* over two resets.  The warning changes no draw: both draws are the deck's first.
 .param rv=agauss(1k,100,1)
 .option seed=7
 v1 1 0 1
 r1 1 0 {rv}
 .control
+op
+let const.first = @r1[r]
 option seed=5
 if $rndseed <> 5
   echo option-seed-control-netlist: the command did not reach rndseed
@@ -15,6 +17,18 @@ end
 reset
 if $rndseed <> 7
   echo option-seed-control-netlist: the parse did not re-seed from the netlist
+  quit 1
+end
+op
+if @r1[r] <> const.first
+  echo option-seed-control-netlist: the draw after the reset moved
+  quit 1
+end
+option seed=5
+reset
+op
+if @r1[r] <> const.first
+  echo option-seed-control-netlist: the draw after the second reset moved
   quit 1
 end
 quit 0

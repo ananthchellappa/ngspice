@@ -45,7 +45,10 @@
 ##   option-seed-control-unusable.cir  a value that is not a seed warns each
 ##                                   time and changes nothing
 ##   option-seed-control-netlist.cir '.option seed=' still wins at the next
-##                                   parse, and its warning stays silent
+##                                   parse, and says so once (group 11)
+##   option-seed-control-netlist-random.cir  the same, seed=random wording
+##   option-seed-control-netlist-unusable.cir  a value that seeded nothing is
+##                                   not overridden, so no such warning
 ##
 ## The next two are ver_51 batch item 3 (P3).  initw() used to re-seed the
 ## generator from the process id after startup had seeded it from
@@ -92,6 +95,7 @@ TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-unusable.cir option-seed-empty.cir \
 	option-seed-control.cir option-seed-control-random.cir \
 	option-seed-control-unusable.cir option-seed-control-netlist.cir \
+	option-seed-control-netlist-random.cir option-seed-control-netlist-unusable.cir \
 	startup-equals-setseed1.cir setseed7-bit-identity.cir \
 	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir \
 	rnddraws-gold.cir rnddraws-src.cir rnddraws-option.cir
@@ -113,6 +117,8 @@ EXTRA_DIST = \
 	option-seed-control-random.status option-seed-control-random.err option-seed-control-random.files \
 	option-seed-control-unusable.status option-seed-control-unusable.err \
 	option-seed-control-netlist.status option-seed-control-netlist.err \
+	option-seed-control-netlist-random.status option-seed-control-netlist-random.err \
+	option-seed-control-netlist-unusable.status option-seed-control-netlist-unusable.err \
 	startup-equals-setseed1.status startup-equals-setseed1.err \
 	setseed7-bit-identity.status setseed7-bit-identity.err \
 	setseed7-bit-identity.requires \
@@ -151,6 +157,10 @@ CLEANFILES = \
 	option-seed-control-unusable.stderr.filtered option-seed-control-unusable.stderr.expected \
 	option-seed-control-netlist.stdout option-seed-control-netlist.stderr \
 	option-seed-control-netlist.stderr.filtered option-seed-control-netlist.stderr.expected \
+	option-seed-control-netlist-random.stdout option-seed-control-netlist-random.stderr \
+	option-seed-control-netlist-random.stderr.filtered option-seed-control-netlist-random.stderr.expected \
+	option-seed-control-netlist-unusable.stdout option-seed-control-netlist-unusable.stderr \
+	option-seed-control-netlist-unusable.stderr.filtered option-seed-control-netlist-unusable.stderr.expected \
 	startup-equals-setseed1.stdout startup-equals-setseed1.stderr \
 	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
 	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \

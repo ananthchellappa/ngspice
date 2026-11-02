@@ -69,15 +69,16 @@ static bool seedinfo = FALSE;
 
 /* '.option seed=' versus 'setseed'.  eval_opt() re-seeds from the option on
    every parse, and 'reset' is a parse, so the option overrides a 'setseed N'
-   made before the reset.  The option keeps winning; seed_from_option() only
-   says so, once per session, and only after an explicit 'setseed N'.  A bare
-   'setseed', which re-seeds from $rndseed, does not set setseed_used.
+   or an 'option seed=' made before the reset.  The option keeps winning;
+   seed_from_option() only says so, once per session, and only after one of
+   those.  A bare 'setseed', which re-seeds from $rndseed, sets nothing, and
+   seed_explicit names the last one made.
    eval_opt()'s warnings about more than one '.option seed=', and about a
    'seed=' value that is not a seed, are printed once per session too, by
    seed_option_multiple() and seed_option_unusable(), not on every parse.  The
    flags are cleared by rnd_reset_state(), called from totalreset() in
    sharedspice.c, so a new shared-library session warns again. */
-static bool setseed_used = FALSE;
+static const char *seed_explicit = NULL;
 static bool seed_override_warned = FALSE;
 static bool seed_multiple_warned = FALSE;
 static bool seed_unusable_warned = FALSE;
@@ -361,7 +362,7 @@ com_sseed(wordlist *wl)
         srand((unsigned int)newseed);
         TausSeed();
         cp_vset("rndseed", CP_NUM, &newseed);
-        setseed_used = TRUE;
+        seed_explicit = "'setseed'";
         rng_note_seed(newseed, "setseed");
     }
 
@@ -377,6 +378,17 @@ setseedinfo(void)
 }
 
 
+/* Seed from an option, either form: the draw log labels it src=option. */
+static void
+seed_now(int seed)
+{
+    cp_vset("rndseed", CP_NUM, &seed);
+    rng_src_next = "option";
+    com_sseed(NULL);
+    rng_src_next = NULL;
+}
+
+
 /* Seed from '.option seed=N' or '.option seed=random', for eval_opt().  This
    is the cp_vset() + com_sseed(NULL) pair eval_opt() has always done, with
    the warning in front of it.  The warning quotes 'written', the value as
@@ -384,39 +396,38 @@ setseedinfo(void)
 void
 seed_from_option(int seed, bool is_random, const char *written)
 {
-    if (setseed_used && !seed_override_warned) {
+    if (seed_explicit && !seed_override_warned) {
         if (is_random)
             fprintf(cp_err,
                 "Warning: '.option seed=%s' re-seeds the random number generator from the clock\n"
                 "    each time the circuit is parsed, by 'source' and by every 'reset', so it\n"
-                "    overrides 'setseed'. Each seed it uses is stored in $rndseed. Remove the\n"
-                "    option to let 'setseed' choose the seed.\n"
+                "    overrides %s. Each seed it uses is stored in $rndseed. Remove the\n"
+                "    option to let %s choose the seed.\n"
                 "    (This warning is printed once per session.)\n",
-                written);
+                written, seed_explicit, seed_explicit);
         else
             fprintf(cp_err,
                 "Warning: '.option seed=%s' re-seeds the random number generator each time the\n"
-                "    circuit is parsed, by 'source' and by every 'reset', so it overrides 'setseed'.\n"
-                "    Remove the option to let 'setseed' choose the seed.\n"
+                "    circuit is parsed, by 'source' and by every 'reset', so it overrides %s.\n"
+                "    Remove the option to let %s choose the seed.\n"
                 "    (This warning is printed once per session.)\n",
-                written);
+                written, seed_explicit, seed_explicit);
         seed_override_warned = TRUE;
     }
-    seed_from_option_command(seed);
+    seed_now(seed);
 }
 
 
 /* Seed from the 'option seed=' command, for com_option().  The command seeds
-   once, when it is given, so seed_from_option()'s warning about every parse
-   does not apply, and it does not count as an explicit 'setseed N' for that
-   warning either.  The draw log labels it src=option. */
+   once, when it is given, so seed_from_option()'s warning about every parse is
+   not about the command itself, but a '.option seed=' in the deck overrides it
+   at the next parse, as it does 'setseed N', and that warning says so.  The
+   draw log labels it src=option. */
 void
 seed_from_option_command(int seed)
 {
-    cp_vset("rndseed", CP_NUM, &seed);
-    rng_src_next = "option";
-    com_sseed(NULL);
-    rng_src_next = NULL;
+    seed_explicit = "'option seed='";
+    seed_now(seed);
 }
 
 
@@ -455,7 +466,7 @@ seed_option_unusable(const char *written)
 void
 rnd_reset_state(void)
 {
-    setseed_used = FALSE;
+    seed_explicit = NULL;
     seed_override_warned = FALSE;
     seed_multiple_warned = FALSE;
     seed_unusable_warned = FALSE;

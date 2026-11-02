@@ -1,0 +1,4 @@
+Warning: '.option seed=7' re-seeds the random number generator each time the
+    circuit is parsed, by 'source' and by every 'reset', so it overrides 'option seed='.
+    Remove the option to let 'option seed=' choose the seed.
+    (This warning is printed once per session.)
