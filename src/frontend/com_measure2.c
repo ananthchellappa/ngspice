@@ -162,12 +162,15 @@ get_value(
 }
 
 
-/* Returns interpolated value. If ac simulation, exploit vector type with complex data for y */
+/* Returns interpolated value. Each vector is read by what it holds rather than by
+   analysis: on ac and sp either may be real or complex (an sp plot from .sp has a
+   complex scale, one from fft a real scale, and a 'let' can make y real), and a
+   complex y is read according to meas->m_vectype. */
 static double
 measure_interpolate(
-    struct dvec *xScale, /* in: vector of independent variables, if ac: complex vector,
-                            but only real part used */
-    struct dvec *values, /* in: vector of dependent variables, if ac: complex vector */
+    struct dvec *xScale, /* in: vector of independent variables, if complex:
+                            only real part used */
+    struct dvec *values, /* in: vector of dependent variables, real or complex */
     int i,               /* in: index of first interpolation value */
     int j,               /* in: index of second interpolation value */
     double var_value,    /* in: variable, whose counterpart is sought by interpolation */
@@ -178,18 +181,26 @@ measure_interpolate(
     double slope;
     double yint;
     double result;
+    double xi, xj, yi, yj;
 
-    if (cieq (meas->m_analysis, "ac")) {
-        /* get values from complex y vector according to meas->m_vectype,
-           x vector uses only real part of complex data (frequency).*/
-        slope = (get_value(meas, values, j)  - get_value(meas, values, i)) /
-            (xScale->v_compdata[j].cx_real - xScale->v_compdata[i].cx_real);
-        yint  = get_value(meas, values, i) - slope*xScale->v_compdata[i].cx_real;
+    if (xScale->v_compdata) {
+        xi = xScale->v_compdata[i].cx_real;
+        xj = xScale->v_compdata[j].cx_real;
     } else {
-        slope = (values->v_realdata[j] - values->v_realdata[i]) /
-            (xScale->v_realdata[j] - xScale->v_realdata[i]);
-        yint  = values->v_realdata[i] - slope*xScale->v_realdata[i];
+        xi = xScale->v_realdata[i];
+        xj = xScale->v_realdata[j];
     }
+
+    if (values->v_compdata) {
+        yi = get_value(meas, values, i);
+        yj = get_value(meas, values, j);
+    } else {
+        yi = values->v_realdata[i];
+        yj = values->v_realdata[j];
+    }
+
+    slope = (yj - yi) / (xj - xi);
+    yint  = yi - slope*xi;
 
     if (x_or_y == 'x')
         result = (var_value - yint)/slope;
@@ -1198,6 +1209,15 @@ measure_rms_integral(
                 // fprintf(cp_err, "Warning: 'meas ac' input vector is real!\n");
             }
             xvalue = xScale->v_compdata[i].cx_real;
+        } else if (sp_check) {
+            if (d->v_compdata)
+                value = get_value(meas, d, i);
+            else
+                value = d->v_realdata[i];
+            if (xScale->v_compdata) // .sp, s-param.
+                xvalue = xScale->v_compdata[i].cx_real;
+            else // fft
+                xvalue = xScale->v_realdata[i];
         } else {
             value = d->v_realdata[i];
             xvalue = xScale->v_realdata[i];

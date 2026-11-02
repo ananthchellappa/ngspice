@@ -1,0 +1,119 @@
+* meas avg, rms and integ with a from/to window on a .sp, an ac and an fft plot
+*
+* Each has to read a complex y and a complex or real scale.  An avg window that
+* needed interpolation at from or to read v_realdata, which is NULL on a complex
+* vector, and segfaulted on 'meas sp'; rms and integ did so with or without a
+* window.  The ramp is the frequency itself, so the answers are known exactly:
+* over 1.3g to 4.1g, avg = 2.7g and integ = (4.1^2-1.3^2)/2 e18 = 7.56e18.
+* zramp has a real part f and an imaginary part 2f, so vr, vi and vm each give a
+* different known answer and show the interpolation honours the requested part.
+* The rms is checked to 1e-3, against a true 2.81839e9: its y is f^2, not linear,
+* and measure_rms_integral() puts the from point in place of the first sample in
+* the window, which on a curve is a chord across two steps.  'avg' does the same,
+* which a ramp cannot show, so the S parameter checks below use to= alone.
+
+v1 p1 0 dc 0 ac 1 portnum 1 z0 50 sin(0 1 1g)
+v2 p2 0 dc 0 ac 0 portnum 2 z0 50
+r1 p1 p2 100
+c1 p2 0 1p
+
+.control
+
+define near(val, gold, tol) abs(val / gold - 1) < tol
+
+* ---- .sp: complex frequency, complex or real y ----
+sp lin 21 1g 5g
+let cramp = frequency
+let rramp = real(frequency)
+let rs11 = real(s_1_1)
+let ms11 = mag(s_1_1)
+
+meas sp spavgc avg cramp from=1.3g to=4.1g
+meas sp spavgr avg rramp from=1.3g to=4.1g
+meas sp spintc integ cramp from=1.3g to=4.1g
+meas sp spintr integ rramp from=1.3g to=4.1g
+meas sp sprmsc rms cramp from=1.3g to=4.1g
+meas sp sprmsr rms rramp from=1.3g to=4.1g
+meas sp spavgfrom avg rramp from=1.3g
+meas sp spavgto avg rramp to=4.1g
+
+* the windowless forms: 3g, (25-1)/2 e18, sqrt((125-1)/12)e9
+meas sp spavgall avg cramp
+meas sp spintall integ cramp
+meas sp sprmsall rms cramp
+
+* the part of a complex y that the meas line asks for, at both clipped ends
+let zramp = frequency + j(2 * real(frequency))
+meas sp zr avg vr(zramp) from=1.3g to=4.1g
+meas sp zi avg vi(zramp) from=1.3g to=4.1g
+meas sp zm avg vm(zramp) from=1.3g to=4.1g
+
+* a complex S parameter: complex and real spellings of one number have to agree
+meas sp s11c avg s_1_1 to=4.1g
+meas sp s11r avg rs11 to=4.1g
+meas sp s11m avg vm(s_1_1) to=4.1g
+meas sp s11mr avg ms11 to=4.1g
+meas sp s11ic integ s_1_1 to=4.1g
+meas sp s11ir integ rs11 to=4.1g
+meas sp s11rc rms s_1_1 to=4.1g
+meas sp s11rr rms rs11 to=4.1g
+
+let bad = 0
+let bad = bad + (near(spavgc, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(spavgr, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(spintc, 7.56e18, 1e-12) = 0)
+let bad = bad + (near(spintr, 7.56e18, 1e-12) = 0)
+let bad = bad + (near(sprmsc, 2.81839e9, 1e-3) = 0)
+let bad = bad + (near(sprmsr, 2.81839e9, 1e-3) = 0)
+let bad = bad + (near(spavgfrom, 3.15e9, 1e-12) = 0)
+let bad = bad + (near(spavgto, 2.55e9, 1e-12) = 0)
+let bad = bad + (near(spavgall, 3e9, 1e-12) = 0)
+let bad = bad + (near(spintall, 12e18, 1e-12) = 0)
+let bad = bad + (near(sprmsall, 3.21455e9, 1e-3) = 0)
+let bad = bad + (near(zr, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(zi, 5.4e9, 1e-12) = 0)
+* meas stores its result as %e, seven digits, and this answer is not a round number
+let bad = bad + (near(zm, 2.7e9 * sqrt(5), 1e-6) = 0)
+let bad = bad + (near(s11c, s11r, 1e-12) = 0)
+let bad = bad + (near(s11m, s11mr, 1e-12) = 0)
+let bad = bad + (near(s11ic, s11ir, 1e-12) = 0)
+let bad = bad + (near(s11rc, s11rr, 1e-12) = 0)
+echo "sp bad = $&bad"
+
+* ---- ac: complex frequency, and a real y ----
+ac lin 21 1g 5g
+let rramp = real(frequency)
+let cramp = frequency
+meas ac acavgr avg rramp from=1.3g to=4.1g
+meas ac acavgc avg cramp from=1.3g to=4.1g
+meas ac acintr integ rramp from=1.3g to=4.1g
+
+let bad = 0
+let bad = bad + (near(acavgr, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(acavgc, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(acintr, 7.56e18, 1e-12) = 0)
+echo "ac bad = $&bad"
+
+* ---- fft: real frequency, real or complex y ----
+tran 10p 20n
+linearize v(p1)
+fft v(p1)
+let rramp = real(frequency)
+let cramp = frequency + j(0)
+meas sp ffavgr avg rramp from=1.3g to=4.1g
+meas sp ffavgc avg cramp from=1.3g to=4.1g
+meas sp ffintr integ rramp from=1.3g to=4.1g
+meas sp ffintc integ cramp from=1.3g to=4.1g
+
+let bad = 0
+let bad = bad + (near(ffavgr, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(ffavgc, 2.7e9, 1e-12) = 0)
+let bad = bad + (near(ffintr, 7.56e18, 1e-12) = 0)
+let bad = bad + (near(ffintc, 7.56e18, 1e-12) = 0)
+echo "fft bad = $&bad"
+
+quit 0
+
+.endc
+
+.end

@@ -12,12 +12,18 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	write-let-session.cir node-case-collision-report.cir \
 	wildcard-rename.cir
 
+# meas-sp-window.cir runs the .sp analysis, which --disable-sp leaves out.
+if SP_WANTED
+TESTS += meas-sp-window.cir
+endif
+
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 
 EXTRA_DIST = \
 	$(TESTS) \
 	$(TESTS:.cir=.out) \
-	MixedLib.lib
+	MixedLib.lib \
+	meas-sp-window.cir meas-sp-window.out
 
 # print-tail-case.cir redirects print output into the build directory.
 # diff-pairing-case.cir writes the two rawfiles it loads, because the second
