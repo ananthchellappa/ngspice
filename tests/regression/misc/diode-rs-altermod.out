@@ -1,0 +1,43 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: diode rs and rsw changed between runs, against the same value on a card
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+as on the cards d1 is d5 d2 is d6
+i(v1) = -5.67035e-03
+i(v5) = -5.67035e-03
+i(v2) = -2.31598e-03
+i(v6) = -2.31598e-03
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+second run d1 is d7 d2 is d5 d3 is d8 d4 is d9
+i(v1) = -5.86730e-04
+i(v7) = -5.86730e-04
+i(v2) = -5.67035e-03
+i(v5) = -5.67035e-03
+i(v3) = -6.25708e-03
+i(v8) = -6.25708e-03
+i(v4) = -2.90271e-03
+i(v9) = -2.90271e-03
+second run agrees
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+third run d1 is d6 d2 is d7
+i(v1) = -2.31598e-03
+i(v6) = -2.31598e-03
+i(v2) = -5.86730e-04
+i(v7) = -5.86730e-04
+third run agrees
+Note: Simulation executed from .control section 

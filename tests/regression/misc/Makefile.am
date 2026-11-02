@@ -10,7 +10,8 @@ TESTS = bugs-1.cir bugs-2.cir dollar-1.cir empty-1.cir resume-1.cir log-function
 	define-formal-body.cir save-undef-report.cir \
 	save-multianalysis-report.cir save-crossplot-report.cir \
 	write-let-session.cir node-case-collision-report.cir \
-	wildcard-rename.cir meas-deriv-two-points.cir
+	wildcard-rename.cir meas-deriv-two-points.cir \
+	diode-rs-altermod.cir
 
 # meas-sp-window.cir runs the .sp analysis, which --disable-sp leaves out.
 if SP_WANTED

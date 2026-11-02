@@ -1,0 +1,75 @@
+diode rs and rsw changed between runs, against the same value on a card
+* DIOunsetup has to forget the internal node choice of the last run, so the next
+* DIOsetup decides again from the current rs and rsw. A diode with rs=0 keeps
+* DIOposPrimeNode == DIOposNode; if that value survives unsetup, no internal node
+* is made, and a later rs silently shorts out.
+* Each "changed" diode must match its "fixed" twin. The fixed ones have the value
+* on the card and are not altered.
+
+* changed
+v1 a1 0 0.7
+d1 a1 0 dzero
+.model dzero d is=1e-14
+v2 a2 0 0.7
+d2 a2 0 dten
+.model dten d is=1e-14 rs=10
+v3 a3 0 0.7
+d3 a3 0 dsw area=1 pj=1
+.model dsw d level=3 js=1e-14 jsw=1e-14 ns=1
+v4 a4 0 0.7
+d4 a4 0 dboth area=1 pj=1
+.model dboth d level=3 js=1e-14 jsw=1e-14 ns=1 rs=10
+
+* fixed
+v5 a5 0 0.7
+d5 a5 0 fix0
+.model fix0 d is=1e-14
+v6 a6 0 0.7
+d6 a6 0 fix10
+.model fix10 d is=1e-14 rs=10
+v7 a7 0 0.7
+d7 a7 0 fix100
+.model fix100 d is=1e-14 rs=100
+v8 a8 0 0.7
+d8 a8 0 fixsw area=1 pj=1
+.model fixsw d level=3 js=1e-14 jsw=1e-14 ns=1 rsw=100
+v9 a9 0 0.7
+d9 a9 0 fixboth area=1 pj=1
+.model fixboth d level=3 js=1e-14 jsw=1e-14 ns=1 rs=10 rsw=100
+
+.control
+op
+echo as on the cards, d1 is d5, d2 is d6
+print i(v1) i(v5) i(v2) i(v6)
+
+* rs from 0, rs to 0, rsw from none, rsw beside rs
+altermod @dzero[rs]=100
+altermod @dten[rs]=0
+altermod @dsw[rsw]=100
+altermod @dboth[rsw]=100
+op
+echo second run, d1 is d7, d2 is d5, d3 is d8, d4 is d9
+print i(v1) i(v7) i(v2) i(v5) i(v3) i(v8) i(v4) i(v9)
+let worst = abs(i(v1)/i(v7)-1) + abs(i(v2)/i(v5)-1)
+let worst = worst + abs(i(v3)/i(v8)-1) + abs(i(v4)/i(v9)-1)
+if worst < 1e-6
+  echo second run agrees
+else
+  echo second run DISAGREES
+end
+
+* rs back from 0 to a value, and from one value to another
+altermod @dten[rs]=100
+altermod @dzero[rs]=10
+op
+echo third run, d1 is d6, d2 is d7
+print i(v1) i(v6) i(v2) i(v7)
+let worst = abs(i(v1)/i(v6)-1) + abs(i(v2)/i(v7)-1)
+if worst < 1e-6
+  echo third run agrees
+else
+  echo third run DISAGREES
+end
+.endc
+
+.end

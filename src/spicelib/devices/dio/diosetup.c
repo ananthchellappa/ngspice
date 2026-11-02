@@ -521,14 +521,16 @@ DIOunsetup(
             if (here->DIOposSwPrimeNode > 0
               && here->DIOposSwPrimeNode != here->DIOposNode) {
                 CKTdltNNum(ckt, here->DIOposSwPrimeNode);
-                here->DIOposSwPrimeNode = 0;
             }
+            here->DIOposSwPrimeNode = 0;
 
+            /* Cleared even when it is the external node: DIOsetup makes the
+               internal node only from 0, and rs may have changed. */
             if (here->DIOposPrimeNode > 0
               && here->DIOposPrimeNode != here->DIOposNode) {
                 CKTdltNNum(ckt, here->DIOposPrimeNode);
-                here->DIOposPrimeNode = 0;
             }
+            here->DIOposPrimeNode = 0;
 
         }
     }
