@@ -223,7 +223,6 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
 
         an_name = spice_analysis_get_name(analysisPtr->JOBtype);
         ft_curckt->ci_last_an = an_name;
-        savenone = FALSE;
 
         /* Now let's see which of these things we need.  First toss in the
          * reference vector.  Then toss in anything that getSaves() tells
@@ -231,15 +230,7 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
          * the remaining saves into parameters.
          */
         numsaves = ft_getSaves(&saves);
-        if (numsaves && cieq(saves[0].name, "none")) {
-            /* If "none" appears, it is always alone. */
-
-            numsaves = 0;
-            savenone = TRUE;
-            tfree(saves[0].analysis);
-            tfree(saves[0].name);
-            tfree(saves);
-        }
+        savenone = ft_savenone();   /* If "none" appears, it is always alone. */
         if (numsaves) {
             savesused = TMALLOC(bool, numsaves);
             saveall = FALSE;

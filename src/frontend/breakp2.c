@@ -64,8 +64,7 @@ settrace(wordlist *wl, int what, char *name)
 
         for (dpp = &dbs; *dpp; ) {
             dbcheck = *dpp;
-            if (dbcheck->db_type == DB_SAVE &&
-                eqc(dbcheck->db_nodename1, "none")) {
+            if (dbcheck->db_type == DB_SAVENONE) {
                 *dpp = dbcheck->db_next;
                 ft_curckt->ci_dbs = dbs;
                 dbfree1(dbcheck);
@@ -83,6 +82,8 @@ settrace(wordlist *wl, int what, char *name)
         char *s = cp_unquote(wl->wl_word);
         char *db_nodename1 = NULL;
         char  db_type = 0;
+        /* Only the bare word is the keyword: v(none) names a node. */
+        bool  keyword_none = what == VF_ACCUM && eqc(s, "none");
 
         if (eqc(s, "all") || eqc(s, "nosub")) {
             switch (what) {
@@ -117,7 +118,7 @@ settrace(wordlist *wl, int what, char *name)
         }
 
         if (db_type == DB_SAVE) {
-            if (eqc("none", db_nodename1)) {
+            if (keyword_none) {
                 /* "save none" purges the list of saves. */
 
                 last = NULL;
@@ -139,6 +140,7 @@ settrace(wordlist *wl, int what, char *name)
                     tfree(db_nodename1);
                     continue;
                 }
+                db_type = DB_SAVENONE;
             } else {
                 /* Ignore duplicates, except for the token "all": each
                  * analysis of a deck may ask for its own (.print pz all). */
@@ -199,6 +201,21 @@ ft_getSaves(struct save_info **savesp)
         }
 
     return (count);
+}
+
+
+/* Was the last word on the list of saves the keyword "none"? */
+bool
+ft_savenone(void)
+/* global variable: dbs */
+{
+    struct dbcomm *d;
+
+    for (d = dbs; d; d = d->db_next)
+        if (d->db_type == DB_SAVENONE)
+            return TRUE;
+
+    return FALSE;
 }
 
 

@@ -372,7 +372,7 @@ com_sttus(wordlist *wl)
                 fprintf(cp_out, "iplot %s", d->db_nodename1);
             for (dc = d->db_also; dc; dc = dc->db_also)
                 fprintf(cp_out, " %s", dc->db_nodename1);
-        } else if (d->db_type == DB_SAVE) {
+        } else if (d->db_type == DB_SAVE || d->db_type == DB_SAVENONE) {
             if (isatty(fileno(cp_out)))
                 fprintf(cp_out, "%-4d save %s", d->db_number, d->db_nodename1);
             else
@@ -532,6 +532,7 @@ ft_bpcheck(struct plot *runplot, int iteration)
             case DB_IPLOTALL:
             case DB_SAVE:
             case DB_SAVEALL:
+            case DB_SAVENONE:
                 goto more;
             case DB_STOPAFTER:
                 if (iteration == dt->db_iteration)

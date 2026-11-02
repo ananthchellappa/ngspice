@@ -37,6 +37,7 @@ extern void dbfree1(struct dbcomm *db);
 /* breakp2.c */
 
 extern int ft_getSaves(struct save_info **);
+extern bool ft_savenone(void);
 
 
 /* circuits.c */

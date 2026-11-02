@@ -1,0 +1,13 @@
+a .save card on a node that is called none
+* The cards reach the save list through gettoks(), which unwraps v(none) as well.
+v1 none 0 1
+r1 none 2 1k
+r2 2 0 1k
+.tran 10u 50u
+.save v(none)
+.control
+run
+display
+quit 0
+.endc
+.end

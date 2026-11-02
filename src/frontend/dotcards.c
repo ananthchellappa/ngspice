@@ -694,6 +694,11 @@ gettoks(char *s)
             wl->wl_word = copy(buf);
             c = r = NULL;
         }
+        /* settrace() takes a bare "none" for the keyword: v(none) stays wrapped,
+           it names a node. */
+        else if (eqc(l + 1, "none")) {
+            wl->wl_word = tprintf("v(%s)", l + 1);
+        }
         else {
             wl->wl_word = copy(l + 1);
         }

@@ -21,6 +21,7 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #define	DB_SAVE		7   /* Save a node. */
 #define	DB_SAVEALL	8   /* Save everything. */
 #define	DB_DEADIPLOT	9   /* Incrementally plot the stuff. */
+#define	DB_SAVENONE	10  /* The keyword of "save none". */
 
 /* These only make sense in the real case, so always use realpart(). It's too
  * bad that we have to say "ge" instead of ">=", etc, but cshpar takes

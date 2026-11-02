@@ -1,0 +1,249 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: save v(none) on a node that is called none
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+wrapped: 1
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran1 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    a                   : voltage, real, 1 long
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+wrapped then another: 1 0.5
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran2 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    V(2)                : voltage, real, 59 long
+    a                   : voltage, real, 1 long
+    b                   : voltage, real, 1 long
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+wrapped in upper case: 1
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran3 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    a                   : voltage, real, 1 long
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+wrapped twice:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran4 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+magnitude:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran5 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+keyword:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran6 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    time                : time, real, 1 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+node then keyword:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran7 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    time                : time, real, 1 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+keyword then node:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran8 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+keyword then node on a line of its own:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran9 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    none                : voltage, real, 59 long
+    time                : time, real, 59 long [default scale]
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+none                                         1
+2                                          0.5
+v1#branch                              -0.0005
+
+
+No. of Data Rows : 59
+keyword twice:
+Here are the vectors currently active:
+
+Title: save v(none) on a node that is called none
+Name: tran10 (Transient Analysis)
+Date: Mon Nov  2 14:57:26  2026
+
+    time                : time, real, 1 long [default scale]
+ngspice-46+ done

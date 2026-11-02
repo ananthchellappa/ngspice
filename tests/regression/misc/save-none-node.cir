@@ -1,0 +1,88 @@
+save v(none) on a node that is called none
+*
+* 'save none' is a keyword: keep nothing but the first point of the scale.  The
+* wrapped form names a node: v(none) lost its parentheses first and was then taken
+* for the keyword, with the node gone and no message.  Every word that names a node
+* has to reach it, from the command line and from the cards (the two decks after
+* this one), and the keyword has to keep its meaning in a deck that has the node.
+*
+* The node sits at 1 V.  Node 2, at 0.5 V, shows what else was kept.
+v1 none 0 1
+r1 none 2 1k
+r2 2 0 1k
+.tran 10u 50u
+.control
+
+save v(none)
+run
+let a = v(none)[3]
+echo wrapped: $&a
+display
+delete all
+
+* a later save must not take the entry for the node as a leftover keyword
+save v(none)
+save v(2)
+run
+let a = v(none)[3]
+let b = v(2)[3]
+echo wrapped, then another: $&a $&b
+display
+delete all
+
+save V(NONE)
+run
+let a = v(none)[3]
+echo wrapped in upper case: $&a
+display
+delete all
+
+* a second save of the node is a duplicate like any other
+save v(none) v(none)
+run
+echo wrapped twice:
+display
+delete all
+
+* vm() on a save line names the node just the same
+save vm(none)
+run
+echo magnitude:
+display
+delete all
+
+save none
+run
+echo keyword:
+display
+delete all
+
+* the keyword purges what came before it, and what comes after it stays
+save v(2) none
+run
+echo node, then keyword:
+display
+delete all
+
+save none v(none)
+run
+echo keyword, then node:
+display
+delete all
+
+save none
+save v(none)
+run
+echo keyword, then node on a line of its own:
+display
+delete all
+
+save none
+save none
+run
+echo keyword twice:
+display
+quit 0
+
+.endc
+.end

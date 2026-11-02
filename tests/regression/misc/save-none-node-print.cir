@@ -1,0 +1,11 @@
+.print and .meas on a node that is called none
+* Their saves take the path of the .save card.  Left to the keyword, the run printed
+* 'vector none is not available' and the .meas found no such vector.
+v1 none 0 1
+r1 none 2 1k
+r2 2 0 1k
+.tran 10u 50u
+.print tran v(none)
+.meas tran vmax max v(none)
+.options noacct
+.end
