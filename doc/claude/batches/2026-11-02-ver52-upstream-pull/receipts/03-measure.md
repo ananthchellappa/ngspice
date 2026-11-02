@@ -72,3 +72,47 @@ So nothing to attribute in the suite. The suite has no `.tf` on a current, no `d
 - `vdb()` auto-save: `.meas ac find vdb(out)` with `.save v(in)` gives the same numbers on both binaries, so the `gettok_iv` change has no visible case from me. It was read, and a bare `vdd` now stays `vdd` where it was cut to `vd`.
 - `meas sp` margins, `.tf` on active circuits, `ngSpice_Reset`, tclspice (`get_measure2` signature change there is not compiled here).
 - Found on the way, not from this group: `--disable-xspice` does not build, `cktsopt.c:254` `OPT_ENH_RSHUNT` undeclared, from upstream `ca2d99436`.
+
+## Fix round
+
+The independent reviewer found one blocking issue: `meas deriv` under-reads the heap on a 2-point sweep.
+
+**Confirmed.** In `measure_deriv_at()`, `v_length == 2` gives j=1, i=0 -> 1 -> clamped back to 0, so `DERIV_SCL(i-1)` and `DERIV_VAL(i-1)` read index -1. My `0 invalid` table above never tried 2 points. The reviewer's deck on this binary: `at=10` 4.75e-01, `at=15` 5e-01, `at=20` 5.25e-01, exit 0, no warning.
+
+**Wider than reported, on AC.** The complex read is further off than the DC one: the slope has the wrong sign at two of three points.
+
+**Fix, `c957569c9`, fork-written:** with two samples, take the slope of the line through them. The comment said this happened at every interval end, which it does not: with 3 or more samples the stencil shifts inward. The comment is corrected. Nothing changes for 3 or more samples. The pick stays.
+
+**RED,** new `tests/regression/misc/meas-deriv-two-points.cir`, reference written by hand from the values below, before the fix (FAIL), and PASS after:
+
+| `meas`, on | expected | before | after |
+|---|---|---|---|
+| `dc v1 10 20 10`, `deriv v(2) at=10` | 0.5 | 4.75000e-01 | 5.00000e-01 |
+| same, `at=15` | 0.5 | 5.00000e-01 | 5.00000e-01 |
+| same, `at=20` | 0.5 | 5.25000e-01 | 5.00000e-01 |
+| `dc v1 20 10 -10`, `at=10` | 0.5 | 4.75000e-01 | 5.00000e-01 |
+| same, `at=20` | 0.5 | 5.25000e-01 | 5.00000e-01 |
+| `dc v1 10 30 10`, `at=10`, `20`, `30` | 0.5 | 5.00000e-01 each | 5.00000e-01 each |
+| `ac dec 1 10 100`, RC tau 1 ms, `deriv vm(5) at=10` | -1.68110e-03 by hand | 8.96548e-02 | -1.68110e-03 |
+| same, `at=50` | -1.68110e-03 | 8.46733e-03 | -1.68110e-03 |
+| same, `at=100` | -1.68110e-03 | -9.30170e-02 | -1.68110e-03 |
+
+valgrind on that deck: before 5 invalid reads, "Address ... is 8 bytes before a block of size 8,192"; after 0 invalid. The reviewer's `dc2wrong`, `dc2batch` (a `.meas` card in batch) and `dc3ok` decks: 0 invalid, all 5.00000e-01.
+
+The `.out` needs `git add -f`: `tests/.gitignore` has `*.out`.
+
+### Gates
+
+- `autogen.sh`, `make`, `make install`: 0. Full `make -k check`: **366 PASS, 1 FAIL, 0 SKIP**; the one new PASS is the new test. The FAIL is `resource-keyword-case.cmd`, the baseline's named exception.
+  `identity.lint`, `selftest.lint` PASS. `identity.baseline` untouched, no existing `.out` changed. The new code has no string comparison.
+- `measure/run.sh`: exit 0, `mc_r` and `mc_sky130` `identical_to_ref = yes`. Saved in `measure/after-03-fix/` (96 KB).
+- Against `after-03`: `TOTAL changed: 0`. Against `baseline`: 73, the same 73.
+
+### For upstream, not posted
+
+The code at `refs/upstream/pre-master-48` is the same, so upstream has this defect. Text for a note: "`meas dc d deriv v(2) at=10` on a 2-point sweep (`.dc v1 10 20 10`) reads index -1 in `measure_deriv_at()`: i is clamped to 1 and then to `v_length - 2` = 0. It prints a wrong number with no error. A two-point slope when `v_length == 2` fixes it." The driver or the owner decides whether and when to send it.
+
+### Found on the way, not fixed
+
+- A `when` crossing in the first interval of a sweep is not found: `when v(2)=7` on 4.5, 9.5 or 4.5, 9.5, 14.5 is "out of interval", on this binary and on 45.2, for `when`, `find` and `deriv` alike. So `deriv ... when` cannot be used on a 2-point sweep, and the new test uses `at=` only. `when v(2)=12` on the 3-point sweep gives at=25 and 0.5. This is older than the group.
+- `measure_deriv_at()` bounds its scan by the vector's length, not the scale's. `let a = vector(5)` on a 2-point sweep, `deriv a at=25` and `find a at=25`: "out of interval", 0 invalid under valgrind, because the sweep's block is 8,192 bytes. Reading past the scale's valid length is not proven harmless. Not looked into further.
