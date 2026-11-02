@@ -1,0 +1,28 @@
+* '.option seed=' with no value is the unusable-value warning, not a crash
+* eval_opt() gave gettok()'s NULL to eqc() and the run ended with exit 139.  The
+* warning is printed once over the two cards and the two parses, as for
+* '.option seed=abc'.  The value-less word must not cost the card its other
+* options either: inp_dodeck()'s cp_setparse() answers "seed equals what?" and
+* drops the whole card, so eval_opt() takes the word off.  The skipped option
+* does not seed, so 'setseed 3' made before a reset must hold.
+.param rv=agauss(1k,100,1)
+.option seed=
+.option reltol=2e-3 seed=
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed 3
+reset
+op
+if $rndseed <> 3
+  echo option-seed-empty: the skipped option changed the seed
+  quit 1
+end
+let const.err = abs($reltol - 2e-3)
+if const.err > 1e-12
+  echo option-seed-empty: the option in front of seed= was lost
+  quit 1
+end
+quit 0
+.endc
+.end

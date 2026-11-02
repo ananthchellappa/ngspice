@@ -33,6 +33,11 @@
 ##                                   warning, once over four parses, and the
 ##                                   skipped option leaves 'setseed' alone
 ##
+## ver_52 group 8, from upstream 95d7f2c2b's idea and not its code:
+##
+##   option-seed-empty.cir           '.option seed=' with no value: the same
+##                                   warning, once, where eval_opt() crashed
+##
 ## The next two are ver_51 batch item 3 (P3).  initw() used to re-seed the
 ## generator from the process id after startup had seeded it from
 ## rndseed=1; now startup re-seeds from $rndseed after initw():
@@ -75,7 +80,7 @@
 TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-nosetseed.cir option-seed-absent.cir \
 	option-seed-spelling.cir option-seed-multiple.cir \
-	option-seed-unusable.cir \
+	option-seed-unusable.cir option-seed-empty.cir \
 	startup-equals-setseed1.cir setseed7-bit-identity.cir \
 	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir \
 	rnddraws-gold.cir rnddraws-src.cir rnddraws-option.cir
@@ -92,6 +97,7 @@ EXTRA_DIST = \
 	option-seed-spelling.status option-seed-spelling.err \
 	option-seed-multiple.status option-seed-multiple.err \
 	option-seed-unusable.status option-seed-unusable.err \
+	option-seed-empty.status option-seed-empty.err \
 	startup-equals-setseed1.status startup-equals-setseed1.err \
 	setseed7-bit-identity.status setseed7-bit-identity.err \
 	setseed7-bit-identity.requires \
@@ -120,6 +126,8 @@ CLEANFILES = \
 	option-seed-multiple.stderr.filtered option-seed-multiple.stderr.expected \
 	option-seed-unusable.stdout option-seed-unusable.stderr \
 	option-seed-unusable.stderr.filtered option-seed-unusable.stderr.expected \
+	option-seed-empty.stdout option-seed-empty.stderr \
+	option-seed-empty.stderr.filtered option-seed-empty.stderr.expected \
 	startup-equals-setseed1.stdout startup-equals-setseed1.stderr \
 	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
 	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \

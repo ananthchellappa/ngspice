@@ -448,8 +448,16 @@ eval_opt(struct card* deck)
             if (has_seed)
                 seed_option_multiple();
             char* token = gettok(&begtok);
+            /* option seed= with no value: nothing but white space follows, so
+               cut it off the card, or inp_dodeck()'s cp_setparse() refuses
+               "seed=" and drops the other options on this card */
+            if (!token) {
+                begtok = cistrstr(line, "seed=");
+                *begtok = '\0';
+                seed_option_unusable("");
+            }
             /* option seed=random [seed='random'] */
-            if (eqc(token, "random") || eqc(token, "{random}")) {
+            else if (eqc(token, "random") || eqc(token, "{random}")) {
                 struct timeval tv;
                 gettimeofday(&tv, NULL);
                 /* get random value from current timestamp microseconds */
