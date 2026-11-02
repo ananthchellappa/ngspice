@@ -1,0 +1,80 @@
+* 'option seed=N' in a .control block seeds the generator
+* Before ver_52 the 'option' command stored a variable called seed and nothing
+* read it, so the seed was silently ignored.  It must now give the same draw as
+* 'setseed N', wherever the seed= sits among the words of the command: upstream
+* 95d7f2c2b takes the value from the command's first word, and 'option
+* reltol=1e-3 seed=5' fails there with "Cannot use l=1e-3 as seed".  The other
+* options of the command still apply.  stderr stays empty: the warning about
+* '.option seed=' is for the netlist form, which this deck does not use.
+* The .files beside this deck assert the draw log's src=option label.
+.param rv=agauss(1k,100,1)
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed 5
+reset
+op
+let const.want = @r1[r]
+
+setseed 9
+option seed=5
+if $rndseed <> 5
+  echo option-seed-control: seed=5 alone did not reach rndseed
+  quit 1
+end
+set rnddraws=option-seed-control.tsv
+reset
+unset rnddraws
+op
+let const.err = abs(@r1[r] - const.want)
+if const.err > 1e-9
+  echo option-seed-control: seed=5 alone did not draw what setseed 5 draws
+  quit 1
+end
+
+setseed 9
+option reltol=2e-3 seed=5
+let const.err = abs($reltol - 2e-3)
+if const.err > 1e-12
+  echo option-seed-control: the option next to seed= was lost
+  quit 1
+end
+if $rndseed <> 5
+  echo option-seed-control: seed=5 as the second word did not reach rndseed
+  quit 1
+end
+reset
+op
+let const.err = abs(@r1[r] - const.want)
+if const.err > 1e-9
+  echo option-seed-control: seed=5 as the second word did not draw what setseed 5 draws
+  quit 1
+end
+
+setseed 9
+option seed=5 reltol=3e-3
+let const.err = abs($reltol - 3e-3)
+if const.err > 1e-12
+  echo option-seed-control: the option after seed= was lost
+  quit 1
+end
+reset
+op
+let const.err = abs(@r1[r] - const.want)
+if const.err > 1e-9
+  echo option-seed-control: seed=5 as the first of two words did not draw what setseed 5 draws
+  quit 1
+end
+
+setseed 9
+option seed = 5
+reset
+op
+let const.err = abs(@r1[r] - const.want)
+if const.err > 1e-9
+  echo option-seed-control: 'seed = 5' did not draw what setseed 5 draws
+  quit 1
+end
+quit 0
+.endc
+.end

@@ -6,6 +6,43 @@
 #include "ngspice/wordlist.h"
 #include "variable.h"
 #include "com_option.h"
+#include "inp.h"
+#include "ngspice/randnumb.h"
+
+
+/* 'option seed=N' or 'option seed=random': seed now.  v is this word's own
+ * variable, so seed= may sit anywhere in the command.  A value that is not a
+ * seed changes nothing and warns each time: the command is typed, it is not
+ * run again by every parse as '.option seed=' is, and a command that says
+ * nothing is what this function is here to end. */
+static void
+option_seed(const struct variable *v)
+{
+    if (v->va_type == CP_NUM && v->va_num > 0) {
+        seed_from_option_command(v->va_num);
+    }
+    else if (v->va_type == CP_STRING && cieq(v->va_string, "random")) {
+        seed_from_option_command(seed_from_clock());
+    }
+    else {
+        char *written;
+        switch (v->va_type) {
+        case CP_NUM:
+            written = tprintf("%d", v->va_num);
+            break;
+        case CP_REAL:
+            written = tprintf("%g", v->va_real);
+            break;
+        case CP_STRING:
+            written = copy(v->va_string);
+            break;
+        default: /* 'option seed' with no value, or a list */
+            written = copy("");
+        }
+        fprintf(cp_err, "Warning: Cannot convert 'option seed=%s' to seed value, skipped!\n", written);
+        tfree(written);
+    }
+}
 
 
 /* The option command. Syntax is option [opt ...] [opt = val ...].
@@ -129,6 +166,9 @@ com_option(wordlist *wl)
         default:
             s = NULL;
         }
+
+        if (cieq(v->va_name, "seed"))
+            option_seed(v);
 
         /* qui deve settare le opzioni di simulazione */
         cp_vset(v->va_name, v->va_type, s);

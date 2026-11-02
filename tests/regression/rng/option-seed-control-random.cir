@@ -1,0 +1,20 @@
+* 'option seed=random' in a .control block seeds from the clock
+* The seed itself is not predictable, so the assertion is the draw log's header
+* in the .files beside this deck: a parse after the command, offset 0, labelled
+* src=option.  Before ver_52 the command was ignored and the label stayed
+* src=setseed.  The word comes second here on purpose (see option-seed-control).
+* The reset must not draw a new seed: unlike '.option seed=random', the command
+* seeds once, so a second reset goes on along the same stream, offset != 0.
+.param rv=agauss(1k,100,1)
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed 9
+option reltol=2e-3 seed=random
+set rnddraws=option-seed-control-random.tsv
+reset
+reset
+unset rnddraws
+quit 0
+.endc
+.end

@@ -1,0 +1,4 @@
+# The gaps in the text are literal tabs.
+present option-seed-control-random.tsv
+grep option-seed-control-random.tsv ^#	rnddraws	v1	seed=[0-9]*	src=option	offset=0$
+grep option-seed-control-random.tsv ^#	rnddraws	v1	seed=[0-9]*	src=option	offset=[1-9][0-9]*$

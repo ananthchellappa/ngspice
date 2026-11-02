@@ -37,6 +37,15 @@
 ##
 ##   option-seed-empty.cir           '.option seed=' with no value: the same
 ##                                   warning, once, where eval_opt() crashed
+##   option-seed-control.cir         'option seed=5' in .control draws what
+##                                   'setseed 5' draws, wherever seed= sits in
+##                                   the command, and is logged src=option
+##   option-seed-control-random.cir  'option seed=random': the same, from the
+##                                   clock, once and not on every parse
+##   option-seed-control-unusable.cir  a value that is not a seed warns each
+##                                   time and changes nothing
+##   option-seed-control-netlist.cir '.option seed=' still wins at the next
+##                                   parse, and its warning stays silent
 ##
 ## The next two are ver_51 batch item 3 (P3).  initw() used to re-seed the
 ## generator from the process id after startup had seeded it from
@@ -81,6 +90,8 @@ TESTS = option-seed-setseed.cir option-seed-random-setseed.cir \
 	option-seed-nosetseed.cir option-seed-absent.cir \
 	option-seed-spelling.cir option-seed-multiple.cir \
 	option-seed-unusable.cir option-seed-empty.cir \
+	option-seed-control.cir option-seed-control-random.cir \
+	option-seed-control-unusable.cir option-seed-control-netlist.cir \
 	startup-equals-setseed1.cir setseed7-bit-identity.cir \
 	rnddraws-mm.cir rnddraws-order.cir rnddraws-funcs.cir \
 	rnddraws-gold.cir rnddraws-src.cir rnddraws-option.cir
@@ -98,6 +109,10 @@ EXTRA_DIST = \
 	option-seed-multiple.status option-seed-multiple.err \
 	option-seed-unusable.status option-seed-unusable.err \
 	option-seed-empty.status option-seed-empty.err \
+	option-seed-control.status option-seed-control.err option-seed-control.files \
+	option-seed-control-random.status option-seed-control-random.err option-seed-control-random.files \
+	option-seed-control-unusable.status option-seed-control-unusable.err \
+	option-seed-control-netlist.status option-seed-control-netlist.err \
 	startup-equals-setseed1.status startup-equals-setseed1.err \
 	setseed7-bit-identity.status setseed7-bit-identity.err \
 	setseed7-bit-identity.requires \
@@ -128,6 +143,14 @@ CLEANFILES = \
 	option-seed-unusable.stderr.filtered option-seed-unusable.stderr.expected \
 	option-seed-empty.stdout option-seed-empty.stderr \
 	option-seed-empty.stderr.filtered option-seed-empty.stderr.expected \
+	option-seed-control.stdout option-seed-control.stderr \
+	option-seed-control.stderr.filtered option-seed-control.stderr.expected \
+	option-seed-control-random.stdout option-seed-control-random.stderr \
+	option-seed-control-random.stderr.filtered option-seed-control-random.stderr.expected \
+	option-seed-control-unusable.stdout option-seed-control-unusable.stderr \
+	option-seed-control-unusable.stderr.filtered option-seed-control-unusable.stderr.expected \
+	option-seed-control-netlist.stdout option-seed-control-netlist.stderr \
+	option-seed-control-netlist.stderr.filtered option-seed-control-netlist.stderr.expected \
 	startup-equals-setseed1.stdout startup-equals-setseed1.stderr \
 	startup-equals-setseed1.stderr.filtered startup-equals-setseed1.stderr.expected \
 	setseed7-bit-identity.stdout setseed7-bit-identity.stderr \
@@ -146,6 +169,7 @@ CLEANFILES = \
 	rnddraws-option.stderr.filtered rnddraws-option.stderr.expected \
 	rnddraws-mm.tsv rnddraws-mm-2.tsv rnddraws-order.tsv rnddraws-funcs.tsv \
 	rnddraws-gold.tsv rnddraws-src.tsv rnddraws-option.tsv \
+	option-seed-control.tsv option-seed-control-random.tsv \
 	rawspice.raw
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -11,6 +11,7 @@ void com_edit(wordlist *wl);
 void com_source(wordlist *wl);
 void com_mc_source(wordlist *wl);
 void com_circbyline(wordlist *wl);
+int seed_from_clock(void);
 
 void line_free_x(struct card *deck, bool recurse);
 #define line_free(line, flag)                   \

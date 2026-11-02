@@ -1,0 +1,4 @@
+# The log written after 'option seed=5'.  The gaps in the text are literal tabs.
+present option-seed-control.tsv
+grep option-seed-control.tsv ^#	rnddraws	v1	seed=5	src=option	offset=0$
+grep option-seed-control.tsv ^5	r1	?	agauss	1000,100,1	

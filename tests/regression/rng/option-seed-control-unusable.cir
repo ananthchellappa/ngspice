@@ -1,0 +1,22 @@
+* 'option seed=' in a .control block, with a value that is not a seed
+* The command is typed, not re-run by a parse, so it warns each time: a command
+* that says nothing is the fault being fixed.  The seed stays as it was.  An
+* empty value is refused by cp_setparse() with its own error, for every option.
+.param rv=agauss(1k,100,1)
+v1 1 0 1
+r1 1 0 {rv}
+.control
+setseed 3
+option seed=abc
+option reltol=2e-3 seed=-3
+option seed=0
+option seed=abc
+option seed=
+option seed
+if $rndseed <> 3
+  echo option-seed-control-unusable: a value that is not a seed changed the seed
+  quit 1
+end
+quit 0
+.endc
+.end

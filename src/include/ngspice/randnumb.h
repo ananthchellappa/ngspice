@@ -8,6 +8,8 @@ extern void setseedinfo(void);
 /* '.option seed=N|random': seed, warning once if 'setseed N' was used;
    'written' is the option's value as the deck spells it */
 extern void seed_from_option(int seed, bool is_random, const char *written);
+/* the 'option seed=' command: seed once, no warning */
+extern void seed_from_option_command(int seed);
 /* more than one '.option seed=': warn, once per session */
 extern void seed_option_multiple(void);
 /* a '.option seed=' value that is not a seed: warn, once per session */

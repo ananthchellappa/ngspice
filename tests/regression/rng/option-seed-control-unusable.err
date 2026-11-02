@@ -1,0 +1,6 @@
+Warning: Cannot convert 'option seed=abc' to seed value, skipped!
+Warning: Cannot convert 'option seed=-3' to seed value, skipped!
+Warning: Cannot convert 'option seed=0' to seed value, skipped!
+Warning: Cannot convert 'option seed=abc' to seed value, skipped!
+Error:  seed equals what?.
+Warning: Cannot convert 'option seed=' to seed value, skipped!

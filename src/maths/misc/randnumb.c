@@ -402,6 +402,17 @@ seed_from_option(int seed, bool is_random, const char *written)
                 written);
         seed_override_warned = TRUE;
     }
+    seed_from_option_command(seed);
+}
+
+
+/* Seed from the 'option seed=' command, for com_option().  The command seeds
+   once, when it is given, so seed_from_option()'s warning about every parse
+   does not apply, and it does not count as an explicit 'setseed N' for that
+   warning either.  The draw log labels it src=option. */
+void
+seed_from_option_command(int seed)
+{
     cp_vset("rndseed", CP_NUM, &seed);
     rng_src_next = "option";
     com_sseed(NULL);

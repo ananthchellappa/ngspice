@@ -1,0 +1,22 @@
+* 'option seed=5' over '.option seed=7': the command seeds, the next parse re-seeds
+* The netlist form still wins on every parse, as its warning says.  That warning
+* speaks of 'setseed' and stays tied to an explicit 'setseed N', so the command
+* does not arm it: stderr stays empty.
+.param rv=agauss(1k,100,1)
+.option seed=7
+v1 1 0 1
+r1 1 0 {rv}
+.control
+option seed=5
+if $rndseed <> 5
+  echo option-seed-control-netlist: the command did not reach rndseed
+  quit 1
+end
+reset
+if $rndseed <> 7
+  echo option-seed-control-netlist: the parse did not re-seed from the netlist
+  quit 1
+end
+quit 0
+.endc
+.end

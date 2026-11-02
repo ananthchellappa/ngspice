@@ -426,6 +426,16 @@ inp_remove_recent(void) {
 }
 
 
+/* A seed for 'seed=random': the current timestamp's microseconds */
+int
+seed_from_clock(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (int)(tv.tv_usec);
+}
+
+
 /* Check for .option seed=[val|random] and set the random number generator.
    Check for .option cshunt=val and set a global variable
    Input is the option deck (already sorted for .option) */
@@ -458,11 +468,7 @@ eval_opt(struct card* deck)
             }
             /* option seed=random [seed='random'] */
             else if (eqc(token, "random") || eqc(token, "{random}")) {
-                struct timeval tv;
-                gettimeofday(&tv, NULL);
-                /* get random value from current timestamp microseconds */
-                int rseed = (int)(tv.tv_usec);
-                seed_from_option(rseed, TRUE, token);
+                seed_from_option(seed_from_clock(), TRUE, token);
                 has_seed = TRUE;
             }
             /* option seed=val*/
