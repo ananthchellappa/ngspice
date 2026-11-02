@@ -733,7 +733,7 @@ measure_at(
     double at                   /* in: time to perform measurement */
     )
 {
-    int i;
+    int i, length;
     double value, pvalue, svalue, psvalue;
     bool ac_check = FALSE, sp_check = FALSE, dc_check = FALSE, tran_check = FALSE;
     struct dvec *d, *dScale;
@@ -778,7 +778,10 @@ measure_at(
     if ((dc_check || tran_check) && !measure_real_plot(meas, d, dScale))
         return MEASUREMENT_FAILURE;
 
-    for (i = 0; i < d->v_length; i++) {
+    /* a 'let' can make the vector longer or shorter than the scale */
+    length = MIN(d->v_length, dScale->v_length);
+
+    for (i = 0; i < length; i++) {
         if (ac_check) {
             if (d->v_compdata) {
                 value = get_value(meas, d, i); //d->v_compdata[i].cx_real;
@@ -836,7 +839,7 @@ measure_deriv_at(
     double at                   /* in : scale value to differentiate at */
     )
 {
-    int i, j;
+    int i, j, length;
     bool ac_check = FALSE, sp_check = FALSE;
     struct dvec *d, *dScale;
 
@@ -864,7 +867,10 @@ measure_deriv_at(
     else if (!measure_real_plot(meas, d, dScale))
         return MEASUREMENT_FAILURE;
 
-    if (d->v_length < 2) {
+    /* a 'let' can make the vector longer or shorter than the scale */
+    length = MIN(d->v_length, dScale->v_length);
+
+    if (length < 2) {
         meas->m_measured = NAN;
         return MEASUREMENT_OK;
     }
@@ -875,18 +881,18 @@ measure_deriv_at(
                                            : dScale->v_realdata[(idx)])
 
     /* find the interval [j-1, j] bracketing `at` */
-    for (j = 1; j < d->v_length; j++) {
+    for (j = 1; j < length; j++) {
         double s0 = DERIV_SCL(j - 1), s1 = DERIV_SCL(j);
         if ((s0 <= at && at <= s1) || (s0 >= at && at >= s1))
             break;
     }
-    if (j >= d->v_length) {
+    if (j >= length) {
         meas->m_measured = NAN;
         return MEASUREMENT_OK;
     }
 
     /* two samples: no stencil to shift to, i - 1 below would be -1 */
-    if (d->v_length == 2) {
+    if (length == 2) {
         double sa = DERIV_SCL(0), sb = DERIV_SCL(1);
         meas->m_measured = (sb == sa) ? NAN :
             (DERIV_VAL(1) - DERIV_VAL(0)) / (sb - sa);
@@ -897,8 +903,8 @@ measure_deriv_at(
     i = j - 1;
     if (i == 0)
         i = 1;
-    if (i > d->v_length - 2)
-        i = d->v_length - 2;
+    if (i > length - 2)
+        i = length - 2;
 
     {
         double t0 = DERIV_SCL(i - 1), t1 = DERIV_SCL(i), t2 = DERIV_SCL(i + 1);

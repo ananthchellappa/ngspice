@@ -1,0 +1,33 @@
+meas deriv and find of a vector longer than the scale
+*
+* Both scan the scale for the bracket of 'at', and they ran to the length of the
+* vector, not of the scale: past the end of the two samples of the sweep, into
+* the heap.  A bracket found there gave a number with no error.  Valgrind counted 8
+* invalid reads on the deck for it.  Only samples that have a scale value count.
+*
+* 'a' runs 0, 1, 2 ...; a value of 'at' off the sweep has no answer, and both ends
+* of the sweep, which the first two samples of 'a' do cover, have one.
+v1 1 0 dc 1
+r1 1 0 1k
+.control
+dc v1 10 20 10
+let a = vector(5000)
+meas dc u1 deriv a at=99999999
+meas dc u2 find a at=99999999
+meas dc u3 deriv a at=0
+meas dc u4 find a at=0
+meas dc u5 deriv a at=1e-300
+meas dc u6 find a at=1e-300
+meas dc n1 deriv a at=20
+meas dc n2 find a at=20
+meas dc n3 find a at=15
+* the other way round, a vector shorter than the scale
+dc v1 10 50 10
+let b = vector(2)
+meas dc s1 find b at=10
+meas dc s2 deriv b at=10
+meas dc s3 find b at=40
+meas dc s4 deriv b at=40
+quit 0
+.endc
+.end
