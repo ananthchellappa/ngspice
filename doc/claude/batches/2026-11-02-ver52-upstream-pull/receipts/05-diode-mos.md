@@ -101,3 +101,50 @@ MOS2 residuals. `dfbbc64ca` is not all better: linear region `m2`, `m3` at vds 0
 - By reading: `DIOtF1SW` uses the temperature-adjusted mjsw and `dioload.c` uses the plain one, so with tm1 or tm2 not 0 the sidewall continuity is inexact. Sky130 has both 0. Upstream tip has this too.
 - Op and AC coverage on 1k drive is partial where decks time out: 8 of 15 reach 0 to 9 of 15 bias points. Stiff drive compares 13 of the 15 cards in full. `dd01` (`ps2dn`) gives no op values before or after in 100 s; its 1k deck `op01` completed all 15 points unchanged. `dd12` (`pd2nw_05v5_lvt`) is the slow case above: on it only 27 C 0.6 V and 0.3 V and 125 C 0.6 V were compared.
 - Fast transient differences are not compared against a tight run, except on 05v5.
+
+## Fix round
+
+An independent reviewer found one blocking defect. It is real. Fixed in `a291cdc7f`, keeping the pick. The "no fork code was added" line at the top of this receipt was true of the first round only.
+
+**The defect.** `8533ad9fb` moved `DIOposPrimeNode = 0` and `DIOposSwPrimeNode = 0` inside `if (node > 0 && node != DIOposNode)` in `DIOunsetup`. A diode set up with rs=0 has `DIOposPrimeNode == DIOposNode`, so that value now survives `CKTunsetup`. `DIOsetup` makes the internal node only from 0, so `altermod` of rs (or rsw) followed by another analysis ran with the resistor shorted, silently. Confirmed by reading and by running. Upstream `ac2798364` has the same code. **The owner should tell upstream next time they post; nothing was posted.**
+
+**Two corrections to the report.**
+
+- Only `altermod` reaches it. `alter @dzero[rs]=10` gives `no such parameter rs`, on all binaries: rs is a model parameter and `alter` does not take it.
+- The reviewer's level 3 "truth" (-4.07e-1, on a card with no `ns`) is not a usable value, though before and after-fix do agree on it. See "New finding" below. The regression deck sets `ns=1`.
+
+**RED first.** `tests/regression/misc/diode-rs-altermod.cir`: `altermod` on 4 models, each compared in the same deck with a twin that has the value on its card. 0.7 V, so no stepping is needed. Against the unfixed build at `92778039f`, `check.sh` exits 1, and exits 0 on `60ef0aaa6`, from before the group:
+
+| run | what | RED | before group, and fixed | card twin |
+|---|---|---|---|---|
+| 2 | level 1, rs 0 to 100, `i(v1)` | -5.67035e-03 | -5.86730e-04 | -5.86730e-04 |
+| 2 | level 1, rs 10 to 0, `i(v2)` | -5.67035e-03 | -5.67035e-03 | -5.67035e-03 |
+| 2 | level 3, rsw none to 100, `i(v3)` | -1.13407e-02 | -6.25708e-03 | -6.25708e-03 |
+| 2 | level 3, rs=10, rsw none to 100, `i(v4)` | -2.90271e-03 | -2.90271e-03 | -2.90271e-03 |
+| 2 | deck's verdict | `DISAGREES` | `agrees` | |
+| 3 | level 1, rs 10, 0, then 100, `i(v2)` | -5.67035e-03 | -5.86730e-04 | -5.86730e-04 |
+| 3 | level 1, rs 0, 100, then 10, `i(v1)` | -5.67035e-03 | -2.31598e-03 | -2.31598e-03 |
+
+The `.out` was written from the fixed binary, and is not a bare snapshot: its value lines are identical to the `60ef0aaa6` run, and its values match a separate deck with no rs or rsw on any card, only discrete resistors and diodes (level 1: rs=100 -5.86730e-04, rs=10 -2.31598e-03, rs=0 -5.67035e-03; level 3: -6.25708e-03, -2.90271e-03 as sums).
+
+**Other checks, tolerance as printed.**
+
+| check | `92778039f` | fixed | `60ef0aaa6` |
+|---|---|---|---|
+| Reviewer `rs0`, level 1, 0.8 V, rs 0 to 100 | -2.7082996e-01 | -1.367809406e-03 | -1.367809406e-03 |
+| Reviewer `sweep` (its `$r` was lost on the way into the file; restored), rs=1, 10, 100, 0, 100 | | -4.5906973e-02, -8.8489002e-03, -1.3678094e-03, -2.7082996e-01, -1.3678094e-03 | identical |
+| Soft recovery transient, rs and vp altered, worst `\|i - i(card)\|` over 2.5 us | 1.06e-02 | 6.9e-18 | 0 |
+| The same with KLU | | 0 | |
+| Self-heating, rs 0 to 100, then `reset` twice | | -5.8673023e-04, then -5.6703468e-03 twice | identical |
+
+`reset` goes back to the card value, as it does before the group. The first round's `reset` row in the table above stays true, but as the reviewer says it never exercised this: `reset` re-loads the circuit, so rs never changes.
+
+**New finding, not fixed, not from this group.** On a level 3 diode with `rsw` and no `ns`, `rsw` does not limit the sidewall current. `dioload.c` takes `cdsw` from the bottom `evd`, from `vd`, when `ns` is not given (`dioload.c` line 404, by reading); the sidewall conductance still stamps on the `internal_sw` node, so the Jacobian does not match. Measured with js=jsw=1e-14 area=pj=1 rsw=100, against discrete diodes and a 100 ohm resistor: 0.5 V -4.9712e-06 and -4.9477e-06, 0.65 V -1.6367e-03 and -1.0995e-03, 0.8 V -4.0718e-01 and -2.7220e-01. With `ns=1` it matches to 6 digits at 0.7 V. The 0.8 V value depends on its neighbours: -4.07e-1 alone, -4.83e-1 in the first draft of the deck. Unchanged from `60ef0aaa6` at 0.8 V; 45.2 gives -1.6410e-03 at 0.65 V; upstream tip has the same branch. Sky130 sets no `rsw`, so no sky130 result depends on it. Worth a ticket.
+
+**Gates.**
+
+- `make` 0, `make install` 0. `autogen.sh` rerun for the new test.
+- Full `make -k check`: **368 PASS, 1 FAIL, 0 SKIP**. One more PASS, the new test. The FAIL is the same named exception, `resource-keyword-case.cmd`. `identity.lint`, `selftest.lint` PASS. `identity.baseline` untouched; no `.out` changed, one added.
+- `measure/run.sh`: exit 0, `mc_r` and `mc_sky130` `identical_to_ref = yes`. Saved in `measure/after-05-fix/` (96 KB). Against `after-05`: **`TOTAL changed: 0`** at 1e-9, `mc_*` and `drawlog_*` exact.
+
+**Unverified.** `ngSpice_Reset` not run. Other devices' `unsetup` not surveyed for the same pattern; `bjtsetup.c` has the outside-the-condition form.
