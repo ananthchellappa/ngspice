@@ -478,6 +478,7 @@ static bool
 bin_limit(char *line, const char *key, double *value)
 {
     int err;
+    /* case-lint: keyword - key is one of the literals lmin, wmin */
     char *s = cistrstr(line, key);
 
     if (!s)
