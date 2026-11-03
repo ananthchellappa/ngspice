@@ -1,0 +1,14 @@
+hsa, a size on the outermost max inside a subckt. Needs a .spiceinit with: set ngbehavior=hsa
+.subckt dut d g s b l=1u w=1u
+mn d g s b nn l={l} w={w}
+.model nn.1 nmos level=14 version=4.8.2 lmin=1u lmax=2u wmin=1u wmax=2u
+.model nn.2 nmos level=14 version=4.8.2 lmin=2u lmax=20u wmin=1u wmax=2u
+.ends dut
+v1 d 0 1
+x1 d d 0 0 dut l=20u w=1.5u
+.control
+op
+print v(d)
+showmod m.x1.mn : model
+.endc
+.end

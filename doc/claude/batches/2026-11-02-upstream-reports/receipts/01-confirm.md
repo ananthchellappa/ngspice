@@ -7,7 +7,8 @@ Scratch: `/tmp/claude-1000/-home-analog-dev-ngspice/1fbc2faa-b3bb-423f-b156-a411
 
 - **Sky130: first bad commit is `940bb50fa`.** Confirmed by experiment: its only parent `a0999002f` loads and it does not. No bisect was needed.
 - **Report 1 is a duplicate.** Patch ticket #138 (Ethan Sifferman, hours old on 2026-11-02) gives the same cause and a fix. So SUBMIT.md has a comment on #138, not a new ticket.
-- **Reports 2, 3, 4: named commit confirmed first bad each**, open at tip, no duplicate found in what could be read.
+- **Reports 2, 4: named commit confirmed first bad each**, open at tip, no duplicate found in what could be read.
+- **Report 3 withdrawn as a bug after review; report 2 reframed.** `58e4cf26b` is still the commit where the behaviour changes, but the manual says the new reading is the documented one. See section 8, which overrides what sections 4 and 5 say about the framing of 2 and 3.
 - **Correction to our own ledger.** Receipt 07 and receipt 12 item 3 say `r3 gnd(x) 0 1k` gets value 0 / 1e-12. The deck does not show that. The warning prints, but `@r3[resistance]` reads 1000 and the solve fits 1k. What changes is the nodes. See section 4. Those receipts were not edited.
 - **Report 4 was not reverted upstream.** Only the fork reverted it (`fa5e0691f`).
 
@@ -102,7 +103,7 @@ The differing 25 are the sections that draw. I read that as the changed draws, n
 
 Commit messages:
 
-- `03ef19244`: "Correct the limits for binning of MOS model. Make results equal to other simulators. Patch provided by Vilem Kledrowetz." From thread `56ed12d6f3`, where he states the standard rule is min <= value < max and that foundry limits are shifted by picometers. The thread does not discuss a size on the top-most max.
+- `03ef19244`: "Correct the limits for binning of MOS model. Make results equal to other simulators. Patch provided by Vilem Kledrowetz." From thread `56ed12d6f3`, where he states the standard rule is min <= value < max and that foundry limits are shifted by picometers. The thread does not discuss a size on the top-most max as a separate case: it states the rule with no exception for the top bin.
 - `58e4cf26b`: "E-8: In INPgetNetTok() '(' will terminate a token". No ticket. Its code comment states the purpose: the OSDI `.model` with no space before `(`. The `E-` numbers belong to the author's enhancement list; thread `851d765954` mentions one and an external GitHub repo, which I did not read.
 - `af240ba02`: "E-62: Sweep type code for a generic instance-parameter sweep". No ticket.
 
@@ -310,7 +311,7 @@ Read with WebFetch on 2026-11-02, which returns a model's summary of the page an
 | `bugs/` pages 1, 2 of 7 (tickets 888 to 803) | titles | nothing for the four |
 | `bugs/869/` | ticket | `INPgetStr` and quoted strings, not `INPgetNetTok` |
 | `discussion/` index; ngspice-devel page 1 of 21; ngspice-users page 1 | titles | nothing direct |
-| threads `c13bbd10c6`, `56ed12d6f3`, `851d765954`, `5d3537b2` | thread | `c13bbd10c6` has sky130 only as a sharing concern, no load failure. `56ed12d6f3` no top-edge discussion. Others nothing |
+| threads `c13bbd10c6`, `56ed12d6f3`, `851d765954`, `5d3537b2` | thread | `c13bbd10c6` has sky130 only as a sharing concern, no load failure. `56ed12d6f3` no top-edge exception; the rule is stated without one (re-read in full with curl, section 8). Others nothing |
 | `search/?q=INPgetNetTok` | page 1 of 74 | fuzzy, 1850 results, not useful |
 
 **Not read:** bugs pages 3 to 7, older than the four commits (page 2 ends at 2025-09, and the commits are 2026-07 or later), so unlikely but not excluded; ticket bodies other than those above, so a mention inside one is possible; forum pages after the first; the mailing lists.
@@ -321,6 +322,68 @@ Read with WebFetch on 2026-11-02, which returns a model's summary of the page an
 - Why a `.param {a} + b` in a `.subckt` silently drops the tail: measured, not traced.
 - That the 25 drawing corners differ only because of the draws.
 - `DCTsetInstParam()` and `mos1par.c` as the path for report 4: read from code, with only the deck's result measured.
-- Whether `(` in a node name was ever meant to be legal.
+- ~~Whether `(` in a node name was ever meant to be legal.~~ Answered by the manual, section 8.
+- Whether upstream wants a message for `(` in a node name, or the outermost edge kept rejected. Those are the questions the texts ask.
+- `make check` on `tipprune`.
 - `make check` on the scratch builds with #138's change or `0f763b135`. #138's own deck was run and prints `INFO: ok`.
 - Whether my sky130 copy equals the one #138 used. It is not a stock release I identified: it is the copy under `xschem-private`, the one the earlier measure runs used, and receipt 01-triage records the owner patched `nfet_20v0_nvt` in it. The `parameters_*` line count could differ on another copy.
+
+## 8. Correction round
+
+An independent review raised three defects in the first version of SUBMIT.md. All three reproduced. `git ls-remote` still gives `3adcd96a0` as `pre-master-48`.
+Scratch for this round: `/tmp/claude-1000/-home-analog-dev-ngspice/1fbc2faa-b3bb-423f-b156-a41158051465/scratchpad/rep/c2`.
+
+**Report 3: the manual contradicts the premise.** Fetched with curl, tags stripped, https://ngspice.sourceforge.io/docs/ngspice-html-manual/manual.xhtml:
+
+- 2.1.3.1: "Fields on a line are separated by one or more blanks, a comma, an equal (=) sign, or a left or right parenthesis; extra spaces are ignored."
+- 2.1.3.4: "Spaces or the following characters = % ( ) , [ ] < > ~ {} ' are not allowed in a node name."
+
+So `a(x)` and `net(0)` are invalid, and `58e4cf26b` follows the documented rule. Withdrawn as a bug. SUBMIT.md keeps a short optional forum note that cites both sections and asks whether a message is wanted. Spaced form `r3 (a x) 1k` (scratch `r3bus.cir`): the same nodes and current on v45 and tip.
+
+The earlier wording that the connectivity change is silent was too strong: the `a(x)` deck does print the resistor warning, which says nothing about the node. The note states what prints.
+
+The fork's decision to decline `58e4cf26b` rested on these grounds. Flagged at the top of SUBMIT.md for the owner, not changed here.
+
+**Report 3: the "too small" warning is not from that commit.** `decks/3-plain-two-values.cir`, no parentheses:
+
+| build | warning | `@r3[resistance]` | i(v1) |
+|---|---|---|---|
+| v45, p58, c58, tip | `Value of resistor r3 is too small, set to 1.000000e-12` | 1000 | -5.00000e-04 |
+
+Older and independent of `58e4cf26b`. The note now says so.
+
+**Report 2: "legal" is not supported for the outermost max.** Thread `56ed12d6f3`, re-read in full with curl: Vilem writes "the standard rule (HSPICE, Spectre, and the comment in the code) is min <= value < max", with no exception, and Holger applied it. The TSMC card has `WMAX = 0.0009000001`. The word "legal" is dropped and the case is now a question. New deck, `decks/2-outer-max-hsa.cir`, the same size inside a subckt:
+
+| build | hsa | no hsa |
+|---|---|---|
+| p03 | no modelname | nn.2 |
+| c03, tip | no modelname | no modelname |
+| tip0f | nn.2 | not run |
+
+`diff` of `03ef19244` touches only `inpgmod.c`, and the pruner's `csw < fwmax` is on `a0999002f` too. So the pruner was already strict on max.
+
+**Report 2, the hsa multi-finger case now leads.** It breaks the commit's own rule. Using the pruner's own expressions in C, scratch `c2/f.c`: `(float)1e-6 * 15 / 5` is 2.9999998787e-06, `(float)3e-6` is 3.0000001061e-06, so `csw >= fwmin` is false and `csw < fwmax` is true. The pruner drops `card.2`, keeps `card.1`, and `INPgetModBin()` rejects that. In double the two also differ (2.99999999999999965e-06 against 3.00000000000000008e-06), so double alone is not the fix: it also needs `is_equal()` through `in_range()`.
+
+Without hsa the deck reaches `card.2` by another route: `wnflag` defaults to 0, so `w` is not divided by nf and the 15 um size is well inside. The first version read as though this were a comparison at the edge. The text now says otherwise.
+
+New scratch builds, not committed: `tipprune` is tip0f with the retry removed from `subckt.c` and `inpgmod.c`, leaving the double pruner and the `INPbinFits()` rule. `tipprune138` adds the `inpcom.c` hunk of #138. Built incrementally from a copy with `ngheavy make -j4`, rc 0, and run from `build/src/ngspice`. It has three leftovers that gcc warns about (`bin_pass`, `found_lmin`, `found_wmin`), so a patch to send needs cleaning first.
+
+| deck | hsa | p03 | c03, tip | tip0f | tipprune |
+|---|---|---|---|---|---|
+| `2-hsa-finger` | yes | card.1 | no modelname | card.2 | card.2 |
+| `2-hsa-finger-noscale` | yes | card.1 | no modelname | card.2 | card.2 |
+| `2-hsa-finger` | no | card.2 | card.2 | not run | card.2 |
+| `2-outer-max` | no | nn.2 | no modelname | nn.2 | no modelname |
+| `2-outer-max-hsa` | yes | no modelname | no modelname | nn.2 | no modelname |
+
+Sky130 `nfet_01v8`, tt, hsa on:
+
+| size | p940 | tip138 | tipprune138 |
+|---|---|---|---|
+| l=1 w=15 nf=5 | -1.86245e-04, `nshort_model.28` (wmin 1E-6, wmax 3E-6) | no modelname | -1.86245e-04, `nshort_model.20` (wmin 3E-6, wmax 5E-6) |
+| l=1 w=49 nf=7 | -6.37262e-04 | no modelname | -6.37262e-04 |
+| l=20.2 w=2, l=1 w=1010 | no modelname | no modelname | no modelname |
+
+Without hsa, l=20.2 w=2 and l=1 w=1010 load on p940 (-1.47582e-06, -1.32937e-02) and stop on tip138 and tipprune138. So the pruner change is separable: it fixes the multi-finger case and leaves the outermost-max question open. `0f763b135` calls the top edge "legal" in a code comment; flagged for the owner, not changed here.
+
+Reports 1 and 4 and their decks were not changed in this round.

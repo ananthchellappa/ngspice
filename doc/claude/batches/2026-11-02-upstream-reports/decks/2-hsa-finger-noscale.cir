@@ -1,0 +1,15 @@
+hsa, no .option scale: w=15u nf=5 is one finger of 3 um, on an inner edge. Needs a .spiceinit with: set ngbehavior=hsa
+.subckt dut d g s b l=1u w=1u nf=1
+mn d g s b card l={l} w={w} nf={nf}
+.model card.2 nmos level=54 version=4.5 lmin=1.5e-7 lmax=2.02e-5 wmin=3e-6 wmax=1.01e-3
+.model card.1 nmos level=54 version=4.5 lmin=1.5e-7 lmax=2.02e-5 wmin=4.2e-7 wmax=3e-6
+.ends dut
+vd d 0 0.9
+vg g 0 0.9
+x1 d g 0 0 dut l=0.5u w=15u nf=5
+.control
+op
+print i(vd)
+showmod m.x1.mn : model
+.endc
+.end

@@ -1,0 +1,10 @@
+two numbers on a resistor card, no parentheses: the too-small warning prints on 45.2 too, independent of 58e4cf26b
+v1 x 0 1
+r3 a x 0 1k
+r4 a 0 1k
+.control
+op
+print all
+print @r3[resistance]
+.endc
+.end
