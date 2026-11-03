@@ -96,6 +96,7 @@ Version: pre-master-48 3adcd96a0. The load stop starts at 03ef19244, built on ea
 
 Here w=15 nf=5 is one finger of exactly 3 um. Under the rule it belongs in card.2. Needs a .spiceinit with set ngbehavior=hsa.
 
+* hsa finger on an inner bin edge
 .option scale=1u
 .subckt dut d g s b l=1 w=1 nf=1
 mn d g s b card l={l} w={w} nf={nf}
@@ -119,6 +120,7 @@ a0999002f is older than e73cbd263, so this sky130 comparison spans more than one
 
 A separate question, not a claim. A size exactly on the outermost max, with no bin above it, is also rejected now:
 
+* size on the outermost lmax
 .model nn.1 nmos level=14 version=4.8.2 lmin=1u lmax=2u wmin=1u wmax=2u
 .model nn.2 nmos level=14 version=4.8.2 lmin=2u lmax=20u wmin=1u wmax=2u
 v1 d 0 1
@@ -148,6 +150,7 @@ Version: pre-master-48 3adcd96a0. First bad commit: af240ba02, which adds the sw
 
 The sweep itself is a useful addition, and its rows are right here. The problem comes after it ends.
 
+* dc sweep of an instance parameter under scale
 .option scale=1e-6
 .model nn nmos level=1 vto=0.5 kp=1e-3
 vd d 0 1
@@ -176,7 +179,7 @@ From reading the code, which I have not stepped through: the sweep saves the ins
 
 A second point: the sweep does not rebin. With two cards split at w=3u, row w=5u gives -3.21578e-04 from a sweep starting at w=2u, and the same device written at w=5u gives -7.35168e-05. The two cards differ only in vth0, 0.4 and 0.7. The decks are attached.
 
-I have not tested a fix. In my fork I reverted af240ba02 for these two reasons, so I have no patch to offer.
+I have not tested a fix, so I have no patch to offer.
 
 I checked this with help from an AI coding assistant (Claude); I have reviewed the results.
 
@@ -200,6 +203,7 @@ This is a question, not a bug report. 58e4cf26b makes '(' end a token in INPgetN
 
 So the decks below are invalid, and the new reading of them is the documented one. The only thing I want to raise is what happens to old decks that broke the rule. They used to run with the name cut short, and one shape now runs with different connectivity.
 
+* paren in a node name
 v1 x 0 1
 r3 a(x) 0 1k
 r4 a 0 1k
@@ -207,6 +211,7 @@ r4 a 0 1k
 58e4cf26b and 3adcd96a0: read as r3 a x 0 1k, nodes a and x, i(v1) = -5.00000e-04, exit 0.
 
 The other shape does stop:
+* paren in a node name, second shape
 V1 net(0) 0 1
 R1 net(0) 0 1k
 6a10f7af2 and ngspice-45.2: runs, net(0 = 1. 58e4cf26b and 3adcd96a0: "v1 net(0) 0 1 unknown parameter (1)", exit 1.
