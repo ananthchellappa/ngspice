@@ -1,0 +1,121 @@
+VDMOS diode coefficients ttt1 ttt2 tm1 tm2 read back and in any order
+
+* Upstream b3594401c made ttt1, ttt2, tm1, tm2 settable but left them out of
+* VDMOSmAsk, so reading one gave <<NAN, error = 7>> and sens printed GET ERROR.
+* VDMOSmParam also kept lines that zero them when tt, or m, is set, so ttt1
+* written before tt was lost with no message.  sens and altermod set tt the
+* same way.
+*
+* ta, tb  one device, tt before and after ttt1 ttt2
+* ga, gb  one device, m before and after tm1 tm2
+* na, nb  no coefficient on the card, and all four written as 0 before tt
+* ng      as ga, with no coefficient on the card
+* sm      all four set, for sens
+*
+* Each model has its own diode, recovering at 100 C, away from tnom.
+
+.model ta VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Vp=0.5 Tt=1u Ttt1=1e-3 Ttt2=2e-6
+.model tb VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Vp=0.5 Ttt2=2e-6 Ttt1=1e-3 Tt=1u
+.model ga VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Cjo=2n M=0.4 Tm1=2e-3 Tm2=3e-6
+.model gb VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Cjo=2n Tm2=3e-6 Tm1=2e-3 M=0.4
+.model na VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Vp=0.5 Tt=1u
+.model nb VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Vp=0.5 Ttt1=0 Ttt2=0 Tm1=0 Tm2=0 Tt=1u
+.model ng VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Cjo=2n M=0.4
+.model sm VDMOS nchan Vto=4 Kp=5.9 Is=1e-9 Tt=1u Ttt1=1e-3 Ttt2=2e-6 Cjo=2n M=0.4 Tm1=2e-3 Tm2=3e-6
+
+.temp 100
+
+vt 0 s1 pulse(-1 5 1u 10n 10n 1u)
+rta s1 d1 1
+mta d1 0 0 ta
+rtb s1 d2 1
+mtb d2 0 0 tb
+rna s1 d3 1
+mna d3 0 0 na
+rnb s1 d4 1
+mnb d4 0 0 nb
+
+vc 0 s2 dc -20 ac 1 pulse(-20 1 1u 5n 5n 1u)
+rga s2 d5 10
+mga d5 0 0 ga
+rgb s2 d6 10
+mgb d6 0 0 gb
+rng s2 d7 10
+mng d7 0 0 ng
+
+vd vd 0 10
+vg g 0 5 ac 1
+rl vd x 1
+msm x g 0 sm
+
+.option noinit
+
+.sens v(x)
+
+.control
+echo reads:
+print @ta[ttt1] @ta[ttt2] @ta[tt]
+print @tb[ttt1] @tb[ttt2] @tb[tt]
+print @ga[tm1] @ga[tm2] @ga[m]
+print @gb[tm1] @gb[tm2] @gb[m]
+print @na[ttt1] @na[ttt2] @na[tm1] @na[tm2]
+showmod mta : ttt1 ttt2 tt
+showmod mgb : tm1 tm2 m
+
+* i(vt) runs through four diodes, so read each device by its own drop.
+tran 5n 3u
+let pa = vecmax(v(s1)-v(d1))
+let pb = vecmax(v(s1)-v(d2))
+let pn = vecmax(v(s1)-v(d3))
+let pz = vecmax(v(s1)-v(d4))
+print pa pb pn pz
+if pa = pb
+  echo tt: same result in either order
+else
+  echo tt: the order changes the result
+end
+if pn = pz
+  echo zero: same as not written
+else
+  echo zero: differs from not written
+end
+if abs(pa-pn) > 1e-4
+  echo ttt1 ttt2 change the recovery
+else
+  echo ttt1 ttt2 do nothing
+end
+
+ac dec 1 1meg 1meg
+let qa = vm(d5)
+let qb = vm(d6)
+let qn = vm(d7)
+print qa qb qn
+if qa[0] = qb[0]
+  echo m: same result in either order
+else
+  echo m: the order changes the result
+end
+if abs(qa[0]-qn[0]) > 1e-4*qn[0]
+  echo tm1 tm2 change the capacitance
+else
+  echo tm1 tm2 do nothing
+end
+
+* altermod sets tt through the same case as the card.
+altermod ta tt=2u
+print @ta[ttt1] @ta[ttt2] @ta[tt]
+altermod ta tt=1u
+
+echo dc sens:
+run
+print msm:kp
+if length(msm:tm1) = 1
+  echo tm1 and tm2 have sens rows
+end
+print @sm[ttt1] @sm[ttt2] @sm[tm1] @sm[tm2] @sm[tt] @sm[m]
+reset
+echo ac sens:
+sens v(x) ac dec 1 1meg 1meg
+print @sm[ttt1] @sm[ttt2] @sm[tm1] @sm[tm2] @sm[tt] @sm[m]
+.endc
+.end
