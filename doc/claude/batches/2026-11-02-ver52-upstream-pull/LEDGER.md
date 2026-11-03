@@ -22,6 +22,7 @@ Plan: `PLAN.md`. Receipts: `receipts/`.
 | 11 | device, tran, misc | R4, `minbreak`, pruner, seed warning, `--disable-xspice` | 392, 1 | pass |
 | 10b | meas rule, `when`, margin | `875ddd529`, `9b87d50bc`, `1a0955462`; replaces `ef6445218`'s rule | 394, 1 | pass, 6 minor |
 | 12 | final close | 113 commits, 68 picks (one reverted), 26 fork code, 19 docs | 394, 1 | receipt lists R1–R4 |
+| 13 | VDMOS `ttt1`, `ttt2`, `tm1`, `tm2` (R3) | `c85f0ac88`; `measure/` TOTAL changed 0 against `after-12` | 395, 1 | pass, 7 minor |
 
 ## Notes
 
@@ -52,3 +53,7 @@ the interior rule back and fixes only the window edges and the skipped first sam
 
 *`efe72da1e`'s trailer.* Left as it is, since every receipt quotes these hashes. The right
 hash is recorded above.
+
+*Open after group 13, all also on ver_51.* VDMOS `.sens`: most dc rows print `-nan` when
+the card has no series resistances, and ac rows read 0. `.option klu` with `sens ... ac`
+exits 139 on any device. `altermod mm a=1 b=2` applies only the first assignment, silently.
