@@ -1,0 +1,11 @@
+the same device written at w=5u
+.model nn.1 nmos level=14 version=4.8.2 lmin=1e-6 lmax=2e-6 wmin=1e-6 wmax=3e-6 vth0=0.4
+.model nn.2 nmos level=14 version=4.8.2 lmin=1e-6 lmax=2e-6 wmin=3e-6 wmax=9e-6 vth0=0.7
+vd d 0 1
+vg g 0 1
+m1 d g 0 0 nn w=5u l=1u
+.control
+op
+print i(vd)
+.endc
+.end

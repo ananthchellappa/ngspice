@@ -1,0 +1,10 @@
+.param {a} + b with a statistical function stops the load
+.param c=2
+.param p = {1+0} + c*agauss(3,0,1)
+v1 1 0 {p}
+r1 1 0 1k
+.control
+op
+print v(1)
+.endc
+.end

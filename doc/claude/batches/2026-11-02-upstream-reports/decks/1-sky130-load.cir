@@ -1,0 +1,10 @@
+sky130 tt corner: set the .lib path to your sky130.lib.spice. Needs a .spiceinit with: set ngbehavior=hsa and set ng_nomodcheck
+.lib "/path/to/sky130A/models/libs.tech/combined/sky130.lib.spice" tt
+xm1 d g 0 0 sky130_fd_pr__nfet_01v8 w=1 l=0.5
+vd d 0 1
+vg g 0 0.9
+.control
+op
+print i(vd)
+.endc
+.end

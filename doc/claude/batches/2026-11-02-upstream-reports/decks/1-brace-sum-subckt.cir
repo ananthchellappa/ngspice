@@ -1,0 +1,13 @@
+.param {a} + b inside a subckt: the part after the brace is dropped, no message
+.param c=2
+.subckt s n
+.param p = {1+0} + c*agauss(3,0,1)
+r1 n 0 {p}
+.ends
+x1 1 s
+i1 0 1 1m
+.control
+op
+print v(1)
+.endc
+.end

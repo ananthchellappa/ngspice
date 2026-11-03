@@ -1,0 +1,13 @@
+what 58e4cf26b fixes: an OSDI .model with no space before the paren loses R. Needs prange.osdi from prange.va. Expected i(v1)=i(v2)=-0.5
+.model pm prange(R=2)
+.model pn prange (R=2)
+V1 1 0 1
+N1 1 0 pm
+V2 2 0 1
+N2 2 0 pn
+.control
+pre_osdi prange.osdi
+op
+print i(v1) i(v2)
+.endc
+.end

@@ -1,0 +1,11 @@
+a node written gnd(x)
+v1 1 0 1
+r1 1 x 1k
+r2 x 0 1k
+r3 gnd(x) 0 1k
+.control
+op
+print all
+print @r3[resistance]
+.endc
+.end

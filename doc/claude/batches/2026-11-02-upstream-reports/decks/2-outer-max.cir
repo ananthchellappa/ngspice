@@ -1,0 +1,11 @@
+size on the outermost bin max: l=20u is the lmax of nn.2, and no bin is above it
+.model nn.1 nmos level=14 version=4.8.2 lmin=1u lmax=2u wmin=1u wmax=2u
+.model nn.2 nmos level=14 version=4.8.2 lmin=2u lmax=20u wmin=1u wmax=2u
+v1 d 0 1
+m1 d d 0 0 nn l=20u w=1.5u
+.control
+op
+print v(d)
+showmod m1 : model
+.endc
+.end

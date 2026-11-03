@@ -1,0 +1,8 @@
+a node written net(0) on a source
+V1 net(0) 0 1
+R1 net(0) 0 1k
+.control
+op
+print all
+.endc
+.end

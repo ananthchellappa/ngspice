@@ -1,0 +1,10 @@
+r3 is written from a node a(x) to ground. Before 58e4cf26b it is a dangling branch and i(v1) is 0
+v1 x 0 1
+r3 a(x) 0 1k
+r4 a 0 1k
+.control
+op
+print all
+print @r3[resistance]
+.endc
+.end
