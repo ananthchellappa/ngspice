@@ -1,0 +1,352 @@
+From 230a0a81bfeb7654e998425f1f74e4c088e69144 Mon Sep 17 00:00:00 2001
+From: Ananth <ananth.chellappa@outlook.com>
+Date: Wed, 4 Nov 2026 10:55:30 -0700
+Subject: [PATCH] subckt.c: bin in double, with the same test as INPgetModBin()
+
+Under ngbehavior=hsa a multi-finger size on an inner bin edge stops the
+load with "could not find a valid modelname", since 03ef19244 made the
+binner apply min <= size < max.  With w=15u nf=5 one finger is exactly
+3u, which belongs in the card with wmin=3u, on these bins:
+
+    .model card.2 nmos ... wmin=3e-6 wmax=1.01e-3
+    .model card.1 nmos ... wmin=4.2e-7 wmax=3e-6
+
+The expander in doit() drops the .model cards whose bin does not hold
+the size on the x line, and compares in float.  (float)15e-6 / 5 is
+below (float)3e-6, or (float)1e-6 * 15 / 5 with .option scale=1u, so it
+drops card.2 and keeps card.1.  INPgetModBin() then works in double and
+rightly rejects card.1, and no card is left.
+
+Export the binner's test as INPbinInRange() and call it from the
+expander, so the two stages cannot disagree on a size.  The expander
+and the w, l, nf of struct card become double.  A size off an edge keeps
+its card, and a size on the outermost max stays rejected.
+
+The test binning-hsa.cir sets ngbehavior in its .control section and
+gives the circuit with circbyline, so it needs no .spiceinit.  It has
+two finger sizes on inner edges and two off any edge, without and with
+.option scale, and compares each with a plain model.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/frontend/inpcom.c                  |  6 +-
+ src/frontend/subckt.c                  | 16 ++---
+ src/include/ngspice/inpdefs.h          |  8 ++-
+ src/spicelib/parser/inpgmod.c          |  6 +-
+ tests/regression/model/Makefile.am     |  2 +-
+ tests/regression/model/binning-hsa.cir | 95 ++++++++++++++++++++++++++
+ tests/regression/model/binning-hsa.out | 38 +++++++++++
+ 7 files changed, 153 insertions(+), 18 deletions(-)
+ create mode 100644 tests/regression/model/binning-hsa.cir
+ create mode 100644 tests/regression/model/binning-hsa.out
+
+diff --git a/src/frontend/inpcom.c b/src/frontend/inpcom.c
+index db734b391..8839b8946 100644
+--- a/src/frontend/inpcom.c
++++ b/src/frontend/inpcom.c
+@@ -965,7 +965,7 @@ void inp_get_w_l_x(struct card* card) {
+         if (w) {
+             int err;
+             w = w + 3;
+-            card->w = (float)INPevaluate(&w, &err, 0);
++            card->w = INPevaluate(&w, &err, 0);
+             if(err) { 
+                 card->w = 0;
+                 continue;
+@@ -980,7 +980,7 @@ void inp_get_w_l_x(struct card* card) {
+         if (l) {
+             int err;
+             l = l + 3;
+-            card->l = (float)INPevaluate(&l, &err, 0);
++            card->l = INPevaluate(&l, &err, 0);
+             if(err) { 
+                 card->l = 0;
+                 continue;
+@@ -994,7 +994,7 @@ void inp_get_w_l_x(struct card* card) {
+         if (nf) {
+             int err;
+             nf = nf + 4;
+-            card->nf = (float)INPevaluate(&nf, &err, 0);
++            card->nf = INPevaluate(&nf, &err, 0);
+             if (err) {
+                 card->w = card->l = 0;
+                 card->nf = 1.;
+diff --git a/src/frontend/subckt.c b/src/frontend/subckt.c
+index a0fed2696..bc5d1942d 100644
+--- a/src/frontend/subckt.c
++++ b/src/frontend/subckt.c
+@@ -632,12 +632,12 @@ doit(struct card *deck, wordlist *modnames) {
+                             }
+ 
+                             char* curr_line = su_deck->line;
+-                            float fwmin, fwmax, flmin, flmax;
++                            double fwmin, fwmax, flmin, flmax;
+                             char *wmin = strstr(curr_line, " wmin=");
+                             if (wmin) {
+                                 int err;
+                                 wmin = wmin + 6;
+-                                fwmin = (float)INPevaluate(&wmin, &err, 0);
++                                fwmin = INPevaluate(&wmin, &err, 0);
+                                 if (err) {
+                                     prev = su_deck;
+                                     su_deck = su_deck->nextcard;
+@@ -653,7 +653,7 @@ doit(struct card *deck, wordlist *modnames) {
+                             if (wmax) {
+                                 int err;
+                                 wmax = wmax + 6;
+-                                fwmax = (float)INPevaluate(&wmax, &err, 0);
++                                fwmax = INPevaluate(&wmax, &err, 0);
+                                 if (err) {
+                                     prev = su_deck;
+                                     su_deck = su_deck->nextcard;
+@@ -670,7 +670,7 @@ doit(struct card *deck, wordlist *modnames) {
+                             if (lmin) {
+                                 int err;
+                                 lmin = lmin + 6;
+-                                flmin = (float)INPevaluate(&lmin, &err, 0);
++                                flmin = INPevaluate(&lmin, &err, 0);
+                                 if (err) {
+                                     prev = su_deck;
+                                     su_deck = su_deck->nextcard;
+@@ -686,7 +686,7 @@ doit(struct card *deck, wordlist *modnames) {
+                             if (lmax) {
+                                 int err;
+                                 lmax = lmax + 6;
+-                                flmax = (float)INPevaluate(&lmax, &err, 0);
++                                flmax = INPevaluate(&lmax, &err, 0);
+                                 if (err) {
+                                     prev = su_deck;
+                                     su_deck = su_deck->nextcard;
+@@ -699,11 +699,11 @@ doit(struct card *deck, wordlist *modnames) {
+                                 continue;
+                             }
+ 
+-                            float csl = (float)scale * c->l;
++                            double csl = scale * c->l;
+                             /* scale by nf */
+-                            float csw = (float)scale * c->w / c->nf;
++                            double csw = scale * c->w / c->nf;
+                             /*fprintf(stdout, "Debug: nf = %f\n", c->nf);*/
+-                            if (csl >= flmin && csl < flmax && csw >= fwmin && csw < fwmax) {
++                            if (INPbinInRange(csl, flmin, flmax) && INPbinInRange(csw, fwmin, fwmax)) {
+                                 /* use the current .model card */
+                                 prev = su_deck;
+                                 su_deck = su_deck->nextcard;
+diff --git a/src/include/ngspice/inpdefs.h b/src/include/ngspice/inpdefs.h
+index d80af8821..3a8b5f547 100644
+--- a/src/include/ngspice/inpdefs.h
++++ b/src/include/ngspice/inpdefs.h
+@@ -9,6 +9,7 @@ Modified: 2000 AlansFixes
+ 
+ /* structure declarations used by either/both input package */
+ 
++#include "ngspice/bool.h"
+ #include "ngspice/gendefs.h"
+ #include "ngspice/ifsim.h"
+ #include "ngspice/inpptree.h"
+@@ -83,9 +84,9 @@ struct card {
+     struct card *nextcard;
+     struct card *actualLine;
+     struct nscope *level;
+-    float w;
+-    float l;
+-    float nf;
++    double w;
++    double l;
++    double nf;
+     int compmod;
+ };
+ 
+@@ -127,6 +128,7 @@ double INPevaluateRKM_L(char **, int *, int);
+ char *INPfindLev(char *, int *);
+ char *INPgetMod(CKTcircuit *, char *, INPmodel **, INPtables *);
+ char *INPgetModBin(CKTcircuit *, char *, INPmodel **, INPtables *, char *);
++bool INPbinInRange(double value, double min, double max);
+ int INPgetTok(char **, char **, int);
+ int INPgetNetTok(char **, char **, int);
+ void INPgetTree(char **, INPparseTree **, CKTcircuit *, INPtables *);
+diff --git a/src/spicelib/parser/inpgmod.c b/src/spicelib/parser/inpgmod.c
+index d1eebfb21..71cedcf6d 100644
+--- a/src/spicelib/parser/inpgmod.c
++++ b/src/spicelib/parser/inpgmod.c
+@@ -242,8 +242,8 @@ is_equal(double result, double expectedResult)
+ }
+ 
+ 
+-static bool
+-in_range(double value, double min, double max)
++bool
++INPbinInRange(double value, double min, double max)
+ {
+     /* the standard binning rule is: min <= value < max */
+     return (is_equal(value, min) || min < value) && value < max && !is_equal(value, max);
+@@ -334,7 +334,7 @@ INPgetModBin(CKTcircuit *ckt, char *name, INPmodel **model, INPtables *tab, char
+         lmin = parse_values[0]; lmax = parse_values[1];
+         wmin = parse_values[2]; wmax = parse_values[3];
+ 
+-        if (in_range(l, lmin, lmax) && in_range(w, wmin, wmax)) {
++        if (INPbinInRange(l, lmin, lmax) && INPbinInRange(w, wmin, wmax)) {
+             /* create unless model is already defined */
+             if (!modtmp->INPmodfast) {
+                 int error = create_model(ckt, modtmp, tab);
+diff --git a/tests/regression/model/Makefile.am b/tests/regression/model/Makefile.am
+index 70af7c859..63ec5364e 100644
+--- a/tests/regression/model/Makefile.am
++++ b/tests/regression/model/Makefile.am
+@@ -1,7 +1,7 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ 
+-TESTS = binning-1.cir special-names-1.cir instance-defaults.cir bjt-qco-1.cir
++TESTS = binning-1.cir binning-hsa.cir special-names-1.cir instance-defaults.cir bjt-qco-1.cir
+ 
+ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
+ 
+diff --git a/tests/regression/model/binning-hsa.cir b/tests/regression/model/binning-hsa.cir
+new file mode 100644
+index 000000000..b20cbb35a
+--- /dev/null
++++ b/tests/regression/model/binning-hsa.cir
+@@ -0,0 +1,95 @@
++check model binning under ngbehavior=hsa: a multi-finger size on an inner bin edge
++
++* With hsa the subcircuit expander drops the .model cards whose bin does not
++* hold the size on the x line, then INPgetModBin() picks one of those left.
++* Both must apply the rule  min <= w/nf < max  the same way.
++*
++* w=15u nf=5 is one finger of exactly 3u, the edge between card.1 and card.2,
++* so it belongs in card.2.  w=49u nf=7 is exactly 7u, so it belongs in card.3.
++* The other two sizes are off any edge and keep their cards.
++*
++* Each binned instance is compared with a plain model of the same vth0 at the
++* same size, so each printed ratio is 1 only when the expected card was used.
++* When no card is found the circuit does not load and nothing is printed.
++*
++* ngbehavior has to be set before the circuit is read, so the circuit is
++* given with circbyline.  It runs without and with .option scale.
++
++.control
++
++set ngbehavior=hsa
++
++circbyline hsa finger on a bin edge, no scale
++circbyline .subckt dut d g s b l=1u w=1u nf=1
++circbyline mn d g s b card l={l} w={w} nf={nf}
++circbyline .model card.1 nmos level=54 version=4.5 vth0=0.3 lmin=1.5e-7 lmax=2.02e-5 wmin=4.2e-7 wmax=3e-6
++circbyline .model card.2 nmos level=54 version=4.5 vth0=0.5 lmin=1.5e-7 lmax=2.02e-5 wmin=3e-6 wmax=7e-6
++circbyline .model card.3 nmos level=54 version=4.5 vth0=0.7 lmin=1.5e-7 lmax=2.02e-5 wmin=7e-6 wmax=1.01e-3
++circbyline .ends dut
++circbyline .model ref1 nmos level=54 version=4.5 vth0=0.3
++circbyline .model ref2 nmos level=54 version=4.5 vth0=0.5
++circbyline .model ref3 nmos level=54 version=4.5 vth0=0.7
++circbyline vg g 0 0.9
++circbyline vx1 dx1 0 0.9
++circbyline x1 dx1 g 0 0 dut l=0.5u w=15u nf=5
++circbyline vr1 dr1 0 0.9
++circbyline mr1 dr1 g 0 0 ref2 l=0.5u w=15u nf=5
++circbyline vx2 dx2 0 0.9
++circbyline x2 dx2 g 0 0 dut l=0.5u w=49u nf=7
++circbyline vr2 dr2 0 0.9
++circbyline mr2 dr2 g 0 0 ref3 l=0.5u w=49u nf=7
++circbyline vx3 dx3 0 0.9
++circbyline x3 dx3 g 0 0 dut l=0.5u w=14.5u nf=5
++circbyline vr3 dr3 0 0.9
++circbyline mr3 dr3 g 0 0 ref1 l=0.5u w=14.5u nf=5
++circbyline vx4 dx4 0 0.9
++circbyline x4 dx4 g 0 0 dut l=0.5u w=20u nf=5
++circbyline vr4 dr4 0 0.9
++circbyline mr4 dr4 g 0 0 ref2 l=0.5u w=20u nf=5
++circbyline .end
++
++op
++print i(vx1)/i(vr1)
++print i(vx2)/i(vr2)
++print i(vx3)/i(vr3)
++print i(vx4)/i(vr4)
++
++circbyline hsa finger on a bin edge, scale 1u
++circbyline .option scale=1u
++circbyline .subckt dut d g s b l=1 w=1 nf=1
++circbyline mn d g s b card l={l} w={w} nf={nf}
++circbyline .model card.1 nmos level=54 version=4.5 vth0=0.3 lmin=1.5e-7 lmax=2.02e-5 wmin=4.2e-7 wmax=3e-6
++circbyline .model card.2 nmos level=54 version=4.5 vth0=0.5 lmin=1.5e-7 lmax=2.02e-5 wmin=3e-6 wmax=7e-6
++circbyline .model card.3 nmos level=54 version=4.5 vth0=0.7 lmin=1.5e-7 lmax=2.02e-5 wmin=7e-6 wmax=1.01e-3
++circbyline .ends dut
++circbyline .model ref1 nmos level=54 version=4.5 vth0=0.3
++circbyline .model ref2 nmos level=54 version=4.5 vth0=0.5
++circbyline .model ref3 nmos level=54 version=4.5 vth0=0.7
++circbyline vg g 0 0.9
++circbyline vx1 dx1 0 0.9
++circbyline x1 dx1 g 0 0 dut l=0.5 w=15 nf=5
++circbyline vr1 dr1 0 0.9
++circbyline mr1 dr1 g 0 0 ref2 l=0.5 w=15 nf=5
++circbyline vx2 dx2 0 0.9
++circbyline x2 dx2 g 0 0 dut l=0.5 w=49 nf=7
++circbyline vr2 dr2 0 0.9
++circbyline mr2 dr2 g 0 0 ref3 l=0.5 w=49 nf=7
++circbyline vx3 dx3 0 0.9
++circbyline x3 dx3 g 0 0 dut l=0.5 w=14.5 nf=5
++circbyline vr3 dr3 0 0.9
++circbyline mr3 dr3 g 0 0 ref1 l=0.5 w=14.5 nf=5
++circbyline vx4 dx4 0 0.9
++circbyline x4 dx4 g 0 0 dut l=0.5 w=20 nf=5
++circbyline vr4 dr4 0 0.9
++circbyline mr4 dr4 g 0 0 ref2 l=0.5 w=20 nf=5
++circbyline .end
++
++op
++print i(vx1)/i(vr1)
++print i(vx2)/i(vr2)
++print i(vx3)/i(vr3)
++print i(vx4)/i(vr4)
++
++.endc
++
++.end
+diff --git a/tests/regression/model/binning-hsa.out b/tests/regression/model/binning-hsa.out
+new file mode 100644
+index 000000000..dff59bc73
+--- /dev/null
++++ b/tests/regression/model/binning-hsa.out
+@@ -0,0 +1,38 @@
++
++Note: No compatibility mode selected!
++
++
++Circuit: check model binning under ngbehavior=hsa: a multi-finger size on an inner bin edge
++
++
++Note: Compatibility modes selected: hs a
++
++
++Circuit: hsa finger on a bin edge no scale
++
++Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
++
++Using SPARSE 1.3 as Direct Linear Solver
++
++No. of Data Rows : 1
++i(vx1)/i(vr1) = 1.000000e+00
++i(vx2)/i(vr2) = 1.000000e+00
++i(vx3)/i(vr3) = 1.000000e+00
++i(vx4)/i(vr4) = 1.000000e+00
++
++Note: Compatibility modes selected: hs a
++
++
++Circuit: hsa finger on a bin edge scale 1u
++
++option SCALE: Scale is set to 1e-06 for instance and model parameters
++Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
++
++Using SPARSE 1.3 as Direct Linear Solver
++
++No. of Data Rows : 1
++i(vx1)/i(vr1) = 1.000000e+00
++i(vx2)/i(vr2) = 1.000000e+00
++i(vx3)/i(vr3) = 1.000000e+00
++i(vx4)/i(vr4) = 1.000000e+00
++Note: Simulation executed from .control section
+-- 
+2.53.0
+
