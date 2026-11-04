@@ -6,9 +6,9 @@ Scratch: `/tmp/claude-1000/-home-analog-dev-ngspice/1fbc2faa-b3bb-423f-b156-a411
 ## Results first
 
 - Base: `refs/upstream/pre-master-48` tip **`97f8de1a747c8934153b50656fd3bac2ce40c1d2`**. Not already fixed.
-- Patch: `patches/0001-subckt.c-bin-in-double-with-the-same-test-as-INPgetM.patch`, commit `230a0a81b` on local `scratch/binning-hsa-finger`. 7 files, +153 -18; src is +19 -17.
+- Patch: `patches/0001-subckt.c-bin-in-double-with-the-same-test-as-INPgetM.patch`, commit `70f31b62d` (tree `bf3413ee4`) on local `scratch/binning-hsa-finger`. 7 files, +223 -18; src is +19 -17. This replaces `230a0a81b` after review; only the message and the test differ, see section F.
 - `make -k check`: 59 PASS 0 FAIL before, 60 PASS 0 FAIL after. The only difference is the new test.
-- Nothing moved except the sizes that used to stop.
+- The earlier line here, "nothing moved except the sizes that used to stop", was wrong. A single exact-named card with a finger size on its wmax goes from load to stop under hsa, see section F.
 
 ## A. Fetch and ticket
 
@@ -46,7 +46,7 @@ could not find a valid modelname
 FAIL: binning-hsa.cir
 ```
 
-The final `.out` against the saved unpatched binary: `check.sh` rc 1, the same two errors, all 8 ratio lines missing.
+The final `.out` against the saved unpatched binary (redone in section F): `check.sh` rc 1, all 10 ratio lines missing, and `i(vxt) = -2.43486e-03` printed where nothing is expected.
 
 The test can fail the other way too. On the fix, with the references of x1 and x3 swapped to the wrong vth0: 4.204503e-01 and 2.382026e+00. With the `set ngbehavior` line removed: 1.543091e-01, 1.0, 6.434725e-02, 1.629339e-01.
 
@@ -77,10 +77,10 @@ The pruner never looks at wnflag. That gap is older and is not widened; the last
 
 ## E. Verify
 
-Targeted test: PASS. Full, on the committed tree (`logs/check-fix2.log`):
+Targeted test: PASS. Full, on the committed tree (`logs/check-corr.log`, same result as `logs/check-fix2.log` before the correction):
 
 ```
-$ diff <(grep -E '^(PASS|FAIL): ' check-base.log) <(grep -E '^(PASS|FAIL): ' check-fix2.log)
+$ diff <(grep -E '^(PASS|FAIL): ' check-base.log) <(grep -E '^(PASS|FAIL): ' check-corr.log)
 16a17
 > PASS: binning-hsa.cir
 60 PASS, rc 0
@@ -120,14 +120,48 @@ The 16: w=2.1 nf=5, w=15 nf=5, w=21 nf=7, w=49 nf=7, each at l=0.15, 0.5, 1, 4.
 
 ### git am
 
-Fresh clone at `97f8de1a7`: `git am 0001-*.patch` rc 0 and no warnings; result tree `0865f62dd` equals the tested `up` tree. A first try with `--whitespace=error` found one trailing space in the `.out`, which is why it was removed.
+Fresh clone at `97f8de1a7`: `git am --whitespace=error 0001-*.patch` rc 0 and no warnings; result tree `bf3413ee4` equals the tested `up` tree. The first patch needed one trailing space removed from the `.out`; the corrected `.out` had the same line stripped.
 
-That tree, built `--with-ngshared --enable-cider`: compiles and links, rc 0, no related warnings, `nm -D` shows `INPbinInRange` in `libngspice.so`. Not run.
+The tree of `230a0a81b`, built `--with-ngshared --enable-cider`: compiles and links, rc 0, no related warnings, `nm -D` shows `INPbinInRange` in `libngspice.so`. Not run. Not rebuilt for the correction, since `git diff --stat 230a0a81b 70f31b62d` lists only the two test files.
+
+## F. Correction after review
+
+A reviewer found a false claim: the message said "a size on the outermost max stays rejected" and the reply said the outer edge was "untouched". Reproduced with `rv-scripts/single-card-top.cir`, one card named `card`, wmax=3u, level 54. Code kept, words fixed, as the reviewer suggested: the new result is the same one nf=1 already had, and it fits the maintainer's rule for the outermost edge.
+
+| x line | hsa base | hsa fix | plain base | plain fix |
+|---|---|---|---|---|
+| w=15u nf=5 | -2.43486e-03 | no model | -2.43486e-03 | -2.43486e-03 |
+| w=3u nf=1 | no model | no model | -4.86971e-04 | -4.86971e-04 |
+| w=30u nf=1 | no model | no model | -5.26199e-03 | -5.26199e-03 |
+
+Sweep with level 54, `receipts/corr_sweep.py`, base and fix binaries, each size in its own deck. Width: edges .42, .65, 1.1, 3, 3.3, 7u, nf 1 to 40, 240 sizes without scale and 240 with scale=1u. Length: 7 edges, w fixed, no nf, 7 without scale and 7 with.
+
+| card and edge | hsa, no scale | hsa, scale=1u | no hsa, both |
+|---|---|---|---|
+| single, wmax | 29 load to stop, 211 stop on both | 43 load to stop, 197 stop on both | all load |
+| single, wmin | 29 stop to load, 211 load on both | 43 stop to load, 197 load on both | all load |
+| binned `card.1`, wmax | all stop on both | all stop on both | all stop on both |
+| binned `card.1`, wmin | 29 stop to load, 211 load on both | 43 stop to load, 197 load on both | all load |
+| single, lmax | all 7 stop on both | 1 load to stop (l=7.7), 6 stop on both | all load |
+| single, lmin | all 7 load on both | 1 stop to load (l=7.7), 6 load on both | all load |
+
+The reviewer's counts agree: 72 of 480 at each width edge. Where both load, i(vd) is the same. The binned wmin row was not in the review and is new in the reply and the message.
+
+Same deck under `ngbehavior=spe`, which the pruner also honours: base -2.43486e-03, fix no model. One deck only.
+
+Added to `binning-hsa.cir`, on the behaviour above: a size on the lowest wmin of a binned card and of a single card, and a size on the wmax of a single card, which must print nothing after its echo. Alone on base, each of the two wmin cases stops; on the fix, -6.86463e-04 both.
+
+**A second defect, found while adding these, not in the review.** The first version of the test could not fail on its scale circuit once the no-scale one passed. When a circuit stops, the control block goes on and `print` finds the vectors of the plot before, so the ratios still come out as 1. Proof: with the scale circuit's x1 moved to w=15000000 so it cannot load, the old test still gave `check.sh` rc 0 with its "could not find" on stderr. Now `destroy all` goes before each circuit, and the same change gives rc 1. So the reply's "without and with .option scale" is only true of this version.
+
+Also, a circuit placed after the scale circuit stopped on the fix and loaded once moved ahead of it. I read that as `.option scale` staying set for later circuits in one run, not checked further, and the scale circuit now runs last.
+
+RED on the final `.out`, unpatched binary: `check.sh` rc 1 as in section C. Fix binary: rc 0. `make -k check` rc 0, 60 PASS 0 FAIL, same list as before the correction.
 
 ## Not verified
 
 - CMake and MSVC builds, and `ctest`. The CMake test list comes from the same `TESTS` line.
 - libngspice at run time, and repeated `ngSpice_Reset`. The fix adds no state.
-- Other sky130 devices and corners; other PDKs.
+- Other sky130 devices and corners; other PDKs. The sky130 sweeps were not rerun for the correction: src is unchanged.
+- Single-card edges on models other than level 54 and on sizes given by expression.
 - The ticket's exact wording: see section A.
 - Memory growth, computed only.

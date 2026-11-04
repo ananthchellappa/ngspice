@@ -1,4 +1,4 @@
-From 230a0a81bfeb7654e998425f1f74e4c088e69144 Mon Sep 17 00:00:00 2001
+From 70f31b62dfd032e4144163478d64547b54a7e9c4 Mon Sep 17 00:00:00 2001
 From: Ananth <ananth.chellappa@outlook.com>
 Date: Wed, 4 Nov 2026 10:55:30 -0700
 Subject: [PATCH] subckt.c: bin in double, with the same test as INPgetModBin()
@@ -20,23 +20,34 @@ rightly rejects card.1, and no card is left.
 Export the binner's test as INPbinInRange() and call it from the
 expander, so the two stages cannot disagree on a size.  The expander
 and the w, l, nf of struct card become double.  A size off an edge keeps
-its card, and a size on the outermost max stays rejected.
+its card, and a size on the outermost max of binned cards stays rejected.
+
+The rounding also moved sizes across a card's own outer edges, and those
+change too.  A size on a lowest wmin that rounded below it was dropped,
+and now loads, binned or not.  A single card with no .N in its name is
+found by name with no range check, so a size on its wmax loaded when the
+rounding took it below wmax: w=15u nf=5 on wmax=3u.  That now stops under
+hsa, as w=3u nf=1 on the same card already did.  Without hsa nothing
+prunes the card and it takes any size, as before.  With .option scale
+the same holds for l on lmin and lmax, for example l=7.7 with scale=1u.
 
 The test binning-hsa.cir sets ngbehavior in its .control section and
-gives the circuit with circbyline, so it needs no .spiceinit.  It has
+gives the circuits with circbyline, so it needs no .spiceinit.  It has
 two finger sizes on inner edges and two off any edge, without and with
-.option scale, and compares each with a plain model.
+.option scale, and compares each with a plain model.  It also has a size
+on the lowest wmin, binned and single, and one on the wmax of a single
+card, which must not print.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
- src/frontend/inpcom.c                  |  6 +-
- src/frontend/subckt.c                  | 16 ++---
- src/include/ngspice/inpdefs.h          |  8 ++-
- src/spicelib/parser/inpgmod.c          |  6 +-
- tests/regression/model/Makefile.am     |  2 +-
- tests/regression/model/binning-hsa.cir | 95 ++++++++++++++++++++++++++
- tests/regression/model/binning-hsa.out | 38 +++++++++++
- 7 files changed, 153 insertions(+), 18 deletions(-)
+ src/frontend/inpcom.c                  |   6 +-
+ src/frontend/subckt.c                  |  16 +--
+ src/include/ngspice/inpdefs.h          |   8 +-
+ src/spicelib/parser/inpgmod.c          |   6 +-
+ tests/regression/model/Makefile.am     |   2 +-
+ tests/regression/model/binning-hsa.cir | 145 +++++++++++++++++++++++++
+ tests/regression/model/binning-hsa.out |  58 ++++++++++
+ 7 files changed, 223 insertions(+), 18 deletions(-)
  create mode 100644 tests/regression/model/binning-hsa.cir
  create mode 100644 tests/regression/model/binning-hsa.out
 
@@ -204,10 +215,10 @@ index 70af7c859..63ec5364e 100644
  
 diff --git a/tests/regression/model/binning-hsa.cir b/tests/regression/model/binning-hsa.cir
 new file mode 100644
-index 000000000..b20cbb35a
+index 000000000..7fed9b16c
 --- /dev/null
 +++ b/tests/regression/model/binning-hsa.cir
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,145 @@
 +check model binning under ngbehavior=hsa: a multi-finger size on an inner bin edge
 +
 +* With hsa the subcircuit expander drops the .model cards whose bin does not
@@ -222,8 +233,15 @@ index 000000000..b20cbb35a
 +* same size, so each printed ratio is 1 only when the expected card was used.
 +* When no card is found the circuit does not load and nothing is printed.
 +*
-+* ngbehavior has to be set before the circuit is read, so the circuit is
-+* given with circbyline.  It runs without and with .option scale.
++* Two more circuits use the outer edges.  A size on the lowest wmin belongs in
++* the card, for a binned card and for a single card with no .N in its name.
++* A size on the wmax of that single card stops the load, as nf=1 always did.
++* It has no ratio to print, so a line after its echo means it was accepted.
++*
++* ngbehavior has to be set before the circuit is read, so the circuits are
++* given with circbyline, the one with .option scale last because the option
++* stays set for the circuits after it.  destroy all goes before each circuit,
++* because print finds the vectors of the plot before when a circuit stops.
 +
 +.control
 +
@@ -263,6 +281,49 @@ index 000000000..b20cbb35a
 +print i(vx2)/i(vr2)
 +print i(vx3)/i(vr3)
 +print i(vx4)/i(vr4)
++
++destroy all
++
++circbyline hsa finger on the lowest wmin
++circbyline .subckt dutb d g s b l=1u w=1u nf=1
++circbyline mn d g s b card l={l} w={w} nf={nf}
++circbyline .model card.1 nmos level=54 version=4.5 vth0=0.5 lmin=1.5e-7 lmax=2.02e-5 wmin=3e-6 wmax=1.01e-3
++circbyline .ends dutb
++circbyline .subckt duts d g s b l=1u w=1u nf=1
++circbyline mn d g s b cardx l={l} w={w} nf={nf}
++circbyline .model cardx nmos level=54 version=4.5 vth0=0.5 lmin=1.5e-7 lmax=2.02e-5 wmin=3e-6 wmax=1.01e-3
++circbyline .ends duts
++circbyline .model ref2 nmos level=54 version=4.5 vth0=0.5
++circbyline vg g 0 0.9
++circbyline vx1 dx1 0 0.9
++circbyline x1 dx1 g 0 0 dutb l=0.5u w=15u nf=5
++circbyline vx2 dx2 0 0.9
++circbyline x2 dx2 g 0 0 duts l=0.5u w=15u nf=5
++circbyline vr1 dr1 0 0.9
++circbyline mr1 dr1 g 0 0 ref2 l=0.5u w=15u nf=5
++circbyline .end
++
++op
++print i(vx1)/i(vr1)
++print i(vx2)/i(vr1)
++
++destroy all
++
++circbyline hsa finger on the wmax of a single card
++circbyline .subckt duts d g s b l=1u w=1u nf=1
++circbyline mn d g s b card l={l} w={w} nf={nf}
++circbyline .model card nmos level=54 version=4.5 lmin=1.5e-7 lmax=2.02e-5 wmin=1e-7 wmax=3e-6
++circbyline .ends duts
++circbyline vg g 0 0.9
++circbyline vxt dxt 0 0.9
++circbyline x1 dxt g 0 0 duts l=0.5u w=15u nf=5
++circbyline .end
++
++echo a size on the wmax of a single card stops the load
++op
++print i(vxt)
++
++destroy all
 +
 +circbyline hsa finger on a bin edge, scale 1u
 +circbyline .option scale=1u
@@ -305,10 +366,10 @@ index 000000000..b20cbb35a
 +.end
 diff --git a/tests/regression/model/binning-hsa.out b/tests/regression/model/binning-hsa.out
 new file mode 100644
-index 000000000..dff59bc73
+index 000000000..70695f896
 --- /dev/null
 +++ b/tests/regression/model/binning-hsa.out
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,58 @@
 +
 +Note: No compatibility mode selected!
 +
@@ -330,6 +391,26 @@ index 000000000..dff59bc73
 +i(vx2)/i(vr2) = 1.000000e+00
 +i(vx3)/i(vr3) = 1.000000e+00
 +i(vx4)/i(vr4) = 1.000000e+00
++
++Note: Compatibility modes selected: hs a
++
++
++Circuit: hsa finger on the lowest wmin
++
++Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
++
++Using SPARSE 1.3 as Direct Linear Solver
++
++No. of Data Rows : 1
++i(vx1)/i(vr1) = 1.000000e+00
++i(vx2)/i(vr1) = 1.000000e+00
++
++Note: Compatibility modes selected: hs a
++
++
++Circuit: hsa finger on the wmax of a single card
++
++a size on the wmax of a single card stops the load
 +
 +Note: Compatibility modes selected: hs a
 +
