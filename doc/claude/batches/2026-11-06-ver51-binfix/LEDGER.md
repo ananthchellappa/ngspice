@@ -31,3 +31,9 @@
 
 - Nothing was pushed. The user pushes `ver_51` themselves.
 - Upstream: nothing new to file. The bugs/889 reply and patch from 2026-11-04 are still unposted, and posting them is the user's call.
+
+## ver_52 (added 2026-11-07)
+
+| # | crew | result | receipt |
+|---|------|--------|---------|
+| 05 | driver merge, then rebuild crew | `dff81c50e` merges ver_51 into ver_52. Only the Makefile.am TESTS line conflicted, and ver_52's list was kept. The merge adds only this batch's docs; subckt.c, inpgmod.c, inpcom.c and inpdefs.h are unchanged. Rebuild: make had nothing to recompile. `make -k check`: 395 PASS, 1 FAIL, the known resource-keyword-case.cmd. It needs the owner's uncommitted scan edit, because a CIDER build prints a blank line there. `build-ver_52/stage/bin/ngspice` sha256 `3cb7eee49e99567bf6e5cf50e46353328764a0b4ddb8f457ab5efee7f27c031c`, which differs from receipt 12's `d56b9022…` because it includes the later VDMOS fix `c85f0ac88`. The driver checked it. | receipts/05-ver52-rebuild.md |
