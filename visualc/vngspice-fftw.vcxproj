@@ -1816,6 +1816,7 @@ lib /machine:x64 /def:..\..\fftw-3.3-dll64\libfftw3-3.def /out:$(IntDir)libfftw3
     <ClCompile Include="..\src\spicelib\analysis\span.c" />
     <ClCompile Include="..\src\spicelib\analysis\stban.c" />
     <ClCompile Include="..\src\spicelib\analysis\stbaskq.c" />
+    <ClCompile Include="..\src\spicelib\analysis\stbmarg.c" />
     <ClCompile Include="..\src\spicelib\analysis\stbsetp.c" />
     <ClCompile Include="..\src\spicelib\analysis\spaskq.c" />
     <ClCompile Include="..\src\spicelib\analysis\spsetp.c" />

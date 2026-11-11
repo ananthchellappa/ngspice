@@ -87,7 +87,8 @@ static struct plotab plotabs[NUMPLOTTYPES] = {
     { "harm", "harm", FALSE, FALSE },
     { "spect", "spect", FALSE, FALSE },
     { "pss", "periodic", FALSE, FALSE },
-    { "stb", "stb analysis", FALSE, FALSE }
+    { "stb", "stb analysis", FALSE, FALSE },
+    { "stbmargin", "stb margins", FALSE, FALSE }
 };
 
 

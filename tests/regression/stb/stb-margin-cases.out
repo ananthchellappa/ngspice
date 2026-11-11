@@ -1,0 +1,204 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the cases in which a margin does not exist, or is not the only one
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk cases-positive-feedback pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 221
+
+No. of Data Rows : 1
+stbchk cases-band-pass pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 2001
+
+No. of Data Rows : 1
+stbchk cases-three-crossings pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk cases-no-loop pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk cases-still-above pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 20
+
+No. of Data Rows : 1
+stbchk cases-last-point pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk cases-lin-from-zero pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+
+No. of Data Rows : 1
+stbchk cases-one-point pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk cases-never-above pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk cases-not-finite pass
+stbchk cases-not-finite-curve pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 5
+
+No. of Data Rows : 1
+stbchk cases-zero-at-one-point pass
+stbchk cases-zero-at-one-point-curve pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vpos (voltage source vpos, x = xp, y = yp), 31 points, 1 Hz to 1e+06 Hz
+stb: no margins: positive feedback at the start frequency (loop-gain phase 359.64 deg at 1 Hz): the phase lag of the return ratio at the first point exceeds 90 degrees; a loop with an ideal integrator triggers this
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vbp (voltage source vbp, x = xb, y = yb), 221 points, 0.01 Hz to 1e+09 Hz
+stb: Phase margin = 90.5737 deg at frequency = 1.59147e+07 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 90.0091 deg at the last frequency 1e+09 Hz)
+stb: the loop gain crosses 0 dB at 2 frequencies; the margins are at the first falling one
+stb: the loop gain rises through 0 dB at 1.59163 Hz, before the crossing used for the margins
+
+No. of Data Rows : 221
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vtc (voltage source vtc, x = xt, y = yt), 2001 points, 1000 Hz to 1e+07 Hz
+stb: Phase margin = 88.5483 deg at frequency = 42885.5 Hz
+stb: Gain margin = -7.95526 dB at frequency = 159163 Hz
+stb: the loop gain crosses 0 dB at 3 frequencies; the margins are at the first falling one
+
+No. of Data Rows : 2001
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vnl (voltage source vnl, x = xn, y = yn), 31 points, 1 Hz to 1e+06 Hz
+stb: the loop gain is zero at every frequency: is the probe in a feedback loop?
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vprb (voltage source vprb, x = x, y = y), 11 points, 1 Hz to 100 Hz
+stb: no phase margin: the loop gain is still +18.5549 dB at the last frequency 100 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 147.858 deg at the last frequency 100 Hz)
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vprb (voltage source vprb, x = x, y = y), 20 points, 1 Hz to 100 Hz
+stb: no phase margin: the loop gain is still +19.0077 dB at the last frequency 80.6349 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 153.131 deg at the last frequency 80.6349 Hz)
+
+No. of Data Rows : 20
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vprb (voltage source vprb, x = x, y = y), 11 points, 0 Hz to 1000 Hz
+stb: no margins: the sweep does not start above 0 Hz
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vprb (voltage source vprb, x = x, y = y), 1 points, 1000 Hz to 1000 Hz
+stb: no margins: the sweep has fewer than two points
+
+No. of Data Rows : 1
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vlo (voltage source vlo, x = xl, y = yl), 31 points, 1 Hz to 1e+06 Hz
+stb: no phase margin: the loop gain is below 0 dB at every frequency of the sweep (at most -6.02077 dB, at 1 Hz)
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 90.0091 deg at the last frequency 1e+06 Hz)
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vnan (voltage source vnan, x = xd, y = yd), 31 points, 1 Hz to 1e+06 Hz
+stb: warning: the loop gain is not finite at 1 Hz (31 point(s)); no margins
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vz (voltage source vz, x = xz, y = yz), 5 points, 50 Hz to 150 Hz
+stb: no margins: the loop gain is exactly zero at 100 Hz
+
+No. of Data Rows : 5
+
+No. of Data Rows : 1
+Note: Simulation executed from .control section 

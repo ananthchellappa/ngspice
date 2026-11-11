@@ -1,0 +1,566 @@
+* stb: the cases in which a margin does not exist, or is not the only one
+*
+* Several loops in one circuit, each with its own probe. Each run sends its
+* lines to a file; the line that gives the reason is looked for there, and
+* the margins plot is read. A margin that does not exist is NaN. At the end
+* every case is run once more with its lines printed: they are part of the
+* expected output.
+*
+* fa = 1/(2 pi 1k 1u) = 159.155 Hz is the corner frequency of every r-c pair
+* of 1k and 1u below.
+*
+* 1. vpos: T = -10 / (1 + j f/fa). The real part of T is negative at the
+*    first point: positive feedback, no margins.
+*
+* 2. vbp: a band-pass loop,
+*        T = 100 (j f/fa) / ((1 + j f/fa) (1 + j f/fb)),  fb = 1000 fa.
+*    |T| rises through 0 dB at fa/sqrt(9999) = 1.5916 Hz (the second pole
+*    does not count there) and falls through it at fb sqrt(9999) =
+*    15.915 MHz (the first one does not count there). The margins are those
+*    of the falling crossing: the phase of T is -atan(sqrt(9999)) plus
+*    0.0006 deg there, so the phase margin is 90.573 deg; an extra line
+*    gives the rising crossing. No gain margin.
+*
+* 3. vtc: a pole and a resonance,
+*        T = 250 / ((1 + j f/fa) (1 - u^2 + j u/q)),  u = f/f0,
+*        f0 = 1/(2 pi sqrt(l c)) = 159.155 kHz,  q = sqrt(l/c)/r = 10.
+*    |T| falls through 0 dB near 43 kHz, comes back above it at the
+*    resonance and falls again: three crossings. The margins are those of
+*    the first one. The values are checked by putting the reported
+*    frequencies into T: |T| = 1 and the phase margin at the first, a phase
+*    of -180 deg and the gain margin (negative here, about -7.96 dB) at the
+*    second, which is at f0 to 1 %.
+*
+* 4. vnl: a source between two resistors, in no loop. T is zero at every
+*    frequency (below 1e-12): no margins.
+*
+* 5. vprb: T = 10 / (1 + j f/fa). Swept to 100 Hz only, |T| is still
+*    above 0 dB at the last frequency: no phase margin, no gain margin.
+*    The frequency in these two lines is the last one of the sweep, which
+*    an oct sweep to 100 Hz in steps of a third of an octave puts at
+*    2^(19/3) = 80.6349 Hz.
+*    Swept from 0 Hz (lin), or at one point only: no margins.
+*
+* 6. vlo: T = 0.5 / (1 + j f/fa), never above 0 dB.
+*
+* 7. vnan: with rx = 1, g1 = -1 and g2 = 1 the two responses combine to
+*    K = 1, so that T = K/(1 - K) is 0/0 at every frequency. The plots are
+*    made, the loop gain holds NaN, and there are no margins.
+*
+*
+* 8. vz: the gain of the amplifier is (100 - f)/10 with f in Hz, so T is
+*    exactly zero at 100 Hz and nowhere else: no margins.
+vpos xp yp dc 0
+epos op 0 yp 0 10
+rpos op xp 1k
+cpos xp 0 1u
+*
+vbp xb yb dc 0
+ebp1 ob 0 0 yb 100
+cbp1 ob mb 1u
+rbp1 mb 0 1k
+ebp2 nb 0 mb 0 1
+rbp2 nb xb 1k
+cbp2 xb 0 1n
+*
+vtc xt yt dc 0
+etc1 ot 0 0 yt 250
+rtc1 ot at 1k
+ctc1 at 0 1u
+etc2 bt 0 at 0 1
+rtc2 bt ct 100
+ltc ct xt 1m
+ctc2 xt 0 1n
+*
+vnl xn yn dc 0
+rnl1 xn 0 1k
+rnl2 yn 0 1k
+*
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+*
+vlo xl yl dc 0
+elo ol 0 0 yl 0.5
+rlo ol xl 1k
+clo xl 0 1u
+*
+vnan xd yd dc 0
+rx xd 0 1
+g1 yd 0 yd 0 -1
+g2 yd 0 xd 0 1
+*
+vz xz yz dc 0
+bz oz 0 v = (100 - hertz)*v(yz)/10
+rz oz xz 1k
+cz xz 0 1u
+.control
+let const.fa = 1/(2*pi*1k*1u)
+let const.fb = 1/(2*pi*1k*1n)
+let const.f0 = 1/(2*pi*sqrt(1m*1n))
+let const.q = sqrt(1m/1n)/100
+set mprev = none
+
+* 1. positive feedback
+stb vpos dec 5 1 1e6 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no margins: positive feedback at the start frequency (loop-gain phase "
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 2) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-positive-feedback pass
+else
+  echo stbchk cases-positive-feedback fail
+end
+
+* 2. a rising crossing before the falling one
+stb vbp dec 20 0.01 1e9 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+let const.nw2 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: the loop gain crosses 0 dB at 2 frequencies"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+  strstr p1 "_$ln" "_stb: the loop gain rises through 0 dB at 1.59"
+  if $p1 eq 0
+    let const.nw2 = const.nw2 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (abs(phasemarginfreq/(const.fb*sqrt(9999)) - 1) < 1e-3) & (abs(phasemargin - (180 - atan(sqrt(9999))*180/pi + 0.0006)) < 0.05)
+let m = 0
+let m = ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 5) & (const.nw1 eq 1) & (const.nw2 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-band-pass pass
+else
+  echo stbchk cases-band-pass fail
+end
+
+* 3. three crossings: the margins are those of the first
+stb vtc dec 500 1k 1e7 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: the loop gain crosses 0 dB at 3 frequencies"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let fq = phasemarginfreq
+let tq = 250/((1 + j(fq/const.fa))*(1 - (fq/const.f0)^2 + j(fq/(const.f0*const.q))))
+let k = 0
+let k = (fq > 3e4) & (fq < 6e4) & (abs(abs(tq) - 1) < 1e-3) & (abs(phasemargin - (180 + ph(tq)*180/pi)) < 0.05)
+let fq = gainmarginfreq
+let tq = 250/((1 + j(fq/const.fa))*(1 - (fq/const.f0)^2 + j(fq/(const.f0*const.q))))
+let m = 0
+let m = (abs(fq/const.f0 - 1) < 1e-2) & (abs(abs(ph(tq))*180/pi - 180) < 0.05) & (abs(gainmargin + db(tq)) < 0.05) & (gainmargin < -7)
+if (const.nline eq 4) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-three-crossings pass
+else
+  echo stbchk cases-three-crossings fail
+end
+
+* 4. the probe is in no loop
+stb vnl dec 5 1 1e6 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: the loop gain is zero at every frequency: is the probe in a feedback loop?"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 2) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-no-loop pass
+else
+  echo stbchk cases-no-loop fail
+end
+
+* 5. still above 0 dB at the last frequency
+stb vprb dec 5 1 100 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+let const.nw2 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no phase margin: the loop gain is still +"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+  strstr p1 "_$ln" "_stb: no gain margin: the loop-gain phase never falls to 0 deg (it is "
+  if $p1 eq 0
+    let const.nw2 = const.nw2 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 3) & (const.nw1 eq 1) & (const.nw2 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-still-above pass
+else
+  echo stbchk cases-still-above fail
+end
+
+* 5. the frequency in the two lines is the last one of the sweep
+stb vprb oct 3 1 100 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+let const.nw2 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no phase margin: the loop gain is still +"
+  if $p1 eq 0
+    strstr p1 "$ln" " dB at the last frequency 80.6349 Hz"
+    if $p1 > 0
+      let const.nw1 = const.nw1 + 1
+    end
+  end
+  strstr p1 "_$ln" "_stb: no gain margin: the loop-gain phase never falls to 0 deg (it is "
+  if $p1 eq 0
+    strstr p1 "$ln" " deg at the last frequency 80.6349 Hz)"
+    if $p1 > 0
+      let const.nw2 = const.nw2 + 1
+    end
+  end
+end
+fclose $f1
+setplot $sp
+let k = 0
+let k = (length(frequency) eq 20) & (abs(real(frequency[19])/2^(19/3) - 1) < 1e-12)
+if (const.nline eq 3) & (const.nw1 eq 1) & (const.nw2 eq 1) & k
+  echo stbchk cases-last-point pass
+else
+  echo stbchk cases-last-point fail
+end
+set mprev = $stb_marginplot
+
+* 5. a sweep from 0 Hz
+stb vprb lin 11 0 1k > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no margins: the sweep does not start above 0 Hz"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 2) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-lin-from-zero pass
+else
+  echo stbchk cases-lin-from-zero fail
+end
+
+* 5. one point
+stb vprb dec 5 1k 1k > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no margins: the sweep has fewer than two points"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 2) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-one-point pass
+else
+  echo stbchk cases-one-point fail
+end
+
+* 6. never above 0 dB
+stb vlo dec 5 1 1e6 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+let const.nw2 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no phase margin: the loop gain is below 0 dB at every frequency of the sweep (at most -6.02"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+  strstr p1 "_$ln" "_stb: no gain margin: the loop-gain phase never falls to 0 deg (it is "
+  if $p1 eq 0
+    let const.nw2 = const.nw2 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 3) & (const.nw1 eq 1) & (const.nw2 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-never-above pass
+else
+  echo stbchk cases-never-above fail
+end
+
+* 7. a loop gain that is not finite
+stb vnan dec 5 1 1e6 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: warning: the loop gain is not finite at 1 Hz (31 point(s))"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 2) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-not-finite pass
+else
+  echo stbchk cases-not-finite fail
+end
+* the loop-gain plot is there, with NaN at every point
+setplot $sp
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax((real(loopgain) eq real(loopgain)) + (imag(loopgain) eq imag(loopgain))) eq 0)
+if k
+  echo stbchk cases-not-finite-curve pass
+else
+  echo stbchk cases-not-finite-curve fail
+end
+
+* 8. a loop gain that is exactly zero at one frequency
+stb vz lin 5 50 150 > stb-margin-cases.stblog
+set sp = $curplot
+let const.nline = 0
+let const.nw1 = 0
+set n1 = 1
+fopen f1 stb-margin-cases.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nline = const.nline + 1
+  end
+  strstr p1 "_$ln" "_stb: no margins: the loop gain is exactly zero at 100 Hz"
+  if $p1 eq 0
+    let const.nw1 = const.nw1 + 1
+  end
+end
+fclose $f1
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+let m = 0
+let m = ((phasemarginfreq eq phasemarginfreq) eq 0) & ((phasemargin eq phasemargin) eq 0) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if (const.nline eq 2) & (const.nw1 eq 1) & k & m & ($same ne 0)
+  echo stbchk cases-zero-at-one-point pass
+else
+  echo stbchk cases-zero-at-one-point fail
+end
+* the loop gain is zero there and nowhere else
+setplot $sp
+let k = 0
+let k = (length(loopgain) eq 5) & (real(frequency[2]) eq 100) & (abs(loopgain[2]) eq 0) & (abs(loopgain[0]) > 0.1) & (abs(loopgain[1]) > 0.1) & (abs(loopgain[3]) > 0.1) & (abs(loopgain[4]) > 0.1)
+if k
+  echo stbchk cases-zero-at-one-point-curve pass
+else
+  echo stbchk cases-zero-at-one-point-curve fail
+end
+
+* the lines as they are printed
+stb vpos dec 5 1 1e6
+stb vbp dec 20 0.01 1e9
+stb vtc dec 500 1k 1e7
+stb vnl dec 5 1 1e6
+stb vprb dec 5 1 100
+stb vprb oct 3 1 100
+stb vprb lin 11 0 1k
+stb vprb dec 5 1k 1k
+stb vlo dec 5 1 1e6
+stb vnan dec 5 1 1e6
+stb vz lin 5 50 150
+.endc
+.end

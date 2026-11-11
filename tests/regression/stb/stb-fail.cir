@@ -303,6 +303,28 @@ else
   echo stbchk fail-stop-not-finite fail
 end
 
+* a sweep so wide that its step cannot be computed
+set sim_status = 0
+stb vprb dec 10 1e-300 1e300 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-sweep-too-wide pass
+else
+  echo stbchk fail-sweep-too-wide fail
+end
+
 * no probe at all
 set sim_status = 0
 stb  >& stb-fail.stberr

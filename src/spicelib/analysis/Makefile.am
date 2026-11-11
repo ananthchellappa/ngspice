@@ -95,6 +95,7 @@ libckt_la_SOURCES = \
 		senssetp.c	\
 		stban.c		\
 		stbaskq.c	\
+		stbmarg.c	\
 		stbsetp.c	\
 		tfanal.c	\
 		tfaskq.c	\

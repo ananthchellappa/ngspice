@@ -1,0 +1,110 @@
+* stb: the margins of a loop with three poles against the closed form
+*
+* A ring of three equal inverting stages, a transconductance g loaded by r
+* and c:
+*     T = A^3 / (1 + j f/fp)^3,   A = g r = 1.6,   fp = 1/(2 pi r c) = 1.59155 MHz
+*
+* |T| = 1 where 1 + (f/fp)^2 = A^2:
+*     fu = fp sqrt(A^2 - 1) = 1.98784 MHz,
+*     phase margin = 180 - 3 atan(sqrt(A^2 - 1)) = 26.047 deg.
+* The phase of T is -180 deg where atan(f/fp) = 60 deg:
+*     f180 = fp sqrt(3) = 2.75664 MHz,  |T| = A^3 / 8,
+*     gain margin = 20 log10(8 / A^3) = 5.8146 dB.
+*
+* The margins are read off the swept points by interpolation, so they are
+* compared with a tolerance: 0.1 % in frequency, 0.05 deg, 0.01 dB.
+*
+* The first run prints its lines; they are part of the expected output.
+g1 n2 0 y 0 1.6m
+r1 n2 0 1k
+c1 n2 0 100p
+g2 n3 0 n2 0 1.6m
+r2 n3 0 1k
+c2 n3 0 100p
+g3 x 0 n3 0 1.6m
+r3 x 0 1k
+c3 x 0 100p
+vprb x y dc 0
+.control
+let const.a = 1.6m*1k
+let const.fp = 1/(2*pi*1k*100p)
+let const.fu = const.fp*sqrt(const.a^2 - 1)
+let const.pm = 180 - 3*atan(sqrt(const.a^2 - 1))*180/pi
+let const.f180 = const.fp*sqrt(3)
+let const.gm = 20*log10(8/const.a^3)
+
+set mprev = none
+if $?stb_marginplot
+  set mprev = $stb_marginplot
+end
+stb vprb dec 100 1k 1e9
+set sp = $curplot
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+
+* every point of the curve
+let k = 0
+let k = (length(loopgain) eq 601) & (vecmax(abs(loopgain + const.a^3/(1 + j(real(frequency)/const.fp))^3)/abs(loopgain)) < 1e-9)
+if k
+  echo stbchk three-p-curve pass
+else
+  echo stbchk three-p-curve fail
+end
+
+* the margins
+setplot $mp
+let k = 0
+let k = (abs(phasemarginfreq/const.fu - 1) < 1e-3) & (abs(phasemargin - const.pm) < 0.05)
+if k & ($same ne 0)
+  echo stbchk three-p-phase-margin pass
+else
+  echo stbchk three-p-phase-margin fail
+end
+let k = 0
+let k = (abs(gainmarginfreq/const.f180 - 1) < 1e-3) & (abs(gainmargin - const.gm) < 0.01)
+if k & ($same ne 0)
+  echo stbchk three-p-gain-margin pass
+else
+  echo stbchk three-p-gain-margin fail
+end
+setplot $sp
+
+* the lines of a run: the probe and the two margins, and no other
+stb vprb dec 100 1k 1e9 > stb-threepole.stblog
+let const.nstb = 0
+let const.nprobe = 0
+let const.npm = 0
+let const.ngm = 0
+set n1 = 1
+fopen f1 stb-threepole.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nstb = const.nstb + 1
+  end
+  strstr p1 "_$ln" "_stb: probe vprb (voltage source vprb, x "
+  if $p1 eq 0
+    let const.nprobe = const.nprobe + 1
+  end
+  strstr p1 "_$ln" "_stb: Phase margin "
+  if $p1 eq 0
+    let const.npm = const.npm + 1
+  end
+  strstr p1 "_$ln" "_stb: Gain margin "
+  if $p1 eq 0
+    let const.ngm = const.ngm + 1
+  end
+end
+fclose $f1
+if (const.nstb eq 3) & (const.nprobe eq 1) & (const.npm eq 1) & (const.ngm eq 1)
+  echo stbchk three-p-lines pass
+else
+  echo stbchk three-p-lines fail
+end
+.endc
+.end

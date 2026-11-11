@@ -2,8 +2,8 @@
 *
 * The loop of stb-flat.cir with a .save card. The loop gain is a computed
 * result, not a node of the circuit: the stb plot keeps "frequency" and
-* "loopgain", at full length, whatever is saved. An ac analysis obeys the
-* saves as before.
+* "loopgain", at full length, whatever is saved, and the margins plot keeps
+* its four vectors. An ac analysis obeys the saves as before.
 vprb x y dc 0
 e1 out 0 0 y 10
 r1 out x 1k
@@ -11,6 +11,7 @@ c1 x 0 1u
 .save v(out)
 .control
 let const.fp = 1/(2*pi*1k*1u)
+set mprev = none
 
 stb vprb dec 5 1 1e6 > stb-save.stblog
 let k = 0
@@ -20,6 +21,24 @@ if k
 else
   echo stbchk save-dot-save fail
 end
+
+* with the .save card: the margins plot has its four vectors, one point each
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+set sp = $curplot
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1) & (abs(phasemargin - (180 - atan(sqrt(99))*180/pi)) < 0.1)
+if k & ($same ne 0)
+  echo stbchk save-dot-save-margins pass
+else
+  echo stbchk save-dot-save-margins fail
+end
+setplot $sp
 
 * ac: the scale and v(out), nothing else
 ac dec 5 1 1e6
@@ -58,6 +77,24 @@ else
   echo stbchk save-device-parameter fail
 end
 
+* with the save of a device parameter: the margins plot has its four vectors, one point each
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+set sp = $curplot
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1) & (abs(phasemargin - (180 - atan(sqrt(99))*180/pi)) < 0.1)
+if k & ($same ne 0)
+  echo stbchk save-device-parameter-margins pass
+else
+  echo stbchk save-device-parameter-margins fail
+end
+setplot $sp
+
 * save none
 save none
 set sp0 = $curplot
@@ -70,5 +107,23 @@ if k & ($same ne 0)
 else
   echo stbchk save-none fail
 end
+
+* with save none: the margins plot has its four vectors, one point each
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+set mprev = $mp
+set sp = $curplot
+setplot $mp
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1) & (abs(phasemargin - (180 - atan(sqrt(99))*180/pi)) < 0.1)
+if k & ($same ne 0)
+  echo stbchk save-none-margins pass
+else
+  echo stbchk save-none-margins fail
+end
+setplot $sp
 .endc
 .end
