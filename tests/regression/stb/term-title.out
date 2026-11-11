@@ -1,0 +1,27 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: rm1 is the first word of this title, and the title is no element line
+
+stb: probe rm1:1 inserted as v.rm1#stb1 (x = rm1#stb1, y = a)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+a = 1.000000e+00
+b = 5.000000e-01
+rm1#stb1 = 1.000000e+00
+v.rm1#stb1#branch = -5.00000e-04
+v1#branch = -5.00000e-04
+stbchk title-names-instance pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk title-probe-runs pass
+Note: Simulation executed from .control section 

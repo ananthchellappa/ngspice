@@ -918,6 +918,7 @@
     <ClInclude Include="..\src\frontend\hpgl.h" />
     <ClInclude Include="..\src\frontend\init.h" />
     <ClInclude Include="..\src\frontend\inp.h" />
+    <ClInclude Include="..\src\frontend\inpc_stb.h" />
     <ClInclude Include="..\src\frontend\inpcom.h" />
     <ClInclude Include="..\src\frontend\inpcompat.h" />
     <ClInclude Include="..\src\frontend\interp.h" />
@@ -1548,6 +1549,7 @@
     <ClCompile Include="..\src\frontend\inp.c" />
     <ClCompile Include="..\src\frontend\inpcom.c" />
     <ClCompile Include="..\src\frontend\inpc_probe.c" />
+    <ClCompile Include="..\src\frontend\inpc_stb.c" />
     <ClCompile Include="..\src\frontend\inpcompat.c" />
     <ClCompile Include="..\src\frontend\interp.c" />
     <ClCompile Include="..\src\frontend\inventory.c" />

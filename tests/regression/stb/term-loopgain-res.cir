@@ -1,0 +1,59 @@
+* stb: the loop gain at a terminal of a resistor in the loop
+*
+* The loop runs through rm1, which joins the nets e and f. The probe
+* rm1:1 takes its first terminal off the net e. A second loop of the same
+* values has a 0 V source vh placed by hand there.
+*   v(a) = -gm1 Z1 v(e),  Z1 = R1/(1 + j w R1 C1)
+*   gm2 v(a) is fed into f, where rf (Yf = 1/Rf) goes to ground and rm1
+*   leads to e with re (Ye = 1/Re):
+*   v(e) = gm2 v(a) / (Ye + Yf + Ye Yf Rm)
+*   loopgain = -gm1 gm2 Z1 / (Ye + Yf + Ye Yf Rm)
+*            = -(40m / (1 + j w 20k 1n)) / (0.4m + 0.04u Rm)
+* which is -99.0099 at low frequency for Rm = 100 and -50 for 10k: the
+* resistor is part of the loop, it is not shorted by the probe.
+g1 a 0 e 0 1m
+r1 a 0 20k
+c1 a 0 1n
+g2 0 f a 0 2m
+rf f 0 5k
+re e 0 5k
+rm1 e f 100
+g1h ah 0 eh 0 1m
+r1h ah 0 20k
+c1h ah 0 1n
+g2h 0 fh ah 0 2m
+rfh fh 0 5k
+reh eh 0 5k
+vh xh eh dc 0
+rm1h xh fh 100
+.control
+foreach rm 100 10k
+  alter rm1 = $rm
+  alter rm1h = $rm
+  stb vh dec 5 1 1e6 > term-loopgain-res.stblog
+  set hand = $curplot
+  let k = 0
+  let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + (40m/(1 + j(2*pi*real(frequency)*20k*1n)))/(0.4m + 0.04u*$rm))/abs(loopgain)) < 1e-9)
+  let k0 = 0
+  if $rm eq 100
+    let k0 = abs(real(loopgain[0]) + 99.0099) < 1e-3
+  else
+    let k0 = abs(real(loopgain[0]) + 50) < 1e-3
+  end
+  if k & k0
+    echo stbchk loopgain-res-hand-closed-form $rm pass
+  else
+    echo stbchk loopgain-res-hand-closed-form $rm fail
+  end
+  stb rm1:1 dec 5 1 1e6 > term-loopgain-res.stblog
+  strcmp same "$curplot" "$hand"
+  let k = 0
+  let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$hand}.loopgain)/abs({$hand}.loopgain)) < 1e-9)
+  if k & ($same ne 0)
+    echo stbchk loopgain-res-probe $rm pass
+  else
+    echo stbchk loopgain-res-probe $rm fail
+  end
+end
+.endc
+.end

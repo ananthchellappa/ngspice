@@ -1,0 +1,77 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb under casemode=preserve: a terminal of an instance as the probe
+
+stb: probe x1:IN inserted as v.X1#stb1 (x = X1#stb1, y = Fb)
+stb: probe G5:3 inserted as v.G5#stb3 (x = G5#stb3, y = Fd)
+stb: probe X1:Nope not inserted: X1 has no terminal named Nope (1 to 2, the ports of Amp: In Out)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-port-as-written pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-port-lower pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-port-upper pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-port-by-position pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-element-as-written pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-element-lower pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk preserve-card-other-spelling pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+stbchk preserve-one-source-each pass
+stbchk preserve-no-second-source pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk preserve-absent-port pass
+Note: Simulation executed from .control section 

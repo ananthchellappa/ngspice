@@ -1,0 +1,50 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the loop gain at a port of a subcircuit instance, option klu
+
+stb: probe x1:in inserted as v.x1#stb1 (x = x1#stb1, y = fb)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 81
+
+No. of Data Rows : 1
+stbchk loopgain-klu-hand-closed-form pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 81
+
+No. of Data Rows : 1
+stbchk loopgain-klu-by-name pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 81
+
+No. of Data Rows : 1
+stbchk loopgain-klu-by-position pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 81
+
+No. of Data Rows : 1
+stbchk loopgain-klu-upper-case pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+stb: probe x1:in (voltage source v.x1#stb1, x = x1#stb1, y = fb), 81 points, 1 Hz to 1e+08 Hz
+stb: Phase margin = 81.3067 deg at frequency = 628798 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 2.28035 deg at the last frequency 1e+08 Hz)
+
+No. of Data Rows : 81
+
+No. of Data Rows : 1
+Note: Simulation executed from .control section 

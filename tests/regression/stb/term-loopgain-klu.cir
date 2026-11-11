@@ -1,0 +1,93 @@
+* stb: the loop gain at a port of a subcircuit instance, option klu
+*
+* Two loops of the same values. The first is closed by the instance line
+* of x1, both ports on the net fb, and is broken by the probe x1:in. The
+* second has a 0 V source vh placed by hand at the same place.
+*   v(a) = -gm1 Z1 v(in),  Z1 = R1/(1 + j w R1 C1)
+*   the output feeds gm2 v(a) into Zf = Rf/(1 + j w Rf Cf)
+*   loopgain = -gm1 gm2 Z1 Zf
+*            = -200 / ((1 + j w 50k 1n) (1 + j w 4k 10p))
+* The first falling 0 dB point is near 629 kHz, where the phase of the
+* loop is -atan(f/3183 Hz) - atan(f/3.979 MHz) = -98.7 deg: the phase
+* margin is 81.3 deg.
+* The port by its name, by its position and in upper case is the same
+* probe; the upper-case word reaches the command through setcs.
+* Which solver ran is not asserted here: the lines that name it are not
+* compared by the check. The values are those of the port deck.
+.option klu
+.subckt amp in out
+g1 a 0 in 0 2m
+r1 a 0 50k
+c1 a 0 1n
+g2 0 out a 0 0.5m
+.ends
+.subckt amph in out
+g1 a 0 in 0 2m
+r1 a 0 50k
+c1 a 0 1n
+g2 0 out a 0 0.5m
+.ends
+x1 fb fb amp
+rf fb 0 4k
+cf fb 0 10p
+x2 xh fbh amph
+vh xh fbh dc 0
+rfh fbh 0 4k
+cfh fbh 0 10p
+.control
+stb vh dec 10 1 1e8 > term-loopgain-klu.stblog
+set hand = $curplot
+let k = 0
+let k = (length(loopgain) eq 81) & (vecmax(abs(loopgain + 200/((1 + j(2*pi*real(frequency)*50k*1n))*(1 + j(2*pi*real(frequency)*4k*10p))))/abs(loopgain)) < 1e-9)
+setplot $stb_marginplot
+let const.pmh = 0
+let const.pmh = phasemargin
+let const.pfh = phasemarginfreq
+setplot $hand
+if k & (const.pmh > 81.2) & (const.pmh < 81.4) & (const.pfh > 620k) & (const.pfh < 640k)
+  echo stbchk loopgain-klu-hand-closed-form pass
+else
+  echo stbchk loopgain-klu-hand-closed-form fail
+end
+
+stb x1:in dec 10 1 1e8 > term-loopgain-klu.stblog
+set byname = $curplot
+strcmp same "$byname" "$hand"
+let k = 0
+let k = (length(loopgain) eq 81) & (vecmax(abs(loopgain - {$hand}.loopgain)/abs({$hand}.loopgain)) < 1e-9)
+setplot $stb_marginplot
+let const.km = 0
+let const.km = (abs(phasemargin - const.pmh) < 1e-6) & (abs(phasemarginfreq/const.pfh - 1) < 1e-9)
+setplot $byname
+if k & const.km & ($same ne 0)
+  echo stbchk loopgain-klu-by-name pass
+else
+  echo stbchk loopgain-klu-by-name fail
+end
+
+stb x1:1 dec 10 1 1e8 > term-loopgain-klu.stblog
+strcmp same "$curplot" "$byname"
+let k = 0
+let k = (length(loopgain) eq 81) & (vecmax(abs(loopgain - {$hand}.loopgain)/abs({$hand}.loopgain)) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk loopgain-klu-by-position pass
+else
+  echo stbchk loopgain-klu-by-position fail
+end
+
+setcs p = "X1:IN"
+set sp0 = $curplot
+stb $p dec 10 1 1e8 > term-loopgain-klu.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 81) & (vecmax(abs(loopgain - {$hand}.loopgain)/abs({$hand}.loopgain)) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk loopgain-klu-upper-case pass
+else
+  echo stbchk loopgain-klu-upper-case fail
+end
+
+* the log of a run with a terminal probe names the inserted source
+stb x1:in dec 10 1 1e8
+.endc
+.end

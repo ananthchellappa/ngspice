@@ -25,6 +25,7 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "spiceif.h"
 #include "outitf.h"
 #include "numparam/numpaif.h"
+#include "inpc_stb.h"
 
 #include "ngspice/inpdefs.h"
 
@@ -259,6 +260,8 @@ com_remcirc(wordlist *wl)
         tfree(ft_curckt->ci_filename);
     rem_tlist(ft_curckt->devtlist);
     rem_tlist(ft_curckt->modtlist);
+
+    inp_stb_free(ft_curckt->ci_stbprobes);
 
     inp_mc_free();
 

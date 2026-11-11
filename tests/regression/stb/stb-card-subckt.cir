@@ -1,0 +1,61 @@
+* stb: a .stb card inside a .subckt definition is ignored
+*
+* The definition of amp has two .stb cards, one with a terminal and one
+* with a voltage source as the probe, and amp has two instances. The
+* reader copies the cards of a definition for each instance with the
+* names of the definition unchanged, so these cards would name a probe
+* that the circuit does not have and would fail when "run" comes to
+* them, once for each instance. The reader leaves them out and says so
+* in one line for each card; no source is inserted for the terminal.
+*
+* The deck has an .ac card with a .meas card and one .stb card at the
+* top level, whose probe is the source inside x1. "run" does both, no
+* error is reported, and the .meas card is evaluated:
+*   n = 10 (in - out) and out = n, so out = 10/11 in: -0.827854 dB
+* The loop of x1 has loopgain = -10 / (1 + j w 10k 1n).
+.subckt amp inp inn out
+g1 0 n inp inn 1m
+r1 n 0 10k
+c1 n 0 1n
+vprb n nb 0
+e1 out 0 nb 0 1
+.stb g1:4 dec 5 1 1k
+.stb vprb dec 5 1 1k
+.ends
+vin in 0 dc 0.1 ac 1
+x1 in out1 out1 amp
+x2 in out2 out2 amp
+.ac dec 2 1 10
+.meas ac vo find vdb(out1) at=1
+.stb x1.vprb dec 5 1 1k
+.control
+let const.nbefore = $#plots
+set sim_status = 0
+run
+if $sim_status eq 0
+  echo stbchk card-subckt-run-status pass
+else
+  echo stbchk card-subckt-run-status fail
+end
+
+let k = 0
+let k = (length(loopgain) eq 16) & (vecmax(abs(loopgain + 10/(1 + j(2*pi*real(frequency)*10k*1n)))) < 1e-9)
+if k
+  echo stbchk card-subckt-top-card-ran pass
+else
+  echo stbchk card-subckt-top-card-ran fail
+end
+
+* the plots of "run": one of the .ac card and one pair of the .stb card
+let const.nadded = $#plots - const.nbefore
+if const.nadded eq 3
+  echo stbchk card-subckt-no-other-plot pass
+else
+  echo stbchk card-subckt-no-other-plot fail
+end
+
+* (without this, ngspice in batch mode would run a deck that has a .meas
+* card once more after this script)
+quit
+.endc
+.end

@@ -64,7 +64,7 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	udf-name-case.cir udf-name-case-lower.cir \
 	show-device-letter-case.cir curcasemode-effect.cir \
 	node-case-collision-report.cir \
-	stb-vprobe-case.cir stb-keepop-save-case.cir
+	stb-vprobe-case.cir stb-keepop-save-case.cir stb-term-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 

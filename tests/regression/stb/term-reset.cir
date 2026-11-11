@@ -1,0 +1,95 @@
+* stb: reset inserts a terminal probe again, once
+*
+* The probe is declared by a line of the .control section, which reset
+* does not read again: the collected probes are kept with the stored
+* deck. After each reset there is one source, and the circuit is the one
+* of the deck: v(fb) = 2/3 V (see term-port.cir), also after i1 was
+* altered to 2 mA, which gives 4/3 V until the reset.
+.subckt amp in out
+g1 a 0 in 0 1m
+r1 a 0 1k
+g2 0 out a 0 1m
+.ends
+x1 fb fb amp
+rf fb 0 2k
+i1 0 fb dc 1m
+.control
+if 0
+  stb x1:in dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v.x1#stb1#branch) < 1e-15) & (abs(v(fb) - 2/3) < 1e-9)
+if k
+  echo stbchk reset-first-load pass
+else
+  echo stbchk reset-first-load fail
+end
+
+reset
+op
+print all
+let k = 0
+let k = (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v.x1#stb1#branch) < 1e-15) & (abs(v(fb) - 2/3) < 1e-9)
+if k
+  echo stbchk reset-once pass
+else
+  echo stbchk reset-once fail
+end
+
+alter i1 dc = 2m
+op
+let k = 0
+let k = (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v(fb) - 4/3) < 1e-9)
+if k
+  echo stbchk reset-altered pass
+else
+  echo stbchk reset-altered fail
+end
+
+* the announcement of a reset, sent to a file: one line. It is compared
+* in parts, since the reader takes the blanks around "=" out of the text
+* written here.
+reset > term-reset.stblog
+let const.nmap = 0
+let const.nstb = 0
+set n1 = 1
+fopen f1 term-reset.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: probe x1:in inserted as v.x1#stb1 (x"
+  strstr p3 "_$ln" "x1#stb1, y"
+  strstr p4 "_$ln" " fb)"
+  if ($p1 eq 0) & ($p3 > 0) & ($p4 > 0)
+    let const.nmap = const.nmap + 1
+  end
+  strstr p2 "_$ln" "_stb:"
+  if $p2 eq 0
+    let const.nstb = const.nstb + 1
+  end
+end
+fclose $f1
+op
+print all
+let k = 0
+let k = (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v.x1#stb1#branch) < 1e-15) & (abs(v(fb) - 2/3) < 1e-9)
+if k & (const.nmap eq 1) & (const.nstb eq 1)
+  echo stbchk reset-twice pass
+else
+  echo stbchk reset-twice fail
+end
+
+* the probe still runs: the loop gain at the port is
+* -(1 mA/V * 1k) * (1 mA/V * 2k) = -2 at every frequency
+stb x1:in dec 2 1 1e4 > term-reset.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 2)) < 1e-9)
+if k
+  echo stbchk reset-probe-runs pass
+else
+  echo stbchk reset-probe-runs fail
+end
+.endc
+.end

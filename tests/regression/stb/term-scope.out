@@ -1,0 +1,20 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a port of x1 is not a port of an x1 inside another subcircuit
+
+stb: probe x1:1 inserted as v.x1#stb1 (x = x1#stb1, y = n1)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+n1 = 1.000000e+00
+n2 = 3.333333e-01
+n3 = 3.333333e-01
+v.x1#stb1#branch = -6.66667e-04
+v1#branch = -1.33333e-03
+x1#stb1 = 1.000000e+00
+stbchk scope-instance-of-the-deck pass
+Note: Simulation executed from .control section 

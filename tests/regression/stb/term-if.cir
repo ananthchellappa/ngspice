@@ -1,0 +1,83 @@
+* stb: a port of an instance that is written in both branches of an .if
+*
+* The instance x1 has a line in each branch of an .if, with a different
+* subcircuit. Both lines are expanded before the .if is decided, so each
+* gets a new node of its own for a probed port (the second one ends in
+* _2); the nodes of the branch that is dropped go with it, and one source
+* per probed port is left. rsel is also written in both branches.
+* After alterparam and reset the other branch is the circuit.
+*
+* sel = 1: v(a) = -v(in), 1 mA - 1 mA/V v(fb) - v(fb)/1k = 0,
+*          v(fb) = 0.5 V, loopgain = -1 mA/V * 1k * 1 mA/V * 1k = -1
+* sel = 0: v(a) = -3 v(in), the load is 4k || 2k,
+*          1 mA - 3 mA/V v(fb) - v(fb) 3/4k = 0, v(fb) = 4/15 V,
+*          loopgain = -3 mA/V * 1k * 1 mA/V * 4k/3 = -4
+.param sel=1
+.subckt amp in out
+g1 a 0 in 0 1m
+r1 a 0 1k
+g2 0 out a 0 1m
+.ends
+.subckt amp3 in out
+g1 a 0 in 0 3m
+r1 a 0 1k
+g2 0 out a 0 1m
+.ends
+.if (sel == 1)
+x1 fb fb amp
+rsel fb 0 2k
+.else
+x1 fb fb amp3
+rsel fb 0 4k
+.endif
+rf fb 0 2k
+i1 0 fb dc 1m
+.control
+if 0
+  stb x1:in dec 5 1 1e6
+  stb x1:out dec 5 1 1e6
+  stb rsel:1 dec 5 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(fb) - 0.5) < 1e-12) & (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v(x1#stb2) - v(fb)) < 1e-12) & (abs(v(rsel#stb1) - v(fb)) < 1e-12)
+let k2 = 0
+let k2 = (abs(v.x1#stb1#branch) < 1e-15) & (abs(v.x1#stb2#branch + 0.5m) < 1e-12) & (abs(v.rsel#stb1#branch + 0.25m) < 1e-12)
+if k & k2
+  echo stbchk if-first-branch pass
+else
+  echo stbchk if-first-branch fail
+end
+stb x1:in dec 5 1 1e6 > term-if.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 1)) < 1e-9)
+if k
+  echo stbchk if-first-branch-loopgain pass
+else
+  echo stbchk if-first-branch-loopgain fail
+end
+
+alterparam sel=0
+reset
+op
+print all
+let k = 0
+let k = (abs(v(fb) - 4/15) < 1e-12) & (abs(v(x1#stb1_2) - v(fb)) < 1e-12) & (abs(v(x1#stb2_2) - v(fb)) < 1e-12) & (abs(v(rsel#stb1) - v(fb)) < 1e-12)
+let k2 = 0
+let k2 = (abs(v.x1#stb1_2#branch) < 1e-15) & (abs(v.x1#stb2_2#branch + 0.8m) < 1e-12) & (abs(v.rsel#stb1#branch + 1m/15) < 1e-12)
+if k & k2
+  echo stbchk if-second-branch pass
+else
+  echo stbchk if-second-branch fail
+end
+stb x1:in dec 5 1 1e6 > term-if.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 4)) < 1e-9)
+if k
+  echo stbchk if-second-branch-loopgain pass
+else
+  echo stbchk if-second-branch-loopgain fail
+end
+.endc
+.end

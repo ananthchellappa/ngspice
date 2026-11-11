@@ -1,0 +1,153 @@
+* stb under casemode=preserve: a terminal of an instance as the probe
+*
+* Two loops, told apart by their gain A; loopgain = -A / (1 + j f/fp),
+* fp = 1/(2 pi 1k 1u):
+*   X1    an instance of Amp with both ports on the net Fb, 20k to
+*         ground there: A = 20. The probe is its port In
+*   G5    the same stages written out at the top level, 5k to ground:
+*         A = 5. The probe is the controlling input of G5, position 3
+*
+* Under preserve the names keep the spelling of the deck and two spellings
+* of one name are one name. So X1:In, x1:in, X1:IN and X1:1 are one
+* terminal and get one source, which is named after the instance as the
+* deck spells it; g5:3 is the terminal G5:3. The .STB card names the port
+* in yet another spelling and adds nothing. What the reader inserts is in
+* the lines "stb: probe ... inserted as ..." of the expected output: one
+* for each terminal.
+*
+* The checks are on the gain of the loop that was meant, and on the op
+* vectors: a second source for another spelling would show as a node with
+* the suffix _2, or as a second node at the same terminal.
+.subckt Amp In Out
+G1 a 0 In 0 1m
+R1 a 0 1k
+C1 a 0 1u
+G2 0 Out a 0 1m
+.ends
+X1 Fb Fb Amp
+Rf Fb 0 20k
+G5 a5 0 Fd 0 1m
+R5 a5 0 1k
+C5 a5 0 1u
+G6 0 Fd a5 0 1m
+Rh Fd 0 5k
+.STB x1:IN DEC 2 1 1e4
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+set sp0 = $curplot
+stb X1:In dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-port-as-written pass
+else
+  echo stbchk preserve-port-as-written fail
+end
+
+set sp0 = $curplot
+stb x1:in dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-port-lower pass
+else
+  echo stbchk preserve-port-lower fail
+end
+
+set sp0 = $curplot
+stb X1:IN dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-port-upper pass
+else
+  echo stbchk preserve-port-upper fail
+end
+
+set sp0 = $curplot
+stb X1:1 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-port-by-position pass
+else
+  echo stbchk preserve-port-by-position fail
+end
+
+set sp0 = $curplot
+stb G5:3 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-element-as-written pass
+else
+  echo stbchk preserve-element-as-written fail
+end
+
+set sp0 = $curplot
+stb g5:3 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-element-lower pass
+else
+  echo stbchk preserve-element-lower fail
+end
+
+* the card, with the probe x1:IN
+set sp0 = $curplot
+run > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-card-other-spelling pass
+else
+  echo stbchk preserve-card-other-spelling fail
+end
+
+* one terminal, one probe: the sources carry no current at the operating
+* point, and there is no second node for any of the spellings
+op
+let k = 0
+let k = (abs(v(X1#stb1) - v(Fb)) < 1e-12) & (abs(v.X1#stb1#branch) < 1e-15) & (abs(v(G5#stb3) - v(Fd)) < 1e-12) & (abs(v.G5#stb3#branch) < 1e-15)
+if k
+  echo stbchk preserve-one-source-each pass
+else
+  echo stbchk preserve-one-source-each fail
+end
+
+let n0 = 1
+let n0 = 0 * length(v(X1#stb1_2))
+let n1 = 1
+let n1 = 0 * length(v(G5#stb3_2))
+let n2 = 1
+let n2 = 0 * length(v(X1#stb2))
+if n0 & n1 & n2
+  echo stbchk preserve-no-second-source pass
+else
+  echo stbchk preserve-no-second-source fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X1:Nope dec 2 1 1e4 >& stb-term-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk preserve-absent-port pass
+else
+  echo stbchk preserve-absent-port fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

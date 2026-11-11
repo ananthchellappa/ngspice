@@ -363,6 +363,7 @@ extern void com_destroy(wordlist* wl);
 extern void com_unalias(wordlist* wl);
 extern void com_undefine(wordlist* wl);
 extern void com_remcirc(wordlist* wl);
+extern void inp_stb_discard(void);
 extern void unset_all(void);
 
 #include "ngspice/sharedspice.h"
@@ -2632,6 +2633,12 @@ static int totalreset(void)
        needed it and doc/codex/issues/0066 is why; this call covers the rest
        and is what doc/codex/issues/0061 originally added it for */
     inp_netlist_read_reset();
+    /* and what a read that was abandoned has collected for the terminal
+       probes of the stb analysis (src/frontend/inpc_stb.c): the probes of
+       a deck that never became a circuit, the texts of its marker cards,
+       and the flag that an expansion is going on, which the next deck's
+       XSPICE bridge expansion must not find set */
+    inp_stb_discard();
     sh_delete_myvec();
 
 #ifdef THREADS

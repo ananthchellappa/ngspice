@@ -1,0 +1,149 @@
+* stb under casemode=distinguish: a terminal of an instance as the probe
+*
+* Under distinguish two spellings are two names, so this deck has pairs of
+* instances that differ only by case, each in a loop of its own. The loops
+* are told apart by their gain A; loopgain = -A / (1 + j f/fp),
+* fp = 1/(2 pi 1k 1u):
+*   X1:In   A = 20      x1:In   A = 10     (two instances of Amp)
+*   G5:3    A = 5       g5:3    A = 2      (two elements of the top level)
+*
+* stb has to break the loop of the instance that is spelled as the probe
+* is. A position and the name of the port are one terminal and get one
+* source (X1:1 and X1:In). The name of a port is a name of the deck as
+* well: X1:in names no port of Amp, which has In and Out, and is refused
+* when the netlist is read. What the reader inserts is in the lines "stb:
+* probe ... inserted as ..." of the expected output: four sources, one
+* for each terminal.
+*
+* Under fold or preserve this deck does not load at all (the second of
+* each pair is a duplicate), so every verdict below needs the mode.
+.subckt Amp In Out
+G1 a 0 In 0 1m
+R1 a 0 1k
+C1 a 0 1u
+G2 0 Out a 0 1m
+.ends
+X1 Fb Fb Amp
+Rf Fb 0 20k
+x1 Fc Fc Amp
+Rg Fc 0 10k
+G5 a5 0 Fd 0 1m
+R5 a5 0 1k
+C5 a5 0 1u
+G6 0 Fd a5 0 1m
+Rh Fd 0 5k
+g5 a6 0 Fe 0 1m
+R6 a6 0 1k
+C6 a6 0 1u
+G7 0 Fe a6 0 1m
+Ri Fe 0 2k
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+set sp0 = $curplot
+stb X1:In dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-port-upper-x pass
+else
+  echo stbchk distinguish-port-upper-x fail
+end
+
+set sp0 = $curplot
+stb x1:In dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-port-lower-x pass
+else
+  echo stbchk distinguish-port-lower-x fail
+end
+
+set sp0 = $curplot
+stb X1:1 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-port-upper-x-by-position pass
+else
+  echo stbchk distinguish-port-upper-x-by-position fail
+end
+
+set sp0 = $curplot
+stb x1:1 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-port-lower-x-by-position pass
+else
+  echo stbchk distinguish-port-lower-x-by-position fail
+end
+
+set sp0 = $curplot
+stb G5:3 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-element-upper-g pass
+else
+  echo stbchk distinguish-element-upper-g fail
+end
+
+set sp0 = $curplot
+stb g5:3 dec 2 1 1e4 > stb-term-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 2/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-element-lower-g pass
+else
+  echo stbchk distinguish-element-lower-g fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X1:in dec 2 1 1e4 >& stb-term-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-port-in-other-spelling-is-no-port pass
+else
+  echo stbchk distinguish-port-in-other-spelling-is-no-port fail
+end
+
+* one terminal, one probe, and one source for each of the two instances
+op
+let k = 0
+let k = (abs(v(X1#stb1) - v(Fb)) < 1e-12) & (abs(v.X1#stb1#branch) < 1e-15) & (abs(v(x1#stb1) - v(Fc)) < 1e-12) & (abs(v.x1#stb1#branch) < 1e-15) & (abs(v(G5#stb3) - v(Fd)) < 1e-12) & (abs(v(g5#stb3) - v(Fe)) < 1e-12)
+if k
+  echo stbchk distinguish-one-source-each pass
+else
+  echo stbchk distinguish-one-source-each fail
+end
+
+let n0 = 1
+let n0 = 0 * length(v(X1#stb1_2))
+let n1 = 1
+let n1 = 0 * length(v(x1#stb1_2))
+let n2 = 1
+let n2 = 0 * length(v(G5#stb3_2))
+let n3 = 1
+let n3 = 0 * length(v(g5#stb3_2))
+let n4 = 1
+let n4 = 0 * length(v(X1#stb2))
+if n0 & n1 & n2 & n3 & n4
+  echo stbchk distinguish-no-second-source pass
+else
+  echo stbchk distinguish-no-second-source fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

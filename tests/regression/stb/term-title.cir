@@ -1,0 +1,38 @@
+rm1 is the first word of this title, and the title is no element line
+*
+* stb: the title of the deck is not searched for the instance of a probe
+*
+* The first line of a deck is its title, whatever it says. Here it starts
+* with the name of the resistor rm1. The probe rm1:1 names the element
+* rm1 of the deck, which is the only one of that name: the terminal is
+* taken off the net a and the 0 V source is placed as in term-prim.cir,
+* v(b) = 0.5 V and the source has -0.5 mA.
+v1 a 0 dc 1
+rm1 a b 1k
+rb b 0 1k
+.control
+if 0
+  stb rm1:1 dec 5 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(rm1#stb1) - v(a)) < 1e-12) & (abs(v.rm1#stb1#branch + 0.5m) < 1e-12) & (abs(v(b) - 0.5) < 1e-12)
+if k
+  echo stbchk title-names-instance pass
+else
+  echo stbchk title-names-instance fail
+end
+
+* the probe runs; it is in no loop
+set nbefore = $#plots
+set sim_status = 0
+stb rm1:1 dec 5 1 1e6 > term-title.stblog
+let const.nadded = $#plots - $nbefore
+if ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk title-probe-runs pass
+else
+  echo stbchk title-probe-runs fail
+end
+.endc
+.end
