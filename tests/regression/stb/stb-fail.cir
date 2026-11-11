@@ -1,0 +1,339 @@
+* stb: a command that cannot run says so in one line and makes no plot
+*
+* Each bad command is run with its messages sent to a file. The file must
+* hold a line that starts the report with "Error: stb:" and names the
+* probe as it was written; sim_status is 1, no plot was added and the
+* current plot is what it was. A good command afterwards runs.
+*
+* The loop is that of stb-flat.cir: loopgain = -10 / (1 + j f/fp).
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.control
+let const.fp = 1/(2*pi*1k*1u)
+op
+set nbefore = $#plots
+set cbefore = $curplot
+
+* no source of that name
+set sim_status = 0
+stb vnothere dec 10 1 1e6 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vnothere: no such instance in the circuit"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-no-such-source pass
+else
+  echo stbchk fail-no-such-source fail
+end
+
+* an instance that is not a voltage source
+set sim_status = 0
+stb r1 dec 10 1 1e6 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe r1 is a Resistor, not a voltage source"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-not-a-source pass
+else
+  echo stbchk fail-not-a-source fail
+end
+
+setcs up = "VNOTHERE"
+* the probe is named as it was written
+set sim_status = 0
+stb $up dec 10 1 1e6 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe VNOTHERE: no such instance in the circuit"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-upper-case-name pass
+else
+  echo stbchk fail-upper-case-name fail
+end
+
+* no points
+set sim_status = 0
+stb vprb dec 0 1 1e6 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-no-points pass
+else
+  echo stbchk fail-no-points fail
+end
+
+* a logarithmic sweep from 0 Hz
+set sim_status = 0
+stb vprb dec 10 0 1e6 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-start-not-positive pass
+else
+  echo stbchk fail-start-not-positive fail
+end
+
+* stop below start
+set sim_status = 0
+stb vprb dec 10 1e6 1 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-stop-below-start pass
+else
+  echo stbchk fail-stop-below-start fail
+end
+
+* no sweep
+set sim_status = 0
+stb vprb >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-sweep-missing pass
+else
+  echo stbchk fail-sweep-missing fail
+end
+
+* an unknown kind of sweep
+set sim_status = 0
+stb vprb log 10 1 1e6 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-step-word pass
+else
+  echo stbchk fail-step-word fail
+end
+
+* values missing
+set sim_status = 0
+stb vprb dec 10 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-values-missing pass
+else
+  echo stbchk fail-values-missing fail
+end
+
+* an argument that does not exist
+set sim_status = 0
+stb vprb dec 10 1 1e6 foo=1 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-unknown-argument pass
+else
+  echo stbchk fail-unknown-argument fail
+end
+
+* a number of points that no sweep can have is not read as a number
+set sim_status = 0
+stb vprb dec 1e30 1 100 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: the line cannot be read"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-points-out-of-range pass
+else
+  echo stbchk fail-points-out-of-range fail
+end
+
+* a step that is too small to change the frequency: 0.5 Hz at 1e16 Hz
+set sim_status = 0
+stb vprb lin 5 1e16 10000000000000002 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-step-too-small pass
+else
+  echo stbchk fail-step-too-small fail
+end
+
+* a stop frequency that is not a finite number
+set sim_status = 0
+stb vprb dec 1 1 1e400 >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: "
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-stop-not-finite pass
+else
+  echo stbchk fail-stop-not-finite fail
+end
+
+* no probe at all
+set sim_status = 0
+stb  >& stb-fail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-fail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: no probe"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk fail-no-probe pass
+else
+  echo stbchk fail-no-probe fail
+end
+
+* a good command still runs
+stb vprb dec 5 1 1e6 > stb-fail.stblog
+strstr pos "$curplot" "stb"
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if ($pos eq 0) & k & ($sim_status eq 0)
+  echo stbchk fail-good-afterwards pass
+else
+  echo stbchk fail-good-afterwards fail
+end
+.endc
+.end

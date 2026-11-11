@@ -1,0 +1,58 @@
+* stb: an AC matrix that cannot be solved
+*
+* The loop of stb-flat.cir with its capacitor split in two, c1 and c2 in
+* series. Node n between them has no path for direct current, so at 0 Hz
+* the AC matrix is singular. The operating point would fail first; the
+* circuit is linear and the option noopac skips it.
+*
+* A sweep that starts at 0 Hz gives one "Error: stb:" line that names the
+* frequency, and no plot. A sweep that stays away from 0 Hz runs, with
+* C = c1 c2 / (c1 + c2) = 0.5 uF:  loopgain = -10 / (1 + j f/fp),
+* fp = 1/(2 pi 1k 0.5u).
+*
+* (Sparse solver. This guards the report; it is not a case that was seen
+* failing before the analysis handled it.)
+.option noopac
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x n 1u
+c2 n 0 1u
+.control
+let const.fp = 1/(2*pi*1k*0.5u)
+set nbefore = $#plots
+set cbefore = $curplot
+
+set sim_status = 0
+stb vprb lin 3 0 2k >& stb-singular.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-singular.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vprb: cannot solve the AC matrix at 0 Hz"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk singular-reported pass
+else
+  echo stbchk singular-reported fail
+end
+
+set sim_status = 0
+stb vprb lin 3 1k 3k > stb-singular.stblog
+strcmp same "$curplot" "$cbefore"
+let k = 0
+let k = (length(loopgain) eq 3) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0) & ($sim_status eq 0)
+  echo stbchk singular-good-afterwards pass
+else
+  echo stbchk singular-good-afterwards fail
+end
+.endc
+.end

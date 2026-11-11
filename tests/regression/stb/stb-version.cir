@@ -1,0 +1,19 @@
+* stb: the variable stb_version says that the loop-gain analysis exists
+*
+* A script tests $?stb_version before it uses the stb command.
+v1 a 0 1
+r1 a 0 1k
+.control
+if $?stb_version
+  echo stbchk version-set pass
+  if $stb_version = 1
+    echo stbchk version-value pass
+  else
+    echo stbchk version-value fail
+  end
+else
+  echo stbchk version-set fail
+  echo stbchk version-value fail
+end
+.endc
+.end

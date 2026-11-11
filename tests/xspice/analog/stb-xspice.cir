@@ -1,0 +1,71 @@
+* stb: a loop through an analog code model, with event-driven instances present
+*
+* The loop of tests/regression/stb/stb-flat.cir with the amplifier made of
+* the code model "gain":  loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi r1 c1).
+* The bridge and the inverter are not in the loop; they make the operating
+* point go through the event-driven solver.
+*
+* The same loop gain is built from two ac analyses in the script, and the
+* stb plot can be left and selected again.
+vprb x y dc 0
+aamp y out amp
+.model amp gain(gain=-10)
+r1 out x 1k
+c1 x 0 1u
+iinj 0 x dc 0 ac 0
+*
+vlevel lev 0 dc 1
+abridge [lev] [dlev] adc
+.model adc adc_bridge(in_low=0.3 in_high=0.7)
+ainv dlev dq inv
+.model inv d_inverter(rise_delay=1n fall_delay=1n)
+.control
+pre_codemodel $analog_codemodel
+pre_codemodel $digital_codemodel
+let const.fp = 1/(2*pi*1k*1u)
+
+stb vprb dec 5 1 1e6 > stb-xspice.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if ($pos eq 0) & k
+  echo stbchk xspice-closed-form pass
+else
+  echo stbchk xspice-closed-form fail
+end
+
+* two ac analyses: a voltage injection, then a current injection
+alter @vprb[acmag] = 1
+ac dec 5 1 1e6
+set a1 = $curplot
+alter @vprb[acmag] = 0
+alter @iinj[acmag] = 1
+ac dec 5 1 1e6
+let ia = {$a1}.vprb#branch
+let va = {$a1}.x
+let ib = vprb#branch
+let vb = v(x)
+let kk = 2*(ia*vb - va*ib) + va + ib
+let tt = kk/(1 - kk)
+let k = 0
+let k = (length(tt) eq 31) & (vecmax(abs({$sp}.loopgain + tt)/abs(tt)) < 1e-9)
+if k
+  echo stbchk xspice-two-ac pass
+else
+  echo stbchk xspice-two-ac fail
+end
+
+* leave the stb plot and come back
+setplot const
+setplot $sp
+strcmp same "$curplot" "$sp"
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if ($same eq 0) & k
+  echo stbchk xspice-setplot-back pass
+else
+  echo stbchk xspice-setplot-back fail
+end
+.endc
+.end

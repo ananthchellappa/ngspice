@@ -1,3 +1,4 @@
 codemodel @top_builddir@/src/xspice/icm/xtradev/xtradev.cm
 set analog_codemodel = @top_builddir@/src/xspice/icm/analog/analog.cm
+set digital_codemodel = @top_builddir@/src/xspice/icm/digital/digital.cm
 set sourcepath = ( $ngspice_vpath . )

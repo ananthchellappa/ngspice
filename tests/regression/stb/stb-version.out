@@ -1,0 +1,8 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the variable stb_version says that the loop-gain analysis exists
+
+stbchk version-set pass
+stbchk version-value pass

@@ -149,6 +149,13 @@ com_ac(wordlist *wl)
 
 
 void
+com_stb(wordlist *wl)
+{
+    dosim("stb", wl);
+}
+
+
+void
 com_tf(wordlist *wl)
 {
     dosim("tf", wl);
@@ -216,6 +223,7 @@ static int dosim(
     char buf[BSIZE_SP];
     struct circ *ct;
     int err = 0;
+    struct plot *before = plot_list; /* the newest plot before this run */
     /* set file type to binary or to what is given by environmental
        variable SPICE_ASCIIRAWFILE in ivars.c */
     bool ascii = AsciiRawFile;
@@ -378,7 +386,24 @@ static int dosim(
 
     /* execute the .measure statements */
     if (!err && ft_curckt->ci_last_an && ft_curckt->ci_meas) {
-        do_measure(ft_curckt->ci_last_an, FALSE);
+        if (plot_cur && ciprefix("stb", plot_cur->pl_typename)) {
+            /* A loop-gain analysis runs last and takes no .measure
+             * lines: they are evaluated on the plot that the analysis
+             * before it has made in this run, if there is one. (There is
+             * none when the run has written its results to a file.) */
+            struct plot *cur = plot_cur, *pl;
+            for (pl = plot_list; pl && pl != before; pl = pl->pl_next)
+                if (ciprefix(ft_curckt->ci_last_an, pl->pl_typename))
+                    break;
+            if (pl && pl != before) {
+                plot_setcur(pl->pl_typename);
+                do_measure(ft_curckt->ci_last_an, FALSE);
+                plot_setcur(cur->pl_typename);
+            }
+        }
+        else {
+            do_measure(ft_curckt->ci_last_an, FALSE);
+        }
     }
 
     return err;

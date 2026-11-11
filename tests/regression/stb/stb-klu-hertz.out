@@ -1,0 +1,31 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: sources that depend on "hertz", with the klu solver
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+stbchk klu-hertz-linear pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+stbchk klu-hertz-operating-point pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 1
+stbchk klu-hertz-op-after pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+stbchk klu-hertz-again pass
+Note: Simulation executed from .control section 

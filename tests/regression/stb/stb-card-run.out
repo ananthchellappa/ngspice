@@ -1,0 +1,16 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: .stb cards run by "run"
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 3
+
+No. of Data Rows : 31
+stbchk card-run-plot pass
+stbchk card-run-both-cards pass
+Note: Simulation executed from .control section 

@@ -1,0 +1,90 @@
+* stb: a .stb card does not take the .meas cards away from the other analyses
+*
+* "run" does the ac analysis and then the loop-gain analysis, which always
+* comes last. The .meas ac card is evaluated on the ac plot, as it is
+* without the .stb card, and the loop-gain plot is the current plot when
+* "run" returns.
+*
+* The closed loop: v(x)/v(in) = 10/11 / (1 + j f/(11 fp)), fp = 1/(2 pi r1 c1)
+* = 159.15 Hz, so |v(x)| at 1 Hz is 0.909091 to six digits.
+vprb x y dc 0
+e1 out 0 in y 10
+vin in 0 dc 0 ac 1
+r1 out x 1k
+c1 x 0 1u
+.ac dec 5 1 1e6
+.stb vprb dec 5 1 1e6
+.meas ac lowgain find vm(x) at=1
+.control
+set measoutfile = stb-dotmeas-run.stblog
+run > stb-dotmeas.stblog
+unset measoutfile
+
+strstr pos "$curplot" "stb"
+let k = 0
+let k = length(loopgain) eq 31
+if ($pos eq 0) & k
+  echo stbchk dotmeas-stb-plot-last pass
+else
+  echo stbchk dotmeas-stb-plot-last fail
+end
+
+* the measurement was made, once, and has the closed-loop value
+let const.nmeas = 0
+let const.nvalue = 0
+set n1 = 1
+fopen f1 stb-dotmeas-run.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "lowgain"
+  if $p1 >= 0
+    let const.nmeas = const.nmeas + 1
+    strstr p2 "_$ln" "9.09091e-01"
+    if $p2 >= 0
+      let const.nvalue = const.nvalue + 1
+    end
+  end
+end
+fclose $f1
+if (const.nmeas eq 1) & (const.nvalue eq 1)
+  echo stbchk dotmeas-ac-card pass
+else
+  echo stbchk dotmeas-ac-card fail
+end
+
+* a stb command by itself evaluates no .meas ac card: the file named by
+* measoutfile is not written again
+echo untouched > stb-dotmeas-cmd.stblog
+set measoutfile = stb-dotmeas-cmd.stblog
+stb vprb dec 5 1 1e6 > stb-dotmeas.stblog
+unset measoutfile
+strstr pos "$curplot" "stb"
+let const.nkept = 0
+let const.nmeas = 0
+set n1 = 1
+fopen f1 stb-dotmeas-cmd.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "untouched"
+  if $p1 >= 0
+    let const.nkept = const.nkept + 1
+  end
+  strstr p1 "_$ln" "easurements"
+  if $p1 >= 0
+    let const.nmeas = const.nmeas + 1
+  end
+end
+fclose $f1
+if ($pos eq 0) & (const.nkept eq 1) & (const.nmeas eq 0)
+  echo stbchk dotmeas-stb-command pass
+else
+  echo stbchk dotmeas-stb-command fail
+end
+
+* (without this, ngspice in batch mode would run a deck that has a .meas
+* card once more after this script)
+quit
+.endc
+.end

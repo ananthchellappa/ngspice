@@ -458,6 +458,9 @@ extern int SENstartup(CKTcircuit *, int);
 #endif
 
 extern int SPIinit(IFfrontEnd *, IFsimulator **);
+extern int STBan(CKTcircuit *, int);
+extern int STBaskQuest(CKTcircuit *, JOB *, int , IFvalue *);
+extern int STBsetParm(CKTcircuit *, JOB *, int , IFvalue *);
 extern int TFanal(CKTcircuit *, int);
 extern int TFaskQuest(CKTcircuit *, JOB *, int , IFvalue *);
 extern int TFsetParm(CKTcircuit *, JOB *, int , IFvalue *);

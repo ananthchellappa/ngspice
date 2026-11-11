@@ -1,0 +1,109 @@
+* stb: the AC values of sources are ignored, their DC values are not
+*
+* Loop a (nodes x, y; see stb-bilateral.cir): T = (ga + gb)/(G1 + G2 + G3).
+* r3 goes to a voltage source vz that has "ac 1". For the loop gain vz is a
+* short, so r3 loads node x:  T = 6 mS / (0.2 + 0.8 + 0.5) mS = 4. Were vz
+* left out, T would be 6. The current source i1 (ac 1) is an open circuit,
+* and the probe's own "ac 1" is ignored too. An ac analysis afterwards sees
+* all three AC values: with v(x) - v(y) = 1, v(z) = 1 and 1 A into x,
+*     v(x) = (1 + G3 + ga + G2) / (G1 + G2 + G3 + ga + gb) = 1.0023 / 7.5m
+*
+* Loop b (nodes p, q, o): the probe carries a DC value, vq = -12 V. The
+* source bq squares v(q), so the operating point obeys v(q)^2 + v(q) = 12,
+* v(q) = 3, and the gain of bq there is -2 v(q) = -6:  loopgain = -6.
+* With the DC value dropped it would be 0 or +2.
+*
+* Loop c (nodes hx, hy): gb is replaced by a source whose gain grows with
+* the frequency, bh = 5 mS (1 + hertz/1k). The operating point is solved
+* again at each frequency, and
+*     T = (ga + gb(f)) / (G1 + G2) = 6 + 5 f/1k
+* The same loop gain is also built from two ac analyses in the script.
+.options reltol=1e-9 vntol=1e-12 abstol=1e-15
+vp x y dc 0 ac 1
+ga x 0 y 0 1m
+gb y 0 x 0 5m
+r1 x 0 5k
+r2 y 0 1.25k
+r3 x z 2k
+vz z 0 dc 0 ac 1
+i1 0 x dc 0 ac 1
+*
+vq p q dc -12 ac 1
+bq o 0 v = -v(q)*v(q)
+rq o p 1k
+.nodeset v(q)=3
+*
+vh hx hy dc 0
+gh hx 0 hy 0 1m
+bh hy 0 i = 5m*v(hx)*(1 + hertz/1k)
+r4 hx 0 5k
+r5 hy 0 1.25k
+ih 0 hx dc 0 ac 0
+.control
+* loop a
+stb vp dec 2 1 1e4 > stb-sources.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 4)) < 1e-9)
+if k
+  echo stbchk sources-ac-ignored pass
+else
+  echo stbchk sources-ac-ignored fail
+end
+
+* loop b
+stb vq dec 2 1 1e4 > stb-sources.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k
+  echo stbchk sources-dc-kept pass
+else
+  echo stbchk sources-dc-kept fail
+end
+
+* the AC values are still there for an ac analysis
+ac lin 1 1k 1k
+let k = 0
+let k = (abs(v(z)[0] - 1) < 1e-12) & (abs(v(x)[0] - 1.0023/7.5m) < 1e-9) & (abs(v(x)[0] - v(y)[0] - 1) < 1e-9)
+if k
+  echo stbchk sources-ac-kept-for-ac pass
+else
+  echo stbchk sources-ac-kept-for-ac fail
+end
+
+* loop c against its closed form
+stb vh dec 5 100 1e4 > stb-sources.stblog
+set sp = $curplot
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6 + 5*real(frequency)/1k)/(6 + 5*real(frequency)/1k)) < 1e-9)
+if k
+  echo stbchk sources-hertz-closed-form pass
+else
+  echo stbchk sources-hertz-closed-form fail
+end
+
+* loop c from two ac analyses: a voltage injection, then a current injection
+alter @vp[acmag] = 0
+alter @vz[acmag] = 0
+alter @i1[acmag] = 0
+alter @vq[acmag] = 0
+alter @vh[acmag] = 1
+ac dec 5 100 1e4
+set a1 = $curplot
+alter @vh[acmag] = 0
+alter @ih[acmag] = 1
+ac dec 5 100 1e4
+let ia = {$a1}.vh#branch
+let va = {$a1}.hx
+let ib = vh#branch
+let vb = v(hx)
+let kk = 2*(ia*vb - va*ib) + va + ib
+let tt = kk/(1 - kk)
+let k = 0
+let k = (length(tt) eq 11) & (vecmax(abs({$sp}.loopgain + tt)/abs(tt)) < 1e-9)
+if k
+  echo stbchk sources-hertz-two-ac pass
+else
+  echo stbchk sources-hertz-two-ac fail
+end
+.endc
+.end

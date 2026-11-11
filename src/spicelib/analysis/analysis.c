@@ -15,6 +15,7 @@ extern SPICEanalysis TFinfo;
 extern SPICEanalysis DISTOinfo;
 extern SPICEanalysis NOISEinfo;
 extern SPICEanalysis SENSinfo;
+extern SPICEanalysis STBinfo;
 
 #ifdef RFSPICE
 extern SPICEanalysis SPinfo;
@@ -56,6 +57,8 @@ SPICEanalysis *analInfo[] = {
     & HBinfo,
 #endif
 #endif
+    /* last, so that it changes the number of no other analysis */
+    &STBinfo,
 };
 
 

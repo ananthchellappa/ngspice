@@ -1,0 +1,37 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the klu solver
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk klu-flat pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 9
+stbchk klu-dc-kept pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 1
+stbchk klu-op-after pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk klu-ac-after pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk klu-stb-again pass
+Note: Simulation executed from .control section 
