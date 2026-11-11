@@ -16,6 +16,12 @@
    the analysis looks them up, and those of the .control section also
    with the stored deck, so that 'reset' inserts them again.
 
+   An instance inside a subcircuit instance is named by the path of the
+   instances, x1.x2.r3, or by the name it has in the circuit, r.x1.x2.r3.
+   A terminal is its position on the instance line, counted from 1, the
+   name of the port for a subcircuit instance, or one of the letters
+   below for a transistor.
+
    Adding sources to a deck that is being read is what .probe does as
    well, see inpc_probe.c.
  */
@@ -27,6 +33,11 @@
 #include "ngspice/inpdefs.h"
 #include "ngspice/stringskip.h"
 #include "ngspice/wordlist.h"
+
+#ifdef XSPICE
+#include "ngspice/ifsim.h"
+#include "ngspice/mifparse.h"
+#endif
 
 #include "inp.h"
 #include "inpcom.h"
@@ -60,6 +71,7 @@ struct stb_probe {
     char *key;              /* set when the terminal has been found */
     struct stb_ins *ins;    /* NULL when the probe is refused */
     char *reason;           /* why it is refused */
+    bool posnote;           /* its number is also the name of a port */
     struct stb_probe *next;
 };
 
@@ -91,6 +103,75 @@ stb_all_digits(const char *s)
         if (!isdigit_c(*s))
             return FALSE;
     return TRUE;
+}
+
+
+/* The letters of the terminals of a device, in the order of the nodes on
+ * its line, or NULL. */
+static const char *
+stb_letters(char dev)
+{
+    switch (dev) {
+    case 'm':
+        return "dgsb";
+    case 'q':
+        return "cbes";
+    case 'j': case 'z':
+        return "dgs";
+    default:
+        return NULL;
+    }
+}
+
+
+/* An instance inside a subcircuit instance has its path behind its
+ * letter in the circuit: r0 of x1 is r.x1.r0. The letter is there once
+ * more for each instance on the path whose subcircuit is defined inside
+ * another one, since that instance is expanded with the definition
+ * around it: r1 of xi of x3 is r.x3.r.xi.r1. Returns the path, x1.r0 or
+ * x3.xi.r1, of such a name, and the name itself if it is not of that
+ * kind. The caller owns it. */
+static char *
+stb_path(const char *name)
+{
+    const char *leaf = strrchr(name, '.');
+    const char *s;
+    char *path, *d;
+
+    if (!leaf || leaf <= name + 1 || name[1] != '.' || name[0] != leaf[1])
+        return copy(name);
+
+    path = d = TMALLOC(char, strlen(name));
+    for (s = name + 2; *s; ) {
+        if (s[0] == name[0] && s[1] == '.') {
+            s += 2;
+            continue;
+        }
+        while (*s && *s != '.')
+            *d++ = *s++;
+        if (*s)
+            *d++ = *s++;
+    }
+    *d = '\0';
+
+    return path;
+}
+
+
+/* Is name the name that the instance with this path has in the circuit? */
+static bool
+stb_names(const char *name, const char *path)
+{
+    char *p;
+    bool same;
+
+    if (*path != 'x' || !name[0] || name[1] != '.')
+        return FALSE;
+    p = stb_path(name);
+    same = eq(p, path);
+    tfree(p);
+
+    return same;
 }
 
 
@@ -365,6 +446,7 @@ stb_add(const char *word)
     p->key = NULL;
     p->ins = NULL;
     p->reason = NULL;
+    p->posnote = FALSE;
     p->next = NULL;
     if (!*p->inst || !*p->term)
         p->reason = copy("malformed terminal probe");
@@ -491,8 +573,6 @@ inp_stb_xcard(const char *xline, const char *subname, const char *formals,
     int nactual = 0;
     int i;
 
-    NG_IGNORE(globals);
-
     for (p = pending; p; p = p->next)
         if (eq(p->inst, name))
             break;
@@ -539,6 +619,11 @@ inp_stb_xcard(const char *xline, const char *subname, const char *formals,
                     p->reason = tprintf("%s has %d terminals", name, nformals);
                 continue;
             }
+            /* a number is a position, also where a port has it as its
+             * name */
+            for (i = 0; i < nformals; i++)
+                if (i != k - 1 && eq(formal[i], p->term))
+                    p->posnote = TRUE;
         } else {
             for (i = 0; i < nformals && !k; i++)
                 if (eq(formal[i], p->term))
@@ -557,6 +642,26 @@ inp_stb_xcard(const char *xline, const char *subname, const char *formals,
                 }
                 continue;
             }
+        }
+
+        /* A port that is a global node: the elements of the subcircuit
+         * are on the global net, whatever the instance line has. A port
+         * that has the name of an earlier one: the node of the instance
+         * line is not used. */
+        if (nghash_find(globals, formal[k - 1])) {
+            if (!p->key && !p->reason)
+                p->reason = tprintf("port %d of %s is a global node and is not connected through the instance line",
+                                    k, subname);
+            continue;
+        }
+        for (i = 0; i < k - 1; i++)
+            if (eq(formal[i], formal[k - 1]))
+                break;
+        if (i < k - 1) {
+            if (!p->key && !p->reason)
+                p->reason = tprintf("port %d of %s has the same name as port %d",
+                                    k, subname, i + 1);
+            continue;
         }
 
         /* two spellings of one port share the source */
@@ -633,6 +738,7 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
 {
     char *line = c->line;
     char *name = stb_first_token(line);
+    const char *letters = stb_letters(*name);
     struct stb_ins *h;
     char *start, *end;
     char *key, *ynode;
@@ -640,10 +746,10 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
 
     switch (*name) {
     case 'a':
-        p->reason = tprintf("%s is a code model instance; place a voltage source", name);
+        p->reason = tprintf("%s is a code model instance; place a voltage source", p->inst);
         break;
     case 'k':
-        p->reason = tprintf("%s has no terminals", name);
+        p->reason = tprintf("%s has no terminals", p->inst);
         break;
     case 'w': case 'f': case 'h':
         n = 2;
@@ -660,7 +766,7 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
     }
 
     if (!p->reason && n < 1)
-        p->reason = tprintf("the terminals of %s cannot be counted", name);
+        p->reason = tprintf("the terminals of %s cannot be counted", p->inst);
 
     /* a count that is wrong would put the new node in the place of the
      * model: the word after the nodes of these devices is a model */
@@ -673,19 +779,57 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
             tfree(model);
         }
         if (!ok)
-            p->reason = tprintf("the terminals of %s cannot be counted", name);
+            p->reason = tprintf("the terminals of %s cannot be counted", p->inst);
+    }
+
+    /* An E or G source with an expression: the reader has put its
+     * controlling input on a node of its own, which a B source drives.
+     * The node has the name of the source, after its path if it is
+     * inside an instance, and _int1 behind it. */
+    if (!p->reason && (*name == 'e' || *name == 'g') &&
+        stb_token(line, 3, &start, &end)) {
+        const char *leaf = strrchr(name, '.');
+        char *made = tprintf("%s_int1", leaf ? leaf + 1 : name);
+        size_t len = strlen(made);
+
+        if ((size_t) (end - start) >= len &&
+            strncmp(end - len, made, len) == 0 &&
+            (end - len == start || *(end - len - 1) == '.'))
+            p->reason = tprintf("%s is a source with an expression and is replaced by other elements; place a voltage source", p->inst);
+        tfree(made);
     }
 
     if (!p->reason) {
-        if (!stb_all_digits(p->term))
+        const char *l = NULL;
+
+        if (letters && p->term[0] && !p->term[1])
+            l = strchr(letters, p->term[0]);
+        if (stb_all_digits(p->term)) {
+            if (strlen(p->term) < 9)
+                k = atoi(p->term);
+        } else if (l && l - letters < n) {
+            k = (int) (l - letters) + 1;
+        } else if (letters) {
+            /* the letters of the nodes that the line has */
+            char *list = TMALLOC(char, 2 * strlen(letters) + 1);
+            int i;
+
+            for (i = 0; letters[i] && i < n; i++) {
+                list[2 * i] = letters[i];
+                list[2 * i + 1] = ' ';
+            }
+            list[i > 0 ? 2 * i - 1 : 0] = '\0';
+            p->reason = tprintf("%s has no terminal named %s (1 to %d, or %s)",
+                                p->inst, p->term, n, list);
+            tfree(list);
+        } else {
             p->reason = tprintf("%s has no terminal named %s (1 to %d)",
-                                name, p->term, n);
-        else if (strlen(p->term) < 9)
-            k = atoi(p->term);
+                                p->inst, p->term, n);
+        }
     }
 
     if (!p->reason && (k < 1 || k > n || !stb_token(line, k, &start, &end)))
-        p->reason = tprintf("%s has %d terminals", name, n);
+        p->reason = tprintf("%s has %d terminals", p->inst, n);
 
     if (p->reason) {
         tfree(name);
@@ -804,6 +948,205 @@ stb_ic_twin(struct card *deck)
 }
 
 
+/* The card of the element called name, or NULL. With bypath, name is
+ * the path of the instances of the element. *count receives the number
+ * of the cards that have this name. */
+static struct card *
+stb_find_card(struct card *deck, const char *name, bool bypath, int *count)
+{
+    struct card *found = NULL;
+    struct card *c;
+
+    *count = 0;
+    for (c = deck; c; c = c->nextcard)
+        if (stb_live(c)) {
+            char *first = stb_first_token(c->line);
+            if (bypath ? stb_names(first, name) : eq(first, name)) {
+                found = c;
+                (*count)++;
+            }
+            tfree(first);
+        }
+
+    return found;
+}
+
+
+/* No card has the name of the instance of a probe. The reader has
+ * replaced some elements by others, which have names of their own:
+ *   R, C, L with a value that is an expression: a B source, b<name>
+ *   (r1 of x1: b.x1.br1)
+ *   a POLY source: a code model instance, a$poly$<name in the circuit>
+ * An instance of a subcircuit that is defined inside another subcircuit
+ * is expanded with that one, before the instance lines of the deck: its
+ * elements are there, its instance line was never seen.
+ * Returns the reason, which the caller owns. */
+static char *
+stb_why_missing(struct card *deck, const char *inst)
+{
+    char *path = stb_path(inst);
+    const char *dot = strrchr(path, '.');
+    const char *leaf = dot ? dot + 1 : path;
+    char *bsrc = NULL;
+    char *reason = NULL;
+    size_t len = strlen(path);
+    struct card *c;
+
+    if (*leaf && strchr("rcl", *leaf))
+        bsrc = tprintf("%.*sb%s", (int) (leaf - path), path, leaf);
+
+    for (c = deck; c && !reason; c = c->nextcard) {
+        char *first, *made;
+
+        if (!stb_live(c))
+            continue;
+        first = stb_first_token(c->line);
+        if (ciprefix("a$poly$", first)) {
+            made = stb_path(first + 7);
+            if (eq(made, path))
+                reason = tprintf("%s is a POLY source; place a voltage source", inst);
+        } else {
+            made = stb_path(first);
+            if (bsrc && eq(made, bsrc))
+                reason = tprintf("%s has a behavioural value and is replaced by other elements; place a voltage source", inst);
+            else if (dot && *leaf == 'x' &&
+                     strncmp(made, path, len) == 0 && made[len] == '.')
+                reason = tprintf("%s is an instance of a subcircuit that is defined inside another one; its ports cannot be probes, name a terminal of one of its elements", inst);
+        }
+        tfree(made);
+        tfree(first);
+    }
+
+    tfree(bsrc);
+    tfree(path);
+
+    return reason ? reason : tprintf("no instance named %s", inst);
+}
+
+
+#ifdef XSPICE
+
+/* The word that ends before s on the line, with the brackets that open
+ * a group of nodes skipped. Returns its start and sets *end, or returns
+ * NULL if there is no word in front of s in its group. */
+static char *
+stb_word_before(char *line, char *s, char **end)
+{
+    while (s > line && (isspace_c(s[-1]) || s[-1] == '(' || s[-1] == '['))
+        s--;
+    *end = s;
+    while (s > line && !isspace_c(s[-1]) && !strchr("()[]", s[-1]))
+        s--;
+
+    return s < *end ? s : NULL;
+}
+
+
+/* Is the port type between s and end one of an analog node? */
+static bool
+stb_analog_type(const char *s, const char *end)
+{
+    static const char *const types[] = {
+        "v", "vd", "i", "id", "g", "gd", "h", "hd", "vnam"
+    };
+    size_t len = (size_t) (end - s);
+    size_t i;
+
+    for (i = 0; i < NUMELEMS(types); i++)
+        if (strlen(types[i]) == len && strncmp(types[i], s, len) == 0)
+            return TRUE;
+
+    return FALSE;
+}
+
+
+/* The node at 'at' on the line of a code model instance: is it on an
+ * analog port? The type that is written in front of the port decides,
+ * %v node or %vd(node node). Without one, the port has the type that
+ * its model gives it, and which port of the model it is is not worked
+ * out here: the node counts as analog only if no port of the model is
+ * digital or of a type of the user. */
+static bool
+stb_analog_port(struct card *deck, char *line, char *at)
+{
+    char *w, *end, *model, *s;
+    struct card *c;
+    size_t len;
+    int i, j;
+
+    if (at > line && at[-1] == '~')
+        return FALSE;
+
+    w = stb_word_before(line, at, &end);
+    if (w && *w != '%') {
+        /* the second node of a differential port */
+        w = stb_word_before(line, w, &end);
+        if (w && (*w != '%' || end - w < 3 || end[-1] != 'd'))
+            w = NULL;
+    }
+    if (w && *w == '%')
+        return stb_analog_type(w + 1, end);
+
+    /* the model is the last word of the line */
+    for (end = line + strlen(line); end > line && isspace_c(end[-1]); end--)
+        ;
+    for (s = end; s > line && !isspace_c(s[-1]); s--)
+        ;
+    model = copy_substring(s, end);
+    len = strlen(model);
+
+    for (c = deck; c; c = c->nextcard) {
+        if (!c->line || !ciprefix(".model", c->line) || !isspace_c(c->line[6]))
+            continue;
+        s = skip_ws(c->line + 6);
+        if (strncmp(s, model, len) != 0 || !isspace_c(s[len]))
+            continue;
+        s = skip_ws(s + len);
+        for (end = s; *end && !isspace_c(*end) && *end != '('; end++)
+            ;
+        break;
+    }
+    tfree(model);
+    if (!c)
+        return FALSE;
+
+    for (i = 0; i < ft_sim->numDevices; i++) {
+        IFdevice *dev = ft_sim->devices[i];
+
+        if (!dev || strlen(dev->name) != (size_t) (end - s) ||
+            !ciprefix(dev->name, s))
+            continue;
+        for (j = 0; j < dev->num_conn; j++)
+            if (dev->conn[j].default_port_type >= MIF_DIGITAL)
+                return FALSE;
+        return dev->num_conn > 0;
+    }
+
+    return FALSE;
+}
+
+
+/* Is the node on a port of a code model instance that is not analog? A
+ * 0 V source there would make the reader add a bridge. */
+static bool
+stb_on_digital(struct card *deck, const char *node)
+{
+    struct card *c;
+
+    for (c = deck; c; c = c->nextcard)
+        if (stb_live(c) && *c->line == 'a') {
+            char *at = stb_occurs(c->line, node);
+
+            if (at && !stb_analog_port(deck, c->line, at))
+                return TRUE;
+        }
+
+    return FALSE;
+}
+
+#endif
+
+
 /* The deck is flat: the subcircuits are expanded, the parameters are
  * numbers, the inactive branches of .if are comments. Find the terminals
  * of the probes that name an element, add the 0 V sources, and say what
@@ -869,6 +1212,20 @@ inp_stb_insert(struct card *deck)
         }
     }
 
+#ifdef XSPICE
+    /* a port that leads to a digital port of a code model */
+    for (h = hits; h; h = h->next) {
+        if (!h->live || !h->used || !stb_on_digital(deck, h->xnode))
+            continue;
+        for (p = pending; p; p = p->next)
+            if (p->ins == h) {
+                p->ins = NULL;
+                p->reason = copy("the port leads to a digital or mixed code model port; write the type of an analog port (%v) on the code model line, or place a voltage source");
+            }
+        h->used = FALSE;
+    }
+#endif
+
     /* a new node that no probe stands for goes back to its net */
     for (h = hits; h; h = h->next)
         if (h->live && !h->used) {
@@ -878,22 +1235,17 @@ inp_stb_insert(struct card *deck)
 
     /* elements */
     for (p = pending; p; p = p->next) {
-        struct card *found = NULL;
-        int n = 0;
+        struct card *found;
+        int n;
 
         if (p->key || p->reason)
             continue;
-        for (c = deck; c; c = c->nextcard)
-            if (stb_live(c)) {
-                char *name = stb_first_token(c->line);
-                if (eq(name, p->inst)) {
-                    found = c;
-                    n++;
-                }
-                tfree(name);
-            }
+        found = stb_find_card(deck, p->inst, FALSE, &n);
         if (n == 0)
-            p->reason = tprintf("no instance named %s", p->inst);
+            /* by the path of its instances */
+            found = stb_find_card(deck, p->inst, TRUE, &n);
+        if (n == 0)
+            p->reason = stb_why_missing(deck, p->inst);
         else if (n > 1)
             p->reason = tprintf("%s is not a unique instance name", p->inst);
         else
@@ -910,7 +1262,10 @@ inp_stb_insert(struct card *deck)
 
     stb_ic_twin(deck);
 
-    for (p = pending; p; p = p->next)
+    for (p = pending; p; p = p->next) {
+        if (p->posnote)
+            fprintf(cp_out, "stb: probe %s: %s is taken as a position, not as the port named %s\n",
+                    p->text, p->term, p->term);
         if (p->ins) {
             if (!p->ins->said)
                 fprintf(cp_out, "stb: probe %s inserted as %s (x = %s, y = %s)\n",
@@ -920,6 +1275,7 @@ inp_stb_insert(struct card *deck)
             fprintf(cp_out, "stb: probe %s not inserted: %s\n",
                     p->text, p->reason);
         }
+    }
 }
 
 
@@ -947,15 +1303,34 @@ inp_stb_take(void)
 }
 
 
+/* Does the word name the terminal that the source was inserted at? */
+static bool
+stb_same_terminal(const struct stb_ins *h, const char *term)
+{
+    const char *letters, *l;
+
+    if (stb_all_digits(term))
+        return strlen(term) < 9 && atoi(term) == h->pos;
+    if (h->port)
+        return h->tname && eq(h->tname, term);
+    letters = stb_letters(*h->inst);
+    l = (letters && term[0] && !term[1]) ? strchr(letters, term[0]) : NULL;
+
+    return l && l - letters == h->pos - 1;
+}
+
+
 /* For the analysis: the source that was inserted for the terminal probe.
  * Returns 0 and the name of the source, 1 and the reason if the probe was
- * collected but could not be inserted, -1 if it was not collected. */
+ * collected but could not be inserted, -1 if it was not collected. A
+ * probe that was not collected in this spelling is found if it names a
+ * terminal that has a source. */
 int
 inp_stb_lookup(CKTcircuit *ckt, const char *probe, const char **vname,
                const char **reason)
 {
     struct stb_probe *p;
-    char *text;
+    char *text, *colon;
     int ret = -1;
 
     if (!ft_curckt || ft_curckt->ci_ckt != ckt)
@@ -975,6 +1350,19 @@ inp_stb_lookup(CKTcircuit *ckt, const char *probe, const char **vname,
                 ret = 1;
             }
         }
+
+    colon = strrchr(text, ':');
+    if (ret < 0 && colon && colon > text && colon[1]) {
+        char *inst = copy_substring(text, colon);
+
+        for (p = ft_curckt->ci_stbprobes; p && ret < 0; p = p->next)
+            if (p->ins && stb_same_terminal(p->ins, colon + 1) &&
+                (eq(p->ins->inst, inst) || stb_names(p->ins->inst, inst))) {
+                *vname = p->ins->vname;
+                ret = 0;
+            }
+        tfree(inst);
+    }
 
     tfree(text);
     return ret;

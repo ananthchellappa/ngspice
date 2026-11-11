@@ -1,0 +1,133 @@
+* stb: polynomial sources and code model instances as terminal probes
+*
+* The reader makes a code model instance of a source that is written
+* with POLY. Neither that source nor an instance that the deck writes as
+* a code model can have a terminal probe: the probes ep:1, xp.g1:3,
+* g.xp.g1:3 and aamp:1 are refused with the reason, and the commands
+* with them fail with it. So is xo.xi.g1:3, a POLY source in an instance
+* of a subcircuit that is defined inside another one. The circuit is
+* that of the deck:
+*   v(ep) = 2 v(n1) = 2 V,  v(np) = v(nq) = -1 mA/V * 1 V * 1k = -1 V,
+*   v(ao) = v(bo) = 3 v(n1) = 3 V
+*
+* A net whose name begins with the word poly is a node like any other:
+* e2:3, the controlling input of e2 on the net polyb, is inserted and
+* has no current; e2 still sees v(polyb) = 0.25 mA * 1k = 0.25 V and
+* v(eo) = 0.5 V. (Without XSPICE the reader takes such a line for a
+* POLY source and stops, with or without a probe.)
+*
+* A port of a subcircuit that leads to an analog port of a code model is
+* a place for a probe like any other: xb:in is inserted. The input of
+* the amplifier takes no current.
+v1 n1 0 dc 1
+ep ep 0 poly(1) n1 0 0 2
+rep ep 0 1k
+.subckt ps a b
+g1 b 0 poly(1) a 0 0 1m
+.ends
+xp n1 np ps
+rnp np 0 1k
+.subckt po a b
+.subckt pi a b
+g1 b 0 poly(1) a 0 0 1m
+.ends
+xi a b pi
+.ends
+xo n1 nq po
+rnq nq 0 1k
+ip 0 polyb dc 0.25m
+rp polyb 0 1k
+e2 eo 0 polyb 0 2
+reo eo 0 1k
+aamp n1 ao amp
+.model amp gain(gain=3)
+rao ao 0 1k
+.subckt buf in out
+abuf in out amp
+.ends
+xb n1 bo buf
+rbo bo 0 1k
+.control
+pre_codemodel $analog_codemodel
+pre_codemodel $spice2poly_codemodel
+if 0
+  stb ep:1 dec 5 1 1e6
+  stb xp.g1:3 dec 5 1 1e6
+  stb g.xp.g1:3 dec 5 1 1e6
+  stb aamp:1 dec 5 1 1e6
+  stb xo.xi.g1:3 dec 5 1 1e6
+  stb xb:in dec 5 1 1e6
+  stb e2:3 dec 5 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(ep) - 2) < 1e-9) & (abs(v(np) + 1) < 1e-9) & (abs(v(nq) + 1) < 1e-9) & (abs(v(ao) - 3) < 1e-9) & (abs(v(bo) - 3) < 1e-9)
+if k
+  echo stbchk poly-values pass
+else
+  echo stbchk poly-values fail
+end
+let k = 0
+let k = (abs(v(xb#stb1) - 1) < 1e-12) & (abs(v.xb#stb1#branch) < 1e-12)
+if k
+  echo stbchk poly-analog-port-inserted pass
+else
+  echo stbchk poly-analog-port-inserted fail
+end
+let k = 0
+let k = (abs(v(e2#stb3) - v(polyb)) < 1e-12) & (abs(v.e2#stb3#branch) < 1e-15) & (abs(v(polyb) - 0.25) < 1e-12) & (abs(v(eo) - 0.5) < 1e-9)
+if k
+  echo stbchk poly-node-named-poly pass
+else
+  echo stbchk poly-node-named-poly fail
+end
+echo begin > stb-term-poly.stberr
+let const.nfailed = 0
+foreach pr ep:1 xp.g1:3 g.xp.g1:3 aamp:1 xo.xi.g1:3
+  set sim_status = 0
+  stb $pr dec 5 1 1e6 >>& stb-term-poly.stberr
+  if $sim_status eq 1
+    let const.nfailed = const.nfailed + 1
+  end
+end
+let const.nline = 0
+let const.ngood = 0
+set n1 = 1
+fopen f1 stb-term-poly.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe ep:1: ep is a POLY source; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe xp.g1:3: xp.g1 is a POLY source; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe g.xp.g1:3: g.xp.g1 is a POLY source; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe xo.xi.g1:3: xo.xi.g1 is a POLY source; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe aamp:1: aamp is a code model instance; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+end
+fclose $f1
+if (const.nfailed eq 5) & (const.nline eq 5) & (const.ngood eq 5)
+  echo stbchk poly-commands-refused pass
+else
+  echo stbchk poly-commands-refused fail
+end
+.endc
+.end

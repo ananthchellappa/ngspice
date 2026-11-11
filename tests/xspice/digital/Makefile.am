@@ -3,7 +3,8 @@
 TESTS = \
 	d_ram.cir          \
 	d_source.cir       \
-	d_state.cir
+	d_state.cir        \
+	stb-term-digital.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) SPICE_SCRIPTS=. $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -r foobaz"
 
@@ -14,5 +15,7 @@ EXTRA_DIST = \
 	d_state-updn.txt \
 	$(TESTS) \
 	$(TESTS:.cir=.out)
+
+CLEANFILES = *.stberr
 
 MAINTAINERCLEANFILES = Makefile.in

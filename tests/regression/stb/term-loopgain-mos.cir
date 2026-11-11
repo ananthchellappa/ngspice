@@ -1,0 +1,86 @@
+* stb: the loop gain at the gate of a transistor that is a subcircuit
+*
+* Two amplifiers of the same values, each with its feedback resistor
+* from the output to the input. In the first, xamp, the loop is broken
+* by the probe xamp.xm3:g, the port g of the transistor instance inside
+* the amplifier. The second is an instance of a copy of the definition
+* that has a 0 V source vh placed by hand at that gate, its positive
+* node on the side of the transistor.
+*
+* The gate takes a current through the overlap capacitances, so the two
+* responses of the method both count. At 1 Hz the capacitors are open:
+* no current in rf, the net g has the voltage of the output, and
+*   loopgain = -gm / (1/rl + gds)
+* with gm and gds of the transistor at its operating point. The loop
+* gain falls through 0 dB behind the two poles (rf with cg, the output
+* with cl), so there is a phase margin.
+.subckt nfet d g s b w=1u l=1u
+m1 d g s b nm w={w} l={l}
+.model nm nmos level=1 vto=0.5 kp=100u lambda=0.02 cgso=1n cgdo=1n
+.ends
+.subckt amp in out vdd vss
+xm3 out in vss vss nfet w=10u l=1u
+rl vdd out 100k
+cl out vss 1p
+.ends
+.subckt amph in out vdd vss
+vh gx in dc 0
+xm3 out gx vss vss nfet w=10u l=1u
+rl vdd out 100k
+cl out vss 1p
+.ends
+xamp g out vdd 0 amp
+rf out g 1meg
+cg g 0 2p
+xamph gh outh vdd 0 amph
+rfh outh gh 1meg
+cgh gh 0 2p
+vdd vdd 0 3.3
+.control
+stb v.xamph.vh dec 10 1 1e9 > term-loopgain-mos.stblog
+set hand = $curplot
+let const.gm = @m.xamph.xm3.m1[gm]
+let const.gds = @m.xamph.xm3.m1[gds]
+let const.t0 = const.gm/(1/100k + const.gds)
+let k = 0
+let k = (length(loopgain) eq 91) & (abs(loopgain[0] + const.t0) < 1e-4*const.t0) & (const.t0 > 10) & (const.t0 < 40)
+setplot $stb_marginplot
+let const.pmh = 0
+let const.pmh = phasemargin
+let const.pfh = phasemarginfreq
+setplot $hand
+if k & (const.pmh > 5) & (const.pmh < 90) & (const.pfh > 100k) & (const.pfh < 100meg)
+  echo stbchk loopgain-mos-hand pass
+else
+  echo stbchk loopgain-mos-hand fail
+end
+
+stb xamp.xm3:g dec 10 1 1e9 > term-loopgain-mos.stblog
+set bygate = $curplot
+strcmp same "$bygate" "$hand"
+let k = 0
+let k = (length(loopgain) eq 91) & (vecmax(abs(loopgain - {$hand}.loopgain)/abs({$hand}.loopgain)) < 1e-9)
+setplot $stb_marginplot
+let const.km = 0
+let const.km = (abs(phasemargin - const.pmh) < 1e-6) & (abs(phasemarginfreq/const.pfh - 1) < 1e-9)
+setplot $bygate
+if k & const.km & ($same ne 0)
+  echo stbchk loopgain-mos-port-of-the-gate pass
+else
+  echo stbchk loopgain-mos-port-of-the-gate fail
+end
+
+* the gate of the device itself, by its path and its letter: the same
+* loop, since the port g of xm3 has nothing but that gate
+stb xamp.xm3.m1:g dec 10 1 1e9 > term-loopgain-mos.stblog
+set bydev = $curplot
+strcmp same "$bydev" "$bygate"
+let k = 0
+let k = (length(loopgain) eq 91) & (vecmax(abs(loopgain - {$hand}.loopgain)/abs({$hand}.loopgain)) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk loopgain-mos-gate-of-the-device pass
+else
+  echo stbchk loopgain-mos-gate-of-the-device fail
+end
+.endc
+.end

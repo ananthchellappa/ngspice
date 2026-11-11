@@ -1,0 +1,33 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the loop gain at the gate of a transistor that is a subcircuit
+
+stb: probe xamp.xm3:g inserted as v.xamp.xm3#stb2 (x = xamp.xm3#stb2, y = g)
+stb: probe xamp.xm3.m1:g inserted as v.m.xamp.xm3.m1#stb2 (x = m.xamp.xm3.m1#stb2, y = xamp.xm3#stb2)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 91
+
+No. of Data Rows : 1
+stbchk loopgain-mos-hand pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 91
+
+No. of Data Rows : 1
+stbchk loopgain-mos-port-of-the-gate pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 91
+
+No. of Data Rows : 1
+stbchk loopgain-mos-gate-of-the-device pass
+Note: Simulation executed from .control section 

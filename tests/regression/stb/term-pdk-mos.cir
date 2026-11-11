@@ -1,0 +1,83 @@
+* stb: the gate of a transistor that is a subcircuit, two levels down
+*
+* A transistor of a process kit is a subcircuit: the amplifier has the
+* instances xm3 and xm4 of nfet, and the device itself is m1 inside.
+* There are two instances of the amplifier, xamp and xamp2, with the same
+* surroundings.
+*
+*   xamp.xm3:g  the port g of the instance xm3 inside xamp; xamp.xm3:2
+*               is the same terminal
+*   m.xamp.xm4.m1:g  the gate of the device inside xm4, by the name the
+*               device has in the circuit; xamp.xm4.m1:2 is the same
+*               terminal, by the path of its instances
+*
+* Two sources are made, both inside xamp. No current flows into a gate,
+* each new node has the voltage of the net g, and xamp2 is not touched:
+* its nets and its drain currents are those of xamp.
+.subckt nfet d g s b w=1u l=1u
+m1 d g s b nm w={w} l={l}
+.model nm nmos level=1 vto=0.5 kp=100u lambda=0.02
+.ends
+.subckt amp in out vdd vss
+xm3 out in vss vss nfet w=10u l=1u
+xm4 o2 in vss vss nfet w=20u l=1u
+rl2 vdd o2 100k
+rl vdd out 100k
+.ends
+xamp g out vdd 0 amp
+xamp2 g2 out2 vdd 0 amp
+rf out g 1meg
+rf2 out2 g2 1meg
+vdd vdd 0 3.3
+.control
+if 0
+  stb xamp.xm3:g dec 10 1 1e6
+  stb xamp.xm3:2 dec 10 1 1e6
+  stb m.xamp.xm4.m1:g dec 10 1 1e6
+  stb xamp.xm4.m1:2 dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(xamp.xm3#stb2) - v(g)) < 1e-12) & (abs(v.xamp.xm3#stb2#branch) < 1e-12)
+if k
+  echo stbchk pdk-port-of-inner-instance pass
+else
+  echo stbchk pdk-port-of-inner-instance fail
+end
+let k = 0
+let k = (abs(v(m.xamp.xm4.m1#stb2) - v(g)) < 1e-12) & (abs(v.m.xamp.xm4.m1#stb2#branch) < 1e-12)
+if k
+  echo stbchk pdk-device-in-inner-instance pass
+else
+  echo stbchk pdk-device-in-inner-instance fail
+end
+* the bias is that of a self-biased stage: the gate is at the drain
+let k = 0
+let k = (abs(v(out) - v(out2)) < 1e-9) & (abs(v(xamp.o2) - v(xamp2.o2)) < 1e-9) & (abs(v(g) - v(out)) < 1e-9) & (v(out) > 0.5) & (v(out) < 1)
+if k
+  echo stbchk pdk-second-amplifier-equal pass
+else
+  echo stbchk pdk-second-amplifier-equal fail
+end
+let k = 0
+let k = (abs(@m.xamp.xm3.m1[id] - @m.xamp2.xm3.m1[id]) < 1e-12) & (abs(@m.xamp.xm4.m1[id] - @m.xamp2.xm4.m1[id]) < 1e-12) & (abs(@m.xamp.xm3.m1[id] - (3.3 - v(out))/100k) < 1e-9) & (@m.xamp.xm3.m1[id] > 1u)
+if k
+  echo stbchk pdk-drain-id-equal pass
+else
+  echo stbchk pdk-drain-id-equal fail
+end
+* no source in xamp2, and one for each terminal in xamp
+let k2 = 1
+let k2 = 0 * length(v(xamp2.xm3#stb2))
+let k3 = 1
+let k3 = 0 * length(v(m.xamp2.xm4.m1#stb2))
+let k4 = 1
+let k4 = 0 * length(v(xamp.xm3#stb2_2))
+if k2 & k3 & k4
+  echo stbchk pdk-nothing-else pass
+else
+  echo stbchk pdk-nothing-else fail
+end
+.endc
+.end

@@ -172,7 +172,9 @@ set(pkglibdir "${CMAKE_BINARY_DIR}/codemodels")
 configure_file(spinit.in "${CMAKE_BINARY_DIR}/scripts/spinit" @ONLY)
 file(APPEND "${CMAKE_BINARY_DIR}/scripts/spinit"
      "\n* resolve .include against the directory of the test netlist\nset sourcepath = ( $ngspice_vpath . )\n"
-     "set analog_codemodel = ${CMAKE_BINARY_DIR}/codemodels/analog.cm\n")
+     "set analog_codemodel = ${CMAKE_BINARY_DIR}/codemodels/analog.cm\n"
+     "set digital_codemodel = ${CMAKE_BINARY_DIR}/codemodels/digital.cm\n"
+     "set spice2poly_codemodel = ${CMAKE_BINARY_DIR}/codemodels/spice2poly.cm\n")
 
 # ---------------------------------------------------------------------------
 # Executables and libraries

@@ -1,0 +1,57 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a terminal of a transistor by its letter; a port named by a number
+
+stb: probe m1:g inserted as v.m1#stb2 (x = m1#stb2, y = gg)
+stb: probe m2:b inserted as v.m2#stb4 (x = m2#stb4, y = 0)
+stb: probe q1:b inserted as v.q1#stb2 (x = q1#stb2, y = bq)
+stb: probe q1:e inserted as v.q1#stb3 (x = q1#stb3, y = 0)
+stb: probe q1:s not inserted: q1 has no terminal named s (1 to 3, or c b e)
+stb: probe j1:d inserted as v.j1#stb1 (x = j1#stb1, y = jd)
+stb: probe z1:s inserted as v.z1#stb3 (x = z1#stb3, y = zs)
+stb: probe xs:2: 2 is taken as a position, not as the port named 2
+stb: probe xs:2 inserted as v.xs#stb2 (x = xs#stb2, y = pb)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+bq = 7.358171e-01
+cq = 7.358178e-01
+d = 1.750000e+00
+gg = 1.000000e+00
+j1#stb1 = 2.000000e+00
+jd = 2.000000e+00
+js = 1.000000e+00
+m1#stb2 = 1.000000e+00
+m2#stb4 = 0.000000e+00
+pa = 1.000000e+00
+pb = 5.000000e-01
+q1#stb2 = 7.358171e-01
+q1#stb3 = 0.000000e+00
+v.j1#stb1#branch = -1.00000e-03
+v.m1#stb2#branch = 0.000000e+00
+v.m2#stb4#branch = 0.000000e+00
+v.q1#stb2#branch = -2.26418e-06
+v.q1#stb3#branch = 2.286824e-04
+v.xs#stb2#branch = 5.000000e-04
+v.z1#stb3#branch = 3.517800e-04
+v1#branch = -5.00000e-04
+vdd = 3.000000e+00
+vdd#branch = -1.71546e-03
+xs#stb2 = 5.000000e-01
+z1#stb3 = 3.517800e-01
+zd = 2.648220e+00
+zs = 3.517800e-01
+stbchk letters-mos-gate pass
+stbchk letters-one-source pass
+stbchk letters-mos-bulk pass
+stbchk letters-bjt-base pass
+stbchk letters-bjt-emitter pass
+stbchk letters-bjt-no-substrate pass
+stbchk letters-jfet-drain pass
+stbchk letters-mesfet-source pass
+stbchk letters-port-number pass
+Note: Simulation executed from .control section 

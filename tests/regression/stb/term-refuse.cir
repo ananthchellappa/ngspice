@@ -1,0 +1,273 @@
+* stb: terminal probes that cannot be inserted
+*
+* A probe that cannot be inserted never stops the deck from loading. The
+* reader prints one line "stb: probe ... not inserted:" with the reason
+* for each, and the command with that probe fails with the same reason
+* in its one "Error: stb:" line. Refused here:
+*   an instance that is not there; a position that the element does not
+*   have; a letter that the device does not have (g1 has none, m1 has
+*   d g s b, q1 has three nodes and so c b e);
+*   a port that is a global node: the elements of the subcircuit are on
+*   the global net whatever the instance line says;
+*   a port that has the name of an earlier port: the node of the
+*   instance line is not used for it;
+*   an unknown port, by position and by name;
+*   a port of an instance of a subcircuit that is defined inside another
+*   subcircuit;
+*   R, C, L with a value that is an expression, and E, G with an
+*   expression: the reader replaces them by other elements. By the path
+*   of the instances, by the name in the circuit, at the top of the deck,
+*   inside an instance, and inside an instance of a subcircuit that is
+*   defined inside another one (r1 of xi of x5 is r.x5.r.xi.r1 in the
+*   circuit);
+*   the controlling source of an F (a name, not a node), a coupling, a
+*   probe with no terminal.
+* The 24 refused probes add nothing to the circuit: the vectors are
+* those of the deck and of the one good probe, r9:1, whose source has
+* the 1 mA that g1 pulls through r9.
+.global vdd
+.subckt s1 a vdd
+r1 a vdd 1k
+.ends
+.subckt dup a a b
+r1 a b 1k
+.ends
+.subckt outer p q
+.subckt inner m n
+r1 m n 1k
+.ends
+xi p q inner
+.ends
+.subckt obeh p q
+.subckt ibeh m n
+r1 m n r='1k*(1+v(m)*v(m))'
+e1 k 0 vol='v(m)*2'
+re k 0 1k
+.ends
+xi p q ibeh
+.ends
+.subckt beh a b
+r1 a b r='1k*(1+v(a)*v(a))'
+c1 a 0 c='1p*(1+v(a)*v(a))'
+l1 a k l='1m*(1+v(a)*v(a))'
+rk k 0 1k
+e1 m 0 vol='v(a)*2'
+re m 0 1k
+.ends
+v1 n1 0 dc 1
+vdd vdd 0 dc 2
+x1 n1 n2 s1
+x2 n1 n4 n5 dup
+r5 n5 0 1k
+x3 n1 n7 outer
+r7 n7 0 1k
+x4 n1 n8 beh
+r8 n8 0 1k
+x5 n1 n11 obeh
+r11 n11 0 1k
+rt n1 nt r='1k*(1+v(n1))'
+rt2 nt 0 1k
+gt 0 ng cur='v(n1)*1m'
+rng ng 0 1k
+g1 n9 0 n1 0 1m
+r9 n9 0 1k
+vs s 0 dc 0
+f1 n10 0 vs 2
+r10 n10 0 1k
+l1 n1 la 1m
+l2 lb 0 1m
+k1 l1 l2 0.5
+rla la 0 1k
+rlb lb 0 1k
+vd3 d3 0 dc 3
+rd d3 d 10k
+m1 d gg 0 0 nm w=10u l=1u
+rg1 d3 gg 200k
+rg2 gg 0 100k
+.model nm nmos level=1 vto=0.5 kp=100u
+q1 n1 qb 0 qn
+rqb n1 qb 100k
+.model qn npn
+.control
+if 0
+  stb nothere:1 dec 5 1 1e6
+  stb g1:5 dec 5 1 1e6
+  stb g1:0 dec 5 1 1e6
+  stb g1:d dec 5 1 1e6
+  stb m1:x dec 5 1 1e6
+  stb q1:s dec 5 1 1e6
+  stb x1:vdd dec 5 1 1e6
+  stb x1:3 dec 5 1 1e6
+  stb x1:foo dec 5 1 1e6
+  stb x2:2 dec 5 1 1e6
+  stb x3.xi:m dec 5 1 1e6
+  stb x4.r1:1 dec 5 1 1e6
+  stb x4.c1:1 dec 5 1 1e6
+  stb l.x4.l1:2 dec 5 1 1e6
+  stb rt:1 dec 5 1 1e6
+  stb x4.e1:3 dec 5 1 1e6
+  stb gt:1 dec 5 1 1e6
+  stb x5.xi.r1:1 dec 5 1 1e6
+  stb r.x5.r.xi.r1:2 dec 5 1 1e6
+  stb x5.xi.e1:3 dec 5 1 1e6
+  stb e.x5.e.xi.e1:3 dec 5 1 1e6
+  stb f1:3 dec 5 1 1e6
+  stb k1:1 dec 5 1 1e6
+  stb r9: dec 5 1 1e6
+  stb r9:1 dec 5 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(r9#stb1) - v(n9)) < 1e-12) & (abs(v.r9#stb1#branch - 1m) < 1e-12) & (abs(v(n9) + 1) < 1e-12)
+if k
+  echo stbchk refuse-good-probe-inserted pass
+else
+  echo stbchk refuse-good-probe-inserted fail
+end
+
+* each refused probe as a command: one line each, with the reason
+set nbefore = $#plots
+set cbefore = $curplot
+echo begin > term-refuse.stberr
+let const.nfailed = 0
+foreach pr nothere:1 g1:5 g1:0 g1:d m1:x q1:s x1:vdd x1:3 x1:foo x2:2 x3.xi:m x4.r1:1 x4.c1:1 l.x4.l1:2 rt:1 x4.e1:3 gt:1 x5.xi.r1:1 r.x5.r.xi.r1:2 x5.xi.e1:3 e.x5.e.xi.e1:3 f1:3 k1:1 r9:
+  set sim_status = 0
+  stb $pr dec 5 1 1e6 >>& term-refuse.stberr
+  if $sim_status eq 1
+    let const.nfailed = const.nfailed + 1
+  end
+end
+let const.nline = 0
+let const.ngood = 0
+set n1 = 1
+fopen f1 term-refuse.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe nothere:1: no instance named nothere"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe g1:5: g1 has 4 terminals"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe g1:0: g1 has 4 terminals"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe g1:d: g1 has no terminal named d (1 to 4)"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe m1:x: m1 has no terminal named x (1 to 4, or d g s b)"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe q1:s: q1 has no terminal named s (1 to 3, or c b e)"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x1:vdd: port 2 of s1 is a global node and is not connected through the instance line"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x1:3: x1 has 2 terminals"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x1:foo: x1 has no terminal named foo (1 to 2, the ports of s1: a vdd)"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x2:2: port 2 of dup has the same name as port 1"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x3.xi:m: x3.xi is an instance of a subcircuit that is defined inside another one; its ports cannot be probes, name a terminal of one of its elements"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x4.r1:1: x4.r1 has a behavioural value and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x4.c1:1: x4.c1 has a behavioural value and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe l.x4.l1:2: l.x4.l1 has a behavioural value and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe rt:1: rt has a behavioural value and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x4.e1:3: x4.e1 is a source with an expression and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe gt:1: gt is a source with an expression and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x5.xi.r1:1: x5.xi.r1 has a behavioural value and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe r.x5.r.xi.r1:2: r.x5.r.xi.r1 has a behavioural value and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe x5.xi.e1:3: x5.xi.e1 is a source with an expression and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe e.x5.e.xi.e1:3: e.x5.e.xi.e1 is a source with an expression and is replaced by other elements; place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe f1:3: f1 has 2 terminals"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe k1:1: k1 has no terminals"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe r9:: malformed terminal probe"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nfailed eq 24) & (const.nline eq 24) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk refuse-each-command-fails pass
+else
+  echo stbchk refuse-each-command-fails fail
+end
+if const.ngood eq 24
+  echo stbchk refuse-reasons pass
+else
+  echo stbchk refuse-reasons fail
+  echo stbchk refuse-reasons found $&const.ngood
+end
+
+* the good probe runs afterwards: g1 and r9 are no loop
+set sim_status = 0
+stb r9:1 dec 5 1 1e6 > term-refuse.stblog
+let const.nadded = $#plots - $nbefore
+if ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk refuse-good-probe-runs pass
+else
+  echo stbchk refuse-good-probe-runs fail
+end
+.endc
+.end

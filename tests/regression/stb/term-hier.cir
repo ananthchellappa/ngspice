@@ -1,0 +1,150 @@
+* stb: terminal probes down the hierarchy
+*
+* v1 holds n8 at 1 V.
+*
+*   x4:i      a port that the subcircuit hands on to a child. x4 takes
+*             0.5 mA through xl.r1 (n9 is at 0.5 V), 0.25 mA through
+*             xl.r2 and 0.25 mA through r3: the source has -1 mA
+*   x4.xl:t   the port of the child, behind the first probe: the two
+*             sources are in series, y of the inner one is x of the
+*             outer one. The child takes 0.75 mA, 0.25 mA less
+*   x1.r0:1   a resistor inside an instance, by the path of its
+*             instances; r.x1.r0:1 is the same terminal by the name the
+*             resistor has in the circuit. One source: it has the
+*             current of r0, (1 V - v(x1.m))/0.125, flowing into r0
+*   x2.r1:2   by the path only, in the other instance of ext: the
+*             current of r1 leaves it into q, v(q)/100 (x1 and x2 feed
+*             rq, 50 Ohm, with equal shares)
+*   x6:1      a port that is on ground: x is the new node, y is 0. The
+*             instance pulls v(n9)/1k out of ground there
+*   x7:p      alt has one of two bodies, chosen by the parameter sel;
+*             with sel = 1 it is r1 alone, 1k to n10, and takes 0.5 mA
+*   x7.r1:2   the second terminal of that r1: 0.5 mA leaves it into n10.
+*             The other body has an r1 as well; it is not in the circuit
+*   x8.xc.r1:1  a resistor inside an instance of a subcircuit that is
+*             defined inside another one. Such an instance is expanded
+*             with the definition around it, and the resistor is
+*             r.x8.r.xc.r1 in the circuit; r.x8.r.xc.r1:1 is the same
+*             terminal. One source: 1k to n11 and 1k from there to
+*             ground, 0.5 mA flows into r1
+*
+* n9: 1k from n8 twice (x4, x5), 1k to ground twice (r9, x6): 0.5 V.
+* n10: 1k from n8, 1k to ground: 0.5 V. x5 is not probed.
+.param sel=1
+.subckt leaf t u
+r1 t u 1k
+r2 t 0 4k
+.ends
+.subckt pass i o
+xl i o leaf
+r3 i 0 4k
+.ends
+.subckt ext a b
+r0 a m 125m
+r1 m b 10
+.ends
+.subckt box p q
+.subckt cell m n
+r1 m n 1k
+.ends
+xc p q cell
+.ends
+.subckt alt p q
+.if (sel == 1)
+r1 p q 1k
+.else
+r1 p q 2k
+xl p q leaf
+.endif
+.ends
+v1 n8 0 dc 1
+x4 n8 n9 pass
+x5 n8 n9 pass
+r9 n9 0 1k
+x1 n8 q ext
+x2 n8 q ext
+rq q 0 50
+x6 0 n9 leaf
+x7 n8 n10 alt
+r10 n10 0 1k
+x8 n8 n11 box
+r11 n11 0 1k
+.control
+if 0
+  stb x4:i dec 10 1 1e6
+  stb x4.xl:t dec 10 1 1e6
+  stb x1.r0:1 dec 10 1 1e6
+  stb r.x1.r0:1 dec 10 1 1e6
+  stb x2.r1:2 dec 10 1 1e6
+  stb x6:1 dec 10 1 1e6
+  stb x7:p dec 10 1 1e6
+  stb x7.r1:2 dec 10 1 1e6
+  stb x8.xc.r1:1 dec 10 1 1e6
+  stb r.x8.r.xc.r1:1 dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(x4#stb1) - 1) < 1e-12) & (abs(v.x4#stb1#branch + 1m) < 1e-12) & (abs(v(n9) - 0.5) < 1e-12)
+if k
+  echo stbchk hier-port-handed-on pass
+else
+  echo stbchk hier-port-handed-on fail
+end
+let k = 0
+let k = (abs(v(x4.xl#stb1) - 1) < 1e-12) & (abs(v.x4.xl#stb1#branch + 0.75m) < 1e-12)
+if k
+  echo stbchk hier-port-of-the-child pass
+else
+  echo stbchk hier-port-of-the-child fail
+end
+let k = 0
+let k = (abs(v(r.x1.r0#stb1) - 1) < 1e-12) & (abs(v.r.x1.r0#stb1#branch + (1 - v(x1.m))/0.125) < 1e-9) & (abs(v.r.x1.r0#stb1#branch + v(q)/100) < 1e-9) & (abs(v(x1.m) - v(x2.m)) < 1e-12)
+let k2 = 1
+let k2 = 0 * length(v(r.x1.r0#stb1_2))
+let k3 = 1
+let k3 = 0 * length(v(r.x2.r0#stb1))
+if k & k2 & k3
+  echo stbchk hier-resistor-inside pass
+else
+  echo stbchk hier-resistor-inside fail
+end
+let k = 0
+let k = (abs(v(r.x2.r1#stb2) - v(q)) < 1e-12) & (abs(v.r.x2.r1#stb2#branch - v(q)/100) < 1e-9) & (abs(v(q) - 50/55.0625) < 1e-9)
+if k
+  echo stbchk hier-resistor-by-path pass
+else
+  echo stbchk hier-resistor-by-path fail
+end
+let k = 0
+let k = (abs(v(x6#stb1)) < 1e-12) & (abs(v.x6#stb1#branch - v(n9)/1k) < 1e-12)
+if k
+  echo stbchk hier-port-on-ground pass
+else
+  echo stbchk hier-port-on-ground fail
+end
+let k = 0
+let k = (abs(v.x7#stb1#branch + 0.5m) < 1e-12) & (abs(v(n10) - 0.5) < 1e-12)
+if k
+  echo stbchk hier-port-of-chosen-body pass
+else
+  echo stbchk hier-port-of-chosen-body fail
+end
+let k = 0
+let k = (abs(v(r.x7.r1#stb2) - v(n10)) < 1e-12) & (abs(v.r.x7.r1#stb2#branch - 0.5m) < 1e-12)
+if k
+  echo stbchk hier-element-of-chosen-body pass
+else
+  echo stbchk hier-element-of-chosen-body fail
+end
+let k = 0
+let k = (abs(v(r.x8.r.xc.r1#stb1) - 1) < 1e-12) & (abs(v.r.x8.r.xc.r1#stb1#branch + 0.5m) < 1e-12) & (abs(v(n11) - 0.5) < 1e-12)
+let k2 = 1
+let k2 = 0 * length(v(r.x8.r.xc.r1#stb1_2))
+if k & k2
+  echo stbchk hier-inner-definition pass
+else
+  echo stbchk hier-inner-definition fail
+end
+.endc
+.end

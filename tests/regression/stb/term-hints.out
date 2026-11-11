@@ -5,7 +5,8 @@ Note: No compatibility mode selected!
 Circuit: * stb: a probe that is no voltage source is answered with a way to go on
 
 stb: probe c1:1 inserted as v.c1#stb1 (x = c1#stb1, y = x)
-stb: probe m1:2 inserted as v.m1#stb2 (x = m1#stb2, y = gg)
+stb: probe m1:g inserted as v.m1#stb2 (x = m1#stb2, y = gg)
+stb: probe q1:b inserted as v.q1#stb2 (x = q1#stb2, y = bq)
 stb: probe g1:1 inserted as v.g1#stb1 (x = g1#stb1, y = gx)
 stb: probe x1:1 inserted as v.x1#stb1 (x = x1#stb1, y = y)
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
@@ -30,6 +31,10 @@ stbchk hints-mos pass
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver
+stbchk hints-bjt pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
 stbchk hints-controlled-source pass
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
@@ -47,6 +52,13 @@ No. of Data Rows : 31
 
 No. of Data Rows : 1
 stbchk hints-port-runs pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
 Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
 
 Using SPARSE 1.3 as Direct Linear Solver

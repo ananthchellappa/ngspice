@@ -1,0 +1,139 @@
+* stb: a terminal of a transistor by its letter; a port named by a number
+*
+* The terminals of these devices have letters, in the order of the nodes
+* on the element line:
+*   M (MOS)             d g s b
+*   Q (BJT)             c b e s
+*   J, Z (JFET, MESFET) d g s
+* A letter is the position it stands for: m1:g, M1:G and m1:2 are one
+* terminal and give one source. A letter beyond the nodes the line has is
+* refused: q1 has three nodes, so no s.
+*
+*   m1:g    the gate, no current; vgs = 3 V * 100k/300k = 1 V,
+*           id = kp/2 w/l (vgs - vto)^2 = 50u * 10 * 0.25 = 125 uA,
+*           v(d) = 3 V - 125 uA * 10k = 1.75 V
+*   m2:b    the bulk of a transistor that has its drain, its source
+*           and its bulk on ground: no voltage over its junctions and
+*           no current
+*   q1:b    the base: the source has the current of rbq into the base,
+*           from its negative to its positive node
+*   q1:e    the emitter, on ground: the current of rcq and of rbq leaves
+*           the device there, from the positive node of the source to
+*           its negative node
+*   j1:d    the drain: the current of rdj enters the device
+*   z1:s    the source of the MESFET: the current of rzs leaves it
+*
+* A port is named by its position or by the name the .subckt line gives
+* it. The ports of sw are called 2 and 1, in this order: xs:2 is the
+* second port, the one called 1, and the reader says so. It is on the
+* net pb: 1 V over 1k + 1k, v(pb) = 0.5 V, and 0.5 mA leaves the
+* instance there.
+.subckt sw 2 1
+r1 2 1 1k
+.ends
+vdd vdd 0 3
+rd vdd d 10k
+m1 d gg 0 0 nm w=10u l=1u
+rg1 vdd gg 200k
+rg2 gg 0 100k
+m2 0 gg 0 0 nm w=10u l=1u
+.model nm nmos level=1 vto=0.5 kp=100u
+rcq vdd cq 10k
+q1 cq bq 0 qn
+rbq vdd bq 1meg
+.model qn npn bf=100
+rdj vdd jd 1k
+j1 jd 0 js jn
+rsj js 0 1k
+.model jn njf vto=-2 beta=1m
+rdz vdd zd 1k
+z1 zd 0 zs mes
+rzs zs 0 1k
+.model mes nmf vto=-1 beta=1m
+v1 pa 0 dc 1
+xs pa pb sw
+rpb pb 0 1k
+.control
+if 0
+  stb m1:g dec 10 1 1e6
+  stb M1:G dec 10 1 1e6
+  stb m1:2 dec 10 1 1e6
+  stb m2:b dec 10 1 1e6
+  stb q1:b dec 10 1 1e6
+  stb q1:e dec 10 1 1e6
+  stb q1:s dec 10 1 1e6
+  stb j1:d dec 10 1 1e6
+  stb z1:s dec 10 1 1e6
+  stb xs:2 dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(m1#stb2) - v(gg)) < 1e-12) & (abs(v.m1#stb2#branch) < 1e-15) & (abs(v(gg) - 1) < 1e-9) & (abs(v(d) - 1.75) < 1e-6)
+if k
+  echo stbchk letters-mos-gate pass
+else
+  echo stbchk letters-mos-gate fail
+end
+* the three spellings are one source: a second one would set this to 0
+let k2 = 1
+let k2 = 0 * length(v(m1#stb2_2))
+if k2
+  echo stbchk letters-one-source pass
+else
+  echo stbchk letters-one-source fail
+end
+let k = 0
+let k = (abs(v(m2#stb4)) < 1e-12) & (abs(v.m2#stb4#branch) < 1e-15)
+if k
+  echo stbchk letters-mos-bulk pass
+else
+  echo stbchk letters-mos-bulk fail
+end
+let k = 0
+let k = (abs(v(q1#stb2) - v(bq)) < 1e-12) & (abs(v.q1#stb2#branch + (v(vdd) - v(bq))/1meg) < 1e-12) & (v(bq) > 0.5)
+if k
+  echo stbchk letters-bjt-base pass
+else
+  echo stbchk letters-bjt-base fail
+end
+let k = 0
+let k = (abs(v(q1#stb3)) < 1e-12) & (abs(v.q1#stb3#branch - (v(vdd) - v(bq))/1meg - (v(vdd) - v(cq))/10k) < 1e-9) & (v.q1#stb3#branch > 100u)
+if k
+  echo stbchk letters-bjt-emitter pass
+else
+  echo stbchk letters-bjt-emitter fail
+end
+* q1:s is refused: no node and no source for a fourth terminal
+let k4 = 1
+let k4 = 0 * length(v(q1#stb4))
+if k4
+  echo stbchk letters-bjt-no-substrate pass
+else
+  echo stbchk letters-bjt-no-substrate fail
+end
+let k = 0
+let k = (abs(v(j1#stb1) - v(jd)) < 1e-12) & (abs(v.j1#stb1#branch + (v(vdd) - v(jd))/1k) < 1e-9) & (v(vdd) - v(jd) > 0.1)
+if k
+  echo stbchk letters-jfet-drain pass
+else
+  echo stbchk letters-jfet-drain fail
+end
+let k = 0
+let k = (abs(v(z1#stb3) - v(zs)) < 1e-12) & (abs(v.z1#stb3#branch - v(zs)/1k) < 1e-9) & (v(zs) > 0.1)
+if k
+  echo stbchk letters-mesfet-source pass
+else
+  echo stbchk letters-mesfet-source fail
+end
+let k = 0
+let k = (abs(v(xs#stb2) - v(pb)) < 1e-12) & (abs(v.xs#stb2#branch - 0.5m) < 1e-12) & (abs(v(pb) - 0.5) < 1e-12)
+let k1 = 1
+let k1 = 0 * length(v(xs#stb1))
+if k & k1
+  echo stbchk letters-port-number pass
+else
+  echo stbchk letters-port-number fail
+end
+.endc
+.end

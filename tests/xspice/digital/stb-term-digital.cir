@@ -1,0 +1,98 @@
+* stb: a port that leads to a digital code model port is refused
+*
+* A 0 V source needs analog nodes. The port in of the instance xd is on
+* an input of an inverter, an event-driven node: a source there would
+* make the reader add a bridge between the two kinds of node, and the
+* probe would break a loop that is not there. The probe xd:in is refused
+* with its reason, the node of the instance line is put back, and the
+* circuit is the one of the deck: the inverter still gets the output of
+* the bridge abr, 1, and gives 0.
+*
+* The port ain of xa is the analog input of a bridge, written with its
+* type (%v): xa:ain is inserted. The same port without the type, at xb,
+* is refused: the model has ports of both kinds and the line does not
+* say which this one is; the reason says that the type can be written.
+* A bridge takes no current.
+.subckt dig in out
+ainv in out inv
+.ends
+.subckt abr ain dout
+abr [%v ain] [dout] adc
+.ends
+.subckt abrn ain dout
+abr [ain] [dout] adc
+.ends
+vlevel lev 0 dc 1
+rlev lev 0 1k
+xa lev dn abr
+xd dn dq dig
+xb lev dn2 abrn
+.model adc adc_bridge(in_low=0.3 in_high=0.7)
+.model inv d_inverter(rise_delay=1n fall_delay=1n)
+.control
+set noaskquit
+set noacct
+if 0
+  stb xd:in dec 5 1 1e6
+  stb xa:ain dec 5 1 1e6
+  stb xb:1 dec 5 1 1e6
+end
+op
+print all
+eprint dn dq dn2
+let k = 0
+let k = (abs(v(xa#stb1) - 1) < 1e-12) & (abs(v.xa#stb1#branch) < 1e-12) & (abs(vlevel#branch + 1m) < 1e-12)
+if k
+  echo stbchk digital-analog-port-inserted pass
+else
+  echo stbchk digital-analog-port-inserted fail
+end
+* no node and no source for the refused probes: such a vector would set
+* these to 0
+let k2 = 1
+let k2 = 0 * length(v(xd#stb1))
+let k3 = 1
+let k3 = 0 * length(v(xb#stb1))
+if k2 & k3
+  echo stbchk digital-nothing-inserted pass
+else
+  echo stbchk digital-nothing-inserted fail
+end
+* the commands with the refused probes fail with the reason
+echo begin > stb-term-digital.stberr
+let const.nfailed = 0
+foreach pr xd:in xb:1
+  set sim_status = 0
+  stb $pr dec 5 1 1e6 >>& stb-term-digital.stberr
+  if $sim_status eq 1
+    let const.nfailed = const.nfailed + 1
+  end
+end
+let const.nline = 0
+let const.ngood = 0
+set n1 = 1
+fopen f1 stb-term-digital.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe xd:in: the port leads to a digital or mixed code model port; write the type of an analog port (%v) on the code model line, or place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe xb:1: the port leads to a digital or mixed code model port; write the type of an analog port (%v) on the code model line, or place a voltage source"
+  if $p1 eq 0
+    let const.ngood = const.ngood + 1
+  end
+end
+fclose $f1
+if (const.nfailed eq 2) & (const.nline eq 2) & (const.ngood eq 2)
+  echo stbchk digital-commands-refused pass
+else
+  echo stbchk digital-commands-refused fail
+end
+.endc
+.end

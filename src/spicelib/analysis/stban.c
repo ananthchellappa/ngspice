@@ -476,8 +476,9 @@ STBan(CKTcircuit *ckt, int restart)
     vtype = CKTtypelook("Vsource");
     if (inst->GENmodPtr->GENmodType != vtype) {
         if (strchr("mqjz", inst->GENname[0]))
-            fprintf(cp_err, "Error: stb: probe %s: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. %s:2\n",
-                    job->STBprobe, inst->GENname);
+            fprintf(cp_err, "Error: stb: probe %s: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. %s:%c\n",
+                    job->STBprobe, inst->GENname,
+                    inst->GENname[0] == 'q' ? 'b' : 'g');
         else if (strchr("efgh", inst->GENname[0]))
             fprintf(cp_err, "Error: stb: probe %s: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. %s:1\n",
                     job->STBprobe, inst->GENname);
