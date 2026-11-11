@@ -240,7 +240,7 @@ dot_ac(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     return (0);
 }
 
-/* .stb <probe> {DEC OCT LIN} NP FSTART FSTOP
+/* .stb <probe> {DEC OCT LIN} NP FSTART FSTOP [localgnd=<node>] [diag=1]
  *
  * A line that cannot be read does not stop the deck from loading: the job
  * is made, the problem is stored with it and is reported when it is run.
@@ -254,7 +254,8 @@ dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     int which;			/* which analysis we are performing */
     char *probe;		/* the name of the probe */
     char *steptype;		/* type of stepping function */
-    char *word;			/* what follows the sweep */
+    char *word;			/* what follows the sweep: name=value */
+    char *val;			/* the value, as it is written */
     char *msg = NULL;		/* what is wrong with the line */
     double points = 0.0, start = 0.0, stop = 0.0;
     int bad = 0;
@@ -274,7 +275,8 @@ dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     if (!*probe || cieq(probe, "dec") || cieq(probe, "oct") || cieq(probe, "lin")) {
         tfree(probe);
         msg = copy("no probe given; usage: "
-                   "stb <probe> dec|oct|lin <points> <fstart> <fstop>");
+                   "stb <probe> dec|oct|lin <points> <fstart> <fstop> "
+                   "[localgnd=<node>] [diag=1]");
         INPinsert(&msg, tab);
         ptemp.sValue = msg;
         GCA(INPapName, (ckt, which, foo, "error", &ptemp));
@@ -318,15 +320,67 @@ dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
             msg = tprintf("probe %s: the stop frequency is missing "
                           "or not a number", probe);
     }
-    if (!msg && *line) {			/* something follows */
+    while (!msg && *line) {			/* something follows */
         /* the word as it is written: up to a blank, or to the equals
          * sign that ends a name */
-        char *end = line;
+        char *end;
+        int known;
+        /* a comma before the word separates as a blank does: the stop
+         * frequency is read without the comma that follows it */
+        while (isspace_c(*line) || *line == ',')
+            line++;
+        if (!*line)
+            break;
+        end = line;
         while (*end && !isspace_c(*end) && (*end != '=' || end == line))
             end++;
         word = copy_substring(line, end);
-        msg = tprintf("probe %s: unknown argument \"%s\"", probe, word);
+        while (isspace_c(*end))
+            end++;
+        /* a word typed at the prompt has not been made lower case */
+        known = cieq(word, "localgnd") ? 1 : cieq(word, "diag") ? 2 : 0;
+        if (!known || *end != '=') {
+            msg = tprintf("probe %s: unknown argument \"%s\" "
+                          "(known: localgnd=<node>, diag=1)", probe, word);
+            tfree(word);
+            break;
+        }
         tfree(word);
+
+        /* the value: up to a blank, or to a comma, which separates on a
+         * card as a blank does, also between the equals sign and the
+         * value; if a name is given twice, the last one counts */
+        for (end++; isspace_c(*end) || *end == ','; end++)
+            ;
+        line = end;
+        while (*end && !isspace_c(*end) && *end != ',')
+            end++;
+        val = copy_substring(line, end);
+        while (isspace_c(*end) || *end == ',')
+            end++;
+        line = end;
+
+        if (known == 1) {
+            if (!*val) {
+                msg = tprintf("probe %s: localgnd needs a node name", probe);
+                tfree(val);
+            } else {
+                INPinsert(&val, tab);
+                ptemp.sValue = val;
+                GCA(INPapName, (ckt, which, foo, "localgnd", &ptemp));
+            }
+        } else {
+            char *rest;
+            double d = strtod(val, &rest);
+            if (!*val || *rest || (d != 0 && d != 1)) {
+                msg = tprintf("probe %s: diag must be 0 or 1, not \"%s\"",
+                              probe, val);
+            } else {
+                ptemp.iValue = (d != 0);
+                GCA(INPapName, (ckt, which, foo, "diag", &ptemp));
+            }
+            tfree(val);
+        }
     }
     if (!msg && !(fabs(points) < INT_MAX))	/* not a number of points */
         msg = tprintf("probe %s: the number of points is out of range "

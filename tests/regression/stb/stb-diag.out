@@ -1,0 +1,120 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: diag=1 adds the two parts of the loop gain and the four responses
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-vectors pass
+stbchk diag-loopgain pass
+stbchk diag-normal pass
+stbchk diag-reverse pass
+stbchk diag-sum pass
+stbchk diag-voltage-injection pass
+stbchk diag-injection-into-x pass
+stbchk diag-rebuilt pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-flipped-parts pass
+stbchk diag-flipped-responses pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-not-given pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-zero pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-given-twice pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-upper-case pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk diag-bad-value pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk diag-no-value pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk diag-no-equals pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-command-commas pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 21
+
+No. of Data Rows : 1
+
+No. of Data Rows : 17
+
+No. of Data Rows : 1
+
+No. of Data Rows : 13
+
+No. of Data Rows : 1
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk diag-card pass
+stbchk diag-card-commas pass
+stbchk diag-card-localgnd pass
+stbchk diag-margins-plot pass
+Note: Simulation executed from .control section 

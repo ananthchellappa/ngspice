@@ -72,6 +72,14 @@ STBsetParm(CKTcircuit *ckt, JOB *anal, int which, IFvalue *value)
         job->STBerror = value->sValue;
         break;
 
+    case STB_LOCALGND:
+        job->STBlocalGnd = value->sValue;
+        break;
+
+    case STB_DIAG:
+        job->STBdiag = value->iValue;
+        break;
+
     default:
         return(E_BADPARM);
     }
@@ -87,7 +95,9 @@ static IFparm STBparms[] = {
     { "oct",        STB_OCT,    IF_SET|IF_FLAG, "step by octaves" },
     { "lin",        STB_LIN,    IF_SET|IF_FLAG, "step linearly" },
     { "probe",      STB_PROBE,  IF_SET|IF_STRING, "voltage source in the loop" },
-    { "error",      STB_ERROR,  IF_SET|IF_STRING, "error found in the analysis line" }
+    { "error",      STB_ERROR,  IF_SET|IF_STRING, "error found in the analysis line" },
+    { "localgnd",   STB_LOCALGND, IF_SET|IF_STRING, "reference node of the probe" },
+    { "diag",       STB_DIAG,   IF_SET|IF_ASK|IF_INTEGER, "write the diagnostic vectors" }
 };
 
 SPICEanalysis STBinfo  = {

@@ -1,0 +1,428 @@
+* stb: diag=1 adds the two parts of the loop gain and the four responses
+*
+* The loop of stb-bilateral.cir, which carries signal both ways through
+* the probe (all values in mS):
+*     G1 = 1/r1 = 0.2 at x,   ga = 1, from y into x
+*     G2 = 1/r2 = 0.8 at y,   gb = 5, from x into y
+* The return ratio is T = (ga + gb)/(G1 + G2) = 6. Its two parts are the
+* normal one, through the transconductor that the node x of the probe
+* drives, and the reverse one:
+*     vp1 (x on the G1 side):  gb/(G1 + G2) = 5,  ga/(G1 + G2) = 1
+*     vp2 (x on the G2 side):  ga/(G1 + G2) = 1,  gb/(G1 + G2) = 5
+* so loopgain_normal = -5 and loopgain_reverse = -1 for vp1, the other
+* way round for vp2, and their sum is loopgain = -6 for both.
+*
+* The four responses for vp1, with S = G1 + G2 + ga + gb = 7:
+*   a unit voltage in the probe, v(x) - v(y) = 1:
+*     (G1 + gb) v(x) + (G2 + ga) v(y) = 0
+*     stb_v1 = v(x) = (G2 + ga)/S = 1.8/7
+*     stb_i1 = -G1 v(x) - ga v(y) = (ga gb - G1 G2)/S = 4.84m/7
+*   a unit current into x, v(x) = v(y) = v:
+*     stb_v2 = v = 1/S = 1000/7
+*     stb_i2 = 1 - (G1 + ga) v = 5.8/7
+* and for vp2, with the two sides exchanged: stb_v1 = 5.2/7, stb_i1 =
+* 4.84m/7, stb_v2 = 1000/7, stb_i2 = 1.2/7.
+* The loop gain is made of them as
+*     K = 2 (i1 v2 - v1 i2) + v1 + i2 = 6/7,   loopgain = -K/(1 - K)
+vp1 x m dc 0
+vp2 y m dc 0
+ga x 0 y 0 1m
+gb y 0 x 0 5m
+r1 x 0 5k
+r2 y 0 1.25k
+* Four .stb cards, run by "run" from the last to the first. In three of
+* them the words are separated by commas, which separate as blanks do,
+* also before and between the arguments that follow the sweep and after
+* the equals sign of one. The sweeps differ, so that the plot of each
+* card is known by its number of points.
+.stb vp2,dec,2,1,1e4,diag=1
+.stb vp1 dec 3 1 1e4 , diag=1
+.stb vp1 dec 4 1 1e4,diag=1,localgnd=0
+.stb vp1 dec 5 1 1e4 diag=,1 localgnd=,0
+.control
+stb vp1 dec 2 1 1e4 diag=1 > stb-diag.stblog
+
+* the plot holds the scale and seven vectors
+display > stb-diag.stblog
+let const.nvec = 0
+let const.nname = 0
+set n1 = 1
+fopen f1 stb-diag.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" " long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+    foreach nm frequency loopgain loopgain_normal loopgain_reverse stb_i1 stb_v1 stb_i2 stb_v2
+      strstr p2 "_$ln" " $nm "
+      if $p2 >= 0
+        let const.nname = const.nname + 1
+      end
+    end
+  end
+end
+fclose $f1
+if (const.nvec eq 8) & (const.nname eq 8)
+  echo stbchk diag-vectors pass
+else
+  echo stbchk diag-vectors fail
+end
+
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k
+  echo stbchk diag-loopgain pass
+else
+  echo stbchk diag-loopgain fail
+end
+
+let k = 0
+let k = (length(loopgain_normal) eq 9) & (vecmax(abs(loopgain_normal + 5)) < 1e-9)
+if k
+  echo stbchk diag-normal pass
+else
+  echo stbchk diag-normal fail
+end
+
+let k = 0
+let k = (length(loopgain_reverse) eq 9) & (vecmax(abs(loopgain_reverse + 1)) < 1e-9)
+if k
+  echo stbchk diag-reverse pass
+else
+  echo stbchk diag-reverse fail
+end
+
+let k = 0
+let k = vecmax(abs(loopgain_normal + loopgain_reverse - loopgain)) < 1e-9
+if k
+  echo stbchk diag-sum pass
+else
+  echo stbchk diag-sum fail
+end
+
+let k = 0
+let k = (vecmax(abs(stb_v1 - 1.8/7)) < 1e-12) & (vecmax(abs(stb_i1 - 4.84m/7)) < 1e-15)
+if k
+  echo stbchk diag-voltage-injection pass
+else
+  echo stbchk diag-voltage-injection fail
+end
+
+let k = 0
+let k = (vecmax(abs(stb_v2 - 1000/7)) < 1e-9) & (vecmax(abs(stb_i2 - 5.8/7)) < 1e-12)
+if k
+  echo stbchk diag-injection-into-x pass
+else
+  echo stbchk diag-injection-into-x fail
+end
+
+* the loop gain made again from the four responses
+let kk = 2*(stb_i1*stb_v2 - stb_v1*stb_i2) + stb_v1 + stb_i2
+let k = 0
+let k = (vecmax(abs(kk - 6/7)) < 1e-12) & (vecmax(abs(loopgain + kk/(1 - kk))) < 1e-9)
+if k
+  echo stbchk diag-rebuilt pass
+else
+  echo stbchk diag-rebuilt fail
+end
+
+* the probe on the other side: the two parts change places
+stb vp2 dec 2 1 1e4 diag=1 > stb-diag.stblog
+let k = 0
+let k = (vecmax(abs(loopgain + 6)) < 1e-9) & (vecmax(abs(loopgain_normal + 1)) < 1e-9) & (vecmax(abs(loopgain_reverse + 5)) < 1e-9)
+if k
+  echo stbchk diag-flipped-parts pass
+else
+  echo stbchk diag-flipped-parts fail
+end
+let k = 0
+let k = (vecmax(abs(stb_v1 - 5.2/7)) < 1e-12) & (vecmax(abs(stb_i1 - 4.84m/7)) < 1e-15) & (vecmax(abs(stb_v2 - 1000/7)) < 1e-9) & (vecmax(abs(stb_i2 - 1.2/7)) < 1e-12)
+if k
+  echo stbchk diag-flipped-responses pass
+else
+  echo stbchk diag-flipped-responses fail
+end
+
+* without diag, with diag=0 and with a second diag that takes the first
+* back, the plot holds the scale and the loop gain
+stb vp1 dec 2 1 1e4 > stb-diag.stblog
+display > stb-diag.stblog
+let const.nvec = 0
+let const.ngain = 0
+set n1 = 1
+fopen f1 stb-diag.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" " long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+  strstr p1 "_$ln" " loopgain "
+  if $p1 >= 0
+    let const.ngain = const.ngain + 1
+  end
+end
+fclose $f1
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k & (const.nvec eq 2) & (const.ngain eq 1)
+  echo stbchk diag-not-given pass
+else
+  echo stbchk diag-not-given fail
+end
+
+stb vp1 dec 2 1 1e4 diag=0 > stb-diag.stblog
+display > stb-diag.stblog
+let const.nvec = 0
+let const.ngain = 0
+set n1 = 1
+fopen f1 stb-diag.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" " long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+  strstr p1 "_$ln" " loopgain "
+  if $p1 >= 0
+    let const.ngain = const.ngain + 1
+  end
+end
+fclose $f1
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k & (const.nvec eq 2) & (const.ngain eq 1)
+  echo stbchk diag-zero pass
+else
+  echo stbchk diag-zero fail
+end
+
+stb vp1 dec 2 1 1e4 diag=1 diag=0 > stb-diag.stblog
+display > stb-diag.stblog
+let const.nvec = 0
+let const.ngain = 0
+set n1 = 1
+fopen f1 stb-diag.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" " long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+  strstr p1 "_$ln" " loopgain "
+  if $p1 >= 0
+    let const.ngain = const.ngain + 1
+  end
+end
+fclose $f1
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k & (const.nvec eq 2) & (const.ngain eq 1)
+  echo stbchk diag-given-twice pass
+else
+  echo stbchk diag-given-twice fail
+end
+
+* the key in upper case, as a command typed at the prompt may have it
+setcs dg = "DIAG=1"
+stb vp1 dec 2 1 1e4 $dg > stb-diag.stblog
+let k = 0
+let k = (length(loopgain_normal) eq 9) & (vecmax(abs(loopgain_normal + 5)) < 1e-9)
+if k
+  echo stbchk diag-upper-case pass
+else
+  echo stbchk diag-upper-case fail
+end
+
+* a value that is neither 0 nor 1, and no value: one line each, no plot
+set nbefore = $#plots
+set cbefore = $curplot
+set sim_status = 0
+stb vp1 dec 2 1 1e4 diag=2 >& stb-diag.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-diag.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vp1: diag must be 0 or 1, not \"2\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk diag-bad-value pass
+else
+  echo stbchk diag-bad-value fail
+end
+
+set sim_status = 0
+stb vp1 dec 2 1 1e4 diag= >& stb-diag.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-diag.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vp1: diag must be 0 or 1, not \"\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk diag-no-value pass
+else
+  echo stbchk diag-no-value fail
+end
+
+* the key without the equals sign is no argument
+set sim_status = 0
+stb vp1 dec 2 1 1e4 diag >& stb-diag.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-diag.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vp1: unknown argument \"diag\" (known: localgnd=<node>, diag=1)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk diag-no-equals pass
+else
+  echo stbchk diag-no-equals fail
+end
+
+* commas in the command: after the stop frequency, with and without
+* blanks around, and between all words; each run makes its two plots
+set nbefore = $#plots
+let const.ncomma = 0
+stb vp1 dec 2 1 1e4,diag=1 > stb-diag.stblog
+let k = 0
+let k = (length(loopgain_normal) eq 9) & (vecmax(abs(loopgain_normal + 5)) < 1e-9)
+let const.ncomma = const.ncomma + k
+stb vp1 dec 2 1 1e4 , diag=1 > stb-diag.stblog
+let k = 0
+let k = (length(loopgain_normal) eq 9) & (vecmax(abs(loopgain_normal + 5)) < 1e-9)
+let const.ncomma = const.ncomma + k
+stb vp2,dec,2,1,1e4,diag=1,localgnd=0 > stb-diag.stblog
+let k = 0
+let k = (length(loopgain_normal) eq 9) & (vecmax(abs(loopgain_normal + 1)) < 1e-9)
+let const.ncomma = const.ncomma + k
+let const.nnew = $#plots - $nbefore
+if (const.ncomma eq 3) & (const.nnew eq 6)
+  echo stbchk diag-command-commas pass
+else
+  echo stbchk diag-command-commas fail
+end
+
+* the four .stb cards: the card for the probe vp2, the first of the
+* deck, is run last, and its plot is the current one
+set sim_status = 0
+set nbefore = $#plots
+run > stb-diag.stblog
+set spcard = $curplot
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9) & (vecmax(abs(loopgain_normal + 1)) < 1e-9) & (vecmax(abs(loopgain_reverse + 5)) < 1e-9) & (vecmax(abs(stb_i2 - 1.2/7)) < 1e-12)
+if k & ($sim_status eq 0)
+  echo stbchk diag-card pass
+else
+  echo stbchk diag-card fail
+end
+
+* each card has made its two plots, and each of the three cards before
+* has the parts of the loop gain of the probe vp1 in a plot of its own
+* number of points: two plots back for each card
+let const.nnew = $#plots - $nbefore
+let const.ncomma = 0
+foreach np 13 17 21
+  setplot previous
+  setplot previous
+  let k = 0
+  let k = (length(loopgain_normal) eq $np) & (vecmax(abs(loopgain_normal + 5)) < 1e-9) & (vecmax(abs(loopgain_reverse + 1)) < 1e-9)
+  let const.ncomma = const.ncomma + k
+end
+setplot $spcard
+if (const.ncomma eq 3) & (const.nnew eq 8) & ($sim_status eq 0)
+  echo stbchk diag-card-commas pass
+else
+  echo stbchk diag-card-commas fail
+end
+
+* the two cards with localgnd=0 have named their localgnd, each in its
+* line of the log, and no other card has
+let const.nlg = 0
+let const.nprobe = 0
+set n1 = 1
+fopen f1 stb-diag.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "stb: probe vp"
+  if $p1 >= 0
+    let const.nprobe = const.nprobe + 1
+  end
+  strstr p2 "_$ln" "localgnd"
+  if $p2 >= 0
+    let const.nlg = const.nlg + 1
+  end
+end
+fclose $f1
+if (const.nprobe eq 4) & (const.nlg eq 2)
+  echo stbchk diag-card-localgnd pass
+else
+  echo stbchk diag-card-localgnd fail
+end
+
+* the margins plot is as without diag: its four vectors, one point each
+setplot $stb_marginplot
+display > stb-diag.stblog
+let const.nvec = 0
+set n1 = 1
+fopen f1 stb-diag.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" ", 1 long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+end
+fclose $f1
+if const.nvec eq 4
+  echo stbchk diag-margins-plot pass
+else
+  echo stbchk diag-margins-plot fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

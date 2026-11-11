@@ -43,6 +43,10 @@ STBaskQuest(CKTcircuit *ckt, JOB *anal, int which, IFvalue *value)
         value->iValue = (job->STBstepType == LINEAR);
         break;
 
+    case STB_DIAG:
+        value->iValue = job->STBdiag;
+        break;
+
     default:
         return(E_BADPARM);
     }

@@ -53,7 +53,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: no probe given; usage: stb <probe> dec|oct|lin <points> <fstart> <fstop>"
+  strcmp p1 "$ln" "Error: stb: no probe given; usage: stb <probe> dec|oct|lin <points> <fstart> <fstop> [localgnd=<node>] [diag=1]"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -84,7 +84,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: no probe given; usage: stb <probe> dec|oct|lin <points> <fstart> <fstop>"
+  strcmp p1 "$ln" "Error: stb: no probe given; usage: stb <probe> dec|oct|lin <points> <fstart> <fstop> [localgnd=<node>] [diag=1]"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -363,7 +363,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"foo\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"foo\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -394,7 +394,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"=out\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"=out\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -425,7 +425,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"=\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"=\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -456,7 +456,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"()\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"()\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -474,7 +474,8 @@ else
   echo stbchk errors-argument-brackets fail
 end
 
-* a word after a comma
+* a word after a comma: the comma separates as a blank does and is not
+* part of the word
 set nbefore = $#plots
 set cbefore = $curplot
 set mbefore = $stb_marginplot
@@ -487,7 +488,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \",out\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"out\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
@@ -518,7 +519,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"7\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"7\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end

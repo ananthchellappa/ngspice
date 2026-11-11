@@ -1,0 +1,126 @@
+* stb: the vectors of diag=1 in a raw file
+*
+* The loop of stb-flat.cir: loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi r1 c1).
+*
+* The two parts of the loop gain are computed results, as the loop gain
+* is: they have no type, and a raw file names them as the plot does. The
+* four responses are currents and voltages. In the plot they are stb_i1,
+* stb_v1, stb_i2 and stb_v2; a raw file names a current and a voltage by
+* what it is, and so writes them as i(stb_i1), v(stb_v1), i(stb_i2) and
+* v(stb_v2). That holds for the file that "run <file>" writes and for the
+* file that "write" makes of a plot in memory, and these are the names of
+* the vectors when the file is loaded.
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.stb vprb dec 5 1 1e6 diag=1
+.control
+let const.fp = 1/(2*pi*1k*1u)
+set filetype = ascii
+
+* a run in memory, written to a file; the run of the .stb card into a file
+stb vprb dec 5 1 1e6 diag=1 > stb-rawfile-diag.stblog
+set sp = $curplot
+write stb-rawfile-diag-w.raw
+set nbefore = $#plots
+run stb-rawfile-diag-r.raw > stb-rawfile-diag.stblog
+if $#plots eq $nbefore
+  echo stbchk rawfile-diag-no-plot pass
+else
+  echo stbchk rawfile-diag-no-plot fail
+end
+
+* the lines that name the variables in the two files
+foreach fl written run
+  let const.ngain = 0
+  let const.npart = 0
+  let const.ncur = 0
+  let const.nvolt = 0
+  let const.nother = 0
+  set n1 = 1
+  set fn = stb-rawfile-diag-w.raw
+  strcmp isrun "$fl" "run"
+  if $isrun eq 0
+    set fn = stb-rawfile-diag-r.raw
+  end
+  fopen f1 $fn r
+  while $n1 >= 0
+    set ln = "none"
+    fread ln $f1 n1
+    strstr p1 "_$ln" "loopgain"
+    strstr p2 "_$ln" "notype"
+    strstr p3 "_$ln" "loopgain_"
+    if ($p1 >= 0) & ($p2 >= 0) & ($p3 < 0)
+      let const.ngain = const.ngain + 1
+    end
+    foreach nm loopgain_normal loopgain_reverse
+      strstr p1 "_$ln" "$nm"
+      strstr p2 "_$ln" "notype"
+      if ($p1 >= 0) & ($p2 >= 0)
+        let const.npart = const.npart + 1
+      end
+    end
+    foreach nm stb_i1 stb_i2
+      strstr p1 "_$ln" "i($nm)"
+      strstr p2 "_$ln" "current"
+      if ($p1 >= 0) & ($p2 >= 0)
+        let const.ncur = const.ncur + 1
+      end
+    end
+    foreach nm stb_v1 stb_v2
+      strstr p1 "_$ln" "v($nm)"
+      strstr p2 "_$ln" "voltage"
+      if ($p1 >= 0) & ($p2 >= 0)
+        let const.nvolt = const.nvolt + 1
+      end
+    end
+    * no other line of the file names a current or a voltage
+    strstr p1 "_$ln" "current"
+    strstr p2 "_$ln" "voltage"
+    strstr p3 "_$ln" "stb_"
+    if (($p1 >= 0) | ($p2 >= 0)) & ($p3 < 0)
+      let const.nother = const.nother + 1
+    end
+  end
+  fclose $f1
+  if (const.ngain eq 1) & (const.npart eq 2) & (const.ncur eq 2) & (const.nvolt eq 2) & (const.nother eq 0)
+    echo stbchk rawfile-diag-names-$fl pass
+  else
+    echo stbchk rawfile-diag-names-$fl fail
+  end
+end
+
+* the file of the card loaded: the responses under the names of the file,
+* with the values of the run in memory
+load stb-rawfile-diag-r.raw > stb-rawfile-diag.stblog
+set lp = none
+let const.nseen = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  if const.nseen eq $nbefore + 1
+    set lp = $pl
+  end
+end
+strcmp nolp "$lp" "none"
+if $nolp ne 0
+  setplot $lp
+end
+strstr pos "$lp" "stb"
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$sp}.loopgain)) < 1e-12) & (vecmax(abs(loopgain_normal - {$sp}.loopgain_normal)) < 1e-12) & (vecmax(abs(loopgain_reverse - {$sp}.loopgain_reverse)) < 1e-12)
+if k & ($pos eq 0) & ($#plots eq $nbefore + 2)
+  echo stbchk rawfile-diag-loaded-parts pass
+else
+  echo stbchk rawfile-diag-loaded-parts fail
+end
+let k = 0
+let k = (length(i(stb_i1)) eq 31) & (vecmax(abs(i(stb_i1) - {$sp}.stb_i1)) < 1e-12) & (vecmax(abs(v(stb_v1) - {$sp}.stb_v1)) < 1e-12) & (vecmax(abs(i(stb_i2) - {$sp}.stb_i2)) < 1e-12) & (vecmax(abs(v(stb_v2) - {$sp}.stb_v2)) < 1e-9)
+if k & ($pos eq 0)
+  echo stbchk rawfile-diag-loaded-responses pass
+else
+  echo stbchk rawfile-diag-loaded-responses fail
+end
+setplot $sp
+.endc
+.end
