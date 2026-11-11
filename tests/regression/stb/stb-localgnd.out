@@ -1,0 +1,141 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: localgnd=<node> names the reference node of the probe
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vprb (voltage source vprb, x = x, y = m, localgnd = ref), 11 points, 1 Hz to 100000 Hz
+stb: Phase margin = 100.029 deg at frequency = 937.794 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 90.0912 deg at the last frequency 100000 Hz)
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-closed-form pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-none-closed-form pass
+stbchk localgnd-differs-from-none pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-ground-0 pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-ground-gnd pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-then-diag pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-after-diag pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-upper-case pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-blanks pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-probe-on-reference pass
+stbchk localgnd-reversed-log pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-loop-on-ground-zero pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-loop-on-ground pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-excited-node-ground pass
+stbchk localgnd-excited-node-ground-log pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk localgnd-no-such-node pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk localgnd-no-such-node pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk localgnd-no-such-node pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk localgnd-no-name pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-card pass
+stbchk localgnd-card-comma pass
+Note: Simulation executed from .control section 

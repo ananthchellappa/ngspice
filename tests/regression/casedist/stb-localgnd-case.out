@@ -1,0 +1,51 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb under casemode=distinguish: the node of localgnd=, spelled exactly
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk distinguish-localgnd-mixed pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk distinguish-localgnd-upper pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk distinguish-localgnd-keyword-upper pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk distinguish-localgnd-other-node-differs pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk distinguish-localgnd-lower-is-no-node pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk distinguish-localgnd-ground-alias-upper pass
+Note: Simulation executed from .control section 

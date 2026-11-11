@@ -1,8 +1,9 @@
 * stb: a bad .stb card does not stop the deck from loading
 *
-* Three .stb cards beside an .ac card: one with the stop frequency below
+* Five .stb cards beside an .ac card: one with the stop frequency below
 * the start, one with an argument that does not exist, written name=node,
-* and a good one whose stop frequency is a parameter in braces.
+* one with a value of diag that is neither 0 nor 1, one with localgnd and
+* no node, and a good one whose stop frequency is a parameter in braces.
 *
 * The deck loads: op and ac give the values of the circuit. "run" does
 * the .ac card and the good .stb card, reports each bad card in one line
@@ -21,6 +22,8 @@ i1 0 x dc 1m ac 1
 .ac dec 5 1 1e6
 .stb vprb dec 10 1e6 1
 .stb vprb dec 10 1 1e6 foo=out
+.stb vprb dec 2 1 1e4 diag=2
+.stb vprb dec 2 1 1e4 localgnd=
 .stb vprb dec 5 1 {fstop}
 .control
 let const.fp = 1/(2*pi*1k*1u)
@@ -56,6 +59,8 @@ end
 * one line for each bad card, and no other
 let const.nrev = 0
 let const.narg = 0
+let const.ndiag = 0
+let const.nlg = 0
 let const.nline = 0
 set n1 = 1
 fopen f1 stb-card-bad.stberr r
@@ -66,9 +71,17 @@ while $n1 >= 0
   if $p1 eq 0
     let const.nrev = const.nrev + 1
   end
-  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"foo\""
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"foo\" (known: localgnd=<node>, diag=1)"
   if $p1 eq 0
     let const.narg = const.narg + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe vprb: diag must be 0 or 1, not \"2\""
+  if $p1 eq 0
+    let const.ndiag = const.ndiag + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe vprb: localgnd needs a node name"
+  if $p1 eq 0
+    let const.nlg = const.nlg + 1
   end
   strstr p2 "_$ln" "Error: stb:"
   if $p2 >= 0
@@ -76,7 +89,7 @@ while $n1 >= 0
   end
 end
 fclose $f1
-if (const.nrev eq 1) & (const.narg eq 1) & (const.nline eq 2)
+if (const.nrev eq 1) & (const.narg eq 1) & (const.ndiag eq 1) & (const.nlg eq 1) & (const.nline eq 4)
   echo stbchk card-bad-messages pass
 else
   echo stbchk card-bad-messages fail

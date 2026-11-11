@@ -15,6 +15,11 @@ vol. 17, no. 1, 2001.
 
 The plot holds loopgain = -T. A second plot holds the phase margin, the
 gain margin and their frequencies, see stbmarg.c.
+
+With localgnd=<node> the current returns to that node and the voltage of
+the probe's node is taken against it, not against ground. With diag=1
+the plot also holds the two parts of the loop gain, the normal and the
+reverse one, and the four responses they are made of.
 **********/
 
 #include "ngspice/ngspice.h"
@@ -134,6 +139,30 @@ stb_div(IFcomplex a, IFcomplex b)
 }
 
 
+/* What goes into the plot: a NaN is a plain NaN there. */
+static IFcomplex
+stb_plain(IFcomplex a)
+{
+    if (isnan(a.real))
+        a.real = NAN;
+    if (isnan(a.imag))
+        a.imag = NAN;
+    return a;
+}
+
+
+/* Minus a, for the plot: a zero stays a plain zero, and a NaN a plain NaN. */
+static IFcomplex
+stb_minus(IFcomplex a)
+{
+    IFcomplex c;
+
+    c.real = isnan(a.real) ? NAN : 0.0 - a.real;
+    c.imag = isnan(a.imag) ? NAN : 0.0 - a.imag;
+    return c;
+}
+
+
 /* Find the instance called name. A device in a subcircuit may be given by
  * its path, x1.x2.vprb, for the flattened name v.x1.x2.vprb. The name of
  * the device is the end of the path, so one of the parts of a path after
@@ -217,6 +246,27 @@ stb_is_subckt(CKTcircuit *ckt, const char *name)
             }
 
     return 0;
+}
+
+
+/* The number of the node called name, -1 if the circuit has none. No node
+ * is made: the name of a branch equation is no node. */
+static int
+stb_find_node(CKTcircuit *ckt, const char *name)
+{
+    CKTnode *node;
+
+    /* a name of the deck: any spelling under preserve, the exact one
+     * under distinguish */
+    for (node = ckt->CKTnodes; node; node = node->next)
+        if (node->type == SP_VOLTAGE && ng_ideq(node->name, name))
+            return node->number;
+
+    /* ground by its other name, a word of the language: any case */
+    if (cieq(name, "gnd"))
+        return 0;
+
+    return -1;
 }
 
 
@@ -453,17 +503,23 @@ STBan(CKTcircuit *ckt, int restart)
     int vtype;
     int x;                  /* the node of the probe that is excited */
     int y;                  /* its other node */
+    int lg;                 /* the reference node: ground, or localgnd */
     int br;                 /* the branch equation of the probe */
     double s;               /* -1 if the source is taken reversed */
+    int ncol;               /* the vectors of the plot: 1, with diag 7 */
     double *freqs = NULL;   /* the results, written when the sweep is done */
-    IFcomplex *gain = NULL;
+    IFcomplex *rows = NULL; /* ncol values for each frequency */
     double *tre = NULL;     /* the return ratio T */
     double *tim = NULL;
     double *opsave = NULL;  /* the operating point, for the option keepopinfo */
     STBmargins mg;
     double mvals[4];
     IFuid freqUid;
-    IFuid gainUid;
+    IFuid gainUids[7];
+    char *gainNames[7] = {
+        "loopgain", "loopgain_normal", "loopgain_reverse",
+        "stb_i1", "stb_v1", "stb_i2", "stb_v2"
+    };
     IFuid marginUids[4];
     IFuid *nameList = NULL;
     int numNames;
@@ -556,17 +612,31 @@ STBan(CKTcircuit *ckt, int restart)
         return E_UNSUPP;
     }
 
+    /* The reference node is ground, or the node that localgnd names, in
+     * the spelling the circuit has its names in (stb_key()). */
+    lg = 0;
+    if (job->STBlocalGnd) {
+        key = stb_key(job->STBlocalGnd);
+        lg = stb_find_node(ckt, key);
+        tfree(key);
+        if (lg < 0) {
+            fprintf(cp_err, "Error: stb: probe %s: localgnd node %s does not exist\n",
+                    job->STBprobe, job->STBlocalGnd);
+            return E_NOTFOUND;
+        }
+    }
+
     /* The excited node is the positive node of the source. If that is the
      * reference node, the source is taken the other way round. */
     x = GENnode(inst)[0];
     y = GENnode(inst)[1];
     s = 1;
-    if (x == 0) {
+    if (x == lg) {
         x = y;
-        y = 0;
+        y = lg;
         s = -1;
     }
-    if (x == 0) {
+    if (x == lg) {
         fprintf(cp_err, "Error: stb: probe %s: both of its nodes are the reference node\n",
                 job->STBprobe);
         return E_PARMVAL;
@@ -632,9 +702,11 @@ STBan(CKTcircuit *ckt, int restart)
         return E_PARMVAL;
     }
 
-    fprintf(cp_out, "stb: probe %s (voltage source %s, x = %s, y = %s%s), %d points, %g Hz to %g Hz\n",
+    fprintf(cp_out, "stb: probe %s (voltage source %s, x = %s, y = %s%s%s%s), %d points, %g Hz to %g Hz\n",
             job->STBprobe, inst->GENname,
             CKTnodName(ckt, x), CKTnodName(ckt, y),
+            job->STBlocalGnd ? ", localgnd = " : "",
+            job->STBlocalGnd ? CKTnodName(ckt, lg) : "",
             (s < 0) ? ", source reversed" : "",
             npoints, job->STBstartFreq, job->STBstopFreq);
 
@@ -666,8 +738,9 @@ STBan(CKTcircuit *ckt, int restart)
         memcpy(opsave, ckt->CKTrhsOld, (size_t) ckt->CKTmaxEqNum * sizeof(double));
     }
 
+    ncol = job->STBdiag ? 7 : 1;
     freqs = TMALLOC(double, npoints);
-    gain = TMALLOC(IFcomplex, npoints);
+    rows = TMALLOC(IFcomplex, (size_t) npoints * (size_t) ncol);
     tre = TMALLOC(double, npoints);
     tim = TMALLOC(double, npoints);
 
@@ -693,6 +766,7 @@ STBan(CKTcircuit *ckt, int restart)
     for (n = 0; n < npoints; n++) {
         IFcomplex i1, v1, i2, v2;   /* the responses to the two excitations */
         IFcomplex p, k, d, t;
+        IFcomplex *row = rows + (size_t) n * (size_t) ncol;
 
         if (SPfrontEnd->IFpauseTest()) {
             /* user asked us to stop via an interrupt */
@@ -748,20 +822,23 @@ STBan(CKTcircuit *ckt, int restart)
         stb_solve(ckt);
         i1.real = s * ckt->CKTrhs[br];
         i1.imag = s * ckt->CKTirhs[br];
-        v1.real = ckt->CKTrhs[x];
-        v1.imag = ckt->CKTirhs[x];
+        v1.real = ckt->CKTrhs[x] - ckt->CKTrhs[lg];
+        v1.imag = ckt->CKTirhs[x] - ckt->CKTirhs[lg];
 
-        /* second excitation: what "I 0 x ac 1" puts on the right-hand side */
+        /* second excitation: what "I <reference> x ac 1" puts on the
+         * right-hand side; ground has no equation */
         for (i = 0; i <= size; i++) {
             ckt->CKTrhs[i] = 0;
             ckt->CKTirhs[i] = 0;
         }
         ckt->CKTrhs[x] += 1;
+        ckt->CKTrhs[lg] -= 1;
+        ckt->CKTrhs[0] = 0;
         stb_solve(ckt);
         i2.real = s * ckt->CKTrhs[br];
         i2.imag = s * ckt->CKTirhs[br];
-        v2.real = ckt->CKTrhs[x];
-        v2.imag = ckt->CKTirhs[x];
+        v2.real = ckt->CKTrhs[x] - ckt->CKTrhs[lg];
+        v2.imag = ckt->CKTirhs[x] - ckt->CKTirhs[lg];
 
         /* K = 2 (i1 v2 - v1 i2) + v1 + i2,  T = K / (1 - K) */
         p = stb_mul(i1, v2);
@@ -777,9 +854,22 @@ STBan(CKTcircuit *ckt, int restart)
         freqs[n] = freq;
         tre[n] = t.real;
         tim[n] = t.imag;
-        /* a zero stays a plain zero, and a NaN a plain NaN */
-        gain[n].real = isnan(t.real) ? NAN : 0.0 - t.real;
-        gain[n].imag = isnan(t.imag) ? NAN : 0.0 - t.imag;
+        row[0] = stb_minus(t);
+        if (ncol > 1) {
+            /* the normal and the reverse part of T, which sum to it:
+             * (P + i2) / (1 - K) and (P + v1) / (1 - K), where
+             * P = i1 v2 - v1 i2 */
+            t.real = p.real + i2.real;
+            t.imag = p.imag + i2.imag;
+            row[1] = stb_minus(stb_div(t, d));
+            t.real = p.real + v1.real;
+            t.imag = p.imag + v1.imag;
+            row[2] = stb_minus(stb_div(t, d));
+            row[3] = stb_plain(i1);
+            row[4] = stb_plain(v1);
+            row[5] = stb_plain(i2);
+            row[6] = stb_plain(v2);
+        }
 
 #ifdef HAS_PROGREP
         SetAnalyse("stb", (int) (1000.0 * (n + 1) / npoints));
@@ -828,11 +918,12 @@ STBan(CKTcircuit *ckt, int restart)
 
     if (!error) {
         SPfrontEnd->IFnewUid(ckt, &freqUid, NULL, "frequency", UID_OTHER, NULL);
-        SPfrontEnd->IFnewUid(ckt, &gainUid, NULL, "loopgain", UID_OTHER, NULL);
+        for (i = 0; i < ncol; i++)
+            SPfrontEnd->IFnewUid(ckt, &gainUids[i], NULL, gainNames[i], UID_OTHER, NULL);
         error = SPfrontEnd->OUTpBeginPlot(ckt, ckt->CKTcurJob,
             STB_PLOT_TITLE,
             freqUid, IF_REAL,
-            1, &gainUid, IF_COMPLEX,
+            ncol, gainUids, IF_COMPLEX,
             &plot);
     }
 
@@ -843,8 +934,8 @@ STBan(CKTcircuit *ckt, int restart)
         for (n = 0; n < npoints; n++) {
             refValue.cValue.real = freqs[n];
             refValue.cValue.imag = 0.0;
-            value.v.numValue = 1;
-            value.v.vec.cVec = gain + n;
+            value.v.numValue = ncol;
+            value.v.vec.cVec = rows + (size_t) n * (size_t) ncol;
             SPfrontEnd->OUTpData(plot, &refValue, &value);
         }
         SPfrontEnd->OUTendPlot(plot);
@@ -880,7 +971,7 @@ STBan(CKTcircuit *ckt, int restart)
     }
 
     tfree(freqs);
-    tfree(gain);
+    tfree(rows);
     tfree(tre);
     tfree(tim);
     tfree(opsave);

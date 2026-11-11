@@ -1,0 +1,46 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: localgnd= and diag=1 with the klu solver
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-klu-closed-form pass
+stbchk localgnd-klu-rebuilt pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-klu-none-closed-form pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-klu-loop-on-ground pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk localgnd-klu-excited-node-ground pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 1
+stbchk localgnd-klu-op-after pass
+Note: Simulation executed from .control section 

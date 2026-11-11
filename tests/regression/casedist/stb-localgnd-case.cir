@@ -1,0 +1,111 @@
+* stb under casemode=distinguish: the node of localgnd=, spelled exactly
+*
+* The second circuit of tests/regression/stb/stb-localgnd.cir: a loop
+* that has ground itself as one of its two nodes and is built on the
+* node RefB (values in mS: G1 = 0.2 and c1 at Xb, G2 = 0.8 at ground,
+* ga = 1 from ground into Xb, gb = 5 from Xb into ground). The probe Vpa
+* lies between Xb and ground, to which Vpb ties its other node. Against
+* RefB
+*     loopgain = -(ga + gb)/(G1 + G2 + s c1) = -6/(1 + j f/fp),
+* fp = 1m/(2 pi 1u). Against ground the probe sees nothing of the loop:
+* the loop gain is zero. So a run tells which node was the reference.
+*
+* Under distinguish two spellings are two nodes, so this deck has a second
+* loop of the same kind built on the node REFB, with ga = 2: against REFB
+*     loopgain = -7/(1 + j f/fp)
+* localgnd= has to take the node that is spelled as its value is: each
+* loop gives its closed form only against its own node, and something
+* else against the node of the other loop. A spelling the deck does not
+* have (refb) is an error. The words localgnd and gnd are words of the
+* language: any case, in every mode.
+*
+* Under fold or preserve the two reference nodes are one node and the
+* closed forms do not hold, so the verdicts below need the mode.
+Vpa Xb nb dc 0
+Vpb 0 nb dc 0
+Gab Xb RefB 0 RefB 1m
+Gbb 0 RefB Xb RefB 5m
+R1b Xb RefB 5k
+R2b 0 RefB 1.25k
+C1b Xb RefB 1u
+Vpc Xc nc dc 0
+Vpd 0 nc dc 0
+Gac Xc REFB 0 REFB 2m
+Gbc 0 REFB Xc REFB 5m
+R1c Xc REFB 5k
+R2c 0 REFB 1.25k
+C1c Xc REFB 1u
+.control
+let const.fp = 1m/(2*pi*1u)
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 localgnd=RefB > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-localgnd-mixed pass
+else
+  echo stbchk distinguish-localgnd-mixed fail
+end
+
+set sp0 = $curplot
+stb Vpc dec 2 1 1e5 localgnd=REFB > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 7/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-localgnd-upper pass
+else
+  echo stbchk distinguish-localgnd-upper fail
+end
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 LOCALGND=RefB > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-localgnd-keyword-upper pass
+else
+  echo stbchk distinguish-localgnd-keyword-upper fail
+end
+
+* the node of the other loop is another node: not the closed form
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 localgnd=REFB > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) > 0.1)
+if k & ($same ne 0)
+  echo stbchk distinguish-localgnd-other-node-differs pass
+else
+  echo stbchk distinguish-localgnd-other-node-differs fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb Vpa dec 2 1 1e5 localgnd=refb >& stb-localgnd-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-localgnd-lower-is-no-node pass
+else
+  echo stbchk distinguish-localgnd-lower-is-no-node fail
+end
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 localgnd=GND > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain)) < 1e-12)
+if k & ($same ne 0)
+  echo stbchk distinguish-localgnd-ground-alias-upper pass
+else
+  echo stbchk distinguish-localgnd-ground-alias-upper fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

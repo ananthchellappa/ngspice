@@ -30,6 +30,9 @@ typedef struct {
     int STBstepType;    /* DECADE, OCTAVE or LINEAR of acdefs.h, 0: not given */
     int STBnumberSteps;
     char *STBprobe;     /* the probe, as the user wrote it */
+    char *STBlocalGnd;  /* the reference node of the probe, NULL: ground */
+    int STBdiag;        /* also write the two parts of the loop gain and */
+                        /* the four responses they are made of */
     char *STBerror;     /* what was wrong with the line that made this job, */
                         /* reported when the job is run; NULL: nothing */
 } STBAN;
@@ -43,6 +46,8 @@ enum {
     STB_STEPS,
     STB_PROBE,
     STB_ERROR,
+    STB_LOCALGND,
+    STB_DIAG,
 };
 
 /* The margins of a loop gain, as STBmargin() finds them. */

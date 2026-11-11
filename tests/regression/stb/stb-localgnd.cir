@@ -1,0 +1,337 @@
+* stb: localgnd=<node> names the reference node of the probe
+*
+* The injected current returns to that node and the voltage of the probe
+* node is taken against it, where both are on ground without it.
+*
+* First circuit: the loop of stb-bilateral.cir with a capacitor at x,
+* built on the node ref, which hangs on ground by rg alone (values in mS):
+*     Y1 = G1 + s c1,  G1 = 1/r1 = 0.2 at x,   ga = 1, from y into x
+*                      G2 = 1/r2 = 0.8 at y,   gb = 5, from x into y
+* Against ref the return ratio is
+*     T = (ga + gb)/(Y1 + G2) = 6/(1 + j f/fp),   fp = 1m/(2 pi c1)
+* which is what localgnd=ref gives: loopgain = -6/(1 + j f/fp).
+*
+* Against ground the injected current comes back through rg. Nothing
+* else changes: with the unit voltage in the probe no current flows in
+* rg. So of the four responses only v2 grows, by rg, and with
+*     i1 = (ga gb - Y1 G2)/S,   K = (ga + gb)/S,   S = Y1 + G2 + ga + gb
+* the sum K = 2 (i1 v2 - v1 i2) + v1 + i2 grows by 2 rg i1:
+*     T = K/(1 - K)
+*       = (ga + gb + 2 rg (ga gb - Y1 G2))/(Y1 + G2 - 2 rg (ga gb - Y1 G2))
+* At low frequency that is 15.68/(-8.68) = -56/31, not 6 (at 1 Hz, the
+* first point, the real part to better than 1e-4).
+*
+* Second circuit: the same loop with ground itself as the node y, built
+* on the node refb. A probe with a node on ground sees nothing of the
+* loop (stb-grounded.cir); with localgnd=refb it gives the loop gain
+* above, whichever way round the probe is written: vpb has its positive
+* node on ground, so there the excited node is ground.
+*
+* The first circuit shows that the reference node is used at all, not how:
+* it has one way to ground, so the voltage between x and ref is the same
+* whether the current leaves at ref or through rg, and ref is at zero when
+* the current leaves there. The second circuit tells: there the loop gain
+* is zero as soon as the current returns to ground or the voltage is taken
+* against ground. So the spellings of the argument and the .stb cards are
+* tried on the second circuit.
+vprb x m dc 0
+vp2 y m dc 0
+ga x ref y ref 1m
+gb y ref x ref 5m
+r1 x ref 5k
+r2 y ref 1.25k
+c1 x ref 1u
+rg ref 0 1k
+
+vpa xb nb dc 0
+vpb 0 nb dc 0
+gab xb refb 0 refb 1m
+gbb 0 refb xb refb 5m
+r1b xb refb 5k
+r2b 0 refb 1.25k
+c1b xb refb 1u
+
+.stb vpa dec 2 1 1e5 localgnd=refb
+.stb vpb dec 2 1 1e4 localgnd=refb,diag=1
+.control
+let const.fp = 1m/(2*pi*1u)
+
+* this run prints its lines: the first names the reference node
+stb vprb dec 2 1 1e5 localgnd=ref
+set splg = $curplot
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-closed-form pass
+else
+  echo stbchk localgnd-closed-form fail
+end
+
+* against ground
+stb vprb dec 2 1 1e5 > stb-localgnd.stblog
+set sp0 = $curplot
+let y1 = 0.2m + j(2*pi*real(frequency)*1u)
+let tg = (6m + 2k*(5u - 0.8m*y1))/(y1 + 0.8m - 2k*(5u - 0.8m*y1))
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + tg)) < 1e-9) & (abs(real(loopgain[0]) - 56/31) < 1e-4)
+if k
+  echo stbchk localgnd-none-closed-form pass
+else
+  echo stbchk localgnd-none-closed-form fail
+end
+let k = 0
+let k = abs(loopgain[0] - {$splg}.loopgain[0]) > 1
+if k
+  echo stbchk localgnd-differs-from-none pass
+else
+  echo stbchk localgnd-differs-from-none fail
+end
+
+* ground named as the reference node is the same as no localgnd
+foreach nd 0 gnd
+  stb vprb dec 2 1 1e5 localgnd=$nd > stb-localgnd.stblog
+  strcmp same "$curplot" "$sp0"
+  let k = 0
+  let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain - {$sp0}.loopgain)) eq 0)
+  if k & ($same ne 0)
+    echo stbchk localgnd-ground-$nd pass
+  else
+    echo stbchk localgnd-ground-$nd fail
+  end
+end
+
+* with diag=1, before it and after it
+stb vprb dec 2 1 1e5 localgnd=ref diag=1 > stb-localgnd.stblog
+let k = 0
+let k = (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-then-diag pass
+else
+  echo stbchk localgnd-then-diag fail
+end
+stb vprb dec 2 1 1e5 diag=1 localgnd=ref > stb-localgnd.stblog
+let k = 0
+let k = (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-after-diag pass
+else
+  echo stbchk localgnd-after-diag fail
+end
+
+* the key and the node in upper case, as a command typed at the prompt
+* may have them, and blanks about the equals sign: the second circuit,
+* where the loop gain is zero without its reference node
+stb vpa dec 2 1 1e5 localgnd=refb > stb-localgnd.stblog
+set spb = $curplot
+setcs lg = "LOCALGND=REFB"
+stb vpa dec 2 1 1e5 $lg > stb-localgnd.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain - {$spb}.loopgain)) eq 0) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-upper-case pass
+else
+  echo stbchk localgnd-upper-case fail
+end
+stb vpa dec 2 1 1e5 localgnd = refb > stb-localgnd.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain - {$spb}.loopgain)) eq 0) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-blanks pass
+else
+  echo stbchk localgnd-blanks fail
+end
+
+* The positive node of the probe is the reference node: the source is
+* taken reversed, as for a probe on ground, and the log line says so. The
+* result is that of vp2, which lies the other way round in the same wire,
+* and it is zero: the wire is on the reference node.
+stb vprb dec 2 1 1e5 localgnd=x > stb-localgnd-rev.stblog
+set sprev = $curplot
+stb vp2 dec 2 1 1e5 localgnd=x > stb-localgnd.stblog
+strcmp same "$curplot" "$sprev"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain - {$sprev}.loopgain)) < 1e-12) & (vecmax(abs(loopgain)) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk localgnd-probe-on-reference pass
+else
+  echo stbchk localgnd-probe-on-reference fail
+end
+let const.nrev = 0
+set n1 = 1
+fopen f1 stb-localgnd-rev.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "stb: probe vprb (voltage source vprb, x"
+  strstr p2 "_$ln" ", localgnd"
+  strstr p3 "_$ln" "x, source reversed), 11 points, 1 Hz"
+  if ($p1 >= 0) & ($p2 >= 0) & ($p3 >= 0)
+    let const.nrev = const.nrev + 1
+  end
+end
+fclose $f1
+if const.nrev eq 1
+  echo stbchk localgnd-reversed-log pass
+else
+  echo stbchk localgnd-reversed-log fail
+end
+
+* the second circuit: zero against ground
+stb vpa dec 2 1 1e5 > stb-localgnd.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain)) < 1e-9)
+if k
+  echo stbchk localgnd-loop-on-ground-zero pass
+else
+  echo stbchk localgnd-loop-on-ground-zero fail
+end
+
+* the loop gain against refb, and its two parts
+stb vpa dec 2 1 1e5 localgnd=refb diag=1 > stb-localgnd.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-loop-on-ground pass
+else
+  echo stbchk localgnd-loop-on-ground fail
+end
+
+* the probe whose positive node is ground: the parts change places
+stb vpb dec 2 1 1e5 localgnd=refb diag=1 > stb-localgnd-b.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-excited-node-ground pass
+else
+  echo stbchk localgnd-excited-node-ground fail
+end
+let const.nplain = 0
+let const.nrev = 0
+set n1 = 1
+fopen f1 stb-localgnd-b.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "stb: probe vpb (voltage source vpb, x"
+  strstr p2 "_$ln" ", localgnd"
+  strstr p3 "_$ln" "refb), 11 points, 1 Hz"
+  if ($p1 >= 0) & ($p2 >= 0) & ($p3 >= 0)
+    let const.nplain = const.nplain + 1
+  end
+  strstr p1 "_$ln" "reversed"
+  if $p1 >= 0
+    let const.nrev = const.nrev + 1
+  end
+end
+fclose $f1
+if (const.nplain eq 1) & (const.nrev eq 0)
+  echo stbchk localgnd-excited-node-ground-log pass
+else
+  echo stbchk localgnd-excited-node-ground-log fail
+end
+
+* a node that does not exist, twice: the first run has not made it. The
+* name of a branch is no node either.
+set nbefore = $#plots
+set cbefore = $curplot
+foreach nd nowhere nowhere vprb#branch
+  set sim_status = 0
+  stb vprb dec 2 1 1e5 localgnd=$nd >& stb-localgnd.stberr
+  let const.nerr = 0
+  let const.nline = 0
+  set n1 = 1
+  fopen f1 stb-localgnd.stberr r
+  while $n1 >= 0
+    set ln = "none"
+    fread ln $f1 n1
+    strcmp p1 "$ln" "Error: stb: probe vprb: localgnd node $nd does not exist"
+    if $p1 eq 0
+      let const.nerr = const.nerr + 1
+    end
+    strstr p2 "_$ln" "Error: stb:"
+    if $p2 >= 0
+      let const.nline = const.nline + 1
+    end
+  end
+  fclose $f1
+  strcmp same "$curplot" "$cbefore"
+  if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+    echo stbchk localgnd-no-such-node pass
+  else
+    echo stbchk localgnd-no-such-node fail
+  end
+end
+
+* no node name
+set sim_status = 0
+stb vprb dec 2 1 1e5 localgnd= >& stb-localgnd.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-localgnd.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: localgnd needs a node name"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk localgnd-no-name pass
+else
+  echo stbchk localgnd-no-name fail
+end
+
+* the two .stb cards, both for the second circuit: one plot each, told
+* apart by the number of points. The second card has a comma between its
+* two arguments, which on a card separates as a blank does: the probe vpb
+* with its parts.
+set sim_status = 0
+run > stb-localgnd.stblog
+set rst = $sim_status
+strcmp same "$curplot" "$cbefore"
+let const.nseen = 0
+let const.ncard = 0
+let const.ncomma = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  strstr p1 "$pl" "stb"
+  strstr p2 "$pl" "stbmargin"
+  if (const.nseen > $nbefore) & ($p1 eq 0) & ($p2 < 0)
+    setplot $pl
+    let k = 0
+    let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+    if k
+      let const.ncard = const.ncard + 1
+    end
+    if length(loopgain) eq 9
+      let k = 0
+      let k = (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+      if k
+        let const.ncomma = const.ncomma + 1
+      end
+    end
+  end
+end
+if (const.ncard eq 1) & ($rst eq 0) & ($same ne 0) & ($#plots eq $nbefore + 4)
+  echo stbchk localgnd-card pass
+else
+  echo stbchk localgnd-card fail
+end
+if (const.ncomma eq 1) & ($rst eq 0) & ($#plots eq $nbefore + 4)
+  echo stbchk localgnd-card-comma pass
+else
+  echo stbchk localgnd-card-comma fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

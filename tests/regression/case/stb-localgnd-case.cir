@@ -1,0 +1,109 @@
+* stb under casemode=preserve: the node of localgnd= in any spelling
+*
+* The second circuit of tests/regression/stb/stb-localgnd.cir: a loop
+* that has ground itself as one of its two nodes and is built on the
+* node RefB (values in mS: G1 = 0.2 and c1 at Xb, G2 = 0.8 at ground,
+* ga = 1 from ground into Xb, gb = 5 from Xb into ground). The probe Vpa
+* lies between Xb and ground, to which Vpb ties its other node. Against
+* RefB
+*     loopgain = -(ga + gb)/(G1 + G2 + s c1) = -6/(1 + j f/fp),
+* fp = 1m/(2 pi 1u). Against ground the probe sees nothing of the loop:
+* the loop gain is zero. So a run tells which node was the reference.
+*
+* Under preserve the node keeps the spelling of the deck, RefB, and any
+* spelling names it. The words localgnd and diag, the step word and gnd
+* are words of the language: any case, in every mode. A node the deck
+* does not have is an error in any spelling.
+Vpa Xb nb dc 0
+Vpb 0 nb dc 0
+Gab Xb RefB 0 RefB 1m
+Gbb 0 RefB Xb RefB 5m
+R1b Xb RefB 5k
+R2b 0 RefB 1.25k
+C1b Xb RefB 1u
+.STB Vpa DEC 2 1 1e5 LOCALGND=refb DIAG=1
+.control
+let const.fp = 1m/(2*pi*1u)
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 localgnd=RefB > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-localgnd-as-written pass
+else
+  echo stbchk preserve-localgnd-as-written fail
+end
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 localgnd=refb > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-localgnd-lower pass
+else
+  echo stbchk preserve-localgnd-lower fail
+end
+
+set sp0 = $curplot
+stb vpa dec 2 1 1e5 LOCALGND=REFB > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-localgnd-upper-with-keyword-upper pass
+else
+  echo stbchk preserve-localgnd-upper-with-keyword-upper fail
+end
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5 localgnd=GND > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain)) < 1e-12)
+if k & ($same ne 0)
+  echo stbchk preserve-localgnd-ground-alias-upper pass
+else
+  echo stbchk preserve-localgnd-ground-alias-upper fail
+end
+
+set sp0 = $curplot
+stb Vpa dec 2 1 1e5  > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain)) < 1e-12)
+if k & ($same ne 0)
+  echo stbchk preserve-no-localgnd-zero pass
+else
+  echo stbchk preserve-no-localgnd-zero fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb Vpa dec 2 1 1e5 localgnd=Nope >& stb-localgnd-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk preserve-localgnd-absent-node pass
+else
+  echo stbchk preserve-localgnd-absent-node fail
+end
+
+* the card: the node in lower case, the words in upper case
+set sp0 = $curplot
+run > stb-localgnd-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (length(loopgain_normal) eq 11)
+if k & ($same ne 0)
+  echo stbchk preserve-localgnd-card pass
+else
+  echo stbchk preserve-localgnd-card fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

@@ -1,0 +1,89 @@
+* stb: localgnd= and diag=1 with the KLU solver
+*
+* The two circuits of stb-localgnd.cir, see there for the closed forms:
+* against the node ref, loopgain = -6/(1 + j f/fp) with the parts
+* -5/(1 + j f/fp) and -1/(1 + j f/fp); against ground the first circuit
+* gives
+*     T = (ga + gb + 2 rg (ga gb - Y1 G2))/(Y1 + G2 - 2 rg (ga gb - Y1 G2))
+* In the second circuit ground is the node y of the loop, and for vpb,
+* whose positive node is ground, it is the excited node.
+vprb x m dc 0
+vp2 y m dc 0
+ga x ref y ref 1m
+gb y ref x ref 5m
+r1 x ref 5k
+r2 y ref 1.25k
+c1 x ref 1u
+rg ref 0 1k
+
+vpa xb nb dc 0
+vpb 0 nb dc 0
+gab xb refb 0 refb 1m
+gbb 0 refb xb refb 5m
+r1b xb refb 5k
+r2b 0 refb 1.25k
+c1b xb refb 1u
+
+.option klu
+.control
+let const.fp = 1m/(2*pi*1u)
+
+stb vprb dec 2 1 1e5 localgnd=ref diag=1 > stb-localgnd-klu.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-klu-closed-form pass
+else
+  echo stbchk localgnd-klu-closed-form fail
+end
+
+* the loop gain made again from the four responses
+let kk = 2*(stb_i1*stb_v2 - stb_v1*stb_i2) + stb_v1 + stb_i2
+let k = 0
+let k = vecmax(abs(loopgain + kk/(1 - kk))) < 1e-9
+if k
+  echo stbchk localgnd-klu-rebuilt pass
+else
+  echo stbchk localgnd-klu-rebuilt fail
+end
+
+stb vprb dec 2 1 1e5 > stb-localgnd-klu.stblog
+let y1 = 0.2m + j(2*pi*real(frequency)*1u)
+let tg = (6m + 2k*(5u - 0.8m*y1))/(y1 + 0.8m - 2k*(5u - 0.8m*y1))
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + tg)) < 1e-9)
+if k
+  echo stbchk localgnd-klu-none-closed-form pass
+else
+  echo stbchk localgnd-klu-none-closed-form fail
+end
+
+stb vpa dec 2 1 1e5 localgnd=refb diag=1 > stb-localgnd-klu.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-klu-loop-on-ground pass
+else
+  echo stbchk localgnd-klu-loop-on-ground fail
+end
+
+stb vpb dec 2 1 1e5 localgnd=refb diag=1 > stb-localgnd-klu.stblog
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain + 6/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_normal + 1/(1 + j(real(frequency)/const.fp)))) < 1e-9) & (vecmax(abs(loopgain_reverse + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk localgnd-klu-excited-node-ground pass
+else
+  echo stbchk localgnd-klu-excited-node-ground fail
+end
+
+* the matrix is real again: an operating point is found
+op
+let k = 0
+let k = abs(v(x)) < 1e-12
+if k
+  echo stbchk localgnd-klu-op-after pass
+else
+  echo stbchk localgnd-klu-op-after fail
+end
+.endc
+.end
