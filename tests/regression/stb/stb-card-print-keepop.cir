@@ -1,0 +1,129 @@
+* stb: the saves of a .print stb card and the option keepopinfo
+*
+* The loop of stb-card-print.cir with the option keepopinfo and a dc
+* value of the input.
+*
+* With the option a run also makes the plot "STB Operating Point". In
+* batch mode the vectors named on the .print cards are the ones that are
+* saved: a ".print stb vdb(loopgain) vp(loopgain)" card saves "loopgain"
+* for the analysis, as the command "save loopgain" does. The loop gain is
+* no node of the circuit: it is in the loop-gain plot. A save that names
+* nothing in the operating point plot is not for that plot, and if no
+* other save is left the plot keeps all its vectors, as it does without
+* any save. A save that names a node of the circuit counts as always:
+* the plot then holds what is saved.
+*
+* This deck gives the save by the command and reads the plots in its
+* .control section. It does not print the table of the operating point
+* that a batch run prints for such a card: that table is followed by the
+* parameters of every device, and which parameters a device has depends
+* on how ngspice was configured. The table of the card itself is in
+* stb-card-print.cir.
+*
+* The operating point: v(in) = 1.1 V, and v(out) = 10 (v(in) - v(y)) with
+* v(y) = v(x) = v(out), since c1 takes no current: 1 V on the three
+* nodes, no current in any source.
+* The loop gain, with fp = 1/(2 pi r1 c1) = 159.155 Hz:
+*     loopgain = -10 / (1 + j f/fp)
+vprb x y dc 0
+e1 out 0 in y 10
+vin in 0 dc 1.1 ac 1
+r1 out x 1k
+c1 x 0 1u
+.options keepopinfo
+.stb vprb dec 1 1 1e4
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+* what the .print stb card saves
+save loopgain
+set nbefore = $#plots
+run > stb-card-print-keepop.stblog
+
+set ops = none
+let const.nseen = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  if const.nseen > $nbefore
+    strstr p1 "$pl" "op"
+    if $p1 eq 0
+      set ops = $pl
+    end
+  end
+end
+
+* the loop-gain plot is the current one and is complete
+let k = 0
+let k = (length(loopgain) eq 5) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($#plots eq $nbefore + 3)
+  echo stbchk print-keepop-loopgain pass
+else
+  echo stbchk print-keepop-loopgain fail
+end
+
+* the operating point plot has its seven vectors, one point each
+set sp = $curplot
+setplot $ops
+display > stb-card-print-keepop.stblog
+setplot $sp
+let const.nvec = 0
+set n1 = 1
+fopen f1 stb-card-print-keepop.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" ", 1 long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+end
+fclose $f1
+let k = 0
+let k = (abs({$ops}.in - 1.1) < 1e-12) & (abs({$ops}.out - 1) < 1e-9) & (abs({$ops}.x - 1) < 1e-9) & (abs({$ops}.y - 1) < 1e-9) & (abs({$ops}.vprb#branch) < 1e-12) & (abs({$ops}.vin#branch) < 1e-12) & (abs({$ops}.e1#branch) < 1e-12)
+if k & (const.nvec eq 7)
+  echo stbchk print-keepop-all-vectors pass
+else
+  echo stbchk print-keepop-all-vectors fail
+end
+
+* with a save that names a node as well, the operating point plot holds
+* that node and nothing else; the loop-gain plot is complete as before
+save out
+set nbefore = $#plots
+run > stb-card-print-keepop.stblog
+set ops = none
+let const.nseen = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  if const.nseen > $nbefore
+    strstr p1 "$pl" "op"
+    if $p1 eq 0
+      set ops = $pl
+    end
+  end
+end
+set sp = $curplot
+setplot $ops
+display > stb-card-print-keepop.stblog
+setplot $sp
+let const.nvec = 0
+set n1 = 1
+fopen f1 stb-card-print-keepop.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" ", 1 long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+end
+fclose $f1
+let k = 0
+let k = (abs({$ops}.out - 1) < 1e-9) & (length(loopgain) eq 5) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & (const.nvec eq 1)
+  echo stbchk print-keepop-node-saved pass
+else
+  echo stbchk print-keepop-node-saved fail
+end
+.endc
+.end

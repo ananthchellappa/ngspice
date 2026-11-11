@@ -1,0 +1,61 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the option keepopinfo
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk keepop-three-plots pass
+stbchk keepop-loopgain-plot pass
+stbchk keepop-values pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+STB operating point failed -
+
+Last Node Voltages
+------------------
+
+Node                                   Last Voltage        Previous Iter
+----                                   ------------        -------------
+nest                                     -0.0508838             -10.7615 *
+west                                      -0.048569              1.23847 *
+oest                                     -0.0508838             -10.7615 *
+kest                                     0.00250766                   13 *
+btest#branch                           -6.77626e-21          1.07616e-11 *
+vkest#branch                                      0                    0
+vtest#branch                                      0                    0
+
+stbchk keepop-failing-run-no-plot pass
+Reset re-loads circuit * stb: the option keepopinfo
+
+Circuit: * stb: the option keepopinfo
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+
+No. of Data Rows : 11
+stbchk keepop-as-ac pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk keepop-again pass
+Note: Simulation executed from .control section 

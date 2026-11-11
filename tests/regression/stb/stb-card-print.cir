@@ -1,0 +1,38 @@
+* stb: .print stb and .plot stb take the loop-gain plot, not the margins plot
+*
+* A deck with no .control section, run in batch mode: the ac analysis, then
+* the loop-gain analysis, then the .print and .plot cards. A run of the
+* loop-gain analysis makes two plots, stb<k> and stbmargin<k>; "stb" on a
+* .print or .plot card means the first one only.
+*
+* ".print stb all" prints "frequency" and "loopgain" once. Without the
+* selection it would also print the four vectors of the margins plot.
+*
+* The cards of such a deck are evaluated after the run, where no script
+* can look at them: this deck prints no verdict, its expected output is
+* what is compared. The numbers in it are these closed forms, with
+* fp = 1/(2 pi r1 c1) = 159.155 Hz:
+*     loopgain = -10 / (1 + j f/fp),   v(x)/v(in) = 10 / (11 + j f/fp)
+*
+*     f       vm(x)         vdb(loopgain)  vp(loopgain)  loopgain
+*     1       9.090908e-01  1.999983e+01   3.135310e+00  -9.99961e+00, 6.282937e-02
+*     10      9.090761e-01  1.998289e+01   3.078843e+00  -9.96068e+00, 6.258478e-01
+*     100     9.076115e-01  1.855493e+01   2.580611e+00  -7.16957e+00, 4.504772e+00
+*     1000    7.893901e-01  3.927765e+00   1.728628e+00  -2.47045e-01, 1.552231e+00
+*     10000   1.567706e-01  -1.596470e+01  1.586710e+00  -2.53239e-03, 1.591146e-01
+*
+* The margin in the log is read off these five points by interpolation
+* (97.4375 deg at 1575.61 Hz; the loop itself has 95.739 deg at 1583.57 Hz).
+vprb x y dc 0
+e1 out 0 in y 10
+vin in 0 dc 0 ac 1
+r1 out x 1k
+c1 x 0 1u
+.options noacct
+.ac dec 1 1 1e4
+.stb vprb dec 1 1 1e4
+.print ac vm(x)
+.print stb vdb(loopgain) vp(loopgain)
+.print stb all
+.plot stb vdb(loopgain)
+.end

@@ -14,6 +14,8 @@ vol. 17, no. 1, 2001.
 /* the titles of the plots, by which the front end knows them */
 #define STB_PLOT_TITLE    "STB Analysis"
 #define STB_MARGIN_TITLE  "STB Margins"
+/* the operating point, a third plot made for the option keepopinfo */
+#define STB_OP_TITLE      "STB Operating Point"
 
     /* structure used to describe a loop-gain analysis to be performed */
 

@@ -1,0 +1,53 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the option keepopinfo, with the klu solver
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 1
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk keepop-klu-three-plots pass
+stbchk keepop-klu-loopgain-plot pass
+stbchk keepop-klu-values pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+STB operating point failed -
+
+Last Node Voltages
+------------------
+
+Node                                   Last Voltage        Previous Iter
+----                                   ------------        -------------
+nest                                     -0.0425473             -20.8251 *
+west                                     -0.0402326             -8.82507 *
+oest                                     -0.0425473             -20.8251 *
+kest                                     0.00250766                   13 *
+btest#branch                                      0          4.16501e-11 *
+vkest#branch                                      0                    0
+vtest#branch                                     -0                   -0
+
+stbchk keepop-klu-failing-run-no-plot pass
+Reset re-loads circuit * stb: the option keepopinfo, with the klu solver
+
+Circuit: * stb: the option keepopinfo, with the klu solver
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 1
+
+No. of Data Rows : 11
+
+No. of Data Rows : 1
+stbchk keepop-klu-again pass
+Note: Simulation executed from .control section 

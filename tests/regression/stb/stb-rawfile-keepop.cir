@@ -1,0 +1,133 @@
+* stb: the types of the vectors in a raw file with the option keepopinfo
+*
+* The loop of stb-flat.cir, and beside it nodes whose names begin as the
+* vectors of a loop-gain analysis do: "loopgain", "stb_ix" and
+* "phasemarginal". With the option keepopinfo "run <file>" writes three
+* plots: "STB Operating Point", "STB Analysis" and "STB Margins".
+*
+* In the operating point plot these nodes are node voltages like any
+* other: the file has "v(loopgain)", "v(stb_ix)" and "v(phasemarginal)",
+* each of the type voltage. Only in the other two plots are the names
+* those of computed results: "loopgain" of no type in "STB Analysis", and
+* the margins of no type and their frequencies in "STB Margins".
+*
+* The file is read line by line here. (It is written in ASCII.)
+.options keepopinfo
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+vb loopgain 0 dc 2
+rb loopgain stb_ix 1k
+rc stb_ix 0 1k
+vd phasemarginal 0 dc 1
+rd phasemarginal 0 1k
+.stb vprb dec 5 1 1e6
+.control
+set filetype = ascii
+run stb-rawfile-keepop.raw > stb-rawfile-keepop.stblog
+
+* const.where: 0 before the first plot, 1 in the operating point plot,
+* 2 in the loop-gain plot, 3 in the margins plot
+let const.where = 0
+let const.nplot = 0
+let const.order = 1
+let const.opvolt = 0
+let const.opbare = 0
+let const.gain = 0
+let const.gainvolt = 0
+let const.marg = 0
+let const.margfreq = 0
+let const.margvolt = 0
+set n1 = 1
+fopen f1 stb-rawfile-keepop.raw r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_Plotname: "
+  if $p1 eq 0
+    let const.nplot = const.nplot + 1
+    let const.was = const.where
+    let const.where = 0
+    strstr p2 "_$ln" "_Plotname: STB Operating Point"
+    if $p2 eq 0
+      let const.where = 1
+    end
+    strstr p2 "_$ln" "_Plotname: STB Analysis"
+    if $p2 eq 0
+      let const.where = 2
+    end
+    strstr p2 "_$ln" "_Plotname: STB Margins"
+    if $p2 eq 0
+      let const.where = 3
+    end
+    if const.where ne const.was + 1
+      let const.order = 0
+    end
+  end
+  strstr p1 "_$ln" "voltage"
+  strstr p2 "_$ln" "notype"
+  strstr p3 "_$ln" "frequency"
+  if const.where eq 1
+    * the three nodes, as voltages
+    strstr q1 "_$ln" "v(loopgain)"
+    strstr q2 "_$ln" "v(stb_ix)"
+    strstr q3 "_$ln" "v(phasemarginal)"
+    if (($q1 >= 0) | ($q2 >= 0) | ($q3 >= 0)) & ($p1 >= 0)
+      let const.opvolt = const.opvolt + 1
+    end
+    * no vector of this plot is without a type, or a current by its name
+    strstr q1 "_$ln" "i(stb_ix)"
+    if ($p2 >= 0) | ($q1 >= 0)
+      let const.opbare = const.opbare + 1
+    end
+  end
+  if const.where eq 2
+    strstr q1 "_$ln" "loopgain"
+    if ($q1 >= 0) & ($p2 >= 0)
+      let const.gain = const.gain + 1
+    end
+    strstr q1 "_$ln" "v("
+    if ($q1 >= 0) | ($p1 >= 0)
+      let const.gainvolt = const.gainvolt + 1
+    end
+  end
+  if const.where eq 3
+    strstr q1 "_$ln" "margin"
+    strstr q2 "_$ln" "marginfreq"
+    if ($q1 >= 0) & ($q2 < 0) & ($p2 >= 0)
+      let const.marg = const.marg + 1
+    end
+    if ($q2 >= 0) & ($p3 >= 0)
+      let const.margfreq = const.margfreq + 1
+    end
+    strstr q1 "_$ln" "v("
+    if ($q1 >= 0) | ($p1 >= 0)
+      let const.margvolt = const.margvolt + 1
+    end
+  end
+end
+fclose $f1
+
+if (const.nplot eq 3) & (const.order eq 1) & (const.where eq 3)
+  echo stbchk rawfile-keepop-three-plots pass
+else
+  echo stbchk rawfile-keepop-three-plots fail
+end
+if (const.opvolt eq 3) & (const.opbare eq 0)
+  echo stbchk rawfile-keepop-nodes-are-voltages pass
+else
+  echo stbchk rawfile-keepop-nodes-are-voltages fail
+end
+if (const.gain eq 1) & (const.gainvolt eq 0)
+  echo stbchk rawfile-keepop-loopgain-no-type pass
+else
+  echo stbchk rawfile-keepop-loopgain-no-type fail
+end
+if (const.marg eq 2) & (const.margfreq eq 2) & (const.margvolt eq 0)
+  echo stbchk rawfile-keepop-margins-types pass
+else
+  echo stbchk rawfile-keepop-margins-types fail
+end
+.endc
+.end

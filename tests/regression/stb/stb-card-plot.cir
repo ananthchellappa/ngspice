@@ -1,0 +1,37 @@
+* stb: .plot stb takes the loop-gain plot, not the margins plot
+*
+* A deck with no .control section, run in batch mode. A run of the
+* loop-gain analysis makes two plots, stb<k> and stbmargin<k>; "stb" on a
+* .plot card means the first one only.
+*
+* ".plot stb all" draws the vectors of the loop-gain plot, "frequency" and
+* "loopgain" (the real part), once. Without the selection it would draw a
+* second plot, with the four vectors of the margins plot. Both margins
+* exist here, so that such a plot could be drawn.
+*
+* The loop of stb-threepole.cir, a ring of three equal inverting stages:
+*     loopgain = -A^3 / (1 + j f/fp)^3,   A = 1.6,   fp = 1.59155 MHz
+* "all" also draws the frequency itself, which sets the range of the plot:
+* the real part of the loop gain, between -4 and 0.4, is a column of
+* marks at zero.
+* The margins in the log are read off these five points by interpolation
+* (the loop itself has 26.047 deg at 1.98784 MHz and 5.8146 dB at
+* 2.75664 MHz).
+*
+* The card of such a deck is evaluated after the run, where no script can
+* look at it: this deck prints no verdict, its expected output is what is
+* compared.
+g1 n2 0 y 0 1.6m
+r1 n2 0 1k
+c1 n2 0 100p
+g2 n3 0 n2 0 1.6m
+r2 n3 0 1k
+c2 n3 0 100p
+g3 x 0 n3 0 1.6m
+r3 x 0 1k
+c3 x 0 100p
+vprb x y dc 0
+.options noacct
+.stb vprb dec 2 1e5 1e7
+.plot stb all
+.end

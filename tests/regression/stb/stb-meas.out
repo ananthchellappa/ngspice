@@ -1,0 +1,20 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: meas on a loop-gain plot
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 301
+
+No. of Data Rows : 1
+stbchk meas-find-at pass
+stbchk meas-when-closed-form pass
+stbchk meas-when-margins-plot pass
+stbchk meas-phase-margin pass
+stbchk meas-not-on-margins-plot pass
+stbchk meas-plot-kept pass
+Note: Simulation executed from .control section 

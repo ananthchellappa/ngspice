@@ -1,0 +1,32 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the two plots in a raw file, and the types of their vectors
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk rawfile-type-in-plot pass
+stbchk rawfile-type-in-margins-plot pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+No. of Data Columns : 2  
+
+No. of Data Rows : 31
+No. of Data Columns : 4  
+
+No. of Data Rows : 1
+stbchk rawfile-no-plot pass
+stbchk rawfile-two-plots pass
+stbchk rawfile-vector-names pass
+stbchk rawfile-loaded-plots pass
+stbchk rawfile-loaded-loopgain pass
+stbchk rawfile-loaded-frequency pass
+stbchk rawfile-loaded-margins pass
+Note: Simulation executed from .control section 

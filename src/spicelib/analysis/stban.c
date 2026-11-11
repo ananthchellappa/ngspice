@@ -368,11 +368,14 @@ STBan(CKTcircuit *ckt, int restart)
     IFcomplex *gain = NULL;
     double *tre = NULL;     /* the return ratio T */
     double *tim = NULL;
+    double *opsave = NULL;  /* the operating point, for the option keepopinfo */
     STBmargins mg;
     double mvals[4];
     IFuid freqUid;
     IFuid gainUid;
     IFuid marginUids[4];
+    IFuid *nameList = NULL;
+    int numNames;
     IFvalue refValue;
     IFvalue value;
     runDesc *plot = NULL;
@@ -518,6 +521,14 @@ STBan(CKTcircuit *ckt, int restart)
         return error;
     }
 
+    /* The operating point is written when the sweep is done, with the
+     * other plots. It is kept here: the sweep solves it again at each
+     * frequency if a source depends on "hertz". */
+    if (ckt->CKTkeepOpInfo) {
+        opsave = TMALLOC(double, ckt->CKTmaxEqNum);
+        memcpy(opsave, ckt->CKTrhsOld, (size_t) ckt->CKTmaxEqNum * sizeof(double));
+    }
+
     freqs = TMALLOC(double, npoints);
     gain = TMALLOC(IFcomplex, npoints);
     tre = TMALLOC(double, npoints);
@@ -651,7 +662,35 @@ STBan(CKTcircuit *ckt, int restart)
         STBmargin(npoints, freqs, tre, tim, &mg);
         if (!ft_optimizing)
             stb_log(&mg);
+    }
 
+    /* The operating point plot, as ACan() writes it for the option
+     * keepopinfo, but only now: a sweep that failed makes no plot. */
+    if (!error && opsave)
+        error = CKTnames(ckt, &numNames, &nameList);
+
+    if (!error && opsave)
+        error = SPfrontEnd->OUTpBeginPlot(ckt, ckt->CKTcurJob,
+            STB_OP_TITLE,
+            NULL, IF_REAL,
+            numNames, nameList, IF_REAL,
+            &plot);
+
+    if (!error && opsave) {
+        /* CKTdump() writes CKTrhsOld, in the mode of an operating point */
+        double *rhsOld = ckt->CKTrhsOld;
+        long mode = ckt->CKTmode;
+
+        ckt->CKTrhsOld = opsave;
+        ckt->CKTmode = (mode & MODEUIC) | MODEDCOP | MODEINITSMSIG;
+        CKTdump(ckt, 0.0, plot);
+        ckt->CKTmode = mode;
+        ckt->CKTrhsOld = rhsOld;
+        SPfrontEnd->OUTendPlot(plot);
+        plot = NULL;
+    }
+
+    if (!error) {
         SPfrontEnd->IFnewUid(ckt, &freqUid, NULL, "frequency", UID_OTHER, NULL);
         SPfrontEnd->IFnewUid(ckt, &gainUid, NULL, "loopgain", UID_OTHER, NULL);
         error = SPfrontEnd->OUTpBeginPlot(ckt, ckt->CKTcurJob,
@@ -708,6 +747,8 @@ STBan(CKTcircuit *ckt, int restart)
     tfree(gain);
     tfree(tre);
     tfree(tim);
+    tfree(opsave);
+    tfree(nameList);
 
     return error;
 }

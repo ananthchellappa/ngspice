@@ -2035,9 +2035,12 @@ get_measure2(
     if (!ciprefix("tran", plot_cur->pl_typename) &&
         !ciprefix("ac", plot_cur->pl_typename) &&
         !ciprefix("dc", plot_cur->pl_typename) &&
-        !ciprefix("sp", plot_cur->pl_typename))
+        !ciprefix("sp", plot_cur->pl_typename) &&
+        /* a loop-gain plot, not the margins plot made with it */
+        (!ciprefix("stb", plot_cur->pl_typename) ||
+         ciprefix("stbmargin", plot_cur->pl_typename)))
     {
-        fprintf(cp_err, "Error: measure limited to tran, dc, sp, or ac analysis\n");
+        fprintf(cp_err, "Error: measure limited to tran, dc, sp, ac or stb analysis\n");
         return MEASUREMENT_FAILURE;
     }
 
