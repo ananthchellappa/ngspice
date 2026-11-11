@@ -1090,6 +1090,7 @@
     <ClInclude Include="..\src\include\ngspice\stringutil.h" />
     <ClInclude Include="..\src\include\ngspice\suffix.h" />
     <ClInclude Include="..\src\include\ngspice\swec.h" />
+    <ClInclude Include="..\src\include\ngspice\stbdefs.h" />
     <ClInclude Include="..\src\include\ngspice\tfdefs.h" />
     <ClInclude Include="..\src\include\ngspice\trandefs.h" />
     <ClInclude Include="..\src\include\ngspice\trcvdefs.h" />
@@ -1828,6 +1829,9 @@
     <ClCompile Include="..\src\spicelib\analysis\sensaskq.c" />
     <ClCompile Include="..\src\spicelib\analysis\senssetp.c" />
     <ClCompile Include="..\src\spicelib\analysis\span.c" />
+    <ClCompile Include="..\src\spicelib\analysis\stban.c" />
+    <ClCompile Include="..\src\spicelib\analysis\stbaskq.c" />
+    <ClCompile Include="..\src\spicelib\analysis\stbsetp.c" />
     <ClCompile Include="..\src\spicelib\analysis\spaskq.c" />
     <ClCompile Include="..\src\spicelib\analysis\spsetp.c" />
     <ClCompile Include="..\src\spicelib\analysis\tfanal.c" />

@@ -1,0 +1,31 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: save and .save do not strip the loop-gain plot
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk save-dot-save pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk save-ac-obeys pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk save-device-parameter pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk save-none pass
+Note: Simulation executed from .control section 

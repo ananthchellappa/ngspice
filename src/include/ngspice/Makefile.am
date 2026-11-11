@@ -117,6 +117,7 @@ noinst_HEADERS = \
 	spardefs.h	\
 	sperror.h	\
 	spmatrix.h	\
+	stbdefs.h	\
 	stringskip.h	\
 	stringutil.h	\
 	suffix.h	\

@@ -14,6 +14,7 @@ Modified: 2000 AlansFixes
 #include "inpxx.h"
 #include "ngspice/cpdefs.h"
 #include "ngspice/tskdefs.h"
+#include "ngspice/stbdefs.h"
 
 static int
 dot_noise(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
@@ -241,6 +242,91 @@ dot_ac(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         fprintf(stderr, "Warning, ngspice assumes default parameter(s) for ac simulation\n");
         fprintf(stderr, "    Check your input line '.ac %s'\n\n", mline);
     }
+    return (0);
+}
+
+/* .stb <probe> {DEC OCT LIN} NP FSTART FSTOP
+ *
+ * A line that cannot be read does not stop the deck from loading: the job
+ * is made, the problem is stored with it and is reported when it is run. */
+static int
+dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
+        TSKtask *task, CKTnode *gnode, JOB *foo)
+{
+    int error;			/* error code temporary */
+    IFvalue ptemp;		/* a value structure to package the values into */
+    int which;			/* which analysis we are performing */
+    char *probe;		/* the name of the probe */
+    char *steptype;		/* type of stepping function */
+    char *msg;			/* what is wrong with the line */
+    double points = 0.0, start = 0.0, stop = 0.0;
+    int bad;
+
+    NG_IGNORE(gnode);
+
+    which = ft_find_analysis("STB");
+    if (which == -1) {
+        LITERR("Loop-gain (stability) analysis unsupported.\n");
+        return (0);
+    }
+    IFC(newAnalysis, (ckt, which, STB_PLOT_TITLE, &foo, task));
+    if (error)
+        return (0);
+
+    INPgetNetTok(&line, &probe, 1);
+    if (!*probe || cieq(probe, "dec") || cieq(probe, "oct") || cieq(probe, "lin")) {
+        tfree(probe);
+        msg = copy("no probe given");
+        INPinsert(&msg, tab);
+        ptemp.sValue = msg;
+        GCA(INPapName, (ckt, which, foo, "error", &ptemp));
+        return (0);
+    }
+    INPinsert(&probe, tab);
+    ptemp.sValue = probe;
+    GCA(INPapName, (ckt, which, foo, "probe", &ptemp));
+
+    INPgetTok(&line, &steptype, 1);	/* get DEC, OCT, or LIN */
+    ptemp.iValue = 1;
+    if (cieq(steptype, "dec"))
+        GCA(INPapName, (ckt, which, foo, "dec", &ptemp));
+    else if (cieq(steptype, "oct"))
+        GCA(INPapName, (ckt, which, foo, "oct", &ptemp));
+    else if (cieq(steptype, "lin"))
+        GCA(INPapName, (ckt, which, foo, "lin", &ptemp));
+    else
+        ptemp.iValue = 0;
+    tfree(steptype);
+    bad = !ptemp.iValue;
+
+    if (!bad)
+        points = INPevaluate(&line, &bad, 1);	/* number of points */
+    if (!bad)
+        start = INPevaluate(&line, &bad, 1);	/* fstart */
+    if (!bad)
+        stop = INPevaluate(&line, &bad, 1);	/* fstop */
+    if (!bad && *line)
+        bad = 1;				/* something follows */
+    if (!bad && !(fabs(points) < INT_MAX))
+        bad = 1;				/* not a number of points */
+
+    if (bad) {
+        msg = tprintf("probe %s: the line cannot be read; "
+                      "it is: stb <probe> dec|oct|lin <points> <fstart> <fstop>",
+                      probe);
+        INPinsert(&msg, tab);
+        ptemp.sValue = msg;
+        GCA(INPapName, (ckt, which, foo, "error", &ptemp));
+        return (0);
+    }
+
+    ptemp.iValue = (int) floor(0.5 + points);
+    GCA(INPapName, (ckt, which, foo, "numsteps", &ptemp));
+    ptemp.rValue = start;
+    GCA(INPapName, (ckt, which, foo, "start", &ptemp));
+    ptemp.rValue = stop;
+    GCA(INPapName, (ckt, which, foo, "stop", &ptemp));
+
     return (0);
 }
 
@@ -898,6 +984,9 @@ INP2dot(CKTcircuit *ckt, INPtables *tab, struct card *current, TSKtask *task, CK
         goto quit;
     } else if ((cieq(token, ".tf"))) {
         rtn = dot_tf(line, ckt, tab, current, task, gnode, foo);
+        goto quit;
+    } else if ((cieq(token, ".stb"))) {
+        rtn = dot_stb(line, ckt, tab, current, task, gnode, foo);
         goto quit;
     } else if ((cieq(token, ".tran"))) {
         rtn = dot_tran(line, ckt, tab, current, task, gnode, foo);

@@ -1,0 +1,72 @@
+* stb: the KLU solver
+*
+* Loop b of stb-sources.cir and the loop of stb-flat.cir, solved with
+* the option klu:
+*   flat loop (x, y):   loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi 1k 1u)
+*   loop b (p, q, o):   loopgain = -6, operating point v(q) = 3 (the
+*                       root that the iteration reaches from 0)
+* An op and an ac analysis after the stb runs still work with this solver:
+* they give v(q) = 3 and the closed-loop response of the flat loop,
+* v(x) = 10/11 / (1 + j f/(11 fp)), and a further stb run still agrees.
+*
+* (Sources that depend on "hertz" are in stb-klu-hertz.cir.)
+.option klu
+.options reltol=1e-9 vntol=1e-12 abstol=1e-15
+vprb x y dc 0
+e1 out 0 in y 10
+vin in 0 dc 0 ac 1
+r1 out x 1k
+c1 x 0 1u
+*
+vq p q dc -12
+bq o 0 v = -v(q)*v(q)
+rq o p 1k
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+stb vprb dec 5 1 1e6 > stb-klu.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk klu-flat pass
+else
+  echo stbchk klu-flat fail
+end
+
+stb vq dec 2 1 1e4 > stb-klu.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k
+  echo stbchk klu-dc-kept pass
+else
+  echo stbchk klu-dc-kept fail
+end
+
+op
+let k = 0
+let k = abs(v(q) - 3) < 1e-9
+if k
+  echo stbchk klu-op-after pass
+else
+  echo stbchk klu-op-after fail
+end
+
+ac dec 5 1 1e6
+let k = 0
+let k = (length(v(x)) eq 31) & (vecmax(abs(v(x) - 10/11/(1 + j(real(frequency)/(11*const.fp))))) < 1e-9)
+if k
+  echo stbchk klu-ac-after pass
+else
+  echo stbchk klu-ac-after fail
+end
+
+stb vprb dec 5 1 1e6 > stb-klu.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk klu-stb-again pass
+else
+  echo stbchk klu-stb-again fail
+end
+.endc
+.end

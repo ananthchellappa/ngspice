@@ -263,7 +263,8 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
         eq(what, "adjsen") ||
         eq(what, "sens") ||
         eq(what, "tf") ||
-        eq(what, "noise")
+        eq(what, "noise") ||
+        eq(what, "stb")
 #ifdef WITH_PSS
         /* Steady State Analysis */
         || eq(what, "pss")
@@ -397,6 +398,7 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
         (eq(what, "adjsen")) ||
         (eq(what, "sens")) ||
         (eq(what, "tf")) ||
+        (eq(what, "stb")) ||
 #ifdef WITH_PSS
         /* SP: Steady State Analysis */
         (eq(what, "pss")) ||

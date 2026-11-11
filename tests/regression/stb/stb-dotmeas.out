@@ -1,0 +1,27 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a .stb card does not take the .meas cards away from the other analyses
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 31
+
+  Measurements for AC Analysis
+
+lowgain             =  9.09091e-01
+
+stbchk dotmeas-stb-plot-last pass
+stbchk dotmeas-ac-card pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk dotmeas-stb-command pass
+ngspice-47+ done

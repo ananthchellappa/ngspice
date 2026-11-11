@@ -1,0 +1,79 @@
+* stb: loop gain of a one-way loop against its closed form
+*
+* e1 senses node y and drives node x through r1; c1 loads x. No current
+* flows through the probe, so the return ratio is
+*     T = A / (1 + j f/fp),   A = 10,   fp = 1/(2 pi r1 c1)
+* and the analysis writes loopgain = -T.
+*
+* This deck also owns the text of the lines the analysis prints.
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.control
+stb vprb dec 5 1 1e6
+set sp = $curplot
+
+* the plot is an stb plot and it is the current one
+strstr pos "$sp" "stb"
+if $pos = 0
+  echo stbchk flat-plot pass
+else
+  echo stbchk flat-plot fail
+end
+
+* the plot holds the scale and the loop gain, nothing else
+display > stb-flat.stblog
+let const.nvec = 0
+let const.nfreq = 0
+let const.ngain = 0
+set n1 = 1
+fopen f1 stb-flat.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" " long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+    strstr p2 "_$ln" " frequency "
+    if $p2 >= 0
+      let const.nfreq = const.nfreq + 1
+    end
+    strstr p3 "_$ln" " loopgain "
+    if $p3 >= 0
+      let const.ngain = const.ngain + 1
+    end
+  end
+end
+fclose $f1
+if (const.nvec eq 2) & (const.nfreq eq 1) & (const.ngain eq 1)
+  echo stbchk flat-vectors pass
+else
+  echo stbchk flat-vectors fail
+end
+
+* every point equals the closed form
+let fp = 1/(2*pi*1k*1u)
+let k = 0
+let k = vecmax(abs(loopgain + 10/(1 + j(real(frequency)/fp)))) < 1e-9
+if k
+  echo stbchk flat-value pass
+else
+  echo stbchk flat-value fail
+end
+
+* the frequency points are those of an ac sweep, bit for bit
+ac dec 5 1 1e6
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let n = 0
+let n = length({$sp}.loopgain) eq 31
+if k & m & n
+  echo stbchk flat-points pass
+else
+  echo stbchk flat-points fail
+end
+.endc
+.end

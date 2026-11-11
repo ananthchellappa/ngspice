@@ -1,0 +1,50 @@
+* stb: .stb cards run by "run"
+*
+* The loop of stb-flat.cir with two .stb cards. "run" makes one stb plot
+* for each card (in the order in which ngspice runs several cards of one
+* kind), and an stb plot is the current plot afterwards.
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.stb vprb dec 5 1 1e6
+.stb vprb lin 3 1k 3k
+.control
+let const.fp = 1/(2*pi*1k*1u)
+run > stb-card-run.stblog
+
+strstr pos "$curplot" "stb"
+if $pos eq 0
+  echo stbchk card-run-plot pass
+else
+  echo stbchk card-run-plot fail
+end
+
+* two loop-gain plots: one with the 31 points of the first card, one with
+* the 3 points of the second, each with the closed-form values
+let const.nstb = 0
+let const.nfirst = 0
+let const.nsecond = 0
+foreach pl $plots
+  strstr p1 "$pl" "stb"
+  strstr p2 "$pl" "stbmargin"
+  if ($p1 eq 0) & ($p2 < 0)
+    let const.nstb = const.nstb + 1
+    setplot $pl
+    let k = 0
+    let k = vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+    if k & (length(loopgain) eq 31)
+      let const.nfirst = const.nfirst + 1
+    end
+    if k & (length(loopgain) eq 3)
+      let const.nsecond = const.nsecond + 1
+    end
+  end
+end
+if (const.nstb eq 2) & (const.nfirst eq 1) & (const.nsecond eq 1)
+  echo stbchk card-run-both-cards pass
+else
+  echo stbchk card-run-both-cards fail
+end
+.endc
+.end

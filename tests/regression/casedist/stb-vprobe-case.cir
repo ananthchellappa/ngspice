@@ -1,0 +1,190 @@
+* stb under casemode=distinguish: the voltage-source probe, spelled exactly
+*
+* Under distinguish two spellings are two names, so this deck has pairs of
+* instances that differ only by case, each in a loop of its own. The loops
+* are told apart by their gain A; loopgain = -A / (1 + j f/fp),
+* fp = 1/(2 pi 1k 1u):
+*   Vprb       A = 20        VPRB       A = 7       (top level)
+*   X1.Vprb    A = 10        x1.Vprb    A = 3       (X1 and x1)
+*   X3.Xi.Vprb A = 5         (Inner is defined inside Outer)
+*
+* stb has to take the source that is spelled as the probe is, by the name
+* it has in the circuit (V.X1.Vprb) and by the path of its instances
+* (X1.Vprb). A spelling that the deck does not have names nothing: there
+* is an error, no plot, and no other loop is taken in its place. Under
+* fold or preserve this deck does not load at all (the second of each
+* pair is a duplicate), so every verdict below needs the mode.
+*
+* The node names are lower case on purpose: the names under test are those
+* of the instances.
+.subckt LoopA
+Vprb x y dc 0
+E1 out 0 0 y 10
+R1 out x 1k
+C1 x 0 1u
+.ends
+.subckt LoopB
+Vprb x y dc 0
+E1 out 0 0 y 3
+R1 out x 1k
+C1 x 0 1u
+.ends
+X1 LoopA
+x1 LoopB
+.subckt Outer
+.subckt Inner
+Vprb x y dc 0
+E1 out 0 0 y 5
+R1 out x 1k
+C1 x 0 1u
+.ends
+Xi Inner
+.ends
+X3 Outer
+Vprb tx ty dc 0
+E2 tout 0 0 ty 20
+R2 tout tx 1k
+C2 tx 0 1u
+VPRB ux uy dc 0
+E3 uout 0 0 uy 7
+R3 uout ux 1k
+C3 ux 0 1u
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+set sp0 = $curplot
+stb Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-top-mixed pass
+else
+  echo stbchk distinguish-top-mixed fail
+end
+
+set sp0 = $curplot
+stb VPRB dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 7/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-top-upper pass
+else
+  echo stbchk distinguish-top-upper fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb vprb dec 2 1 1e4 >& stb-vprobe-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-top-lower-is-no-name pass
+else
+  echo stbchk distinguish-top-lower-is-no-name fail
+end
+
+set sp0 = $curplot
+stb X1.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-path-upper-x pass
+else
+  echo stbchk distinguish-path-upper-x fail
+end
+
+set sp0 = $curplot
+stb x1.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 3/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-path-lower-x pass
+else
+  echo stbchk distinguish-path-lower-x fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X1.vprb dec 2 1 1e4 >& stb-vprobe-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-path-other-leaf-is-no-name pass
+else
+  echo stbchk distinguish-path-other-leaf-is-no-name fail
+end
+
+set sp0 = $curplot
+stb V.X1.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-flat-upper-x pass
+else
+  echo stbchk distinguish-flat-upper-x fail
+end
+
+set sp0 = $curplot
+stb V.x1.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 3/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-flat-lower-x pass
+else
+  echo stbchk distinguish-flat-lower-x fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb v.X1.Vprb dec 2 1 1e4 >& stb-vprobe-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-flat-other-letter-is-no-name pass
+else
+  echo stbchk distinguish-flat-other-letter-is-no-name fail
+end
+
+set sp0 = $curplot
+stb X3.Xi.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-inner-path pass
+else
+  echo stbchk distinguish-inner-path fail
+end
+
+set sp0 = $curplot
+stb V.X3.V.Xi.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-inner-flat pass
+else
+  echo stbchk distinguish-inner-flat fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X3.xi.Vprb dec 2 1 1e4 >& stb-vprobe-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-inner-path-other-is-no-name pass
+else
+  echo stbchk distinguish-inner-path-other-is-no-name fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

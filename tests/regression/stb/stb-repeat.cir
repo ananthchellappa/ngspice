@@ -1,0 +1,64 @@
+* stb: repeated runs with alter, altermod, a temperature change and reset
+*
+* The loop of stb-flat.cir: loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi R c1).
+* R is r1, which has a resistor model with a first-order temperature
+* coefficient: R = r1 (1 + tc1 (temp - 27)).
+*
+*   alter r1          R = 1k, 2k, 5k at 27 C
+*   set temp = 127    R = 5k (1 + 0.01 * 100) = 10k
+*   altermod tc1      R = 5k (1 + 0.02 * 100) = 15k
+*   reset             R = 1k again (temp back at 27 C)
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x rmod 1k
+c1 x 0 1u
+.model rmod r (tc1=0.01)
+.control
+let const.npass = 0
+foreach rv 1k 2k 5k
+  alter r1 = $rv
+  stb vprb dec 2 1 1e4 > stb-repeat.stblog
+  let k = 0
+  let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)*2*pi*$rv*1u)))) < 1e-9)
+  if k
+    let const.npass = const.npass + 1
+  end
+end
+if const.npass eq 3
+  echo stbchk repeat-alter pass
+else
+  echo stbchk repeat-alter fail
+end
+
+set temp = 127
+stb vprb dec 2 1 1e4 > stb-repeat.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)*2*pi*10k*1u)))) < 1e-9)
+if k
+  echo stbchk repeat-temperature pass
+else
+  echo stbchk repeat-temperature fail
+end
+
+altermod rmod tc1 = 0.02
+stb vprb dec 2 1 1e4 > stb-repeat.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)*2*pi*15k*1u)))) < 1e-9)
+if k
+  echo stbchk repeat-altermod pass
+else
+  echo stbchk repeat-altermod fail
+end
+
+set temp = 27
+reset
+stb vprb dec 2 1 1e4 > stb-repeat.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)*2*pi*1k*1u)))) < 1e-9)
+if k
+  echo stbchk repeat-reset pass
+else
+  echo stbchk repeat-reset fail
+end
+.endc
+.end

@@ -1,0 +1,607 @@
+/**********
+Loop-gain (stability) analysis "stb".
+
+The probe is a voltage source in the loop. At each frequency the AC
+matrix is factored once and solved for two right-hand sides, a unit
+voltage in series with the probe and a unit current into its node. The
+two responses are combined into the return ratio T of the loop after
+
+M. Tian, V. Visvanathan, J. Hantgan, K. Kundert, "Striving for
+small-signal stability", IEEE Circuits and Devices Magazine,
+vol. 17, no. 1, 2001.
+
+The plot holds loopgain = -T.
+**********/
+
+#include "ngspice/ngspice.h"
+#include "ngspice/cktdefs.h"
+#include "ngspice/acdefs.h"
+#include "ngspice/stbdefs.h"
+#include "ngspice/devdefs.h"
+#include "ngspice/smpdefs.h"
+#include "ngspice/sperror.h"
+#include "ngspice/cpextern.h"
+#include "ngspice/fteext.h"
+
+#ifdef XSPICE
+#include "ngspice/evt.h"
+#include "ngspice/enh.h"
+#include "ngspice/mif.h"
+#include "ngspice/evtproto.h"
+#include "ngspice/ipctiein.h"
+#endif
+
+
+#define INIT_STATS() \
+do { \
+    startTime  = SPfrontEnd->IFseconds();       \
+    startdTime = ckt->CKTstat->STATdecompTime;  \
+    startsTime = ckt->CKTstat->STATsolveTime;   \
+    startlTime = ckt->CKTstat->STATloadTime;    \
+    startkTime = ckt->CKTstat->STATsyncTime;    \
+} while(0)
+
+#define UPDATE_STATS(analysis) \
+do { \
+    ckt->CKTcurrentAnalysis = analysis; \
+    ckt->CKTstat->STATacTime += SPfrontEnd->IFseconds() - startTime; \
+    ckt->CKTstat->STATacDecompTime += ckt->CKTstat->STATdecompTime - startdTime; \
+    ckt->CKTstat->STATacSolveTime += ckt->CKTstat->STATsolveTime - startsTime; \
+    ckt->CKTstat->STATacLoadTime += ckt->CKTstat->STATloadTime - startlTime; \
+    ckt->CKTstat->STATacSyncTime += ckt->CKTstat->STATsyncTime - startkTime; \
+} while(0)
+
+
+/* A word of a command that names something of the deck, in the spelling
+ * the circuit has it in. Under the case mode fold the reader has made the
+ * deck lower case, and a word typed at the prompt has not been: it is
+ * folded here. Under preserve and distinguish the names of the circuit
+ * keep the spelling of the deck, and folding the word would make every
+ * one of them unreachable. The caller owns the copy. */
+static char *
+stb_key(const char *word)
+{
+    char *key = copy(word);
+
+    if (inp_case_folding())
+        strtolower(key);
+
+    return key;
+}
+
+
+/* Are a and b the same letter of a name of the deck? ng_ideq() for one
+ * character: any spelling is the name under preserve; under fold both
+ * sides are lower case, under distinguish two spellings are two names. */
+static int
+stb_ch_eq(char a, char b)
+{
+    return inp_case_exact_ids() ? (a == b) : (tolower_c(a) == tolower_c(b));
+}
+
+
+/* Is path the path of the device whose flattened name goes on at flat?
+ * Both are at the start of a part of the name. The flattened name has
+ * the letter of the device and a dot before the path, v.x1.x2.vprb for
+ * x1.x2.vprb, and once more before each instance of a subcircuit that is
+ * defined inside another one: x3.xi.vprb is v.x3.v.xi.vprb. The letter is
+ * that of the flattened name itself; the parts of the path are names of
+ * the deck. */
+static int
+stb_is_path(char letter, const char *flat, const char *path)
+{
+    if (flat[0] == letter && flat[1] == '.' &&
+        stb_is_path(letter, flat + 2, path))
+        return 1;
+
+    while (*flat && *flat != '.' && stb_ch_eq(*flat, *path)) {
+        flat++;
+        path++;
+    }
+    if (!stb_ch_eq(*flat, *path))
+        return 0;
+    if (!*flat)
+        return 1;
+
+    return stb_is_path(letter, flat + 1, path + 1);
+}
+
+
+static IFcomplex
+stb_mul(IFcomplex a, IFcomplex b)
+{
+    IFcomplex c;
+
+    c.real = a.real * b.real - a.imag * b.imag;
+    c.imag = a.real * b.imag + a.imag * b.real;
+    return c;
+}
+
+
+static IFcomplex
+stb_div(IFcomplex a, IFcomplex b)
+{
+    IFcomplex c;
+    double d = b.real * b.real + b.imag * b.imag;
+
+    c.real = (a.real * b.real + a.imag * b.imag) / d;
+    c.imag = (a.imag * b.real - a.real * b.imag) / d;
+    return c;
+}
+
+
+/* Find the instance called name. A device in a subcircuit may be given by
+ * its path, x1.x2.vprb, for the flattened name v.x1.x2.vprb. The name of
+ * the device is the end of the path, so one of the parts of a path after
+ * the first begins with the letter of the device: a word without a dot is
+ * no path, and x1.vprb is not that of a resistor.
+ *
+ * The table of the instances is looked up byte for byte. Under the case
+ * mode preserve another spelling of a name is the same name, so the
+ * instances are compared one by one before a path is tried. */
+static GENinstance *
+stb_find(CKTcircuit *ckt, char *name)
+{
+    GENinstance *inst = CKTfndDev(ckt, name);
+    GENmodel *model;
+    int i;
+
+    if (!inp_case_exact_ids())
+        for (i = 0; !inst && i < DEVmaxnum; i++)
+            for (model = ckt->CKThead[i]; !inst && model;
+                 model = model->GENnextModel)
+                for (inst = model->GENinstances; inst;
+                     inst = inst->GENnextInstance)
+                    if (ng_ideq(inst->GENname, name))
+                        break;
+
+    for (i = 0; !inst && i < DEVmaxnum; i++)
+        for (model = ckt->CKThead[i]; !inst && model;
+             model = model->GENnextModel)
+            for (inst = model->GENinstances; inst;
+                 inst = inst->GENnextInstance) {
+                const char *s = inst->GENname;
+                const char *p;
+                if (!s[0] || s[1] != '.')
+                    continue;
+                for (p = strchr(name, '.'); p && !stb_ch_eq(p[1], s[0]); )
+                    p = strchr(p + 1, '.');
+                if (p && stb_is_path(s[0], s + 2, name))
+                    break;
+            }
+
+    return inst;
+}
+
+
+/* The operating point, as ACan() finds it. */
+static int
+stb_op(CKTcircuit *ckt, int noop)
+{
+    int error;
+
+#ifdef XSPICE
+    /* Call EVTop if event-driven instances exist */
+    if (ckt->evt->counts.num_insts != 0) {
+        error = EVTop(ckt,
+            (ckt->CKTmode & MODEUIC) | MODEDCOP | MODEINITJCT,
+            (ckt->CKTmode & MODEUIC) | MODEDCOP | MODEINITFLOAT,
+            ckt->CKTdcMaxIter,
+            MIF_TRUE);
+        EVTdump(ckt, IPC_ANAL_DCOP, 0.0);
+        EVTop_save(ckt, MIF_TRUE, 0.0);
+    }
+    else
+#endif
+        if (noop) {
+            /* skip OP if option NOOPAC is set and circuit is linear */
+            fprintf(stdout, "\n Linear circuit, option noopac given: no OP analysis\n");
+            error = OK;
+        }
+        else
+            error = CKTop(ckt,
+                (ckt->CKTmode & MODEUIC) | MODEDCOP | MODEINITJCT,
+                (ckt->CKTmode & MODEUIC) | MODEDCOP | MODEINITFLOAT,
+                ckt->CKTdcMaxIter);
+
+    if (error)
+        return error;
+
+    ckt->CKTmode = (ckt->CKTmode & MODEUIC) | MODEDCOP | MODEINITSMSIG;
+    return CKTload(ckt);
+}
+
+
+/* Solve the factored AC matrix for the right-hand side in CKTrhs and
+ * CKTirhs; the solution replaces it. CKTrhsOld is not touched, it keeps
+ * the operating point. */
+static void
+stb_solve(CKTcircuit *ckt)
+{
+    double startTime = SPfrontEnd->IFseconds();
+
+    SMPcSolve(ckt->CKTmatrix, ckt->CKTrhs, ckt->CKTirhs,
+              ckt->CKTrhsSpare, ckt->CKTirhsSpare);
+    ckt->CKTstat->STATsolveTime += SPfrontEnd->IFseconds() - startTime;
+
+    ckt->CKTrhs[0] = 0;
+    ckt->CKTirhs[0] = 0;
+}
+
+
+/* Step to the next frequency of the sweep, as ACan() does. Returns 0 if
+ * there is none because the step is degenerate (a single point). */
+static int
+stb_step(const STBAN *job, double *freq)
+{
+    if (job->STBstepType == LINEAR) {
+        *freq += job->STBfreqDelta;
+        return job->STBfreqDelta != 0;
+    }
+
+    *freq *= job->STBfreqDelta;
+    return job->STBfreqDelta != 1;
+}
+
+
+#ifdef KLU
+static void
+stb_klu_complex(CKTcircuit *ckt)
+{
+    int i;
+
+    /* Conversion from Real Matrix to Complex Matrix */
+    if (ckt->CKTmatrix->CKTkluMODE &&
+        !ckt->CKTmatrix->SMPkluMatrix->KLUmatrixIsComplex)
+    {
+        for (i = 0 ; i < DEVmaxnum ; i++)
+            if (DEVices [i] && DEVices [i]->DEVbindCSCComplex && ckt->CKThead [i])
+                DEVices [i]->DEVbindCSCComplex (ckt->CKThead [i], ckt) ;
+
+        ckt->CKTmatrix->SMPkluMatrix->KLUmatrixIsComplex = KLUMatrixComplex ;
+    }
+}
+
+
+static void
+stb_klu_real(CKTcircuit *ckt)
+{
+    int i;
+
+    /* Conversion from Complex Matrix to Real Matrix */
+    if (ckt->CKTmatrix->CKTkluMODE &&
+        ckt->CKTmatrix->SMPkluMatrix->KLUmatrixIsComplex)
+    {
+        for (i = 0 ; i < DEVmaxnum ; i++)
+            if (DEVices [i] && DEVices [i]->DEVbindCSCComplexToReal && ckt->CKThead [i])
+                DEVices [i]->DEVbindCSCComplexToReal (ckt->CKThead [i], ckt) ;
+
+        ckt->CKTmatrix->SMPkluMatrix->KLUmatrixIsComplex = KLUmatrixReal ;
+    }
+}
+#endif
+
+
+int
+STBan(CKTcircuit *ckt, int restart)
+{
+    STBAN *job = (STBAN *) ckt->CKTcurJob;
+
+    double freq;
+    double freqTol; /* tolerance parameter for finding final frequency */
+    double startdTime;
+    double startsTime;
+    double startlTime;
+    double startkTime;
+    double startTime;
+    int error;
+    int size;
+    int i;
+    int n;
+    int npoints;
+    char *key;              /* the probe, as the circuit spells it */
+    GENinstance *inst;
+    int vtype;
+    int x;                  /* the node of the probe that is excited */
+    int y;                  /* its other node */
+    int br;                 /* the branch equation of the probe */
+    double s;               /* -1 if the source is taken reversed */
+    double *freqs = NULL;   /* the results, written when the sweep is done */
+    IFcomplex *gain = NULL;
+    IFuid freqUid;
+    IFuid gainUid;
+    IFvalue refValue;
+    IFvalue value;
+    runDesc *plot = NULL;
+
+    NG_IGNORE(restart);
+
+    /* Nothing is created and nothing is changed before the line that made
+     * this job, its sweep and its probe are known to be good. */
+
+    if (job->STBerror) {
+        fprintf(cp_err, "Error: stb: %s\n", job->STBerror);
+        return E_PARMVAL;
+    }
+
+    if (!job->STBprobe) {
+        fprintf(cp_err, "Error: stb: no probe given\n");
+        return E_PARMVAL;
+    }
+
+    if (job->STBnumberSteps < 1 ||
+        !isfinite(job->STBstartFreq) || !isfinite(job->STBstopFreq) ||
+        job->STBstartFreq < 0 || job->STBstopFreq < job->STBstartFreq ||
+        (job->STBstepType != LINEAR && job->STBstartFreq <= 0) ||
+        (job->STBstepType != DECADE && job->STBstepType != OCTAVE &&
+         job->STBstepType != LINEAR)) {
+        fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
+        return E_PARMVAL;
+    }
+
+    /* the probe, as the circuit spells its names */
+    key = stb_key(job->STBprobe);
+    inst = stb_find(ckt, key);
+    tfree(key);
+
+    if (!inst || inst->GENmodPtr->GENmodType < 0) {
+        fprintf(cp_err, "Error: stb: probe %s: no such instance in the circuit\n",
+                job->STBprobe);
+        return E_NOTFOUND;
+    }
+
+    vtype = CKTtypelook("Vsource");
+    if (inst->GENmodPtr->GENmodType != vtype) {
+        fprintf(cp_err, "Error: stb: probe %s is a %s, not a voltage source\n",
+                job->STBprobe,
+                DEVices[inst->GENmodPtr->GENmodType]->DEVpublic.name);
+        return E_UNSUPP;
+    }
+
+    /* The excited node is the positive node of the source. If that is the
+     * reference node, the source is taken the other way round. */
+    x = GENnode(inst)[0];
+    y = GENnode(inst)[1];
+    s = 1;
+    if (x == 0) {
+        x = y;
+        y = 0;
+        s = -1;
+    }
+    if (x == 0) {
+        fprintf(cp_err, "Error: stb: probe %s: both of its nodes are the reference node\n",
+                job->STBprobe);
+        return E_PARMVAL;
+    }
+    br = CKTfndBranch(ckt, inst->GENname);
+
+    /* the sweep, as ACan() makes it */
+    switch (job->STBstepType) {
+
+    case DECADE:
+        if (job->STBstopFreq / 10. < job->STBstartFreq) {
+            /* start-stop frequencies less than a decade apart */
+            if (job->STBstopFreq == job->STBstartFreq)
+                job->STBfreqDelta = 1;
+            else
+                job->STBfreqDelta = exp(log(10.0) / job->STBnumberSteps);
+        }
+        else {
+            double num_steps = floor(fabs(log10(job->STBstopFreq / job->STBstartFreq)) * job->STBnumberSteps);
+            job->STBfreqDelta = exp((log(job->STBstopFreq / job->STBstartFreq)) / num_steps);
+        }
+        freqTol = job->STBfreqDelta * job->STBstopFreq * ckt->CKTreltol;
+        break;
+    case OCTAVE:
+        job->STBfreqDelta = exp(log(2.0) / job->STBnumberSteps);
+        freqTol = job->STBfreqDelta * job->STBstopFreq * ckt->CKTreltol;
+        break;
+    default:
+        if (job->STBnumberSteps - 1 > 1)
+            job->STBfreqDelta =
+                (job->STBstopFreq - job->STBstartFreq) /
+                (job->STBnumberSteps - 1);
+        else
+            job->STBfreqDelta = 0;
+        freqTol = job->STBfreqDelta * ckt->CKTreltol;
+        break;
+    }
+
+    /* The number of points. A step that is too small to change the
+     * frequency, or more points than can be counted, is a bad sweep. */
+    npoints = 0;
+    for (freq = job->STBstartFreq; freq <= job->STBstopFreq + freqTol; ) {
+        double prev = freq;
+
+        npoints++;
+        if (!stb_step(job, &freq))
+            break;
+        if (freq == prev || npoints == INT_MAX) {
+            fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
+            return E_PARMVAL;
+        }
+    }
+
+    fprintf(cp_out, "stb: probe %s (voltage source %s, x = %s, y = %s%s), %d points, %g Hz to %g Hz\n",
+            job->STBprobe, inst->GENname,
+            CKTnodName(ckt, x), CKTnodName(ckt, y),
+            (s < 0) ? ", source reversed" : "",
+            npoints, job->STBstartFreq, job->STBstopFreq);
+
+#ifdef XSPICE
+    /* Tell the code models what mode we're in */
+    g_mif_info.circuit.anal_type = MIF_DC;
+    g_mif_info.circuit.anal_init = MIF_TRUE;
+#endif
+
+#ifdef KLU
+    /* an analysis that failed may have left the matrix in its complex form */
+    stb_klu_real(ckt);
+#endif
+
+    error = stb_op(ckt, ckt->CKTnoopac);
+    if (error) {
+        fprintf(stdout, "\nSTB operating point failed -\n");
+        CKTncDump(ckt);
+        fprintf(cp_err, "Error: stb: probe %s: the operating point did not converge\n",
+                job->STBprobe);
+        return error;
+    }
+
+    freqs = TMALLOC(double, npoints);
+    gain = TMALLOC(IFcomplex, npoints);
+
+#ifdef XSPICE
+    g_mif_info.circuit.anal_init = MIF_TRUE;
+
+    /* Tell the code models what mode we're in */
+    g_mif_info.circuit.anal_type = MIF_AC;
+#endif
+
+    INIT_STATS();
+
+    ckt->CKTcurrentAnalysis = DOING_AC;
+
+#ifdef KLU
+    stb_klu_complex(ckt);
+#endif
+
+    size = SMPmatSize(ckt->CKTmatrix);
+    freq = job->STBstartFreq;
+
+    /* main loop through all scheduled frequencies */
+    for (n = 0; n < npoints; n++) {
+        IFcomplex i1, v1, i2, v2;   /* the responses to the two excitations */
+        IFcomplex p, k, d, t;
+
+        if (SPfrontEnd->IFpauseTest()) {
+            /* user asked us to stop via an interrupt */
+            fprintf(cp_err, "Error: stb: probe %s: interrupted at %g Hz; no plot was made\n",
+                    job->STBprobe, freq);
+            errMsg = copy("stb interrupted");
+            error = E_UNSUPP;
+            break;
+        }
+        ckt->CKTomega = 2.0 * M_PI * freq;
+
+        /* Update operating point, if variable 'hertz' is given */
+        if (ckt->CKTvarHertz) {
+#ifdef KLU
+            stb_klu_real(ckt);
+#endif
+            error = stb_op(ckt, 0);
+            if (error) {
+                fprintf(stdout, "\nSTB operating point failed -\n");
+                CKTncDump(ckt);
+                fprintf(cp_err, "Error: stb: probe %s: the operating point did not converge\n",
+                        job->STBprobe);
+                break;
+            }
+#ifdef KLU
+            stb_klu_complex(ckt);
+            /* the operating point has left real factors behind: the
+             * complex ones are made anew, not refreshed */
+            if (ckt->CKTmatrix->CKTkluMODE)
+                ckt->CKTniState |= NIACSHOULDREORDER;
+#endif
+        }
+
+        ckt->CKTmode = (ckt->CKTmode & MODEUIC) | MODEAC;
+        error = NIacFactor(ckt);
+        if (error) {
+            fprintf(cp_err, "Error: stb: probe %s: cannot solve the AC matrix at %g Hz\n",
+                    job->STBprobe, freq);
+            break;
+        }
+
+        /* The right-hand side that the load has made is dropped as a whole:
+         * the AC values of all sources are ignored. Their matrix entries
+         * stay, so a voltage source is a short and a current source is
+         * open. */
+
+        /* first excitation: what "V x y ac 1" puts on the right-hand side */
+        for (i = 0; i <= size; i++) {
+            ckt->CKTrhs[i] = 0;
+            ckt->CKTirhs[i] = 0;
+        }
+        ckt->CKTrhs[br] += s;
+        stb_solve(ckt);
+        i1.real = s * ckt->CKTrhs[br];
+        i1.imag = s * ckt->CKTirhs[br];
+        v1.real = ckt->CKTrhs[x];
+        v1.imag = ckt->CKTirhs[x];
+
+        /* second excitation: what "I 0 x ac 1" puts on the right-hand side */
+        for (i = 0; i <= size; i++) {
+            ckt->CKTrhs[i] = 0;
+            ckt->CKTirhs[i] = 0;
+        }
+        ckt->CKTrhs[x] += 1;
+        stb_solve(ckt);
+        i2.real = s * ckt->CKTrhs[br];
+        i2.imag = s * ckt->CKTirhs[br];
+        v2.real = ckt->CKTrhs[x];
+        v2.imag = ckt->CKTirhs[x];
+
+        /* K = 2 (i1 v2 - v1 i2) + v1 + i2,  T = K / (1 - K) */
+        p = stb_mul(i1, v2);
+        t = stb_mul(v1, i2);
+        p.real -= t.real;
+        p.imag -= t.imag;
+        k.real = 2 * p.real + v1.real + i2.real;
+        k.imag = 2 * p.imag + v1.imag + i2.imag;
+        d.real = 1 - k.real;
+        d.imag = -k.imag;
+        t = stb_div(k, d);
+
+        freqs[n] = freq;
+        gain[n].real = 0.0 - t.real;    /* a zero stays a plain zero */
+        gain[n].imag = 0.0 - t.imag;
+
+#ifdef HAS_PROGREP
+        SetAnalyse("stb", (int) (1000.0 * (n + 1) / npoints));
+#endif
+
+        stb_step(job, &freq);
+    }
+
+#ifdef KLU
+    /* the matrix is handed back as it was taken, error or not */
+    stb_klu_real(ckt);
+#endif
+
+    UPDATE_STATS(0);
+
+    if (!error) {
+        SPfrontEnd->IFnewUid(ckt, &freqUid, NULL, "frequency", UID_OTHER, NULL);
+        SPfrontEnd->IFnewUid(ckt, &gainUid, NULL, "loopgain", UID_OTHER, NULL);
+        error = SPfrontEnd->OUTpBeginPlot(ckt, ckt->CKTcurJob,
+            STB_PLOT_TITLE,
+            freqUid, IF_REAL,
+            1, &gainUid, IF_COMPLEX,
+            &plot);
+    }
+
+    if (!error) {
+        if (job->STBstepType != LINEAR)
+            SPfrontEnd->OUTattributes(plot, NULL, OUT_SCALE_LOG, NULL);
+
+        for (n = 0; n < npoints; n++) {
+            refValue.cValue.real = freqs[n];
+            refValue.cValue.imag = 0.0;
+            value.v.numValue = 1;
+            value.v.vec.cVec = gain + n;
+            SPfrontEnd->OUTpData(plot, &refValue, &value);
+        }
+        SPfrontEnd->OUTendPlot(plot);
+
+        /* a stop asked for while the finished sweep was written (a
+         * breakpoint on a vector of the plot) has nothing left to stop */
+        SPfrontEnd->IFpauseTest();
+    }
+
+    tfree(freqs);
+    tfree(gain);
+
+    return error;
+}

@@ -1,0 +1,23 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: an operating point that cannot be found
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+STB operating point failed -
+
+Last Node Voltages
+------------------
+
+Node                                   Last Voltage        Previous Iter
+----                                   ------------        -------------
+nest                                       0.188249            -0.999872 *
+west                                       0.190131            -0.999872 *
+vtest#branch                               0.192032            -0.999872 *
+
+stbchk opfail-reported pass
+Note: Simulation executed from .control section 

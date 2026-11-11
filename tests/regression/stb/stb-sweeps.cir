@@ -1,0 +1,128 @@
+* stb: the frequency points of every kind of sweep are those of ac
+*
+* The loop of stb-flat.cir: loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi r1 c1).
+* For each sweep the stb plot must have as many points as the ac plot of the
+* same sweep, at exactly the same frequencies, and the closed-form value at
+* each.
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+* octaves
+stb vprb oct 3 10 1e4 > stb-sweeps.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+ac oct 3 10 1e4
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let v = 0
+let v = vecmax(abs({$sp}.loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+let n = 0
+let n = length(frequency) eq 30
+if ($pos eq 0) & k & m & v & n
+  echo stbchk sweep-oct pass
+else
+  echo stbchk sweep-oct fail
+end
+
+* linear steps: 100 Hz apart
+stb vprb lin 11 100 1100 > stb-sweeps.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+ac lin 11 100 1100
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let v = 0
+let v = vecmax(abs({$sp}.loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+let n = 0
+let n = (length(frequency) eq 11) & (abs(real(frequency[1]) - 200) < 1e-9)
+if ($pos eq 0) & k & m & v & n
+  echo stbchk sweep-lin pass
+else
+  echo stbchk sweep-lin fail
+end
+
+* decades, less than one decade
+stb vprb dec 10 100 500 > stb-sweeps.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+ac dec 10 100 500
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let v = 0
+let v = vecmax(abs({$sp}.loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+let n = 0
+let n = length(frequency) eq 7
+if ($pos eq 0) & k & m & v & n
+  echo stbchk sweep-short-dec pass
+else
+  echo stbchk sweep-short-dec fail
+end
+
+* start = stop: one point
+stb vprb dec 5 100 100 > stb-sweeps.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+ac dec 5 100 100
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let v = 0
+let v = vecmax(abs({$sp}.loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+let n = 0
+let n = length(frequency) eq 1
+if ($pos eq 0) & k & m & v & n
+  echo stbchk sweep-one-point pass
+else
+  echo stbchk sweep-one-point fail
+end
+
+* lin 2: whatever ac makes of it
+stb vprb lin 2 1k 2k > stb-sweeps.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+ac lin 2 1k 2k
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let v = 0
+let v = vecmax(abs({$sp}.loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+let n = 0
+let n = length(frequency) > 0
+if ($pos eq 0) & k & m & v & n
+  echo stbchk sweep-lin-two pass
+else
+  echo stbchk sweep-lin-two fail
+end
+
+* a linear sweep may start at 0 Hz
+stb vprb lin 3 0 2k > stb-sweeps.stblog
+set sp = $curplot
+strstr pos "$sp" "stb"
+ac lin 3 0 2k
+let k = 0
+let k = length({$sp}.frequency) eq length(frequency)
+let m = 0
+let m = vecmax(abs(real({$sp}.frequency) - real(frequency))) eq 0
+let v = 0
+let v = vecmax(abs({$sp}.loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9
+let n = 0
+let n = (length(frequency) eq 3) & (real(frequency[0]) eq 0)
+if ($pos eq 0) & k & m & v & n
+  echo stbchk sweep-lin-from-zero pass
+else
+  echo stbchk sweep-lin-from-zero fail
+end
+.endc
+.end

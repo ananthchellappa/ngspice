@@ -93,6 +93,9 @@ libckt_la_SOURCES = \
 		pzsetp.c	\
 		sensaskq.c	\
 		senssetp.c	\
+		stban.c		\
+		stbaskq.c	\
+		stbsetp.c	\
 		tfanal.c	\
 		tfaskq.c	\
 		tfsetp.c	\

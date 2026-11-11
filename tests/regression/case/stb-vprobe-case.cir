@@ -1,0 +1,177 @@
+* stb under casemode=preserve: the voltage-source probe in any spelling
+*
+* Three loops, told apart by their gain A; loopgain = -A / (1 + j f/fp),
+* fp = 1/(2 pi 1k 1u):
+*   top level:      A = 20, probe Vprb
+*   inside X1:      A = 10, probe Vprb
+*   inside X3.Xi:   A = 5,  probe Vprb (Inner is defined inside Outer)
+*
+* Under preserve the names keep the spelling of the deck and two spellings
+* of one name are one name. The probe of stb is found in the spelling of
+* the deck and in any other one, by the name it has in the circuit
+* (V.X1.Vprb) and by the path of its instances (X1.Vprb). The spelling
+* decides nothing: each check is on the gain of the loop that was meant.
+* An instance that the deck does not have is not found in any spelling.
+*
+* The node names are lower case on purpose: the names under test are those
+* of the instances.
+.subckt Loop
+Vprb x y dc 0
+E1 out 0 0 y 10
+R1 out x 1k
+C1 x 0 1u
+.ends
+X1 Loop
+.subckt Outer
+.subckt Inner
+Vprb x y dc 0
+E1 out 0 0 y 5
+R1 out x 1k
+C1 x 0 1u
+.ends
+Xi Inner
+.ends
+X3 Outer
+Vprb tx ty dc 0
+E2 tout 0 0 ty 20
+R2 tout tx 1k
+C2 tx 0 1u
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+set sp0 = $curplot
+stb Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-top-as-written pass
+else
+  echo stbchk preserve-top-as-written fail
+end
+
+set sp0 = $curplot
+stb vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-top-lower pass
+else
+  echo stbchk preserve-top-lower fail
+end
+
+set sp0 = $curplot
+stb VPRB dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-top-upper pass
+else
+  echo stbchk preserve-top-upper fail
+end
+
+set sp0 = $curplot
+stb X1.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-path-as-written pass
+else
+  echo stbchk preserve-path-as-written fail
+end
+
+set sp0 = $curplot
+stb x1.vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-path-lower pass
+else
+  echo stbchk preserve-path-lower fail
+end
+
+set sp0 = $curplot
+stb x1.VPRB dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-path-mixed pass
+else
+  echo stbchk preserve-path-mixed fail
+end
+
+set sp0 = $curplot
+stb V.X1.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-flat-as-written pass
+else
+  echo stbchk preserve-flat-as-written fail
+end
+
+set sp0 = $curplot
+stb v.x1.vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-flat-lower pass
+else
+  echo stbchk preserve-flat-lower fail
+end
+
+set sp0 = $curplot
+stb X3.Xi.Vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-inner-path-as-written pass
+else
+  echo stbchk preserve-inner-path-as-written fail
+end
+
+set sp0 = $curplot
+stb x3.XI.vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-inner-path-other pass
+else
+  echo stbchk preserve-inner-path-other fail
+end
+
+set sp0 = $curplot
+stb v.x3.v.xi.vprb dec 2 1 1e4 > stb-vprobe-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk preserve-inner-flat-lower pass
+else
+  echo stbchk preserve-inner-flat-lower fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X2.Vprb dec 2 1 1e4 >& stb-vprobe-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk preserve-absent-instance pass
+else
+  echo stbchk preserve-absent-instance fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

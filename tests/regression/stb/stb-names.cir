@@ -1,0 +1,176 @@
+* stb: the ways to write the name of the probe source
+*
+* Three loops of the kind in stb-flat.cir, told apart by their gain:
+*   top level:        A = 20, probes vprb and vq.a in series
+*   inside x1 (loop): A = 10, probes vprb and vp.b in series
+*   inside x3.xi:     A = 5,  probe vprb
+* loopgain = -A / (1 + j f/fp), fp = 1/(2 pi 1k 1u), in all three.
+*
+* A source inside a subcircuit may be written with its flattened name
+* (v.x1.vprb) or as a path (x1.vprb). Upper-case letters are accepted in a
+* word that reaches the command unchanged, here through setcs.
+*
+* xi is an instance of a subcircuit that is defined inside the one of x3.
+* Such an instance is expanded with the definition around it, and the
+* flattened name has the letter of the device once more: the source is
+* v.x3.v.xi.vprb. Its path is x3.xi.vprb all the same.
+*
+* A path is the name of a device inside a subcircuit only: one of its
+* parts after the first begins with the letter of the device. Two
+* elements of the top level are there to be taken wrongly: v.foo is not
+* the source foo, and r.x1.vprb is not the vprb of x1.
+.subckt loop
+vprb x y dc 0
+vp.b y z dc 0
+e1 out 0 0 z 10
+r1 out x 1k
+c1 x 0 1u
+.ends
+x1 loop
+.subckt outer
+.subckt inner
+vprb x y dc 0
+e1 out 0 0 y 5
+r1 out x 1k
+c1 x 0 1u
+.ends
+xi inner
+.ends
+x3 outer
+vprb tx tm dc 0
+vq.a tm ty dc 0
+e2 tout 0 0 ty 20
+r2 tout tx 1k
+c2 tx 0 1u
+v.foo nf 0 dc 0
+rfoo nf 0 1k
+r.x1.vprb nq 0 1k
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+stb vprb dec 2 1 1e4 > stb-names.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk names-top pass
+else
+  echo stbchk names-top fail
+end
+
+set sp0 = $curplot
+stb vq.a dec 2 1 1e4 > stb-names.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk names-top-with-dot pass
+else
+  echo stbchk names-top-with-dot fail
+end
+
+stb v.x1.vprb dec 2 1 1e4 > stb-names.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk names-flattened pass
+else
+  echo stbchk names-flattened fail
+end
+
+set sp0 = $curplot
+stb x1.vprb dec 2 1 1e4 > stb-names.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk names-path pass
+else
+  echo stbchk names-path fail
+end
+
+set sp0 = $curplot
+stb x1.vp.b dec 2 1 1e4 > stb-names.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk names-path-with-dot pass
+else
+  echo stbchk names-path-with-dot fail
+end
+
+setcs p = "X1.VPRB"
+set sp0 = $curplot
+stb $p dec 2 1 1e4 > stb-names.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk names-upper-case-path pass
+else
+  echo stbchk names-upper-case-path fail
+end
+
+stb v.x3.v.xi.vprb dec 2 1 1e4 > stb-names.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk names-inner-definition-flattened pass
+else
+  echo stbchk names-inner-definition-flattened fail
+end
+
+set sp0 = $curplot
+stb x3.xi.vprb dec 2 1 1e4 > stb-names.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk names-inner-definition-path pass
+else
+  echo stbchk names-inner-definition-path fail
+end
+
+setcs p = "VPRB"
+stb $p dec 2 1 1e4 > stb-names.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk names-upper-case-top pass
+else
+  echo stbchk names-upper-case-top fail
+end
+
+* a word without a dot is no path: the source v.foo is not found as foo
+set nbefore = $#plots
+set cbefore = $curplot
+set sim_status = 0
+stb foo dec 2 1 1e4 >& stb-names.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-names.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe foo: no such instance in the circuit"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk names-no-dot-no-path pass
+else
+  echo stbchk names-no-dot-no-path fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

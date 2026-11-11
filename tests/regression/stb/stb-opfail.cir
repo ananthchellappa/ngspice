@@ -1,0 +1,41 @@
+* stb: an operating point that cannot be found
+*
+* The source b1 asks for v^2 + v + 1 = 0 at its node, which has no
+* solution: every stb run fails at the operating point, says so in an
+* "Error: stb:" line that names the probe, and makes no plot.
+*
+* (The node and source names contain "est" on purpose: the lines of the
+* node voltage table that is printed for a failed operating point hold
+* numbers of an iteration that did not converge, and tests/bin/check.sh
+* leaves lines with that word out of the comparison.)
+vtest nest west dc 0
+b1 nest 0 i = v(west)*v(west) + 1
+rest west 0 1
+.control
+set nbefore = $#plots
+set cbefore = $curplot
+set sim_status = 0
+stb vtest dec 10 1 1e6 >& stb-opfail.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-opfail.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vtest: the operating point did not converge"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk opfail-reported pass
+else
+  echo stbchk opfail-reported fail
+end
+
+* the verdict is out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

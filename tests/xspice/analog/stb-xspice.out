@@ -1,0 +1,28 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a loop through an analog code model, with event-driven instances present
+
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk xspice-closed-form pass
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk xspice-two-ac pass
+stbchk xspice-setplot-back pass
+Note: Simulation executed from .control section 

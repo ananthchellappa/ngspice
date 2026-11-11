@@ -63,7 +63,8 @@ TESTS = harness-alive.cir name-roundtrip.cir alter-case.cir \
 	subckt-formal-pin-case.cir subckt-formal-pin-case-lower.cir \
 	udf-name-case.cir udf-name-case-lower.cir \
 	show-device-letter-case.cir curcasemode-effect.cir \
-	node-case-collision-report.cir
+	node-case-collision-report.cir \
+	stb-vprobe-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=preserve"
 
@@ -78,6 +79,9 @@ EXTRA_DIST = \
 # node-case-collision-report.cir writes the sub-decks it sources and their
 # captures, because the report of doc/codex/issues/0068 is written at the end
 # of the parse and 'source' is the only command a redirect can be attached to.
-CLEANFILES = casewrite.raw pst_*.txt cce_*.txt ncc_*.cir ncc_*.txt
+# The stb-*-case.cir decks redirect the log lines of the stb analysis, and
+# the error of a probe that names nothing, to files of their own.
+CLEANFILES = casewrite.raw pst_*.txt cce_*.txt ncc_*.cir ncc_*.txt \
+	*.stblog *.stberr
 
 MAINTAINERCLEANFILES = Makefile.in

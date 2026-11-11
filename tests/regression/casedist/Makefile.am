@@ -21,7 +21,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	udf-name-case.cir save-name-case.cir save-undef-report.cir \
 	save-near-miss-node-list.cir \
 	casemode-announce-report.cir curcasemode-relatch.cir \
-	rawfile-casemode-header.cir node-case-collision-report.cir
+	rawfile-casemode-header.cir node-case-collision-report.cir \
+	stb-vprobe-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 
@@ -80,12 +81,15 @@ TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/che
 # doc/claude/decisions/0001-distinguish.md decision 2 declined to make: its
 # PAIR sub-deck is a deck that deliberately has two case-variant nets, and it
 # gets a line it cannot silence.
+# The stb-*-case.cir decks redirect the log lines of the stb analysis, and
+# the error of a probe that names nothing, to files of their own.
 CLEANFILES = vuc_*.txt vsc_*.txt vsr_*.txt vsr_*.raw bnr_*.txt bnr_*.cir \
 	sur_*.txt sur_*.cir snm_*.txt snm_*.cir \
 	vdp_*.txt vdp_*.raw vdw_*.txt vdw_*.raw vdb_*.txt vdb_*.raw \
 	snr_*.txt snr_*.cir vlr_*.txt vlr_*.cir cma_*.txt cma_*.cir \
 	vpr_*.txt vpr_*.svg VPR_*.CIR vpp_*.txt sfp_*.txt sfp_*.cir \
-	ccr_*.cir rch_*.raw ncc_*.cir ncc_*.txt
+	ccr_*.cir rch_*.raw ncc_*.cir ncc_*.txt \
+	*.stblog *.stberr
 
 EXTRA_DIST = \
 	$(TESTS) \

@@ -1,0 +1,21 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a probe with one node on ground
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 9
+stbchk grounded-flip-equal pass
+stbchk grounded-zero pass
+stbchk grounded-zero-unsigned pass
+stbchk grounded-log pass
+Note: Simulation executed from .control section 

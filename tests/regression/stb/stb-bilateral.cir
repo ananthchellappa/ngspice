@@ -1,0 +1,54 @@
+* stb: a loop that carries signal both ways through the probe
+*
+* Nodes x and y are joined by the probes. Each side has a conductance to
+* ground and a transconductor driven by the other side:
+*     G1 = 1/r1 = 0.2 mS at x,   ga = 1 mS, from y into x
+*     G2 = 1/r2 = 0.8 mS at y,   gb = 5 mS, from x into y
+* With the wire closed the node equation is (G1 + G2 + ga + gb) v = 0, with
+* it cut the two sides give G1 + G2, so the return ratio is
+*     T = (ga + gb) / (G1 + G2) = 6            loopgain = -6
+* whichever way round the probe is written (vp1 has its positive node on
+* the x side, vp2 on the y side).
+*
+* A single voltage injection at vp1 gives -v(y)/v(x) = (G1 + gb)/(G2 + ga)
+* = 5.2/1.8, which is not the loop gain; the last check shows that this
+* circuit tells the two apart.
+vp1 x m dc 0
+vp2 y m dc 0
+ga x 0 y 0 1m
+gb y 0 x 0 5m
+r1 x 0 5k
+r2 y 0 1.25k
+.control
+stb vp1 dec 2 1 1e4 > stb-bilateral.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k
+  echo stbchk bilateral-forward pass
+else
+  echo stbchk bilateral-forward fail
+end
+
+set sp0 = $curplot
+stb vp2 dec 2 1 1e4 > stb-bilateral.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 6)) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk bilateral-flipped pass
+else
+  echo stbchk bilateral-flipped fail
+end
+
+alter @vp1[acmag] = 1
+ac lin 1 1k 1k
+let tv = -v(m)/v(x)
+let k = 0
+let k = (abs(tv[0] - 5.2/1.8) < 1e-9) & (abs(abs(tv[0]) - 6) > 1)
+if k
+  echo stbchk bilateral-single-injection-differs pass
+else
+  echo stbchk bilateral-single-injection-differs fail
+end
+.endc
+.end

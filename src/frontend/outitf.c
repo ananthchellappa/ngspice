@@ -26,6 +26,7 @@ Modified: 2000 AlansFixes, 2013/2015 patch by Krzysztof Blaszkowski
 #include "variable.h"
 #include <fcntl.h>
 #include "ngspice/cktdefs.h"
+#include "ngspice/stbdefs.h"
 #include "breakp2.h"
 #include "runcoms.h"
 #include "plotting/graf.h"
@@ -222,15 +223,26 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
         run->numData = 0;
 
         an_name = spice_analysis_get_name(analysisPtr->JOBtype);
-        ft_curckt->ci_last_an = an_name;
+        /* A loop-gain analysis takes no .measure lines: the analysis
+         * before it stays the last one for them, see dosim(). */
+        if (!eq(an_name, "STB"))
+            ft_curckt->ci_last_an = an_name;
 
         /* Now let's see which of these things we need.  First toss in the
          * reference vector.  Then toss in anything that getSaves() tells
          * us to save that we can find in the name list.  Finally unpack
          * the remaining saves into parameters.
          */
-        numsaves = ft_getSaves(&saves);
-        savenone = ft_savenone();   /* If "none" appears, it is always alone. */
+        /* The vectors of a loop-gain analysis are computed results, not
+         * circuit nodes: 'save' does not apply to its two plots. */
+        /* case-lint: keyword - analName is the title the analysis gives its plot */
+        if (eq(analName, STB_PLOT_TITLE) || eq(analName, STB_MARGIN_TITLE)) {
+            numsaves = 0;
+            savenone = FALSE;
+        } else {
+            numsaves = ft_getSaves(&saves);
+            savenone = ft_savenone();   /* If "none" appears, it is always alone. */
+        }
         if (numsaves) {
             savesused = TMALLOC(bool, numsaves);
             saveall = FALSE;

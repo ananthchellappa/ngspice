@@ -176,6 +176,13 @@ ft_cpinit(void)
     cp_vset("prompt", CP_STRING, buf);
     cp_vset("brief", CP_BOOL, &t);
 
+    /* the loop-gain (stability) analysis "stb" exists; the number goes up
+       when what it writes changes */
+    {
+        int stbv = 1;
+        cp_vset("stb_version", CP_NUM, &stbv);
+    }
+
     /* Make vectors from values in predefs[] for the current plot.
        Define functions from entries in udfs[] (like user defined functions).
     */

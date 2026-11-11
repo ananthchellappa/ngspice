@@ -1,0 +1,91 @@
+* stb: a probe with one node on ground
+*
+* Two copies of the same loop. The amplifier's low output terminal goes to
+* ground through the probe; copy a has the probe's positive node on ground,
+* copy b has it the other way round. The analysis takes the node that is
+* not ground as the probe node in both, and says "source reversed" for
+* copy a. The two results are equal.
+*
+* A node tied to ground has no voltage and takes any injected current
+* straight to ground, so both excitations see nothing of the loop: the
+* result is zero in both copies. (To measure such a loop, put the probe in
+* a wire that is not on the reference node.)
+vpa 0 ga dc 0
+e1a outa ga 0 xa 10
+r1a outa xa 1k
+c1a xa 0 1u
+vpb gb 0 dc 0
+e1b outb gb 0 xb 10
+r1b outb xb 1k
+c1b xb 0 1u
+.control
+stb vpa dec 2 1 1e4 > stb-grounded-a.stblog
+set spa = $curplot
+stb vpb dec 2 1 1e4 > stb-grounded-b.stblog
+strcmp same "$curplot" "$spa"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain - {$spa}.loopgain)) < 1e-12)
+if k & ($same ne 0)
+  echo stbchk grounded-flip-equal pass
+else
+  echo stbchk grounded-flip-equal fail
+end
+let k = 0
+let k = vecmax(abs(loopgain)) < 1e-9
+if k
+  echo stbchk grounded-zero pass
+else
+  echo stbchk grounded-zero fail
+end
+
+* it is a plain zero, not a negative one, in both parts
+let zr = real(loopgain[0])
+let zi = imag(loopgain[0])
+set zrs = "$&zr"
+set zis = "$&zi"
+strcmp signr "$zrs" "0"
+strcmp signi "$zis" "0"
+if ($signr eq 0) & ($signi eq 0)
+  echo stbchk grounded-zero-unsigned pass
+else
+  echo stbchk grounded-zero-unsigned fail
+end
+
+* the line printed for copy a says that the source was taken reversed,
+* the line for copy b does not
+let const.reva = 0
+set n1 = 1
+fopen f1 stb-grounded-a.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "0, source reversed), 9 points, 1 Hz"
+  if $p1 >= 0
+    let const.reva = const.reva + 1
+  end
+end
+fclose $f1
+let const.revb = 0
+let const.plainb = 0
+set n1 = 1
+fopen f1 stb-grounded-b.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "reversed"
+  if $p1 >= 0
+    let const.revb = const.revb + 1
+  end
+  strstr p1 "_$ln" "stb: probe vpb (voltage source vpb, x"
+  if $p1 >= 0
+    let const.plainb = const.plainb + 1
+  end
+end
+fclose $f1
+if (const.reva eq 1) & (const.revb eq 0) & (const.plainb eq 1)
+  echo stbchk grounded-log pass
+else
+  echo stbchk grounded-log fail
+end
+.endc
+.end
