@@ -1,0 +1,1046 @@
+* stb: each bad command gives one line that says what is wrong
+*
+* Each bad command is run with its messages sent to a file. Exactly one
+* line of the file starts with "Error: stb:", and it is, letter for letter,
+* the line written here: it names the probe as it was written and says
+* which part of the command is wrong. sim_status is 1, no plot was added,
+* and the current plot and the variable stb_marginplot are what they were
+* before the command; they are taken anew before each one, so that a
+* verdict speaks for its own command only. A sweep is checked strictly:
+* a number of points below 1, a start frequency that a sweep by decades
+* or octaves cannot begin at, a stop frequency of 0 Hz or below the start
+* are errors, not defaults.
+*
+* A sweep of one point and a linear sweep from 0 Hz are allowed, and a
+* good command after all the bad ones runs.
+*
+* Not here: a voltage source with both nodes at ground. The source's own
+* setup refuses it ("shorted VSRC") before the analysis starts, so no
+* command reaches the line of stb for it.
+*
+* The loop is that of stb-flat.cir: loopgain = -10 / (1 + j f/fp).
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.control
+let const.fp = 1/(2*pi*1k*1u)
+setcs up = "VPRB"
+stb vprb dec 5 1 1e6 > stb-errors.stblog
+set cbefore = $curplot
+set mbefore = none
+if $?stb_marginplot
+  set mbefore = $stb_marginplot
+end
+strstr pos "$cbefore" "stb"
+strstr mpos "$mbefore" "stbmargin"
+if ($pos eq 0) & ($mpos eq 0)
+  echo stbchk errors-good-before pass
+else
+  echo stbchk errors-good-before fail
+end
+
+* no probe at all
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb  >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: no probe given; usage: stb <probe> dec|oct|lin <points> <fstart> <fstop>"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-no-probe pass
+else
+  echo stbchk errors-no-probe fail
+end
+
+* the sweep, but no probe before it
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb dec 10 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: no probe given; usage: stb <probe> dec|oct|lin <points> <fstart> <fstop>"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-no-probe-sweep-only pass
+else
+  echo stbchk errors-no-probe-sweep-only fail
+end
+
+* a probe and nothing else
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the sweep is missing (dec|oct|lin <points> <fstart> <fstop>)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-sweep-missing pass
+else
+  echo stbchk errors-sweep-missing fail
+end
+
+* a kind of sweep that does not exist
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb log 10 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: expected dec, oct or lin, not \"log\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-step-word pass
+else
+  echo stbchk errors-step-word fail
+end
+
+* no number of points
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the number of points is missing or not a number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-points-missing pass
+else
+  echo stbchk errors-points-missing fail
+end
+
+* a word where the number of points belongs
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb oct many 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the number of points is missing or not a number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-points-not-a-number pass
+else
+  echo stbchk errors-points-not-a-number fail
+end
+
+* no start frequency
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the start frequency is missing or not a number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-start-missing pass
+else
+  echo stbchk errors-start-missing fail
+end
+
+* a word where the start frequency belongs
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 low 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the start frequency is missing or not a number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-start-not-a-number pass
+else
+  echo stbchk errors-start-not-a-number fail
+end
+
+* no stop frequency
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb lin 10 1 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency is missing or not a number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-stop-missing pass
+else
+  echo stbchk errors-stop-missing fail
+end
+
+* a word where the stop frequency belongs
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 high >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency is missing or not a number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-stop-not-a-number pass
+else
+  echo stbchk errors-stop-not-a-number fail
+end
+
+* an argument that does not exist
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 1e6 foo=out >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"foo\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-unknown-argument pass
+else
+  echo stbchk errors-unknown-argument fail
+end
+
+* an argument with no name before the equals sign
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 1e6 =out >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"=out\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-argument-no-name pass
+else
+  echo stbchk errors-argument-no-name fail
+end
+
+* an equals sign and nothing else after the sweep
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 1e6 = >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"=\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-argument-equals-only pass
+else
+  echo stbchk errors-argument-equals-only fail
+end
+
+* brackets after the sweep
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 1e6 () >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"()\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-argument-brackets pass
+else
+  echo stbchk errors-argument-brackets fail
+end
+
+* a word after a comma
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 1e6 ,out >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \",out\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-argument-comma pass
+else
+  echo stbchk errors-argument-comma fail
+end
+
+* a word after the sweep
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1 1e6 7 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"7\""
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-unknown-word pass
+else
+  echo stbchk errors-unknown-word fail
+end
+
+* no points
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 0 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the number of points must be at least 1 (it is 0)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-points-zero pass
+else
+  echo stbchk errors-points-zero fail
+end
+
+* a negative number of points
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb lin -3 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the number of points must be at least 1 (it is -3)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-points-negative pass
+else
+  echo stbchk errors-points-negative fail
+end
+
+* a number of points that no sweep can have
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 1e30 1 100 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the number of points is out of range (it is 1e+30)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-points-too-many pass
+else
+  echo stbchk errors-points-too-many fail
+end
+
+* a sweep by decades from 0 Hz
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 0 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the start frequency must be positive for a dec or oct sweep (it is 0)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-dec-from-zero pass
+else
+  echo stbchk errors-dec-from-zero fail
+end
+
+* a sweep by octaves from a negative frequency
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb oct 3 -2 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the start frequency must be positive for a dec or oct sweep (it is -2)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-oct-from-below-zero pass
+else
+  echo stbchk errors-oct-from-below-zero fail
+end
+
+* a linear sweep from a negative frequency
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb lin 5 -2 10 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the start frequency must not be negative (it is -2)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-lin-from-below-zero pass
+else
+  echo stbchk errors-lin-from-below-zero fail
+end
+
+* a sweep that ends at 0 Hz
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb lin 5 0 0 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency must be positive (it is 0)"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-stop-zero pass
+else
+  echo stbchk errors-stop-zero fail
+end
+
+* stop below start, by decades
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1e6 1 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency 1 is below the start frequency 1e+06"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-stop-below-start pass
+else
+  echo stbchk errors-stop-below-start fail
+end
+
+* stop below start, linear
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb lin 5 3k 1k >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency 1000 is below the start frequency 3000"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-stop-below-start-lin pass
+else
+  echo stbchk errors-stop-below-start-lin fail
+end
+
+* a stop frequency that is not a finite number
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 1 1 1e400 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency is not a finite number"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-stop-not-finite pass
+else
+  echo stbchk errors-stop-not-finite fail
+end
+
+* a step that is too small to change the frequency: 0.5 Hz at 1e16 Hz
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb lin 5 1e16 10000000000000002 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the step of the sweep is too small to change the frequency"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-step-too-small pass
+else
+  echo stbchk errors-step-too-small fail
+end
+
+* a sweep so wide that its step cannot be computed
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vprb dec 10 1e-300 1e300 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the sweep from 1e-300 Hz to 1e+300 Hz is too wide"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-sweep-too-wide pass
+else
+  echo stbchk errors-sweep-too-wide fail
+end
+
+* no instance of that name (guard: this line is not new)
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb vnothere dec 10 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vnothere: no such instance in the circuit"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-no-such-source pass
+else
+  echo stbchk errors-no-such-source fail
+end
+
+* an instance that is not a voltage source (guard: this line is not new)
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb r1 dec 10 1 1e6 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe r1 is a Resistor, not a voltage source"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-not-a-source pass
+else
+  echo stbchk errors-not-a-source fail
+end
+
+* the probe is named as it was written
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb $up dec 10 1e6 1 >& stb-errors.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-errors.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe VPRB: the stop frequency 1 is below the start frequency 1e+06"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk errors-upper-case-name pass
+else
+  echo stbchk errors-upper-case-name fail
+end
+
+* allowed: a sweep of one point
+set nbefore = $#plots
+set sim_status = 0
+stb vprb dec 10 1k 1k > stb-errors.stblog
+let k = 0
+let k = (length(loopgain) eq 1) & (abs(real(frequency[0]) - 1k) < 1e-9) & (abs(loopgain[0] + 10/(1 + j(1k/const.fp))) < 1e-9)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk errors-one-point-allowed pass
+else
+  echo stbchk errors-one-point-allowed fail
+end
+
+* allowed: a linear sweep from 0 Hz
+set nbefore = $#plots
+set sim_status = 0
+stb vprb lin 5 0 4k > stb-errors.stblog
+let k = 0
+let k = (length(loopgain) eq 5) & (real(frequency[0]) eq 0) & (abs(loopgain[0] + 10) < 1e-9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk errors-lin-from-zero-allowed pass
+else
+  echo stbchk errors-lin-from-zero-allowed fail
+end
+
+* a good command still runs
+set nbefore = $#plots
+set cbefore = $curplot
+set sim_status = 0
+stb vprb dec 5 1 1e6 > stb-errors.stblog
+strstr pos "$curplot" "stb"
+strcmp same "$curplot" "$cbefore"
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+let const.nadded = $#plots - $nbefore
+if ($pos eq 0) & ($same ne 0) & k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk errors-good-afterwards pass
+else
+  echo stbchk errors-good-afterwards fail
+end
+.endc
+.end

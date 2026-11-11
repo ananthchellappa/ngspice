@@ -4990,6 +4990,11 @@ static void inp_fix_param_values(struct card *c)
         if (ciprefix("set", line))
             continue;
 
+        /* no handling of params in .stb lines: an argument written
+         * name=node names a node */
+        if (ciprefix(".stb", line) && (line[4] == '\0' || isspace_c(line[4])))
+            continue;
+
         /* no handling of params in B source lines */
         if (*line == 'b')
             continue;
