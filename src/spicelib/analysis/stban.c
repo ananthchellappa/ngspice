@@ -245,6 +245,49 @@ stb_step(const STBAN *job, double *freq)
 }
 
 
+/* The sweep is checked strictly: a value that cannot be used is an error
+ * here, where ACan() goes on with a default.
+ * Says what is wrong with it and returns 1, or returns 0 if it is good.
+ * One point (stop equal to start) and a linear sweep from 0 Hz are good. */
+static int
+stb_sweep_check(const STBAN *job)
+{
+    const char *probe = job->STBprobe;
+    double start = job->STBstartFreq;
+    double stop = job->STBstopFreq;
+
+    if (job->STBstepType != DECADE && job->STBstepType != OCTAVE &&
+        job->STBstepType != LINEAR)
+        fprintf(cp_err, "Error: stb: probe %s: the sweep is missing (dec|oct|lin <points> <fstart> <fstop>)\n",
+                probe);
+    else if (job->STBnumberSteps < 1)
+        fprintf(cp_err, "Error: stb: probe %s: the number of points must be at least 1 (it is %d)\n",
+                probe, job->STBnumberSteps);
+    else if (!isfinite(start))
+        fprintf(cp_err, "Error: stb: probe %s: the start frequency is not a finite number\n",
+                probe);
+    else if (!isfinite(stop))
+        fprintf(cp_err, "Error: stb: probe %s: the stop frequency is not a finite number\n",
+                probe);
+    else if (job->STBstepType != LINEAR && start <= 0)
+        fprintf(cp_err, "Error: stb: probe %s: the start frequency must be positive for a dec or oct sweep (it is %g)\n",
+                probe, start);
+    else if (start < 0)
+        fprintf(cp_err, "Error: stb: probe %s: the start frequency must not be negative (it is %g)\n",
+                probe, start);
+    else if (stop <= 0)
+        fprintf(cp_err, "Error: stb: probe %s: the stop frequency must be positive (it is %g)\n",
+                probe, stop);
+    else if (stop < start)
+        fprintf(cp_err, "Error: stb: probe %s: the stop frequency %g is below the start frequency %g\n",
+                probe, stop, start);
+    else
+        return 0;
+
+    return 1;
+}
+
+
 #ifdef KLU
 static void
 stb_klu_complex(CKTcircuit *ckt)
@@ -392,15 +435,8 @@ STBan(CKTcircuit *ckt, int restart)
         return E_PARMVAL;
     }
 
-    if (job->STBnumberSteps < 1 ||
-        !isfinite(job->STBstartFreq) || !isfinite(job->STBstopFreq) ||
-        job->STBstartFreq < 0 || job->STBstopFreq < job->STBstartFreq ||
-        (job->STBstepType != LINEAR && job->STBstartFreq <= 0) ||
-        (job->STBstepType != DECADE && job->STBstepType != OCTAVE &&
-         job->STBstepType != LINEAR)) {
-        fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
+    if (stb_sweep_check(job))
         return E_PARMVAL;
-    }
 
     /* the probe, as the circuit spells its names */
     key = stb_key(job->STBprobe);
@@ -472,7 +508,7 @@ STBan(CKTcircuit *ckt, int restart)
 
     /* The number of points. A step that is too small to change the
      * frequency, more points than can be counted, or a sweep so wide that
-     * its step is not a number and no point is counted, is a bad sweep. */
+     * its step is not a number and no point is counted, is an error. */
     npoints = 0;
     for (freq = job->STBstartFreq; freq <= job->STBstopFreq + freqTol; ) {
         double prev = freq;
@@ -480,13 +516,20 @@ STBan(CKTcircuit *ckt, int restart)
         npoints++;
         if (!stb_step(job, &freq))
             break;
-        if (freq == prev || npoints == INT_MAX) {
-            fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
+        if (freq == prev) {
+            fprintf(cp_err, "Error: stb: probe %s: the step of the sweep is too small to change the frequency\n",
+                    job->STBprobe);
+            return E_PARMVAL;
+        }
+        if (npoints == INT_MAX) {
+            fprintf(cp_err, "Error: stb: probe %s: the sweep has too many points\n",
+                    job->STBprobe);
             return E_PARMVAL;
         }
     }
     if (npoints < 1) {
-        fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
+        fprintf(cp_err, "Error: stb: probe %s: the sweep from %g Hz to %g Hz is too wide\n",
+                job->STBprobe, job->STBstartFreq, job->STBstopFreq);
         return E_PARMVAL;
     }
 

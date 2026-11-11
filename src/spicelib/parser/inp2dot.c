@@ -248,7 +248,8 @@ dot_ac(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
 /* .stb <probe> {DEC OCT LIN} NP FSTART FSTOP
  *
  * A line that cannot be read does not stop the deck from loading: the job
- * is made, the problem is stored with it and is reported when it is run. */
+ * is made, the problem is stored with it and is reported when it is run.
+ * Only what cannot be read is found here; STBan() checks the values. */
 static int
 dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         TSKtask *task, CKTnode *gnode, JOB *foo)
@@ -258,9 +259,10 @@ dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     int which;			/* which analysis we are performing */
     char *probe;		/* the name of the probe */
     char *steptype;		/* type of stepping function */
-    char *msg;			/* what is wrong with the line */
+    char *word;			/* what follows the sweep */
+    char *msg = NULL;		/* what is wrong with the line */
     double points = 0.0, start = 0.0, stop = 0.0;
-    int bad;
+    int bad = 0;
 
     NG_IGNORE(gnode);
 
@@ -276,7 +278,8 @@ dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
     INPgetNetTok(&line, &probe, 1);
     if (!*probe || cieq(probe, "dec") || cieq(probe, "oct") || cieq(probe, "lin")) {
         tfree(probe);
-        msg = copy("no probe given");
+        msg = copy("no probe given; usage: "
+                   "stb <probe> dec|oct|lin <points> <fstart> <fstop>");
         INPinsert(&msg, tab);
         ptemp.sValue = msg;
         GCA(INPapName, (ckt, which, foo, "error", &ptemp));
@@ -294,26 +297,47 @@ dot_stb(char *line, CKTcircuit *ckt, INPtables *tab, struct card *current,
         GCA(INPapName, (ckt, which, foo, "oct", &ptemp));
     else if (cieq(steptype, "lin"))
         GCA(INPapName, (ckt, which, foo, "lin", &ptemp));
+    else if (*steptype)
+        msg = tprintf("probe %s: expected dec, oct or lin, not \"%s\"",
+                      probe, steptype);
     else
-        ptemp.iValue = 0;
+        msg = tprintf("probe %s: the sweep is missing "
+                      "(dec|oct|lin <points> <fstart> <fstop>)", probe);
     tfree(steptype);
-    bad = !ptemp.iValue;
 
-    if (!bad)
+    if (!msg) {
         points = INPevaluate(&line, &bad, 1);	/* number of points */
-    if (!bad)
+        if (bad)
+            msg = tprintf("probe %s: the number of points is missing "
+                          "or not a number", probe);
+    }
+    if (!msg) {
         start = INPevaluate(&line, &bad, 1);	/* fstart */
-    if (!bad)
+        if (bad)
+            msg = tprintf("probe %s: the start frequency is missing "
+                          "or not a number", probe);
+    }
+    if (!msg) {
         stop = INPevaluate(&line, &bad, 1);	/* fstop */
-    if (!bad && *line)
-        bad = 1;				/* something follows */
-    if (!bad && !(fabs(points) < INT_MAX))
-        bad = 1;				/* not a number of points */
+        if (bad)
+            msg = tprintf("probe %s: the stop frequency is missing "
+                          "or not a number", probe);
+    }
+    if (!msg && *line) {			/* something follows */
+        /* the word as it is written: up to a blank, or to the equals
+         * sign that ends a name */
+        char *end = line;
+        while (*end && !isspace_c(*end) && (*end != '=' || end == line))
+            end++;
+        word = copy_substring(line, end);
+        msg = tprintf("probe %s: unknown argument \"%s\"", probe, word);
+        tfree(word);
+    }
+    if (!msg && !(fabs(points) < INT_MAX))	/* not a number of points */
+        msg = tprintf("probe %s: the number of points is out of range "
+                      "(it is %g)", probe, points);
 
-    if (bad) {
-        msg = tprintf("probe %s: the line cannot be read; "
-                      "it is: stb <probe> dec|oct|lin <points> <fstart> <fstop>",
-                      probe);
+    if (msg) {
         INPinsert(&msg, tab);
         ptemp.sValue = msg;
         GCA(INPapName, (ckt, which, foo, "error", &ptemp));

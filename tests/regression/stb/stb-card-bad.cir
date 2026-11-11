@@ -1,0 +1,141 @@
+* stb: a bad .stb card does not stop the deck from loading
+*
+* Three .stb cards beside an .ac card: one with the stop frequency below
+* the start, one with an argument that does not exist, written name=node,
+* and a good one whose stop frequency is a parameter in braces.
+*
+* The deck loads: op and ac give the values of the circuit. "run" does
+* the .ac card and the good .stb card, reports each bad card in one line
+* that names the probe and says what is wrong, and sets sim_status to 1.
+*
+* The loop is that of stb-flat.cir, loopgain = -10 / (1 + j f/fp), with a
+* current source into x. In the closed loop out = -10 x, so
+*   dc:  (x - out)/r1 = 1m       x = 1/11, out = -10/11
+*   ac:  x (11/r1 + j w c1) = 1  x = r1 / (11 + j f/fp)
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+i1 0 x dc 1m ac 1
+.param fstop = 1e6
+.ac dec 5 1 1e6
+.stb vprb dec 10 1e6 1
+.stb vprb dec 10 1 1e6 foo=out
+.stb vprb dec 5 1 {fstop}
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+op
+let k = 0
+let k = (abs(v(x) - 1/11) < 1e-12) & (abs(v(out) + 10/11) < 1e-12)
+if k
+  echo stbchk card-bad-deck-loads pass
+else
+  echo stbchk card-bad-deck-loads fail
+end
+
+ac dec 5 1 1e6
+let k = 0
+let k = (length(v(x)) eq 31) & (vecmax(abs(v(x) - 1k/(11 + j(frequency/const.fp)))) < 1e-9)
+if k
+  echo stbchk card-bad-ac-command pass
+else
+  echo stbchk card-bad-ac-command fail
+end
+
+let const.nbefore = $#plots
+set sim_status = 0
+run >& stb-card-bad.stberr
+
+if $sim_status eq 1
+  echo stbchk card-bad-run-status pass
+else
+  echo stbchk card-bad-run-status fail
+end
+
+* one line for each bad card, and no other
+let const.nrev = 0
+let const.narg = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-card-bad.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vprb: the stop frequency 1 is below the start frequency 1e+06"
+  if $p1 eq 0
+    let const.nrev = const.nrev + 1
+  end
+  strcmp p1 "$ln" "Error: stb: probe vprb: unknown argument \"foo\""
+  if $p1 eq 0
+    let const.narg = const.narg + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+if (const.nrev eq 1) & (const.narg eq 1) & (const.nline eq 2)
+  echo stbchk card-bad-messages pass
+else
+  echo stbchk card-bad-messages fail
+end
+
+* the plots that "run" has made: one of the .ac card, and the pair of the
+* good .stb card
+let const.nac = 0
+let const.nacgood = 0
+let const.nstb = 0
+let const.nstbgood = 0
+let const.nmargin = 0
+foreach pl $plots
+  strstr p1 "$pl" "ac"
+  strstr p2 "$pl" "stb"
+  strstr p3 "$pl" "stbmargin"
+  if $p1 eq 0
+    let const.nac = const.nac + 1
+    setplot $pl
+    let k = 0
+    let k = (length(v(x)) eq 31) & (vecmax(abs(v(x) - 1k/(11 + j(frequency/const.fp)))) < 1e-9)
+    if k
+      let const.nacgood = const.nacgood + 1
+    end
+  end
+  if ($p2 eq 0) & ($p3 < 0)
+    let const.nstb = const.nstb + 1
+    setplot $pl
+    let k = 0
+    let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+    if k
+      let const.nstbgood = const.nstbgood + 1
+    end
+  end
+  if $p3 eq 0
+    let const.nmargin = const.nmargin + 1
+  end
+end
+let const.nadded = $#plots - const.nbefore
+
+if (const.nac eq 2) & (const.nacgood eq 2)
+  echo stbchk card-bad-ac-card-ran pass
+else
+  echo stbchk card-bad-ac-card-ran fail
+end
+
+if (const.nstb eq 1) & (const.nstbgood eq 1) & (const.nmargin eq 1)
+  echo stbchk card-bad-good-card-ran pass
+else
+  echo stbchk card-bad-good-card-ran fail
+end
+
+if const.nadded eq 3
+  echo stbchk card-bad-no-other-plot pass
+else
+  echo stbchk card-bad-no-other-plot fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

@@ -237,7 +237,7 @@ else
   echo stbchk fail-unknown-argument fail
 end
 
-* a number of points that no sweep can have is not read as a number
+* a number of points that no sweep can have
 set sim_status = 0
 stb vprb dec 1e30 1 100 >& stb-fail.stberr
 let const.nerr = 0
@@ -246,7 +246,7 @@ fopen f1 stb-fail.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strstr p1 "_$ln" "Error: stb: probe vprb: the line cannot be read"
+  strstr p1 "_$ln" "Error: stb: probe vprb: the number of points is out of range (it is 1e+30)"
   if $p1 >= 0
     let const.nerr = const.nerr + 1
   end

@@ -1,0 +1,32 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a bad .stb card does not stop the deck from loading
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+stbchk card-bad-deck-loads pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+stbchk card-bad-ac-command pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk card-bad-run-status pass
+stbchk card-bad-messages pass
+stbchk card-bad-ac-card-ran pass
+stbchk card-bad-good-card-ran pass
+stbchk card-bad-no-other-plot pass
