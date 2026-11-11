@@ -485,6 +485,7 @@ extern "C"
 #endif
 extern int NaskQuest(CKTcircuit *, JOB *, int, IFvalue *);
 extern int NsetParm(CKTcircuit *, JOB *, int, IFvalue *);
+extern int NIacFactor(CKTcircuit *);
 extern int NIacIter(CKTcircuit *);
 extern int NIcomCof(CKTcircuit *);
 extern int NIconvTest(CKTcircuit *);
