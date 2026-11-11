@@ -22,7 +22,8 @@ TESTS = harness-alive.cir node-case-split.cir \
 	save-near-miss-node-list.cir \
 	casemode-announce-report.cir curcasemode-relatch.cir \
 	rawfile-casemode-header.cir node-case-collision-report.cir \
-	stb-vprobe-case.cir stb-term-case.cir
+	stb-vprobe-case.cir stb-term-case.cir \
+	stb-term-hier-case.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh "$(top_builddir)/src/ngspice -D casemode=distinguish"
 

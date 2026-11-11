@@ -1,0 +1,31 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the gate of a transistor that is a subcircuit, two levels down
+
+stb: probe xamp.xm3:g inserted as v.xamp.xm3#stb2 (x = xamp.xm3#stb2, y = g)
+stb: probe m.xamp.xm4.m1:g inserted as v.m.xamp.xm4.m1#stb2 (x = m.xamp.xm4.m1#stb2, y = g)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+g = 7.252949e-01
+g2 = 7.252949e-01
+m.xamp.xm4.m1#stb2 = 7.252949e-01
+out = 7.252949e-01
+out2 = 7.252949e-01
+v.m.xamp.xm4.m1#stb2#branch = 0.000000e+00
+v.xamp.xm3#stb2#branch = 0.000000e+00
+vdd = 3.300000e+00
+vdd#branch = -1.15723e-04
+xamp.o2 = 8.854681e-02
+xamp.xm3#stb2 = 7.252949e-01
+xamp2.o2 = 8.854681e-02
+stbchk pdk-port-of-inner-instance pass
+stbchk pdk-device-in-inner-instance pass
+stbchk pdk-second-amplifier-equal pass
+stbchk pdk-drain-id-equal pass
+stbchk pdk-nothing-else pass
+Note: Simulation executed from .control section 

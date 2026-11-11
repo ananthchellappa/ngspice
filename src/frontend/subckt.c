@@ -150,9 +150,11 @@ static char start[32], sbend[32], invoke[32], model[32];
    function, because src/misc/hash.c copies the key on insert and frees it
    again only when hash_func is NGHASH_DEF_HASH(NGHASH_FUNC_STR).  Under
    distinguish the key is not folded at all, which is the same rule read the
-   other way: fold the key, never swap the comparator. */
+   other way: fold the key, never swap the comparator.  Not static: the
+   terminal probes of the stb analysis look a port up in this table
+   (inp_stb_xcard() in inpc_stb.c) and have to make the key the same way. */
 
-static char *glo_key(const char *name)
+char *glo_key(const char *name)
 {
     char *key = copy(name);
 

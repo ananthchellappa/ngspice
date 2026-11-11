@@ -1,0 +1,305 @@
+* stb under casemode=distinguish: terminal probes down the hierarchy, by letter
+*
+* Under distinguish two spellings are two names, so this deck has pairs of
+* instances that differ only by case, each in a loop of its own. The loops
+* are told apart by their gain A; loopgain = -A / (1 + j f/fp),
+* fp = 1/(2 pi 1k 1u):
+*   X4.XL:T      A = 20      x4.XL:T      A = 10    (the port of the child)
+*   X6.XL.G1:3   A = 5       x6.XL.G1:3   A = 2     (an element of the child)
+*   M1           a transistor with a resistor from its drain to its
+*                gate; the probe is its gate
+*
+* stb has to take the terminal of the instance that is spelled as the
+* probe is, along the whole path, and by the name the element has in the
+* circuit (G.X6.XL.G1). A path with one part in another spelling names
+* nothing. The letter of a terminal is a word of the language and is
+* taken in any case in every mode: M1:G and M1:g are the gate of M1, and
+* m1:g is the gate of an instance the deck does not have. The lines "stb:
+* probe ... inserted as ..." of the expected output show one source for
+* each terminal.
+*
+* Refused when the netlist is read:
+*   X9:Sup      the port Sup of Buf is the global node Sup
+*   X9:sup      Buf has no port of that spelling
+*   X8.R1:1     R1 of X8 has a behavioural value
+*   X8.E1:3     E1 of X8 has an expression
+*
+* Under fold or preserve this deck does not load at all (the second of
+* each pair is a duplicate), so every verdict below needs the mode.
+.subckt Leaf T U
+G1 a 0 T 0 1m
+R1 a 0 1k
+C1 a 0 1u
+G2 0 U a 0 1m
+.ends
+.subckt Pass I O
+XL I O Leaf
+.ends
+X4 Fb Fb Pass
+Rf Fb 0 20k
+x4 Fbb Fbb Pass
+Rff Fbb 0 10k
+X6 Fc Fc Pass
+Rh Fc 0 5k
+x6 Fcc Fcc Pass
+Rhh Fcc 0 2k
+Vdd Vdd 0 3
+Rd Vdd D 10k
+M1 D Gg 0 0 Nm w=10u l=1u
+Rf2 D Gg 1meg
+Rg2 Gg 0 2meg
+.model Nm nmos level=1 vto=0.5 kp=100u
+.global Sup
+.subckt Buf In Sup
+Rb In Sup 1k
+.ends
+X9 n9 Sup Buf
+Vs Sup 0 1
+R9 n9 0 1k
+.subckt Beh A B
+R1 A B r='1k*(1+v(A)*0)'
+E1 q 0 vol='v(A)*2'
+Rq q 0 1k
+.ends
+X8 n8 0 Beh
+V8 n8 0 1
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+set sp0 = $curplot
+stb X4.XL:T dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-child-port-upper-x pass
+else
+  echo stbchk distinguish-child-port-upper-x fail
+end
+
+set sp0 = $curplot
+stb x4.XL:T dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-child-port-lower-x pass
+else
+  echo stbchk distinguish-child-port-lower-x fail
+end
+
+set sp0 = $curplot
+stb X4.XL:1 dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 20/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-child-port-by-position pass
+else
+  echo stbchk distinguish-child-port-by-position fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X4.xl:T dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-child-in-other-spelling-is-no-name pass
+else
+  echo stbchk distinguish-child-in-other-spelling-is-no-name fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X4.XL:t dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-port-in-other-spelling-is-no-port pass
+else
+  echo stbchk distinguish-port-in-other-spelling-is-no-port fail
+end
+
+set sp0 = $curplot
+stb X6.XL.G1:3 dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-element-path-upper-x pass
+else
+  echo stbchk distinguish-element-path-upper-x fail
+end
+
+set sp0 = $curplot
+stb x6.XL.G1:3 dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 2/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-element-path-lower-x pass
+else
+  echo stbchk distinguish-element-path-lower-x fail
+end
+
+set sp0 = $curplot
+stb G.X6.XL.G1:3 dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 5/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-element-flat-name pass
+else
+  echo stbchk distinguish-element-flat-name fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X6.XL.g1:3 dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-element-in-other-spelling-is-no-name pass
+else
+  echo stbchk distinguish-element-in-other-spelling-is-no-name fail
+end
+
+* a spelling that the reader has not seen: the word reaches the command
+* through a variable
+setcs pv = "x4.XL:1"
+set sp0 = $curplot
+stb $pv dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & ($same ne 0)
+  echo stbchk distinguish-spelling-not-read pass
+else
+  echo stbchk distinguish-spelling-not-read fail
+end
+
+* the gate by its letter, in both cases, and by its position
+stb M1:G dec 2 1 1e4 > stb-term-hier-case.stblog
+set first = $curplot
+let k = 0
+let k = (length(loopgain) eq 9) & (abs(loopgain[0]) > 0.1)
+if k
+  echo stbchk distinguish-letter-upper pass
+else
+  echo stbchk distinguish-letter-upper fail
+end
+
+set sp0 = $curplot
+stb M1:g dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain - {$first}.loopgain)) < 1e-12)
+if k & ($same ne 0)
+  echo stbchk distinguish-letter-lower pass
+else
+  echo stbchk distinguish-letter-lower fail
+end
+
+set sp0 = $curplot
+stb M1:2 dec 2 1 1e4 > stb-term-hier-case.stblog
+strcmp same "$curplot" "$sp0"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain - {$first}.loopgain)) < 1e-12)
+if k & ($same ne 0)
+  echo stbchk distinguish-letter-position pass
+else
+  echo stbchk distinguish-letter-position fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb m1:g dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-letter-of-absent-instance pass
+else
+  echo stbchk distinguish-letter-of-absent-instance fail
+end
+
+* one terminal, one probe, and one source for each instance of a pair
+op
+let k = 0
+let k = (abs(v(X4.XL#stb1) - v(Fb)) < 1e-12) & (abs(v(x4.XL#stb1) - v(Fbb)) < 1e-12) & (abs(v(G.X6.XL.G1#stb3) - v(Fc)) < 1e-12) & (abs(v(G.x6.XL.G1#stb3) - v(Fcc)) < 1e-12) & (abs(v(M1#stb2) - v(Gg)) < 1e-12) & (abs(v.M1#stb2#branch) < 1e-15)
+if k
+  echo stbchk distinguish-one-source-each pass
+else
+  echo stbchk distinguish-one-source-each fail
+end
+
+let n0 = 1
+let n0 = 0 * length(v(X4.XL#stb1_2))
+let n1 = 1
+let n1 = 0 * length(v(x4.XL#stb1_2))
+let n2 = 1
+let n2 = 0 * length(v(G.X6.XL.G1#stb3_2))
+let n3 = 1
+let n3 = 0 * length(v(M1#stb2_2))
+let n4 = 1
+let n4 = 0 * length(v(m1#stb2))
+let n5 = 1
+let n5 = 0 * length(v(X9#stb2))
+let n6 = 1
+let n6 = 0 * length(v(R.X8.R1#stb1))
+let n7 = 1
+let n7 = 0 * length(v(E.X8.E1#stb3))
+if n0 & n1 & n2 & n3 & n4 & n5 & n6 & n7
+  echo stbchk distinguish-no-second-source pass
+else
+  echo stbchk distinguish-no-second-source fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X9:Sup dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-global-port-refused pass
+else
+  echo stbchk distinguish-global-port-refused fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X9:sup dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-port-of-other-spelling-refused pass
+else
+  echo stbchk distinguish-port-of-other-spelling-refused fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X8.R1:1 dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-behavioural-value-refused pass
+else
+  echo stbchk distinguish-behavioural-value-refused fail
+end
+
+set nbefore = $#plots
+set sp0 = $curplot
+set sim_status = 0
+stb X8.E1:3 dec 2 1 1e4 >& stb-term-hier-case.stberr
+strcmp same "$curplot" "$sp0"
+if ($#plots eq $nbefore) & ($same eq 0) & ($sim_status eq 1)
+  echo stbchk distinguish-expression-source-refused pass
+else
+  echo stbchk distinguish-expression-source-refused fail
+end
+
+* the verdicts are out: do not end the batch run as one that has failed
+set sim_status = 0
+.endc
+.end

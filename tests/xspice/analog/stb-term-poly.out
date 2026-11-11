@@ -1,0 +1,60 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: polynomial sources and code model instances as terminal probes
+
+stb: probe ep:1 not inserted: ep is a POLY source; place a voltage source
+stb: probe xp.g1:3 not inserted: xp.g1 is a POLY source; place a voltage source
+stb: probe g.xp.g1:3 not inserted: g.xp.g1 is a POLY source; place a voltage source
+stb: probe aamp:1 not inserted: aamp is a code model instance; place a voltage source
+stb: probe xo.xi.g1:3 not inserted: xo.xi.g1 is a POLY source; place a voltage source
+stb: probe xb:in inserted as v.xb#stb1 (x = xb#stb1, y = n1)
+stb: probe e2:3 inserted as v.e2#stb3 (x = e2#stb3, y = polyb)
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+a$poly$ep#branch_1_0 = -2.00000e-03
+a.xb.abuf#branch_1_0 = -3.00000e-03
+aamp#branch_1_0 = -3.00000e-03
+ao = 3.000000e+00
+bo = 3.000000e+00
+e2#branch = -5.00000e-04
+e2#stb3 = 2.500000e-01
+eo = 5.000000e-01
+ep = 2.000000e+00
+n1 = 1.000000e+00
+np = -1.00000e+00
+nq = -1.00000e+00
+polyb = 2.500000e-01
+v.e2#stb3#branch = 0.000000e+00
+v.xb#stb1#branch = 0.000000e+00
+v1#branch = 0.000000e+00
+xb#stb1 = 1.000000e+00
+stbchk poly-values pass
+stbchk poly-analog-port-inserted pass
+stbchk poly-node-named-poly pass
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+Reducing trtol to 1 for xspice 'A' devices
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stbchk poly-commands-refused pass

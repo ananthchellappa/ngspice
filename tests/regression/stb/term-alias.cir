@@ -1,0 +1,202 @@
+* stb: a terminal that was collected under another spelling
+*
+* A terminal probe is inserted when the netlist is read, for the probes
+* that are written out in the deck. A command whose probe comes from a
+* variable finds the source if it names a terminal that was inserted,
+* whatever the spelling: the port by its name where its position was
+* written, an element by the path of its instances where its name in the
+* circuit was written and the other way round, a letter where the
+* position was written, upper case, an element of an instance of a
+* subcircuit that is defined inside another one by its path (r1 of xc
+* of xb is r.xb.r.xc.r1 in the circuit). A terminal that was not inserted is
+* still an error that says how to declare it.
+*
+* The first loop is that of stb-flat.cir, with the amplifier and the
+* resistor in subcircuits: loopgain = -10 / (1 + j f/fp),
+* fp = 1/(2 pi 1k 1u), at the input of the amplifier and at the
+* resistor alike. The loop of x2 is the same, with its resistor two
+* instances down.
+* The second is a transistor that is biased from its drain: no current
+* in rf, so the gate has the voltage of the drain and loopgain is
+* -gm * 10k at every frequency. With u = vgs - vto:
+* 3 V - 0.5 V - u = 10k * 0.5 mA/V^2 * u^2, u = 0.6141 V, gm = 0.6141 mS.
+.subckt amp in out
+e1 out 0 0 in 10
+.ends
+.subckt fb a b
+r1 a b 1k
+.ends
+.subckt box p q
+.subckt cell m n
+r1 m n 1k
+.ends
+xc p q cell
+.ends
+.subckt stage d g
+m1 d g 0 0 nm w=10u l=1u
+.model nm nmos level=1 vto=0.5 kp=100u
+.ends
+x1 x out amp
+xf out x fb
+c1 x 0 1u
+x2 y out2 amp
+xb out2 y box
+c2 y 0 1u
+vdd vdd 0 3
+rd vdd d 10k
+rf d g 1meg
+xs d g stage
+.control
+let const.fp = 1/(2*pi*1k*1u)
+if 0
+  stb x1:1 dec 5 1 1e6
+  stb xf.r1:2 dec 5 1 1e6
+  stb m.xs.m1:2 dec 5 1 1e6
+  stb r.xb.r.xc.r1:2 dec 5 1 1e6
+end
+
+* the spellings that are written out
+stb x1:1 dec 5 1 1e6 > term-alias.stblog
+set pport = $curplot
+let const.ka = 0
+let const.ka = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+stb xf.r1:2 dec 5 1 1e6 > term-alias.stblog
+set pres = $curplot
+let const.kb = 0
+let const.kb = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+stb m.xs.m1:2 dec 5 1 1e6 > term-alias.stblog
+set pmos = $curplot
+let const.gm = @m.xs.m1[gm]
+let const.kc = 0
+let const.kc = (length(loopgain) eq 31) & (vecmax(abs(loopgain + const.gm*10k)) < 1e-6) & (abs(const.gm - 0.1m*(sqrt(51) - 1)) < 1e-9)
+stb r.xb.r.xc.r1:2 dec 5 1 1e6 > term-alias.stblog
+set pinner = $curplot
+let const.kd = 0
+let const.kd = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if const.ka & const.kb & const.kc & const.kd
+  echo stbchk alias-written-out pass
+else
+  echo stbchk alias-written-out fail
+end
+
+* the port by its name, from a variable
+set pv = x1:in
+set nbefore = $#plots
+set sim_status = 0
+stb $pv dec 5 1 1e6 > term-alias.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$pport}.loopgain)) eq 0)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk alias-port-name pass
+else
+  echo stbchk alias-port-name fail
+end
+
+* in upper case: setcs keeps the case of the word
+setcs pv = "X1:IN"
+set nbefore = $#plots
+set sim_status = 0
+stb $pv dec 5 1 1e6 > term-alias.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$pport}.loopgain)) eq 0)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk alias-port-upper-case pass
+else
+  echo stbchk alias-port-upper-case fail
+end
+
+* the resistor by its name in the circuit, where its path was written
+set pv = r.xf.r1:2
+set nbefore = $#plots
+set sim_status = 0
+stb $pv dec 5 1 1e6 > term-alias.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$pres}.loopgain)) eq 0)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk alias-name-in-the-circuit pass
+else
+  echo stbchk alias-name-in-the-circuit fail
+end
+
+* the transistor by its path and the letter of the gate, where its name
+* in the circuit and the position were written
+set pv = xs.m1:g
+set nbefore = $#plots
+set sim_status = 0
+stb $pv dec 5 1 1e6 > term-alias.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$pmos}.loopgain)) eq 0)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk alias-path-and-letter pass
+else
+  echo stbchk alias-path-and-letter fail
+end
+setcs pv = "M.XS.M1:G"
+set nbefore = $#plots
+set sim_status = 0
+stb $pv dec 5 1 1e6 > term-alias.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$pmos}.loopgain)) eq 0)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk alias-letter-upper-case pass
+else
+  echo stbchk alias-letter-upper-case fail
+end
+
+* the resistor two instances down by its path, where its name in the
+* circuit was written
+set pv = xb.xc.r1:2
+set nbefore = $#plots
+set sim_status = 0
+stb $pv dec 5 1 1e6 > term-alias.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain - {$pinner}.loopgain)) eq 0)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk alias-inner-definition pass
+else
+  echo stbchk alias-inner-definition fail
+end
+
+* other terminals of the same instances were not inserted
+let const.nerr = 0
+let const.nline = 0
+let const.nfailed = 0
+set nbefore = $#plots
+set cbefore = $curplot
+echo begin > term-alias.stberr
+foreach pv x1:out x1:2 xf.r1:1 xs.m1:d m.xs.m1:3 xb.xc.r1:1
+  set sim_status = 0
+  stb $pv dec 5 1 1e6 >>& term-alias.stberr
+  if $sim_status eq 1
+    let const.nfailed = const.nfailed + 1
+  end
+end
+set n1 = 1
+fopen f1 term-alias.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "this terminal was not declared when the netlist was read: add a .stb line for it, or write the stb command with this probe literally in the .control section of the deck"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+if (const.nerr eq 6) & (const.nline eq 6) & (const.nfailed eq 6) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk alias-other-terminals-refused pass
+else
+  echo stbchk alias-other-terminals-refused fail
+end
+.endc
+.end
