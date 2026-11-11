@@ -1,0 +1,41 @@
+* stb: a terminal probe on a .stb card
+*
+* The card declares the probe and is the analysis that run starts. The
+* loop is closed through the subcircuit on the net fb:
+*   v(a) = -gm1 R1 v(in),  the output feeds gm2 v(a) into fb with rf,
+*   loopgain = -gm1 R1 gm2 Rf = -(1m * 1k) * (1m * 2k) = -2
+* at every frequency.
+*
+* The words of the card are separated by commas, which separate as blanks
+* do: the probe that the reader collects is x1:in, the word that the
+* analysis takes from the card.
+.subckt amp in out
+g1 a 0 in 0 1m
+r1 a 0 1k
+g2 0 out a 0 1m
+.ends
+x1 fb fb amp
+rf fb 0 2k
+i1 0 fb dc 1m
+.stb x1:in,dec,2,1,1e4
+.control
+op
+print all
+let k = 0
+let k = (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v.x1#stb1#branch) < 1e-15) & (abs(v(fb) - 2/3) < 1e-9)
+if k
+  echo stbchk dotcard-inserted pass
+else
+  echo stbchk dotcard-inserted fail
+end
+run
+strstr pos "$curplot" "stb"
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 2)) < 1e-9)
+if k & ($pos eq 0) & ($sim_status eq 0)
+  echo stbchk dotcard-run pass
+else
+  echo stbchk dotcard-run fail
+end
+.endc
+.end

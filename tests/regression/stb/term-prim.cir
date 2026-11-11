@@ -1,0 +1,73 @@
+* stb: a terminal of a top-level element as the probe, by its position
+*
+* A probe written <instance>:<position> names one terminal of an element.
+* When the netlist is read, the terminal is taken off its net, put on a
+* new node, and a 0 V source is placed between the new node (x, its
+* positive node) and the net (y). The lines below are never run: the
+* reader finds them because the probe is written out in them.
+*
+*   rm1:1   v(b) = 0.5 V, 0.5 mA flows from a through the source into
+*           rm1, that is from its negative to its positive node:
+*           the source has -0.5 mA
+*   g1:3    the controlling input of g1, no current; g1 still sees
+*           v(b): v(c) = -1 mA/V * 0.5 V * 2k = -1 V
+*   m1:2    the gate, no current; vgs = 3 V * 100k/300k = 1 V,
+*           id = kp/2 w/l (vgs - vto)^2 = 50u * 10 * 0.25 = 125 uA,
+*           v(d) = 3 V - 125 uA * 10k = 1.75 V
+*   q1:2    the base: the source has the current of rbq,
+*           -(3 V - v(bq))/1meg, which is the base current of q1 (the
+*           device reports it to the accuracy of the iteration)
+v1 a 0 dc 1
+rm1 a b 1k
+rb b 0 1k
+g1 c 0 b 0 1m
+rc c 0 2k
+vdd vdd 0 3
+rd vdd d 10k
+m1 d gg 0 0 nm w=10u l=1u
+rg1 vdd gg 200k
+rg2 gg 0 100k
+.model nm nmos level=1 vto=0.5 kp=100u
+rcq vdd cq 10k
+q1 cq bq 0 qn
+rbq vdd bq 1meg
+.model qn npn bf=100
+.control
+if 0
+  stb rm1:1 dec 10 1 1e6
+  stb g1:3 dec 10 1 1e6
+  stb m1:2 dec 10 1 1e6
+  stb q1:2 dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(rm1#stb1) - v(a)) < 1e-12) & (abs(v.rm1#stb1#branch + 0.5m) < 1e-12) & (abs(v(b) - 0.5) < 1e-12)
+if k
+  echo stbchk prim-resistor pass
+else
+  echo stbchk prim-resistor fail
+end
+let k = 0
+let k = (abs(v(g1#stb3) - v(b)) < 1e-12) & (abs(v.g1#stb3#branch) < 1e-15) & (abs(v(c) + 1) < 1e-9)
+if k
+  echo stbchk prim-controlled-source pass
+else
+  echo stbchk prim-controlled-source fail
+end
+let k = 0
+let k = (abs(v(m1#stb2) - v(gg)) < 1e-12) & (abs(v.m1#stb2#branch) < 1e-15) & (abs(v(gg) - 1) < 1e-9) & (abs(v(d) - 1.75) < 1e-6)
+if k
+  echo stbchk prim-mos-gate pass
+else
+  echo stbchk prim-mos-gate fail
+end
+let k = 0
+let k = (abs(v(q1#stb2) - v(bq)) < 1e-12) & (abs(v.q1#stb2#branch + (v(vdd) - v(bq))/1meg) < 1e-12) & (abs(v.q1#stb2#branch + @q1[ib]) < 1e-3*@q1[ib]) & (@q1[ib] > 1u)
+if k
+  echo stbchk prim-bjt-base pass
+else
+  echo stbchk prim-bjt-base fail
+end
+.endc
+.end

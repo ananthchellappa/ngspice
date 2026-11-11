@@ -1,0 +1,38 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a terminal of a top-level element as the probe, by its position
+
+stb: probe rm1:1 inserted as v.rm1#stb1 (x = rm1#stb1, y = a)
+stb: probe g1:3 inserted as v.g1#stb3 (x = g1#stb3, y = b)
+stb: probe m1:2 inserted as v.m1#stb2 (x = m1#stb2, y = gg)
+stb: probe q1:2 inserted as v.q1#stb2 (x = q1#stb2, y = bq)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+a = 1.000000e+00
+b = 5.000000e-01
+bq = 7.358171e-01
+c = -1.00000e+00
+cq = 7.358178e-01
+d = 1.750000e+00
+g1#stb3 = 5.000000e-01
+gg = 1.000000e+00
+m1#stb2 = 1.000000e+00
+q1#stb2 = 7.358171e-01
+rm1#stb1 = 1.000000e+00
+v.g1#stb3#branch = 0.000000e+00
+v.m1#stb2#branch = 0.000000e+00
+v.q1#stb2#branch = -2.26418e-06
+v.rm1#stb1#branch = -5.00000e-04
+v1#branch = -5.00000e-04
+vdd = 3.000000e+00
+vdd#branch = -3.63682e-04
+stbchk prim-resistor pass
+stbchk prim-controlled-source pass
+stbchk prim-mos-gate pass
+stbchk prim-bjt-base pass
+Note: Simulation executed from .control section 

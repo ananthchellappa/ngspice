@@ -20,6 +20,7 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "ngspice/hash.h"
 
 struct ccom;
+struct stb_probe;
 
 struct save_info {
     char    *name;
@@ -59,6 +60,7 @@ struct circ {
     JOB *ci_specOpt;          /* special options anal. for command line jobs */
     JOB *ci_curOpt;           /* most recent options anal. for the circuit */
     char *ci_last_an;         /* name of last analysis run */
+    struct stb_probe *ci_stbprobes; /* terminal probes of the stb analysis */
 
     int ci_dicos;               /* index to the numparam dicoS structure
                                    for this circuit */

@@ -1,0 +1,49 @@
+* stb: the names of an inserted probe never meet a name of the deck
+*
+* The new node of the probe x1:in would be x1#stb1 and its source
+* v.x1#stb1. This deck has a node of that name already. The reader sees
+* the mark "#stb" in an element line and lengthens its own mark to
+* "#stb#" for this deck: the node is x1#stb#1, the source v.x1#stb#1,
+* and the node of the user keeps its own value, 1 V * 3k/4k = 0.75 V.
+* v(fb) = 2/3 V as in term-port.cir.
+.subckt amp in out
+g1 a 0 in 0 1m
+r1 a 0 1k
+g2 0 out a 0 1m
+.ends
+x1 fb fb amp
+rf fb 0 2k
+i1 0 fb dc 1m
+v2 top 0 dc 1
+r2 top x1#stb1 1k
+r3 x1#stb1 0 3k
+.control
+if 0
+  stb x1:in dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(x1#stb#1) - v(fb)) < 1e-12) & (abs(v.x1#stb#1#branch) < 1e-15) & (abs(v(fb) - 2/3) < 1e-9)
+if k
+  echo stbchk reserved-moved pass
+else
+  echo stbchk reserved-moved fail
+end
+let k = 0
+let k = abs(v(x1#stb1) - 0.75) < 1e-12
+if k
+  echo stbchk reserved-user-node-kept pass
+else
+  echo stbchk reserved-user-node-kept fail
+end
+stb x1:in dec 2 1 1e4 > term-reserved.stblog
+let k = 0
+let k = (length(loopgain) eq 9) & (vecmax(abs(loopgain + 2)) < 1e-9)
+if k
+  echo stbchk reserved-probe-runs pass
+else
+  echo stbchk reserved-probe-runs fail
+end
+.endc
+.end

@@ -1,0 +1,110 @@
+* stb: a terminal probe that was not collected, and one that was refused
+*
+* A terminal probe is inserted when the netlist is read. A probe that
+* reaches the command from a variable was not seen then: the command
+* fails with a line that says how to declare the probe. A probe that was
+* collected but cannot be inserted (g1 has four terminals, not five) does
+* not stop the deck from loading; the reader says why it is not inserted
+* and the command fails with the same reason. Each failing command gives
+* exactly one line starting with "Error: stb:", sets sim_status to 1,
+* adds no plot and leaves the current plot and stb_marginplot alone.
+*
+* The loop is that of stb-flat.cir with the probe at the first terminal
+* of r1: loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi 1k 1u).
+e1 out 0 0 x 10
+r1 x out 1k
+c1 x 0 1u
+g1 gx 0 x 0 1m
+rg gx 0 1k
+.control
+let const.fp = 1/(2*pi*1k*1u)
+if 0
+  stb g1:5 dec 5 1 1e6
+  stb r1:1 dec 5 1 1e6
+end
+stb r1:1 dec 5 1 1e6 > term-uncollected.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk uncollected-good-before pass
+else
+  echo stbchk uncollected-good-before fail
+end
+
+* built from a variable: c1:1 is written out in no stb line
+set pv = c1:1
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb $pv dec 5 1 1e6 >& term-uncollected.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-uncollected.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe c1:1: this terminal was not declared when the netlist was read: add a .stb line for it, or write the stb command with this probe literally in the .control section of the deck"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk uncollected-from-variable pass
+else
+  echo stbchk uncollected-from-variable fail
+end
+
+* collected, but refused when the netlist was read
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb g1:5 dec 5 1 1e6 >& term-uncollected.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-uncollected.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe g1:5: g1 has 4 terminals"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk uncollected-refused pass
+else
+  echo stbchk uncollected-refused fail
+end
+
+* a good command still runs
+set nbefore = $#plots
+set sim_status = 0
+stb r1:1 dec 5 1 1e6 > term-uncollected.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk uncollected-good-afterwards pass
+else
+  echo stbchk uncollected-good-afterwards fail
+end
+.endc
+.end

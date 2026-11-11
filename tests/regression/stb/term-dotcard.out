@@ -1,0 +1,29 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: a terminal probe on a .stb card
+
+stb: probe x1:in inserted as v.x1#stb1 (x = x1#stb1, y = fb)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 1
+fb = 6.666667e-01
+v.x1#stb1#branch = 0.000000e+00
+x1#stb1 = 6.666667e-01
+x1.a = -6.66667e-01
+stbchk dotcard-inserted pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe x1:in (voltage source v.x1#stb1, x = x1#stb1, y = fb), 9 points, 1 Hz to 10000 Hz
+stb: no phase margin: the loop gain is still +6.0206 dB at the last frequency 10000 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 180 deg at the last frequency 10000 Hz)
+
+No. of Data Rows : 9
+
+No. of Data Rows : 1
+stbchk dotcard-run pass
+Note: Simulation executed from .control section 

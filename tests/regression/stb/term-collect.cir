@@ -1,0 +1,116 @@
+* stb: terminal probes are found in stb lines inside every block form
+*
+* The reader collects the probe of each stb line of the .control section
+* in which the probe is written out, also when the line is inside if,
+* while, repeat, foreach or dowhile and is never run. A probe that comes
+* from a variable cannot be collected: nothing is inserted for r6:1.
+* The probe is the word that the command takes from the line: it ends at
+* a comma as at a blank (r3:1).
+* The sources are announced in the order of the lines.
+*
+* One loop of 1 V over 6k: each source has -1/6 mA and its two nodes are
+* equal. reset reads the deck again; its announcements are sent to a file
+* and compared line by line.
+v1 a 0 dc 1
+r1 a b 1k
+r2 b c 1k
+r3 c d 1k
+r4 d e 1k
+r5 e f 1k
+r6 f 0 1k
+.control
+set pvar = r6:1
+let n = 0
+if 0
+  stb r1:1 dec 10 1 1e6
+end
+while n < 0
+  stb r2:1 dec 10 1 1e6
+end
+repeat 0
+  stb r3:1,dec,10,1,1e6
+end
+foreach v 1
+  if 0
+    stb r4:1 dec 10 1 1e6
+  end
+end
+dowhile n < 0
+  if 0
+    stb r5:1 dec 10 1 1e6
+    stb $pvar dec 10 1 1e6
+  end
+end
+op
+let k = 0
+let k = (abs(v(r1#stb1) - v(a)) < 1e-12) & (abs(v(r2#stb1) - v(b)) < 1e-12) & (abs(v(r3#stb1) - v(c)) < 1e-12) & (abs(v(r4#stb1) - v(d)) < 1e-12) & (abs(v(r5#stb1) - v(e)) < 1e-12)
+let ki = 0
+let ki = (abs(v.r1#stb1#branch + 1m/6) < 1e-12) & (abs(v.r2#stb1#branch + 1m/6) < 1e-12) & (abs(v.r3#stb1#branch + 1m/6) < 1e-12) & (abs(v.r4#stb1#branch + 1m/6) < 1e-12) & (abs(v.r5#stb1#branch + 1m/6) < 1e-12)
+if k & ki & (abs(v(f) - 1/6) < 1e-12)
+  echo stbchk collect-five-blocks pass
+else
+  echo stbchk collect-five-blocks fail
+end
+let k6 = 1
+let k6 = 0 * length(v(r6#stb1))
+if k6
+  echo stbchk collect-not-from-variable pass
+else
+  echo stbchk collect-not-from-variable fail
+end
+
+* the announcements, in the order of the lines, and no other; a line is
+* compared in parts, since the reader takes the blanks around "=" out of
+* the text written here
+reset > term-collect.stblog
+let const.nmap = 0
+let const.nstb = 0
+set n1 = 1
+fopen f1 term-collect.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p2 "_$ln" "_stb:"
+  if $p2 eq 0
+    let const.nstb = const.nstb + 1
+    set p1 = 1
+    set p3 = -1
+    set p4 = -1
+    if const.nstb eq 1
+      strstr p1 "$ln" "stb: probe r1:1 inserted as v.r1#stb1 (x"
+      strstr p3 "$ln" "r1#stb1, y"
+      strstr p4 "$ln" " a)"
+    end
+    if const.nstb eq 2
+      strstr p1 "$ln" "stb: probe r2:1 inserted as v.r2#stb1 (x"
+      strstr p3 "$ln" "r2#stb1, y"
+      strstr p4 "$ln" " b)"
+    end
+    if const.nstb eq 3
+      strstr p1 "$ln" "stb: probe r3:1 inserted as v.r3#stb1 (x"
+      strstr p3 "$ln" "r3#stb1, y"
+      strstr p4 "$ln" " c)"
+    end
+    if const.nstb eq 4
+      strstr p1 "$ln" "stb: probe r4:1 inserted as v.r4#stb1 (x"
+      strstr p3 "$ln" "r4#stb1, y"
+      strstr p4 "$ln" " d)"
+    end
+    if const.nstb eq 5
+      strstr p1 "$ln" "stb: probe r5:1 inserted as v.r5#stb1 (x"
+      strstr p3 "$ln" "r5#stb1, y"
+      strstr p4 "$ln" " e)"
+    end
+    if ($p1 eq 0) & ($p3 > 0) & ($p4 > 0)
+      let const.nmap = const.nmap + 1
+    end
+  end
+end
+fclose $f1
+if (const.nmap eq 5) & (const.nstb eq 5)
+  echo stbchk collect-order pass
+else
+  echo stbchk collect-order fail
+end
+.endc
+.end

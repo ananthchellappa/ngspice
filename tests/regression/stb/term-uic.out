@@ -1,0 +1,17 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: an initial condition on the net also holds for the probed terminal
+
+stb: probe c1:1 inserted as v.c1#stb1 (x = c1#stb1, y = y)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+Operating point simulation skipped by 'uic',
+  now using transient initial conditions.
+
+No. of Data Rows : 61
+stbchk uic-same-as-unprobed pass
+stbchk uic-new-node-follows pass
+Note: Simulation executed from .control section 

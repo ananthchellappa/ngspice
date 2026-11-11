@@ -1,0 +1,261 @@
+* stb: a probe that is no voltage source is answered with a way to go on
+*
+* The probe of the plain form is a voltage source. For another element
+* the message says how to break the loop at one of its terminals; for a
+* device that amplifies (m, q, j, z, e, f, g, h) it says that the loop
+* gain of the device by itself is not available, and names a terminal;
+* for a subcircuit instance it names a port. Each form that a message
+* names is accepted: the last part declares them and runs one. A coupling
+* of inductors has no terminals, so its message names none.
+* Each failing command gives exactly one line starting with "Error: stb:",
+* sets sim_status to 1, adds no plot and leaves the current plot and
+* stb_marginplot alone.
+*
+* The loop is that of stb-flat.cir, with the amplifier in a subcircuit:
+* loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi 1k 1u).
+.subckt amp in out
+e1 out 0 0 in 10
+.ends
+x1 y out amp
+vprb x y dc 0
+r1 out x 1k
+c1 x 0 1u
+vdd vdd 0 3
+rd vdd d 10k
+m1 d gg 0 0 nm w=10u l=1u
+rg1 vdd gg 200k
+rg2 gg 0 100k
+.model nm nmos level=1 vto=0.5 kp=100u
+g1 gx 0 x 0 1m
+rg gx 0 1k
+l1 ka 0 1m
+l2 kb 0 1m
+rk1 ka 0 1k
+rk2 kb 0 1k
+k1 l1 l2 0.5
+.control
+let const.fp = 1/(2*pi*1k*1u)
+if 0
+  stb c1:1 dec 5 1 1e6
+  stb m1:2 dec 5 1 1e6
+  stb g1:1 dec 5 1 1e6
+  stb x1:1 dec 5 1 1e6
+end
+stb vprb dec 5 1 1e6 > term-hints.stblog
+
+* a passive element
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb c1 dec 5 1 1e6 >& term-hints.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-hints.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe c1 is a Capacitor, not a voltage source: to break the loop at one of its terminals write c1:1"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk hints-passive pass
+else
+  echo stbchk hints-passive fail
+end
+
+* a coupling of two inductors: it has no terminal to name
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb k1 dec 5 1 1e6 >& term-hints.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-hints.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe k1 is a mutual, not a voltage source"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk hints-coupling pass
+else
+  echo stbchk hints-coupling fail
+end
+
+* a transistor
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb m1 dec 5 1 1e6 >& term-hints.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-hints.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe m1: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. m1:2"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk hints-mos pass
+else
+  echo stbchk hints-mos fail
+end
+
+* a controlled source
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb g1 dec 5 1 1e6 >& term-hints.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-hints.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe g1: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. g1:1"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk hints-controlled-source pass
+else
+  echo stbchk hints-controlled-source fail
+end
+
+* a subcircuit instance
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb x1 dec 5 1 1e6 >& term-hints.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-hints.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x1 is a subcircuit instance: name one of its ports, e.g. x1:1"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk hints-subcircuit pass
+else
+  echo stbchk hints-subcircuit fail
+end
+
+* a word that looks like an instance of a subcircuit, but there is none
+set nbefore = $#plots
+set cbefore = $curplot
+set mbefore = $stb_marginplot
+set sim_status = 0
+stb x9 dec 5 1 1e6 >& term-hints.stberr
+let const.nerr = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 term-hints.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x9: no such instance in the circuit"
+  if $p1 eq 0
+    let const.nerr = const.nerr + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$cbefore"
+strcmp msame "$stb_marginplot" "$mbefore"
+if (const.nerr eq 1) & (const.nline eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore) & ($same eq 0) & ($msame eq 0)
+  echo stbchk hints-no-such-subcircuit pass
+else
+  echo stbchk hints-no-such-subcircuit fail
+end
+
+* the forms named by the messages are accepted; the port x1:1 is in the
+* loop and gives the loop gain of the voltage source probe
+set nbefore = $#plots
+set sim_status = 0
+stb x1:1 dec 5 1 1e6 > term-hints.stblog
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+let const.nadded = $#plots - $nbefore
+if k & ($sim_status eq 0) & (const.nadded eq 2)
+  echo stbchk hints-port-runs pass
+else
+  echo stbchk hints-port-runs fail
+end
+let const.nrun = 0
+foreach pr c1:1 m1:2 g1:1
+  set sim_status = 0
+  set nbefore = $#plots
+  stb $pr dec 5 1 1e6 > term-hints.stblog
+  let const.nadded = $#plots - $nbefore
+  if ($sim_status eq 0) & (const.nadded eq 2)
+    let const.nrun = const.nrun + 1
+  end
+end
+if const.nrun eq 3
+  echo stbchk hints-named-forms-run pass
+else
+  echo stbchk hints-named-forms-run fail
+end
+.endc
+.end

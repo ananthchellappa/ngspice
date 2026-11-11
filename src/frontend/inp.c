@@ -30,6 +30,7 @@ Author: 1985 Wayne A. Christopher
 #include "../misc/mktemp.h"
 #include "../misc/misc_time.h"
 #include "subckt.h"
+#include "inpc_stb.h"
 #include "spiceif.h"
 #include "com_let.h"
 #include "com_set.h"
@@ -640,6 +641,11 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
     if (ciprefix("*ng_script", deck->line))
         comfile = TRUE;
 
+    /* a deck that is read again: the terminal probes of the stb analysis
+       that were collected from its .control section are stored with it */
+    if (!fp && !intfile)
+        inp_stb_restore(deck);
+
     /* Extract the .option or option lines from the deck into 'options',
         and remove them from the deck. Exceptions are .option with params. */
     options = inp_getopts(deck, comfile);
@@ -1028,13 +1034,24 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             /* Parsing the circuit 4.
                This is the next major step:
                Expand subcircuit macros and substitute numparams.*/
+
+            /* The terminal probes of the stb analysis, from .stb cards and
+               from the stb lines of the .control section. A port of a
+               subcircuit instance is handled during the expansion. */
+            inp_stb_collect(deck->nextcard, controls,
+                            (fp || intfile) ? mc_deck : NULL);
+
+            /* only this expansion, of the deck itself, handles them */
+            inp_stb_expanding(TRUE);
             if (!cp_getvar("nosubckt", CP_BOOL, NULL, 0))
                 if ((deck->nextcard = inp_subcktexpand(deck->nextcard)) == NULL) {
+                    inp_stb_discard();
                     line_free(realdeck, TRUE);
                     line_free(deck->actualLine, TRUE);
                     tfree(tt);
                     return 1;
                 }
+            inp_stb_expanding(FALSE);
 
             /* replace agauss(x,y,z) in each b-line by suitable value, one for all */
             bool statlocal = cp_getvar("statlocal", CP_BOOL, NULL, 0);
@@ -1116,6 +1133,10 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             /* handle .if ... .elseif ... .else ... .endif statements. */
             dotifeval(deck);
 
+            /* the deck is flat: add the 0 V sources of the terminal probes
+               of the stb analysis; the first card is the title */
+            inp_stb_insert(deck->nextcard);
+
             /* get csparams and create vectors, available
                in plot 'const' of a .control section */
             for (dd = deck; dd; dd = dd->nextcard) {
@@ -1188,12 +1209,15 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             /* Parsing the circuit 5.
                This is the next major step:
                load deck into ft_curckt -- the current circuit. */
-            if(inp_dodeck(deck, tt, wl_first, FALSE, options, filename) != 0)
+            if(inp_dodeck(deck, tt, wl_first, FALSE, options, filename) != 0) {
+                inp_stb_discard();
                 return 1;
+            }
 
             if (ft_curckt) {
                 ft_curckt->devtlist = devtlist;
                 ft_curckt->modtlist = modtlist;
+                ft_curckt->ci_stbprobes = inp_stb_take();
             }
 
             /* inp_dodeck did take ownership */

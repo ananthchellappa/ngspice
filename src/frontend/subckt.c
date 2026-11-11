@@ -72,6 +72,7 @@ Modified: 2000 AlansFixes
 #endif
 
 #include "subckt.h"
+#include "inpc_stb.h"
 #include "variable.h"
 
 #include "numparam/numpaif.h"
@@ -89,7 +90,7 @@ extern void tprint(struct card* deck);
 
 
 struct subs;
-static struct card *doit(struct card *deck, wordlist *modnames);
+static struct card *doit(struct card *deck, wordlist *modnames, bool toplevel);
 static int translate(struct card *deck, char *formal, int flen, char *actual,
 		char *scname, const char *subname, struct subs *subs,
 		wordlist const *modnames);
@@ -348,7 +349,7 @@ inp_subcktexpand(struct card *deck) {
 #endif
 
     /* doit does the actual splicing in of the .subckt . . .  */
-    deck = doit(deck, modnames);
+    deck = doit(deck, modnames, TRUE);
 
     free_global_nodes();
     wl_free(modnames);
@@ -444,7 +445,7 @@ su_has_wnflag(struct card *deck)
 /*  pointer to the deck after the subcircuit has been spliced in.    */
 /*-------------------------------------------------------------------*/
 static struct card *
-doit(struct card *deck, wordlist *modnames) {
+doit(struct card *deck, wordlist *modnames, bool toplevel) {
     struct subs *sss = NULL;   /*  *sss temporarily hold decks to substitute  */
     int numpasses = MAXNEST;
     bool gotone;
@@ -557,7 +558,7 @@ doit(struct card *deck, wordlist *modnames) {
 
     /* Otherwise, expand sub-subcircuits recursively. */
     for (sss = subs; sss; sss = sss->su_next)  /* iterate through the list of subcircuits */
-        if ((sss->su_def = doit(sss->su_def, modnames)) == NULL)
+        if ((sss->su_def = doit(sss->su_def, modnames, FALSE)) == NULL)
             return (NULL);
 
 #ifdef TRACE
@@ -632,6 +633,18 @@ doit(struct card *deck, wordlist *modnames) {
                  * instance of a subckt that is defined above at higher level.
                  */
                 if (sss) {
+                    /* a loop-gain probe at a port of this instance: the
+                       node of the instance line is replaced before the
+                       body is translated (inpc_stb.c) */
+                    if (toplevel && inp_stb_pending()) {
+                        char *nl = inp_stb_xcard(c->line, sss->su_name,
+                                                 sss->su_args, sss->su_numargs,
+                                                 glonodes);
+                        if (nl) {
+                            tfree(tofree);
+                            t = tofree = nl;
+                        }
+                    }
 //                    tprint(sss->su_def);
                     struct card *su_deck = inp_deckcopy(sss->su_def);
                     /* If we have modern PDKs, we have to reduce the amount of memory required.

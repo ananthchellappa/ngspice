@@ -1,10 +1,13 @@
 /**********
 Loop-gain (stability) analysis "stb".
 
-The probe is a voltage source in the loop. At each frequency the AC
-matrix is factored once and solved for two right-hand sides, a unit
-voltage in series with the probe and a unit current into its node. The
-two responses are combined into the return ratio T of the loop after
+The probe is a voltage source in the loop, or a terminal of an instance,
+<instance>:<terminal>: then it is the 0 V source that the front end has
+inserted at that terminal when it read the netlist (inpc_stb.c). At each
+frequency the AC matrix is factored once and solved for two right-hand
+sides, a unit voltage in series with the probe and a unit current into
+its node. The two responses are combined into the return ratio T of the
+loop after
 
 M. Tian, V. Visvanathan, J. Hantgan, K. Kundert, "Striving for
 small-signal stability", IEEE Circuits and Devices Magazine,
@@ -129,6 +132,33 @@ stb_find(CKTcircuit *ckt, char *name)
             }
 
     return inst;
+}
+
+
+/* Is name a subcircuit instance, x1 or x1.x2? It is one if an element of
+ * the circuit lies inside it: r.x1.x2.r5 is the resistor r5 of x1.x2. */
+static int
+stb_is_subckt(CKTcircuit *ckt, const char *name)
+{
+    const char *last = strrchr(name, '.');
+    size_t len = strlen(name);
+    GENmodel *model;
+    GENinstance *inst;
+    int i;
+
+    if ((last ? last[1] : name[0]) != 'x')
+        return 0;
+
+    for (i = 0; i < DEVmaxnum; i++)
+        for (model = ckt->CKThead[i]; model; model = model->GENnextModel)
+            for (inst = model->GENinstances; inst; inst = inst->GENnextInstance) {
+                const char *s = inst->GENname;
+                if (s[0] && s[1] == '.' && strncmp(s + 2, name, len) == 0 &&
+                    s[len + 2] == '.')
+                    return 1;
+            }
+
+    return 0;
 }
 
 
@@ -358,6 +388,9 @@ STBan(CKTcircuit *ckt, int restart)
     int n;
     int npoints;
     char *key;              /* the probe, in lower case */
+    const char *vname;      /* the source inserted for a terminal probe */
+    const char *reason;     /* why none was inserted */
+    int issubckt;
     GENinstance *inst;
     int vtype;
     int x;                  /* the node of the probe that is excited */
@@ -402,19 +435,63 @@ STBan(CKTcircuit *ckt, int restart)
     key = copy(job->STBprobe);
     strtolower(key);
     inst = stb_find(ckt, key);
+
+    /* A terminal of an instance, <instance>:<terminal>: the 0 V source
+     * that the front end has inserted there when it read the netlist is
+     * the probe. A word that is the name of an instance is no terminal. */
+    if (!inst && strchr(key, ':')) {
+        switch (inp_stb_lookup(ckt, key, &vname, &reason)) {
+        case 0:
+            inst = CKTfndDev(ckt, (char *) vname);
+            break;
+        case 1:
+            fprintf(cp_err, "Error: stb: probe %s: %s\n",
+                    job->STBprobe, reason);
+            tfree(key);
+            return E_PARMVAL;
+        default:
+            fprintf(cp_err, "Error: stb: probe %s: this terminal was not declared when the netlist was read: add a .stb line for it, or write the stb command with this probe literally in the .control section of the deck\n",
+                    job->STBprobe);
+            tfree(key);
+            return E_NOTFOUND;
+        }
+    }
+
+    issubckt = !inst && stb_is_subckt(ckt, key);
     tfree(key);
 
     if (!inst || inst->GENmodPtr->GENmodType < 0) {
-        fprintf(cp_err, "Error: stb: probe %s: no such instance in the circuit\n",
-                job->STBprobe);
+        if (issubckt)
+            fprintf(cp_err, "Error: stb: probe %s is a subcircuit instance: name one of its ports, e.g. %s:1\n",
+                    job->STBprobe, job->STBprobe);
+        else
+            fprintf(cp_err, "Error: stb: probe %s: no such instance in the circuit\n",
+                    job->STBprobe);
         return E_NOTFOUND;
     }
 
+    /* Only a voltage source is a probe by itself. The terminal that the
+     * message names is written with the name the instance has in the
+     * circuit. */
     vtype = CKTtypelook("Vsource");
     if (inst->GENmodPtr->GENmodType != vtype) {
-        fprintf(cp_err, "Error: stb: probe %s is a %s, not a voltage source\n",
-                job->STBprobe,
-                DEVices[inst->GENmodPtr->GENmodType]->DEVpublic.name);
+        if (strchr("mqjz", inst->GENname[0]))
+            fprintf(cp_err, "Error: stb: probe %s: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. %s:2\n",
+                    job->STBprobe, inst->GENname);
+        else if (strchr("efgh", inst->GENname[0]))
+            fprintf(cp_err, "Error: stb: probe %s: the loop gain of an active device by itself is not supported: name one of its terminals, e.g. %s:1\n",
+                    job->STBprobe, inst->GENname);
+        else if (strchr("ka", inst->GENname[0]))
+            /* a coupling has no terminals, and those of a code model
+             * instance cannot be probes */
+            fprintf(cp_err, "Error: stb: probe %s is a %s, not a voltage source\n",
+                    job->STBprobe,
+                    DEVices[inst->GENmodPtr->GENmodType]->DEVpublic.name);
+        else
+            fprintf(cp_err, "Error: stb: probe %s is a %s, not a voltage source: to break the loop at one of its terminals write %s:1\n",
+                    job->STBprobe,
+                    DEVices[inst->GENmodPtr->GENmodType]->DEVpublic.name,
+                    inst->GENname);
         return E_UNSUPP;
     }
 

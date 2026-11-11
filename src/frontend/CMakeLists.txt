@@ -81,6 +81,7 @@ target_sources(ngspice_core PRIVATE
     inpcom.c
     inpcompat.c
     inpc_probe.c
+    inpc_stb.c
     interp.c
     inventory.c
     linear.c

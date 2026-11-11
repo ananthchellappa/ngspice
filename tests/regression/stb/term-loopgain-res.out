@@ -1,0 +1,40 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the loop gain at a terminal of a resistor in the loop
+
+stb: probe rm1:1 inserted as v.rm1#stb1 (x = rm1#stb1, y = e)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk loopgain-res-hand-closed-form 100 pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk loopgain-res-probe 100 pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk loopgain-res-hand-closed-form 10k pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 31
+
+No. of Data Rows : 1
+stbchk loopgain-res-probe 10k pass
+Note: Simulation executed from .control section 

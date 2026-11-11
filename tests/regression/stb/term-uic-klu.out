@@ -1,0 +1,46 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: an .ic on the net of a probed terminal, option klu
+
+stb: probe g1:4 inserted as v.g1#stb4 (x = g1#stb4, y = fba)
+stb: probe x2:inn inserted as v.x2#stb2 (x = x2#stb2, y = fbb)
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 1
+stbchk uic-klu-op pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 108
+stbchk uic-klu-tran-holds-ic pass
+stbchk uic-klu-new-nodes-follow pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+Operating point simulation skipped by 'uic',
+  now using transient initial conditions.
+
+No. of Data Rows : 111
+stbchk uic-klu-uic-same-as-unprobed pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 61
+
+No. of Data Rows : 1
+stbchk uic-klu-loopgain-element pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+
+No. of Data Rows : 61
+
+No. of Data Rows : 1
+stbchk uic-klu-loopgain-port pass
+Note: Simulation executed from .control section 

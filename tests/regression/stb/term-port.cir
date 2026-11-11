@@ -1,0 +1,61 @@
+* stb: a port of a subcircuit instance as the probe
+*
+* Two instances of one definition. The probe names port "in" of x1, the
+* first port: the elements inside x1 that are on the port move to a new
+* node, and a 0 V source joins that node (x) to the net of the instance
+* line (y). The three spellings are one terminal and give one source.
+* x2 is not touched. Both ports of x1 are on the net fb: only the first
+* one is taken off it.
+*
+* v(a) = -v(in), g2 feeds -1 mA/V * v(in) into fb, so
+* 1 mA - v(fb) * 1 mA/V - v(fb)/2k = 0, v(fb) = 2/3 V; mon = 2 v(in).
+.subckt amp in out
+g1 a 0 in 0 1m
+r1 a 0 1k
+g2 0 out a 0 1m
+b9 mon 0 v=v(in)*2
+rmon mon 0 1k
+.ends
+x1 fb fb amp
+x2 fb2 fb2 amp
+rf fb 0 2k
+rf2 fb2 0 2k
+i1 0 fb dc 1m
+i2 0 fb2 dc 1m
+.control
+if 0
+  stb x1:in dec 10 1 1e6
+  stb x1:1 dec 10 1 1e6
+  stb X1:IN dec 10 1 1e6
+end
+op
+print all
+let k = 0
+let k = (abs(v(x1#stb1) - v(fb)) < 1e-12) & (abs(v.x1#stb1#branch) < 1e-15)
+if k
+  echo stbchk port-inserted pass
+else
+  echo stbchk port-inserted fail
+end
+let k = 0
+let k = (abs(v(fb) - 2/3) < 1e-9) & (abs(v(fb2) - 2/3) < 1e-9) & (abs(v(x1.mon) - 4/3) < 1e-9) & (abs(v(x2.mon) - 4/3) < 1e-9) & (abs(v(x1.a) + 2/3) < 1e-9)
+if k
+  echo stbchk port-values pass
+else
+  echo stbchk port-values fail
+end
+* no second node or source for the other spellings, none for x2 and
+* none for the second port: such a vector would set these to 0
+let k2 = 1
+let k2 = 0 * length(v(x2#stb1))
+let k3 = 1
+let k3 = 0 * length(v(x1#stb2))
+let k4 = 1
+let k4 = 0 * length(v(x1#stb1_2))
+if k2 & k3 & k4
+  echo stbchk port-nothing-else pass
+else
+  echo stbchk port-nothing-else fail
+end
+.endc
+.end

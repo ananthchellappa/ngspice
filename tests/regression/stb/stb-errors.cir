@@ -939,7 +939,8 @@ else
   echo stbchk errors-no-such-source fail
 end
 
-* an instance that is not a voltage source (guard: this line is not new)
+* an instance that is not a voltage source: the line names the terminal
+* form (see term-hints.cir)
 set nbefore = $#plots
 set cbefore = $curplot
 set mbefore = $stb_marginplot
@@ -952,7 +953,7 @@ fopen f1 stb-errors.stberr r
 while $n1 >= 0
   set ln = "none"
   fread ln $f1 n1
-  strcmp p1 "$ln" "Error: stb: probe r1 is a Resistor, not a voltage source"
+  strcmp p1 "$ln" "Error: stb: probe r1 is a Resistor, not a voltage source: to break the loop at one of its terminals write r1:1"
   if $p1 eq 0
     let const.nerr = const.nerr + 1
   end
