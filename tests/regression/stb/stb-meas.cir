@@ -1,0 +1,101 @@
+* stb: meas on a loop-gain plot
+*
+* The loop of stb-flat.cir: loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi r1 c1).
+*
+* meas takes a loop-gain plot as it takes an ac plot; the measurement is
+* written "meas ac ...".
+*   - |loopgain| at 1 Hz is 10/sqrt(1 + 1/fp^2), 19.99983 dB. (meas keeps
+*     six digits of a result: the tolerance is 1e-4 dB.)
+*   - |loopgain| falls through 0 dB at fu = fp sqrt(99) = 1583.57 Hz. meas
+*     and the margins plot both read this off the swept points, each with
+*     its own interpolation: they agree with each other and with fu to
+*     0.1 %.
+*   - loopgain is -T, so its phase where |loopgain| = 1 is the phase
+*     margin, 180 - atan(sqrt(99)) = 95.739 deg.
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.control
+let const.fp = 1/(2*pi*1k*1u)
+let const.fu = const.fp*sqrt(99)
+let const.pm = 180 - atan(sqrt(99))*180/pi
+set cbefore = $curplot
+
+stb vprb dec 50 1 1e6 > stb-meas.stblog
+strcmp same "$curplot" "$cbefore"
+strstr pos "$curplot" "stb"
+set sp = $curplot
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+
+meas ac lowdb find vdb(loopgain) at=1 > stb-meas.stblog
+let k = 0
+let k = abs(lowdb - 20 + 10*log10(1 + 1/const.fp^2)) < 1e-4
+if k & ($same ne 0) & ($pos eq 0)
+  echo stbchk meas-find-at pass
+else
+  echo stbchk meas-find-at fail
+end
+
+meas ac ugb when vdb(loopgain)=0 > stb-meas.stblog
+let k = 0
+let k = abs(ugb/const.fu - 1) < 1e-3
+if k & ($same ne 0) & ($pos eq 0)
+  echo stbchk meas-when-closed-form pass
+else
+  echo stbchk meas-when-closed-form fail
+end
+let k = 0
+let k = abs(ugb/{$mp}.phasemarginfreq - 1) < 1e-3
+if k & ($same ne 0) & ($pos eq 0)
+  echo stbchk meas-when-margins-plot pass
+else
+  echo stbchk meas-when-margins-plot fail
+end
+
+meas ac pmrad find vp(loopgain) when vdb(loopgain)=0 > stb-meas.stblog
+let k = 0
+let k = (abs(pmrad*180/pi - const.pm) < 0.05) & (abs(pmrad*180/pi - {$mp}.phasemargin) < 0.05)
+if k & ($same ne 0) & ($pos eq 0)
+  echo stbchk meas-phase-margin pass
+else
+  echo stbchk meas-phase-margin fail
+end
+
+* meas does not take the margins plot: it has no frequency, each of its
+* vectors is one number. It says so, and the margins plot stays the
+* current plot.
+setplot $mp
+meas ac nomeas max phasemargin >& stb-meas.stberr
+let const.nlim = 0
+set n1 = 1
+fopen f1 stb-meas.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "measure limited to"
+  if $p1 >= 0
+    let const.nlim = const.nlim + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$mp"
+if (const.nlim eq 1) & ($same eq 0)
+  echo stbchk meas-not-on-margins-plot pass
+else
+  echo stbchk meas-not-on-margins-plot fail
+end
+setplot $sp
+
+* the loop-gain plot is still the current one
+strcmp same "$curplot" "$sp"
+if $same eq 0
+  echo stbchk meas-plot-kept pass
+else
+  echo stbchk meas-plot-kept fail
+end
+.endc
+.end

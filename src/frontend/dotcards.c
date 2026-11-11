@@ -181,6 +181,19 @@ ft_savemeasure(void)
 }
 
 
+/* Does a plot of this type name belong to the analysis named on a .print
+ * or .plot line? ".print stb" selects the loop-gain plots only, not the
+ * "stbmargin" ones that are made with them. */
+
+static bool
+dot_plot_match(const char *plottype, const char *typename)
+{
+    if (!ciprefix(plottype, typename))
+        return FALSE;
+    return !ciprefix("stbmargin", typename) || ciprefix("stbmargin", plottype);
+}
+
+
 /* Execute the .whatever lines found in the deck, after we are done running.
  * We'll be cheap and use cp_lexer to get the words... This should make us
  * spice-2 compatible.  If terse is TRUE then there was a rawfile, so don't
@@ -329,7 +342,7 @@ ft_cktcoms(bool terse)
                 twl.wl_next = command;
                 found = 0;
                 for (pl = plot_list; pl; pl = pl->pl_next)
-                    if (ciprefix(plottype, pl->pl_typename)) {
+                    if (dot_plot_match(plottype, pl->pl_typename)) {
                         plot_cur = pl;
                         com_print(&twl);
                         fprintf(cp_out, "\n");
@@ -357,7 +370,7 @@ ft_cktcoms(bool terse)
                 fixdotplot(command);
                 found = 0;
                 for (pl = plot_list; pl; pl = pl->pl_next)
-                    if (ciprefix(plottype, pl->pl_typename)) {
+                    if (dot_plot_match(plottype, pl->pl_typename)) {
                         plot_cur = pl;
                         com_asciiplot(command);
                         fprintf(cp_out, "\n");

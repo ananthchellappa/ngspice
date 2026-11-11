@@ -1,0 +1,159 @@
+* stb: the option keepopinfo
+*
+* With the option keepopinfo a run makes three plots: the operating point
+* (a plot of type op, as the ac analysis makes), the loop gain and the
+* margins. The loop-gain plot is the current plot. The operating point is
+* written with the other two when the sweep is done: a run that fails
+* during the sweep makes no plot at all.
+*
+* The loop: vtest carries -12 V and btest = -a v(west)^2 - k h, with
+* h = hertz/1k, a = 1 + h and k = v(kest), so
+*     a v(west)^2 + v(west) + k h - 12 = 0.
+* With k = 0 this is the loop d of stb-klu-hertz.cir:
+*     loopgain = 1 - sqrt(49 + 48 f/1k)
+* The operating point is solved again at each frequency. The plot holds
+* the one found before the sweep, where hertz is 0 in a circuit that has
+* just been loaded: v(west) = 3, v(nest) = v(oest) = -9, no current. The
+* last one of the sweep, at 10 kHz, has v(west) = 1. An ac analysis of the
+* circuit loaded again gives the same operating point plot.
+*
+* With k = 13 the equation has no solution from h = 0.93 on: a sweep from
+* 100 Hz to 10 kHz fails at its sixth point, 1 kHz.
+*
+* (The names contain "est" on purpose, as in stb-opfail.cir: the table that
+* is printed for an operating point that failed holds numbers of an
+* iteration that did not converge.)
+.options keepopinfo
+.options reltol=1e-9 vntol=1e-12 abstol=1e-15
+vtest nest west dc -12
+btest oest 0 v = -v(west)*v(west)*(1 + hertz/1k) - v(kest)*hertz/1k
+rest oest nest 1k
+vkest kest 0 dc 0
+.control
+set nbefore = $#plots
+set cbefore = $curplot
+
+stb vtest dec 5 100 1e4 > stb-keepop.stblog
+set sp = $curplot
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+
+* three plots, in this order: op, stb, stbmargin
+set ops = none
+set seen = ""
+let const.nseen = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  if const.nseen > $nbefore
+    strstr p1 "$pl" "op"
+    if $p1 eq 0
+      set ops = $pl
+      set seen = "$seen op"
+    end
+    strstr p1 "$pl" "stb"
+    strstr p2 "$pl" "stbmargin"
+    if ($p1 eq 0) & ($p2 < 0)
+      set seen = "$seen stb"
+    end
+    if $p2 eq 0
+      set seen = "$seen stbmargin"
+    end
+  end
+end
+strcmp order "$seen" " op stb stbmargin"
+if ($#plots eq $nbefore + 3) & ($order eq 0)
+  echo stbchk keepop-three-plots pass
+else
+  echo stbchk keepop-three-plots fail
+end
+
+* the loop-gain plot is the current one, and it holds the loop gain
+strstr p1 "$sp" "stb"
+strstr p2 "$sp" "stbmargin"
+strstr p3 "$mp" "stbmargin"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain - 1 + sqrt(49 + 48*real(frequency)/1k))/sqrt(49 + 48*real(frequency)/1k)) < 1e-9)
+if k & ($p1 eq 0) & ($p2 < 0) & ($p3 eq 0)
+  echo stbchk keepop-loopgain-plot pass
+else
+  echo stbchk keepop-loopgain-plot fail
+end
+
+* the operating point before the sweep, not the last one of the sweep
+let k = 0
+let k = (length({$ops}.west) eq 1) & (abs({$ops}.west - 3) < 1e-6) & (abs({$ops}.nest + 9) < 1e-6) & (abs({$ops}.oest + 9) < 1e-6) & (abs({$ops}.vtest#branch) < 1e-9)
+if k
+  echo stbchk keepop-values pass
+else
+  echo stbchk keepop-values fail
+end
+
+* a run that fails during the sweep: the line, and no plot
+alter vkest dc = 13
+set nmid = $#plots
+set sim_status = 0
+stb vtest dec 5 100 1e4 >& stb-keepop.stberr
+let const.nerr = 0
+set n1 = 1
+fopen f1 stb-keepop.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "Error: stb: probe vtest: the operating point did not converge"
+  if $p1 >= 0
+    let const.nerr = const.nerr + 1
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$sp"
+set msame = 1
+if $?stb_marginplot
+  strcmp msame "$stb_marginplot" "$mp"
+end
+if (const.nerr eq 1) & ($sim_status eq 1) & ($#plots eq $nmid) & ($same eq 0) & ($msame eq 0)
+  echo stbchk keepop-failing-run-no-plot pass
+else
+  echo stbchk keepop-failing-run-no-plot fail
+end
+set sim_status = 0
+
+* the circuit loaded again: the operating point plot of an ac analysis
+reset
+set nmid = $#plots
+ac dec 5 100 1e4
+set opa = none
+let const.nseen = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  if const.nseen > $nmid
+    strstr p1 "$pl" "op"
+    if $p1 eq 0
+      set opa = $pl
+    end
+  end
+end
+let k = 0
+let k = (abs({$opa}.west - {$ops}.west) < 1e-9) & (abs({$opa}.nest - {$ops}.nest) < 1e-9) & (abs({$opa}.oest - {$ops}.oest) < 1e-9) & (abs({$opa}.kest - {$ops}.kest) < 1e-9) & (abs({$opa}.vtest#branch - {$ops}.vtest#branch) < 1e-9) & (abs({$opa}.btest#branch - {$ops}.btest#branch) < 1e-9) & (abs({$opa}.vkest#branch - {$ops}.vkest#branch) < 1e-9)
+strcmp same "$opa" "$ops"
+if k & ($same ne 0)
+  echo stbchk keepop-as-ac pass
+else
+  echo stbchk keepop-as-ac fail
+end
+
+* and a run after all this: three plots again
+set nmid = $#plots
+stb vtest dec 5 100 1e4 > stb-keepop.stblog
+strstr p1 "$curplot" "stb"
+strcmp same "$curplot" "$sp"
+let k = 0
+let k = (length(loopgain) eq 11) & (vecmax(abs(loopgain - 1 + sqrt(49 + 48*real(frequency)/1k))/sqrt(49 + 48*real(frequency)/1k)) < 1e-9)
+if k & ($#plots eq $nmid + 3) & ($p1 eq 0) & ($same ne 0)
+  echo stbchk keepop-again pass
+else
+  echo stbchk keepop-again fail
+end
+.endc
+.end

@@ -1,0 +1,64 @@
+* stb under casemode=preserve: a save in another spelling and keepopinfo
+*
+* The loop of tests/regression/stb/stb-card-print-keepop.cir with node
+* names that have capitals. With the option keepopinfo a run also makes
+* the plot "STB Operating Point". A save that names a node of the circuit
+* applies to that plot, which then holds the node and nothing else; a
+* save that names nothing in it (the loop gain is no node) is not for it.
+*
+* Under preserve "save out" names the node Out, as it does for every
+* other analysis, so the operating point plot has to hold one vector. A
+* byte-for-byte compare of the two spellings would take the save for one
+* that names nothing there, and the plot would keep its seven vectors.
+*
+* The operating point: v(In) = 1.1 V, and v(Out) = 10 (v(In) - v(Y)) with
+* v(Y) = v(X) = v(Out): 1 V on the three nodes.
+* loopgain = -10 / (1 + j f/fp), fp = 1/(2 pi 1k 1u).
+Vprb X Y dc 0
+E1 Out 0 In Y 10
+Vin In 0 dc 1.1 ac 1
+R1 Out X 1k
+C1 X 0 1u
+.options keepopinfo
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+save loopgain out
+set nbefore = $#plots
+stb Vprb dec 1 1 1e4 > stb-keepop-save-case.stblog
+set ops = none
+let const.nseen = 0
+foreach pl $plots
+  let const.nseen = const.nseen + 1
+  if const.nseen > $nbefore
+    strstr p1 "$pl" "op"
+    if $p1 eq 0
+      set ops = $pl
+    end
+  end
+end
+set sp = $curplot
+setplot $ops
+display > stb-keepop-save-case.stblog
+setplot $sp
+let const.nvec = 0
+set n1 = 1
+fopen f1 stb-keepop-save-case.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" ", 1 long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+  end
+end
+fclose $f1
+let k = 0
+let k = (abs({$ops}.Out - 1) < 1e-9) & (length(loopgain) eq 5) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k & (const.nvec eq 1)
+  echo stbchk preserve-keepop-node-saved-in-other-spelling pass
+else
+  echo stbchk preserve-keepop-node-saved-in-other-spelling fail
+end
+.endc
+.end

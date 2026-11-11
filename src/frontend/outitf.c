@@ -284,6 +284,37 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
             }
         }
 
+        /* The operating point plot of a loop-gain analysis. A save that
+         * names nothing in it names a vector of the loop-gain plot, as the
+         * saves do that are made for a ".print stb" line in batch mode:
+         * it is not for this plot. If no save is left, the plot keeps all
+         * its vectors, as it does when there is no save at all. */
+        /* case-lint: keyword - analName is the title the analysis gives its plot */
+        if (numsaves && eq(analName, STB_OP_TITLE)) {
+            bool any = saveall || savealli || savenosub || savenointernals;
+            for (i = 0; i < numsaves; i++) {
+                if (savesused[i])
+                    continue;
+                for (j = 0; j < numNames; j++)
+                    if (name_eq_query(saves[i].name, dataNames[j]))
+                        break;
+                if (j < numNames ||
+                    parseSpecial(saves[i].name, namebuf, parambuf, depbuf))
+                    any = TRUE;
+                else
+                    savesused[i] = TRUE;
+            }
+            if (!any) {
+                for (i = 0; i < numsaves; i++) {
+                    tfree(saves[i].analysis);
+                    tfree(saves[i].name);
+                }
+                tfree(saves);
+                tfree(savesused);
+                numsaves = 0;
+            }
+        }
+
         if (numsaves && !saveall && !savenosub)
             initmem = numsaves;
         else
@@ -1086,6 +1117,17 @@ guess_type(const char *name, char* pltypename)
     else if (pltypename && ciprefix("sp", pltypename) && cieq(name, "SOpt"))
         type = SV_NOTYPE;
     else if (pltypename && ciprefix("sp", pltypename) && ciprefix("Cy_", name))
+        type = SV_CURRENT;
+    /* Vectors of a loop-gain (stability) analysis, in its two plots (not in
+       its operating point plot): computed results, not node voltages */
+    else if (pltypename && ciprefix("stb", pltypename) && !ciprefix("stb op", pltypename) &&
+             (ciprefix("phasemarginfreq", name) || ciprefix("gainmarginfreq", name)))
+        type = SV_FREQUENCY;
+    else if (pltypename && ciprefix("stb", pltypename) && !ciprefix("stb op", pltypename) &&
+             (ciprefix("loopgain", name) || ciprefix("phasemargin", name) || ciprefix("gainmargin", name)))
+        type = SV_NOTYPE;
+    else if (pltypename && ciprefix("stb", pltypename) && !ciprefix("stb op", pltypename) &&
+             ciprefix("stb_i", name))
         type = SV_CURRENT;
     /* current source ISRC parameters for current */
     else if (substring("@i", name) && (substring("[c]", name) || substring("[dc]", name) || substring("[current]", name)))
