@@ -1,0 +1,28 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * stb: the margins of a loop with two poles against the closed form
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+stb: probe vprb (voltage source vprb, x = x, y = y), 301 points, 100 Hz to 1e+08 Hz
+stb: Phase margin = 65.6557 deg at frequency = 1.44858e+06 Hz
+stb: no gain margin: the loop-gain phase never falls to 0 deg (it is 1.82499 deg at the last frequency 1e+08 Hz)
+
+No. of Data Rows : 301
+
+No. of Data Rows : 1
+stbchk two-p-curve pass
+stbchk two-p-phase-margin pass
+stbchk two-p-no-gain-margin pass
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 301
+
+No. of Data Rows : 1
+stbchk two-p-lines pass
+Note: Simulation executed from .control section 

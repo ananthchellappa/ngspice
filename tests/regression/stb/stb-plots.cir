@@ -1,0 +1,167 @@
+* stb: the two plots of a run and the variable stb_marginplot
+*
+* The loop of stb-flat.cir: T = 10 / (1 + j f/fp), fp = 1/(2 pi r1 c1).
+*
+* A run makes the loop-gain plot stb<k> and then the margins plot
+* stbmargin<k>, with the same number. The loop-gain plot is the current
+* plot afterwards and the variable stb_marginplot names the other one. The
+* margins plot holds four real vectors of one point each.
+*
+* |T| falls through 0 dB at f = fp sqrt(99), where the phase margin is
+* 180 - atan(sqrt(99)) = 95.739 deg. The margins are read off the swept
+* points, so they are compared with a tolerance. The phase of a loop with
+* one pole never comes to -180 deg: there is no gain margin, and its two
+* vectors hold NaN.
+*
+* A run that writes its results to a file ("run <file>") makes no plot and
+* removes the variable.
+vprb x y dc 0
+e1 out 0 0 y 10
+r1 out x 1k
+c1 x 0 1u
+.stb vprb dec 5 1 1e6
+.control
+let const.fp = 1/(2*pi*1k*1u)
+
+* first run: the names
+stb vprb dec 5 1 1e6 > stb-plots.stblog
+set sp = $curplot
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strslice pre "$sp" 0 3
+strslice num "$sp" 3 100
+strcmp isstb "$pre" "stb"
+strstr ismargin "$sp" "stbmargin"
+set want = stbmargin{$num}
+strcmp same "$mp" "$want"
+if ($isstb eq 0) & ($ismargin < 0) & ($same eq 0)
+  echo stbchk plots-names pass
+else
+  echo stbchk plots-names fail
+end
+
+* the margins plot: four vectors, nothing else, one point each
+setplot $mp
+display > stb-plots.stblog
+let const.nvec = 0
+let const.npmf = 0
+let const.npm = 0
+let const.ngmf = 0
+let const.ngm = 0
+set n1 = 1
+fopen f1 stb-plots.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" " long"
+  if $p1 >= 0
+    let const.nvec = const.nvec + 1
+    strstr p2 "_$ln" " phasemarginfreq "
+    if $p2 >= 0
+      let const.npmf = const.npmf + 1
+    end
+    strstr p2 "_$ln" " phasemargin "
+    if $p2 >= 0
+      let const.npm = const.npm + 1
+    end
+    strstr p2 "_$ln" " gainmarginfreq "
+    if $p2 >= 0
+      let const.ngmf = const.ngmf + 1
+    end
+    strstr p2 "_$ln" " gainmargin "
+    if $p2 >= 0
+      let const.ngm = const.ngm + 1
+    end
+  end
+end
+fclose $f1
+strcmp same "$curplot" "$mp"
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+if ($same eq 0) & (const.nvec eq 4) & (const.npmf eq 1) & (const.npm eq 1) & (const.ngmf eq 1) & (const.ngm eq 1) & k
+  echo stbchk plots-margin-vectors pass
+else
+  echo stbchk plots-margin-vectors fail
+end
+
+* its values
+let k = 0
+let k = (abs(phasemarginfreq/(const.fp*sqrt(99)) - 1) < 1e-2) & (abs(phasemargin - (180 - atan(sqrt(99))*180/pi)) < 0.1)
+let m = 0
+let m = ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if k & m
+  echo stbchk plots-margin-values pass
+else
+  echo stbchk plots-margin-values fail
+end
+
+* the loop-gain plot is as it was
+setplot $sp
+let k = 0
+let k = (length(loopgain) eq 31) & (vecmax(abs(loopgain + 10/(1 + j(real(frequency)/const.fp)))) < 1e-9)
+if k
+  echo stbchk plots-loopgain-plot pass
+else
+  echo stbchk plots-loopgain-plot fail
+end
+
+* second run: the next number, for both plots
+stb vprb dec 5 1 1e6 > stb-plots.stblog
+set sp2 = $curplot
+set mp2 = none
+if $?stb_marginplot
+  set mp2 = $stb_marginplot
+end
+strslice pre "$sp2" 0 3
+strslice num2 "$sp2" 3 100
+strcmp isstb "$pre" "stb"
+set want = stbmargin{$num2}
+strcmp same "$mp2" "$want"
+let k = 0
+let k = $num2 eq ($num + 1)
+if ($isstb eq 0) & ($same eq 0) & k
+  echo stbchk plots-second-run pass
+else
+  echo stbchk plots-second-run fail
+end
+
+* the pair is destroyed, and a third run makes a pair again
+destroy $sp2
+destroy $mp2
+set nbefore = $#plots
+stb vprb dec 5 1 1e6 > stb-plots.stblog
+set sp3 = $curplot
+set mp3 = none
+if $?stb_marginplot
+  set mp3 = $stb_marginplot
+end
+strslice pre "$sp3" 0 3
+strslice num3 "$sp3" 3 100
+strcmp isstb "$pre" "stb"
+set want = stbmargin{$num3}
+strcmp same "$mp3" "$want"
+let const.nplots = $#plots - $nbefore
+setplot $mp3
+let k = 0
+let k = (length(phasemarginfreq) eq 1) & (abs(phasemargin - (180 - atan(sqrt(99))*180/pi)) < 0.1)
+if ($isstb eq 0) & ($same eq 0) & (const.nplots eq 2) & k
+  echo stbchk plots-after-removal pass
+else
+  echo stbchk plots-after-removal fail
+end
+setplot $sp3
+
+* results written to a file: no plot, and the variable is gone
+set had = $?stb_marginplot
+set nbefore = $#plots
+run stb-plots.raw > stb-plots.stblog
+strcmp same "$curplot" "$sp3"
+if ($had eq 1) & ($?stb_marginplot eq 0) & ($#plots eq $nbefore) & ($same eq 0)
+  echo stbchk plots-file-run pass
+else
+  echo stbchk plots-file-run fail
+end
+.endc
+.end

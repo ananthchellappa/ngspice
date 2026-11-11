@@ -10,7 +10,8 @@ M. Tian, V. Visvanathan, J. Hantgan, K. Kundert, "Striving for
 small-signal stability", IEEE Circuits and Devices Magazine,
 vol. 17, no. 1, 2001.
 
-The plot holds loopgain = -T.
+The plot holds loopgain = -T. A second plot holds the phase margin, the
+gain margin and their frequencies, see stbmarg.c.
 **********/
 
 #include "ngspice/ngspice.h"
@@ -239,6 +240,63 @@ stb_klu_real(CKTcircuit *ckt)
 #endif
 
 
+/* Say what the margins are, or why there are none. */
+static void
+stb_log(const STBmargins *m)
+{
+    switch (m->status) {
+
+    case STB_MG_NONFINITE:
+        fprintf(cp_out, "stb: warning: the loop gain is not finite at %g Hz (%d point(s)); no margins\n",
+                m->atFreq, m->nBad);
+        return;
+    case STB_MG_ZEROALL:
+        fprintf(cp_out, "stb: the loop gain is zero at every frequency: is the probe in a feedback loop?\n");
+        return;
+    case STB_MG_SHORT:
+        fprintf(cp_out, "stb: no margins: the sweep has fewer than two points\n");
+        return;
+    case STB_MG_BADFREQ:
+        fprintf(cp_out, "stb: no margins: the sweep does not start above 0 Hz\n");
+        return;
+    case STB_MG_ZERO:
+        fprintf(cp_out, "stb: no margins: the loop gain is exactly zero at %g Hz\n",
+                m->atFreq);
+        return;
+    case STB_MG_POSFB:
+        fprintf(cp_out, "stb: no margins: positive feedback at the start frequency (loop-gain phase %g deg at %g Hz): the phase lag of the return ratio at the first point exceeds 90 degrees; a loop with an ideal integrator triggers this\n",
+                m->atVal, m->atFreq);
+        return;
+    default:
+        break;
+    }
+
+    if (m->pmWhy == STB_PM_FOUND)
+        fprintf(cp_out, "stb: Phase margin = %g deg at frequency = %g Hz\n",
+                m->pm, m->pmFreq);
+    else if (m->pmWhy == STB_PM_STILL_ABOVE)
+        fprintf(cp_out, "stb: no phase margin: the loop gain is still %+g dB at the last frequency %g Hz\n",
+                m->lastDb, m->lastFreq);
+    else
+        fprintf(cp_out, "stb: no phase margin: the loop gain is below 0 dB at every frequency of the sweep (at most %g dB, at %g Hz)\n",
+                m->maxDb, m->maxDbFreq);
+
+    if (m->gmFound)
+        fprintf(cp_out, "stb: Gain margin = %g dB at frequency = %g Hz\n",
+                m->gm, m->gmFreq);
+    else
+        fprintf(cp_out, "stb: no gain margin: the loop-gain phase never falls to 0 deg (it is %g deg at the last frequency %g Hz)\n",
+                m->lastPhase, m->lastFreq);
+
+    if (m->crossings > 1)
+        fprintf(cp_out, "stb: the loop gain crosses 0 dB at %d frequencies; the margins are at the first falling one\n",
+                m->crossings);
+    if (!isnan(m->riseFreq))
+        fprintf(cp_out, "stb: the loop gain rises through 0 dB at %g Hz, before the crossing used for the margins\n",
+                m->riseFreq);
+}
+
+
 int
 STBan(CKTcircuit *ckt, int restart)
 {
@@ -265,8 +323,13 @@ STBan(CKTcircuit *ckt, int restart)
     double s;               /* -1 if the source is taken reversed */
     double *freqs = NULL;   /* the results, written when the sweep is done */
     IFcomplex *gain = NULL;
+    double *tre = NULL;     /* the return ratio T */
+    double *tim = NULL;
+    STBmargins mg;
+    double mvals[4];
     IFuid freqUid;
     IFuid gainUid;
+    IFuid marginUids[4];
     IFvalue refValue;
     IFvalue value;
     runDesc *plot = NULL;
@@ -366,7 +429,8 @@ STBan(CKTcircuit *ckt, int restart)
     }
 
     /* The number of points. A step that is too small to change the
-     * frequency, or more points than can be counted, is a bad sweep. */
+     * frequency, more points than can be counted, or a sweep so wide that
+     * its step is not a number and no point is counted, is a bad sweep. */
     npoints = 0;
     for (freq = job->STBstartFreq; freq <= job->STBstopFreq + freqTol; ) {
         double prev = freq;
@@ -378,6 +442,10 @@ STBan(CKTcircuit *ckt, int restart)
             fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
             return E_PARMVAL;
         }
+    }
+    if (npoints < 1) {
+        fprintf(cp_err, "Error: stb: probe %s: bad sweep\n", job->STBprobe);
+        return E_PARMVAL;
     }
 
     if (!ft_optimizing)
@@ -409,6 +477,8 @@ STBan(CKTcircuit *ckt, int restart)
 
     freqs = TMALLOC(double, npoints);
     gain = TMALLOC(IFcomplex, npoints);
+    tre = TMALLOC(double, npoints);
+    tim = TMALLOC(double, npoints);
 
 #ifdef XSPICE
     g_mif_info.circuit.anal_init = MIF_TRUE;
@@ -514,8 +584,11 @@ STBan(CKTcircuit *ckt, int restart)
         t = stb_div(k, d);
 
         freqs[n] = freq;
-        gain[n].real = 0.0 - t.real;    /* a zero stays a plain zero */
-        gain[n].imag = 0.0 - t.imag;
+        tre[n] = t.real;
+        tim[n] = t.imag;
+        /* a zero stays a plain zero, and a NaN a plain NaN */
+        gain[n].real = isnan(t.real) ? NAN : 0.0 - t.real;
+        gain[n].imag = isnan(t.imag) ? NAN : 0.0 - t.imag;
 
 #ifdef HAS_PROGREP
         SetAnalyse("stb", (int) (1000.0 * (n + 1) / npoints));
@@ -532,6 +605,10 @@ STBan(CKTcircuit *ckt, int restart)
     UPDATE_STATS(0);
 
     if (!error) {
+        STBmargin(npoints, freqs, tre, tim, &mg);
+        if (!ft_optimizing)
+            stb_log(&mg);
+
         SPfrontEnd->IFnewUid(ckt, &freqUid, NULL, "frequency", UID_OTHER, NULL);
         SPfrontEnd->IFnewUid(ckt, &gainUid, NULL, "loopgain", UID_OTHER, NULL);
         error = SPfrontEnd->OUTpBeginPlot(ckt, ckt->CKTcurJob,
@@ -554,13 +631,40 @@ STBan(CKTcircuit *ckt, int restart)
         }
         SPfrontEnd->OUTendPlot(plot);
 
+        /* The margins, in a plot of their own with no reference vector.
+         * The front end knows it by its title: the loop-gain plot is the
+         * current plot again when this one is complete. */
+        SPfrontEnd->IFnewUid(ckt, &marginUids[0], NULL, "phasemarginfreq", UID_OTHER, NULL);
+        SPfrontEnd->IFnewUid(ckt, &marginUids[1], NULL, "phasemargin", UID_OTHER, NULL);
+        SPfrontEnd->IFnewUid(ckt, &marginUids[2], NULL, "gainmarginfreq", UID_OTHER, NULL);
+        SPfrontEnd->IFnewUid(ckt, &marginUids[3], NULL, "gainmargin", UID_OTHER, NULL);
+        error = SPfrontEnd->OUTpBeginPlot(ckt, ckt->CKTcurJob,
+            STB_MARGIN_TITLE,
+            NULL, 0,
+            4, marginUids, IF_REAL,
+            &plot);
+    }
+
+    if (!error) {
+        mvals[0] = mg.pmFreq;
+        mvals[1] = mg.pm;
+        mvals[2] = mg.gmFreq;
+        mvals[3] = mg.gm;
+        refValue.rValue = 0.0;
+        value.v.numValue = 4;
+        value.v.vec.rVec = mvals;
+        SPfrontEnd->OUTpData(plot, &refValue, &value);
+        SPfrontEnd->OUTendPlot(plot);
+
         /* a stop asked for while the finished sweep was written (a
-         * breakpoint on a vector of the plot) has nothing left to stop */
+         * breakpoint on a vector of the plots) has nothing left to stop */
         SPfrontEnd->IFpauseTest();
     }
 
     tfree(freqs);
     tfree(gain);
+    tfree(tre);
+    tfree(tim);
 
     return error;
 }

@@ -2,7 +2,9 @@
 *
 * The loop of stb-flat.cir with two .stb cards. "run" makes one stb plot
 * for each card (in the order in which ngspice runs several cards of one
-* kind), and an stb plot is the current plot afterwards.
+* kind), and an stb plot is the current plot afterwards. Each loop-gain
+* plot has its margins plot, with the same number; the variable
+* stb_marginplot names that of the current plot.
 vprb x y dc 0
 e1 out 0 0 y 10
 r1 out x 1k
@@ -12,6 +14,7 @@ c1 x 0 1u
 .control
 let const.fp = 1/(2*pi*1k*1u)
 run > stb-card-run.stblog
+set cp = $curplot
 
 strstr pos "$curplot" "stb"
 if $pos eq 0
@@ -45,6 +48,46 @@ if (const.nstb eq 2) & (const.nfirst eq 1) & (const.nsecond eq 1)
   echo stbchk card-run-both-cards pass
 else
   echo stbchk card-run-both-cards fail
+end
+
+* a margins plot for each: stbmargin<k> beside stb<k>
+let const.npair = 0
+foreach pl $plots
+  strstr p1 "$pl" "stb"
+  strstr p2 "$pl" "stbmargin"
+  if ($p1 eq 0) & ($p2 < 0)
+    strslice num "$pl" 3 100
+    foreach pm $plots
+      strcmp p3 "$pm" "stbmargin$num"
+      if $p3 eq 0
+        setplot $pm
+        let k = 0
+        let k = (length(phasemarginfreq) eq 1) & (length(phasemargin) eq 1) & (length(gainmarginfreq) eq 1) & (length(gainmargin) eq 1)
+        if k
+          let const.npair = const.npair + 1
+        end
+      end
+    end
+  end
+end
+if const.npair eq 2
+  echo stbchk card-run-margin-plots pass
+else
+  echo stbchk card-run-margin-plots fail
+end
+
+* the variable names the margins plot of the plot that "run" left current
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strslice num "$cp" 3 100
+strcmp same "$mp" "stbmargin$num"
+strstr p2 "$cp" "stbmargin"
+if ($same eq 0) & ($p2 < 0)
+  echo stbchk card-run-marginplot-variable pass
+else
+  echo stbchk card-run-marginplot-variable fail
 end
 .endc
 .end

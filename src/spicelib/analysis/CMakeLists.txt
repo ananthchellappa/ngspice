@@ -92,6 +92,7 @@ target_sources(ngspice_core PRIVATE
     senssetp.c
     stban.c
     stbaskq.c
+    stbmarg.c
     stbsetp.c
     tfanal.c
     tfaskq.c

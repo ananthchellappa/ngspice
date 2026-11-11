@@ -275,6 +275,7 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
     bool savealli = FALSE;
     bool savenosub = FALSE;
     bool savenointernals = FALSE;
+    bool companion;
     char *an_name;
     int initmem;
 
@@ -570,15 +571,28 @@ beginPlot(JOB *analysisPtr, CKTcircuit *circuitPtr, char *cktName, char *analNam
         run->writeOut = ft_getOutReq(&run->fp, &run->runPlot, &run->binary,
                                      run->type, run->name);
 
+        /* the margins of a loop-gain analysis, the companion of the
+         * loop-gain plot that was made just before */
+        companion = eq(analName, STB_MARGIN_TITLE);
+
         if (run->writeOut) {
             fileInit(run);
+            /* no plot is made: no margins plot to name */
+            if (companion)
+                cp_remvar("stb_marginplot");
         } else {
             plotInit(run);
             if (refName)
                 run->runPlot->pl_ndims = 1;
+            /* the variable stb_marginplot names the margins plot; the
+             * loop-gain plot is made the current plot again when the
+             * margins plot is complete, see OUTendPlot() */
+            if (companion)
+                cp_vset("stb_marginplot", CP_STRING,
+                        run->runPlot->pl_typename);
 #ifdef XSPICE
             /* set the current plot name into the event job */
-            if (run->runPlot->pl_typename) {
+            if (!companion && run->runPlot->pl_typename) {
                 EVTsetup_plot(run->circuit, run->runPlot->pl_typename);
                 EVTswitch_plot(run->circuit, run->runPlot->pl_typename);
             }
@@ -938,6 +952,12 @@ OUTendPlot(runDesc *plotPtr)
     } else {
         gr_end_iplot();
         plotEnd(plotPtr);
+        /* The margins of a loop-gain analysis are complete: the loop-gain
+         * plot, made just before, is the current plot again. Not earlier:
+         * the data callback of the shared library reads the point just
+         * written from the current plot. */
+        if (eq(plotPtr->type, STB_MARGIN_TITLE) && plotPtr->runPlot->pl_next)
+            plot_setcur(plotPtr->runPlot->pl_next->pl_typename);
     }
 
     tfree(valueold);

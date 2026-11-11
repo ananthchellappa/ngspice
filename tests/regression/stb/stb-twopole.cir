@@ -1,0 +1,112 @@
+* stb: the margins of a loop with two poles against the closed form
+*
+* Two transconductance stages, each loaded by a resistor and a capacitor;
+* the first one inverts:
+*     T = T0 / ((1 + j f/f1) (1 + j f/f2))
+*     T0 = g1 r1 g2 r2 = 500
+*     f1 = 1/(2 pi r1 c1) = 3.1831 kHz,  f2 = 1/(2 pi r2 c2) = 3.1831 MHz
+*
+* |T| = 1 at the frequency fu with, for a = fu^2,
+*     a^2 / (f1 f2)^2 + a (1/f1^2 + 1/f2^2) + 1 - T0^2 = 0
+* which gives fu = 1.44859 MHz and the phase margin
+*     180 - atan(fu/f1) - atan(fu/f2) = 65.656 deg.
+* The phase of T stays above -180 deg: there is no gain margin, and its two
+* vectors hold NaN.
+*
+* The margins are read off the swept points by interpolation, so they are
+* compared with a tolerance: 0.1 % in frequency, 0.05 deg.
+*
+* The first run prints its lines; they are part of the expected output.
+g1 a 0 y 0 2m
+r1 a 0 50k
+c1 a 0 1n
+g2 0 x a 0 1m
+r2 x 0 5k
+c2 x 0 10p
+vprb x y dc 0
+.control
+let const.t0 = 2m*50k*1m*5k
+let const.f1 = 1/(2*pi*50k*1n)
+let const.f2 = 1/(2*pi*5k*10p)
+let const.qa = 1/(const.f1*const.f2)^2
+let const.qb = 1/const.f1^2 + 1/const.f2^2
+let const.qc = 1 - const.t0^2
+let const.fu = sqrt((sqrt(const.qb^2 - 4*const.qa*const.qc) - const.qb)/(2*const.qa))
+let const.pm = 180 - (atan(const.fu/const.f1) + atan(const.fu/const.f2))*180/pi
+
+set mprev = none
+if $?stb_marginplot
+  set mprev = $stb_marginplot
+end
+stb vprb dec 50 100 1e8
+set sp = $curplot
+set mp = none
+if $?stb_marginplot
+  set mp = $stb_marginplot
+end
+strcmp same "$mp" "$mprev"
+
+* every point of the curve
+let k = 0
+let k = (length(loopgain) eq 301) & (vecmax(abs(loopgain + const.t0/((1 + j(real(frequency)/const.f1))*(1 + j(real(frequency)/const.f2))))/abs(loopgain)) < 1e-9)
+if k
+  echo stbchk two-p-curve pass
+else
+  echo stbchk two-p-curve fail
+end
+
+* the margins
+setplot $mp
+let k = 0
+let k = (abs(phasemarginfreq/const.fu - 1) < 1e-3) & (abs(phasemargin - const.pm) < 0.05)
+if k & ($same ne 0)
+  echo stbchk two-p-phase-margin pass
+else
+  echo stbchk two-p-phase-margin fail
+end
+let k = 0
+let k = (length(gainmargin) eq 1) & (length(gainmarginfreq) eq 1) & ((gainmarginfreq eq gainmarginfreq) eq 0) & ((gainmargin eq gainmargin) eq 0)
+if k & ($same ne 0)
+  echo stbchk two-p-no-gain-margin pass
+else
+  echo stbchk two-p-no-gain-margin fail
+end
+setplot $sp
+
+* the lines of a run: the probe, the phase margin, the reason why there is
+* no gain margin, and no other
+stb vprb dec 50 100 1e8 > stb-twopole.stblog
+let const.nstb = 0
+let const.nprobe = 0
+let const.npm = 0
+let const.ngm = 0
+set n1 = 1
+fopen f1 stb-twopole.stblog r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strstr p1 "_$ln" "_stb: "
+  if $p1 eq 0
+    let const.nstb = const.nstb + 1
+  end
+  strstr p1 "_$ln" "_stb: probe vprb (voltage source vprb, x "
+  if $p1 eq 0
+    let const.nprobe = const.nprobe + 1
+  end
+  strstr p1 "_$ln" "_stb: Phase margin "
+  if $p1 eq 0
+    let const.npm = const.npm + 1
+  end
+  strstr p1 "_$ln" "_stb: no gain margin: the loop-gain phase never falls to 0 deg (it is "
+  if $p1 eq 0
+    let const.ngm = const.ngm + 1
+  end
+end
+fclose $f1
+if (const.nstb eq 3) & (const.nprobe eq 1) & (const.npm eq 1) & (const.ngm eq 1)
+  echo stbchk two-p-lines pass
+else
+  echo stbchk two-p-lines fail
+end
+.endc
+.end
