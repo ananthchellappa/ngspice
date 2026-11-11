@@ -111,8 +111,16 @@ int NIspSolve(CKTcircuit* ckt)
 
 #endif
 
+    /*
+     * NIacFactor(ckt)
+     *
+     *  Load the AC matrix and factor it. The right-hand side is loaded
+     *  but not solved, so a caller may solve for several right-hand
+     *  sides with the same factors.
+     */
+
 int
-NIacIter(CKTcircuit *ckt)
+NIacFactor(CKTcircuit *ckt)
 {
     int error;
     int ignore;
@@ -154,6 +162,19 @@ retry:
             return(error); /* can't handle E_BADMATRIX, so let caller */
         }
     } 
+
+    return(OK);
+}
+
+int
+NIacIter(CKTcircuit *ckt)
+{
+    int error;
+    double startTime;
+
+    error = NIacFactor(ckt);
+    if(error) return(error);
+
     startTime = SPfrontEnd->IFseconds();
     SMPcSolve(ckt->CKTmatrix,ckt->CKTrhs, 
             ckt->CKTirhs, ckt->CKTrhsSpare,
