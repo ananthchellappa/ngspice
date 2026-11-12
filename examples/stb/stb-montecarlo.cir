@@ -1,0 +1,92 @@
+Monte Carlo run of the phase margin of a voltage follower
+*
+* A two-stage amplifier in unity-gain feedback, with the 0 V source vprb in
+* the feedback path as the probe of the stb analysis. The resistor and the
+* capacitor of the second stage, which set the second pole and a part of
+* the gain, get a Gaussian spread of 5 % (one sigma) each. For every draw
+* the stb command is run again and the phase margin is taken from the
+* margins plot, whose name the analysis leaves in the variable
+* stb_marginplot.
+*
+* The nominal circuit has
+*     T = 1000 / ((1 + j f/f1) (1 + j f/f2)),  f1 = 1.59 kHz,  f2 = 1.59 MHz
+* and a phase margin of 51.90 degrees. A larger r2 raises the gain and
+* lowers the second pole, and a larger c2 lowers the second pole: both
+* cost phase margin. For each draw the deck also computes the phase margin
+* from the two poles and reports the largest difference; the analysis
+* reads the margin off the swept points by interpolation, so the two agree
+* to better than a hundredth of a degree at 50 points per decade.
+*
+* The lines that the analysis prints for each run are added to the file
+* stb-montecarlo.log, which the deck empties first.
+*
+* Run it with "ngspice stb-montecarlo.cir" or "ngspice -b stb-montecarlo.cir".
+
+vin   in  0   dc 1
+g1    0   n1  in  fb  1m
+r1    n1  0   100k
+c1    n1  0   1n
+g2    0   n2  n1  0   1m
+r2    n2  0   10k
+c2    n2  0   10p
+eout  out 0   n2  0   1
+vprb  out fb  dc 0
+
+.control
+let mc_runs = 100
+setseed 7
+
+* a plot of our own for the results; each stb run makes two new plots
+setplot new
+set mc = $curplot
+let pm = vector(mc_runs)
+let pm_form = vector(mc_runs)
+let run = 0
+echo log of stb-montecarlo.cir > stb-montecarlo.log
+
+dowhile run < mc_runs
+  * the draw: sgauss(0) is a standard normal number
+  let r2v = 10k*(1 + 0.05*sgauss(0))
+  let c2v = 10p*(1 + 0.05*sgauss(0))
+  alter r2 = r2v
+  alter c2 = c2v
+
+  stb vprb dec 50 1k 100meg >> stb-montecarlo.log
+  set gain = $curplot
+  set marg = $stb_marginplot
+  setplot $mc
+  let pm[run] = {$marg}.phasemargin
+  * the two plots of this run are not needed any more
+  destroy $gain
+  destroy $marg
+
+  * the phase margin from the poles: |T| = 1 at fu, where a = fu^2 solves
+  *   a^2/(f1 f2)^2 + a (1/f1^2 + 1/f2^2) + 1 - T0^2 = 0
+  let t0 = 1m*100k*1m*r2v
+  let f1 = 1/(2*pi*100k*1n)
+  let f2 = 1/(2*pi*r2v*c2v)
+  let qa = 1/(f1*f2)^2
+  let qb = 1/f1^2 + 1/f2^2
+  let qc = 1 - t0^2
+  let fu = sqrt((sqrt(qb^2 - 4*qa*qc) - qb)/(2*qa))
+  let pm_form[run] = 180 - (atan(fu/f1) + atan(fu/f2))*180/pi
+
+  let run = run + 1
+end
+
+echo
+echo phase margin in degrees over $&mc_runs runs
+let pm_mean = mean(pm)
+let pm_sigma = stddev(pm)
+let pm_min = vecmin(pm)
+let pm_max = vecmax(pm)
+print pm_mean pm_sigma pm_min pm_max
+echo
+echo largest difference to the phase margin computed from the poles
+let worst = vecmax(abs(pm - pm_form))
+print worst
+
+* the phase margin of each run
+plot pm
+.endc
+.end

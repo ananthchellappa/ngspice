@@ -1,3 +1,14 @@
+Ngspice-48, ??
+============
+- New features:
+    + Loop-gain (stability) analysis: dot command .stb and command stb.
+      The loop stays closed; the probe is a 0 V voltage source in the
+      loop or a terminal of an instance (x1:inn, m1:g), where ngspice
+      inserts the source itself. Results are the loop gain over
+      frequency, the phase margin and the gain margin.
+      See README.stb and examples/stb.
+
+
 Ngspice-47, August 11th, 2026
 ============
 - New features:
