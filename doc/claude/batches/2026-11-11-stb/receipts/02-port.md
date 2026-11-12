@@ -110,6 +110,19 @@ tests/regression/casedist/stb-term-hier-case.cir   3 of 20 verdicts fail
 GREEN: stb 55, case 122, casedist 33, xspice/analog 3, xspice/digital 9,
 lint 2, 0 FAIL.
 
+Correction (review, receipt 04): the two logs first saved for this row,
+`claude-check-c7-regression_case.log` and
+`claude-check-c7-regression_casedist.log`, do not show these figures. They
+were written before the final `.out` of `stb-term-hier-case.cir` was
+committed and show 121 PASS, 1 FAIL and 32 PASS, 1 FAIL, the failure being
+that deck: every verdict in them is `pass`, and the diff is the lines the
+`.out` of that moment did not yet have. The figures above are those of a
+re-run on a tree checked out at `4f4d69344` and rebuilt:
+`claude-check-c7-rerun-regression_case.log` (122 PASS, 0 FAIL),
+`claude-check-c7-rerun-regression_casedist.log` (33 PASS, 0 FAIL),
+`claude-check-c7-rerun-regression_stb.log` (55 PASS) and
+`claude-check-c7-rerun-lint.log` (2 PASS).
+
 ## 08 `469b9f016` -> `0817a5329` stb: add diag=1 and localgnd=<node>
 
 Conflict: `stban.c`, the first log line. Lint on the code as picked: 1 report

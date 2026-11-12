@@ -27,6 +27,12 @@ user guide is `README.stb`.
 | 10 | - | `e96524b85` | `doc/claude/specs/stb-analysis.md` | (the file) |
 | 11 | - | this commit | final check: **434 PASS, 33 FAIL** with `DISPLAY` unset, the same 33 as row 00; with the pipe directory under a virtual X server 466 PASS and 1 FAIL (`resource-keyword-case.cmd`, unchanged). 71 new PASS: 59 in `tests/regression/stb`, 5 in `case`, 4 in `casedist`, 2 in `tests/xspice/analog`, 1 in `tests/xspice/digital`. `tests/lint` passes; `tests/lint/identity.baseline` is unchanged | receipts/03-final.md |
 
+| 12 | - | `3e21745a5` | review: under `distinguish` the error of a probe, of the instance of a terminal probe or of a `localgnd` node that misses only by case names the other spelling; 1 new casedist deck | receipts/04-review.md |
+| 13 | - | `68f2a343d` | review: spec section 10 corrected on the letter of a flattened name and on what a read left by a jump leaves behind | receipts/04-review.md |
+| 14 | - | this commit | review: receipt 02 row 07 corrected from a re-run at `4f4d69344`; final check **435 PASS, 33 FAIL** with `DISPLAY` unset, the same 33; 467 PASS and 1 FAIL with the pipe directory under a virtual X server | receipts/04-review.md |
+
+Row 11 names the commit it is part of, `5a40d5aaf`.
+
 ## Identity lint
 
 No entry was added to `tests/lint/identity.baseline`. On the code as picked the
@@ -42,6 +48,13 @@ call of a mode arm that carries `case-lint: helper`, or a marked site:
 - `case-lint: stored`: the `<name>_int1` node of an E or G source with an
   expression in `inpc_stb.c`.
 
+Row 12 adds five marked sites and no baseline entry: `case-lint: helper` on
+the preserve arm of the instance scan in `stban.c` (it was an `ng_ideq()`
+call), and `case-lint: neither` on the four scans for a name that differs
+only in case (the nodes in `stban.c`; the subcircuit instances in
+`inp_stb_xcard()` and the cards by name and by path in `stb_why_missing()`,
+all in `inpc_stb.c`).
+
 ## Where the fork behaves differently from the upstream branch
 
 1. Names follow the case mode (spec section 10). Under `fold`, the default,
@@ -56,11 +69,17 @@ call of a mode arm that carries `case-lint: helper`, or a marked site:
    optimizer runs, which this tree does not have.
 5. `ngSpice_Reset` also frees what an abandoned read had collected.
 6. No CMake lists in this tree.
+7. Under `distinguish` a miss by case names the other spelling (row 12).
 
 ## Open
 
-- Under `distinguish` a probe that misses only by case is an error like any
-  other miss; the message does not name the case variant.
+- Under `distinguish` a subcircuit instance given without a port and a port
+  name that miss only by case get no pointer to the other spelling (row 12
+  covers the probe, the instance of a terminal probe and the `localgnd` node).
+- `tf v(<a node the circuit does not have>) <source>` after an `op` ends
+  ngspice with a fatal error, in every case mode and on upstream as well;
+  under `distinguish` a node that misses by case is such a node. Not part of
+  this batch (receipt 04, item 5).
 - `CLAUDE.md` and `AGENTS.md` do not mention `tests/regression/stb` or the
   `stb-*-case.cir` decks; left to the owner.
 - Not tested: the interrupt path.
