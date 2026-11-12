@@ -344,10 +344,21 @@ made from them — are compared with `ng_ideq()` or one of its mode arms:
 
 **Words the language defines** are taken in any case in every mode: `.stb`,
 `stb`, `dec`/`oct`/`lin`, `localgnd`, `diag`, the letter of a terminal, the
-letter of a device (also the `x` of an instance and the hints of the error
-messages), the port types of a code model line, `v(` on an `.ic` card, `gnd`.
-The compares of a plot title with the `STB_*_TITLE` macros carry
-`case-lint: keyword`.
+port types of a code model line, `v(` on an `.ic` card, `gnd`. The compares of
+a plot title with the `STB_*_TITLE` macros carry `case-lint: keyword`.
+
+The first letter of the name of an element, which says what kind of element
+it is, is such a word where the code asks for the kind, and only there: in
+the table of the terminal letters (`m1:G` and `M1:g`), in the scans that
+refuse an element the reader rewrites, in the test for the `x` of a
+subcircuit instance, and in the hints of the error messages.
+
+The letter in front of a flattened name is not such a word. It is part of the
+name the circuit stores, it has the case of the first letter of the element
+(`Vprb` in `X1` is `V.X1.Vprb`), and it is compared like the rest of the name.
+Under `distinguish` `stb v.X1.Vprb` names nothing, as `alter v.X1.Vprb` does,
+and `g.x1.Xl.G1:3` is not the terminal that `x1.Xl.G1:3` and `G.x1.Xl.G1:3`
+are.
 
 **Made names** carry the spelling of the deck: for `X1:In` under `preserve`
 the node is `X1#stb1` and the source `v.X1#stb1`. The `v.` and `c.` prefixes
@@ -384,8 +395,19 @@ reload, the mark, the flag that the deck's own expansion is going on) is
 cleared at the start of every collection, handed to the circuit when the deck
 has become one, and freed by `inp_stb_discard()` on both failure returns of
 `inp_spsource()`. `totalreset()` in `sharedspice.c` calls `inp_stb_discard()`
-as well, for a read that was abandoned by a jump. The probes of a circuit are
-freed with it (`com_remcirc`). `stb_version` is set in `ft_cpinit()`.
+as well, so that a host that resets has the state freed at once.
+
+A read that is left by a jump does not call it: neither `shared_exit()` (a
+fatal error in the shared library) nor `ft_sigintr_cleanup()` (an interrupt
+in the program), the two other places that call `inp_netlist_read_reset()`.
+What such a read had collected stays until `totalreset()` or the next read of
+a deck, whose collection begins with `inp_stb_discard()`. Nothing uses it in
+between: the one reader outside `inpc_stb.c`, the expansion of an XSPICE
+bridge that asks whether the deck's own expansion is going on, runs only
+inside a read, after that read's collection.
+
+The probes of a circuit are freed with it (`com_remcirc`). `stb_version` is
+set in `ft_cpinit()`.
 
 Tests of this section: `tests/regression/case/stb-*-case.cir` (preserve) and
 `tests/regression/casedist/stb-*-case.cir` (distinguish, with instances and
