@@ -1,0 +1,461 @@
+Loop-gain (stability) analysis "stb" in ngspice
+===============================================
+
+The stb analysis gives the loop gain of a feedback loop over frequency,
+and from it the phase margin and the gain margin. The loop stays closed:
+the operating point is that of the working circuit, and nothing has to
+be cut, biased or loaded by hand. The loop is named by a probe, which is
+a 0 V voltage source in the loop or a terminal of an instance.
+
+At each frequency the small-signal circuit is solved for a unit voltage
+in series with the probe and for a unit current into its node. The two
+responses are combined into the return ratio T of the loop after
+
+  M. Tian, V. Visvanathan, J. Hantgan, K. Kundert, "Striving for
+  small-signal stability", IEEE Circuits and Devices Magazine,
+  vol. 17, no. 1, 2001.
+
+The result holds for a loop that carries signal both ways through the
+probe, and it does not depend on the impedances on the two sides.
+
+Example decks are in examples/stb.
+
+
+1  Syntax
+---------
+
+  .stb <probe> dec|oct|lin <points> <fstart> <fstop> [localgnd=<node>] [diag=1]
+
+and the command of the same form, without the dot:
+
+  stb <probe> dec|oct|lin <points> <fstart> <fstop> [localgnd=<node>] [diag=1]
+
+  <probe>     a voltage source (section 2) or <instance>:<terminal>
+              (section 3)
+  dec, oct    <points> per decade or per octave, as for .ac
+  lin         <points> in all
+  <fstart>, <fstop>   in Hz
+  localgnd=   the reference node of the probe (section 7)
+  diag=1      more vectors in the plot (section 6); diag=0, which is
+              the same as no diag, is accepted
+
+localgnd= and diag= follow the sweep, in either order; if one is given
+twice, the last counts. From the probe on, a comma separates the words
+as a blank does: .stb x1:inn,dec,20,1,100meg,diag=1
+The probe is written without quotes.
+
+  .stb vprb dec 50 100 1g
+  .stb x1:inn dec 20 1 100meg diag=1
+  stb xamp.m3:g oct 10 1k 1meg localgnd=vss
+
+The points of the sweep are those that .ac makes for the same words. The
+values are checked more strictly than .ac checks them: a number of
+points below 1, a start frequency that is not positive (negative for
+lin), a stop frequency below the start and a missing value are errors.
+So is a sweep that cannot be stepped through: one whose step is too
+small to change the frequency, or one too wide or with too many points
+to count. One point (<fstop> equal to <fstart>) and a lin sweep from
+0 Hz are allowed, but give no margins.
+
+The variable stb_version is set to 1 in every ngspice that has the
+analysis. A script can test for it with $?stb_version.
+
+When the analysis runs:
+
+  - The command runs it at once.
+  - A .stb card is run by "run", and in batch mode it behaves as an .ac
+    card does: "ngspice -b -r file.raw" runs it, and "ngspice -b" runs
+    it if the deck has a .print or .plot card or a .control section
+    that runs it.
+  - "run" does the stb analyses after all other analyses of the deck.
+    Several .stb cards are run one after the other, the last card of the
+    deck first; this is the order ngspice has for several cards of any
+    analysis.
+
+AC values of sources are ignored, also that of the probe: for the loop
+gain a voltage source is a short and a current source is open. DC values
+count as always.
+
+The operating point is found as for .ac. The options noopac and
+keepopinfo apply; with keepopinfo a third plot, "STB Operating Point",
+is made together with the other two when the sweep is done. If a source
+depends on "hertz", the operating point is solved again at each
+frequency. The analysis works with both matrix solvers (.option klu).
+
+
+2  A voltage source as the probe
+--------------------------------
+
+Place a 0 V source in a wire through which all of the feedback passes,
+and name it:
+
+  vprb out fb dc 0
+  .stb vprb dec 50 100 1g
+
+A source inside a subcircuit instance is named by its path, x1.vprb, or
+by the name it has in the circuit, v.x1.vprb. The source may carry a DC
+value; it is then part of the circuit as it is for any other analysis.
+
+The positive node of the source is the node x at which the current is
+injected and the voltage is taken, the negative node is y. Which way
+round the source is written does not change the loop gain. The first
+line that a run prints names the two nodes (it is one line in the
+output and is folded here):
+
+  stb: probe vprb (voltage source vprb, x = out, y = fb), 351 points,
+  100 Hz to 1e+09 Hz
+
+If the positive node is ground, the source is taken the other way round
+and the line says "source reversed". A probe with one node on ground
+does not see the loop, since nothing can be injected into ground: place
+the probe in a wire that is not on ground, or see section 7.
+
+Only a voltage source can be the probe in this form. A resistor, a
+subcircuit instance or a transistor as the probe is an error, and the
+message names the form of section 3 that could be meant.
+
+
+3  A terminal of an instance as the probe
+-----------------------------------------
+
+  .stb x1:inn dec 50 100 100meg
+
+<instance>:<terminal> names one terminal of an element or one port of a
+subcircuit instance. ngspice inserts the 0 V source itself: the terminal
+is taken off its net and put on a new node x, and the source is placed
+between x (its positive node) and the net (y). Everything else on the
+net stays where it is. For a port of a subcircuit instance this opens
+the connection of that one instance; other instances of the same
+subcircuit are not touched.
+
+The instance:
+
+  r1, x1              an element or an instance at the top of the deck
+  x1.r3, xamp.xm4.m1  an element inside an instance, by the path of the
+                      instances
+  r.x1.r3             the same by the name the element has in the circuit
+  xamp.xbias          an instance inside an instance
+
+The terminal:
+
+  a number            the position on the instance line, counted from 1.
+                      A number is always a position. If a port of the
+                      subcircuit has that number as its name, the reader
+                      says which was taken:
+                        stb: probe x1:2: 2 is taken as a position, not
+                        as the port named 2
+  a port name         for a subcircuit instance, the name that the
+                      .subckt line gives to the port
+  a letter            for a transistor, in the order of the nodes on its
+                      line:
+                        M (MOS)              d g s b
+                        Q (BJT)              c b e s
+                        J, Z (JFET, MESFET)  d g s
+                      A letter beyond the nodes the line has is refused.
+
+Names follow the case mode of the netlist (the variable casemode, see
+NEWS). With the default, fold, and with preserve a name may be written
+in any case. With distinguish it has to be written as the deck spells
+it: x1 and X1 are then two instances, and a spelling that the deck does
+not have names nothing. This holds for the probe of section 2 as well,
+for every part of a path, for the name of a port and for the node of
+localgnd= (section 7). The words of the language are taken in any case
+in every mode: .stb, stb, the step word, localgnd, diag, the letter of
+a terminal, and gnd for ground. The names that ngspice makes carry the
+spelling of the deck: for X1:inn under preserve the node is X1#stb2 and
+the source v.X1#stb2.
+
+The source is inserted when the netlist is read, not when the analysis
+runs. ngspice therefore has to find the probe in the deck. It collects
+the probes
+
+  - of the .stb cards at the top level of the deck, and
+  - of the stb commands in the .control section of the deck in which
+    the probe is written out, also inside if, while, repeat, dowhile
+    and foreach.
+
+and prints one line for each terminal:
+
+  stb: probe x1:inn inserted as v.x1#stb2 (x = x1#stb2, y = mid)
+
+"reset" inserts the sources again. A stb command for a terminal that
+was not collected, because the probe comes from a variable or was typed
+at the prompt and is nowhere in the deck, is an error that says so; add
+a .stb card for that terminal to the deck. (A command finds the source
+if the same terminal was collected under another spelling, x1:2 for
+x1:inn.)
+
+The names: the new node is the name that the instance has in the
+circuit, "#stb" and the position of the terminal (x1#stb2,
+r.x1.r3#stb1); the source is "v." and the name of the node. Spellings
+of the same terminal share one source. If the deck has "#stb" in an
+element line already, the mark is lengthened (#stb#) so that no name of
+the deck is met.
+
+What the insertion does to the circuit:
+
+  - Each inserted source adds two vectors to the plots of every
+    analysis: its current, v.x1#stb2#branch, and the voltage of the new
+    node, x1#stb2. "save nointernals" leaves out the node.
+  - The source has 0 V, so the circuit is the same electrically. The
+    results of other analyses are equal to rounding; they are not
+    identical bit for bit, since the matrix has one more node and one
+    more branch.
+  - An .ic for the net is repeated for the new node, so that a
+    transient analysis with uic starts as before. With it the new node
+    gets a capacitor of 0 F to ground, c.x1#stb2. It carries no current
+    and no charge; it is there because with .option klu an .ic needs an
+    element on its node, and a terminal such as a controlling input of
+    an E or G element is none.
+  - The name of the source has a "#" in it. Commands that take the "#"
+    for something else do not find it: "show v.x1#stb2" answers "No
+    matching instances or models". Vectors are not affected:
+    "print i(v.x1#stb2)" works.
+
+Probes that are refused. The deck still loads; the reader prints
+"stb: probe ... not inserted:" with the reason, and the analysis with
+that probe fails with the same reason:
+
+  - an instance that does not exist, a position the instance does not
+    have, an unknown port name or letter;
+  - R, C and L with a value that is an expression, E and G with an
+    expression, and POLY sources: ngspice replaces these by other
+    elements when it reads the deck;
+  - the third position of an F or H element (the controlling source is
+    a name, not a node), a coupling K, a code model instance (A);
+  - a port that is a global node, and a port that has the same name as
+    an earlier port of the same .subckt line;
+  - a port of an instance of a subcircuit that is defined inside
+    another subcircuit; name a terminal of one of its elements;
+  - a port that leads to a digital port of a code model.
+
+In all these cases a voltage source placed by hand (section 2) does the
+job.
+
+Where the card is written:
+
+  - A .stb card belongs at the top level of the deck. Inside a .subckt
+    definition it is ignored: its probe is not collected and it is not
+    run. The reader says so in one line for each such card.
+  - A .stb card in a branch of .if that is not taken does not run, but
+    the source for its terminal is inserted all the same.
+
+
+4  The plots
+------------
+
+A run makes two plots:
+
+  STB Analysis (stb1, stb2, ...)
+      frequency   the scale
+      loopgain    complex
+
+  STB Margins (stbmargin1, stbmargin2, ...)
+      phasemargin, phasemarginfreq, gainmargin, gainmarginfreq
+      one real value each, in degrees, Hz, dB, Hz
+
+The loop-gain plot is the current plot after the run. The name of the
+margins plot is left in the variable stb_marginplot:
+
+  stb vprb dec 50 100 1g
+  print {$stb_marginplot}.phasemargin
+
+Use the variable rather than a name made from the number of the
+loop-gain plot: the two numbers are equal only as long as plots are
+destroyed in pairs. A run that writes its results to a file ("run
+file.raw", or -r in batch mode) makes no plots; the two plots are in the
+file, and stb_marginplot is removed.
+
+The sign of the loop gain. With T the return ratio of the loop,
+
+  loopgain = -T
+
+This is the convention of the Spectre circuit simulator. A loop with
+negative feedback has T positive at low frequency, so loopgain starts
+with a phase of 180 degrees, and its phase where its magnitude is 0 dB
+is the phase margin:
+
+  plot vdb(loopgain)
+  set units = degrees
+  plot vp(loopgain)
+
+Take T = -loopgain where a formula or a tool expects the return ratio:
+
+  let t = -loopgain
+
+save and .save do not apply to the two plots: their vectors are results
+of the analysis, not nodes of the circuit, and they are always written
+in full.
+
+
+5  The margins and the lines of a run
+-------------------------------------
+
+The margins are read off the points of the sweep. Between two points
+the magnitude in dB and the phase in degrees are taken as straight lines
+over the logarithm of the frequency, so the margins are as exact as the
+sweep is dense: use 20 to 50 points per decade around the crossings.
+
+  phase margin   180 degrees plus the phase of T at the first frequency
+                 at which |T| falls through 0 dB
+  gain margin    minus |T| in dB at the first frequency at which the
+                 phase of T falls through -180 degrees
+
+The phase of T is made continuous along the sweep first. A margin that
+does not exist is NaN in the margins plot (the four vectors are always
+there), and the run says why. The lines of a run, with the numbers of an
+example:
+
+  stb: Phase margin = 47.477 deg at frequency = 1.24835e+06 Hz
+  stb: Gain margin = 20.8377 dB at frequency = 5.03569e+06 Hz
+
+  stb: no phase margin: the loop gain is still +19.0077 dB at the last
+  frequency 80.6349 Hz
+      The sweep ends before |T| has fallen to 0 dB. The last frequency
+      is the last point of the sweep, which is not always <fstop>.
+
+  stb: no phase margin: the loop gain is below 0 dB at every frequency
+  of the sweep (at most -6.02077 dB, at 1 Hz)
+
+  stb: no gain margin: the loop-gain phase never falls to 0 deg (it is
+  90.0091 deg at the last frequency 1e+06 Hz)
+      The phase of loopgain at 0 degrees is the phase of T at -180.
+
+  stb: no margins: positive feedback at the start frequency (loop-gain
+  phase 359.64 deg at 1 Hz): the phase lag of the return ratio at the
+  first point exceeds 90 degrees; a loop with an ideal integrator
+  triggers this
+      The real part of T is negative at the first point. The loop has
+      positive feedback there, or the sweep starts too high, or T has a
+      phase of -90 degrees from the start, as with an ideal integrator
+      in the loop, and falls just beyond it. No margin is given.
+
+  stb: the loop gain crosses 0 dB at 3 frequencies; the margins are at
+  the first falling one
+
+  stb: the loop gain rises through 0 dB at 1.59163 Hz, before the
+  crossing used for the margins
+
+  stb: the loop gain is zero at every frequency: is the probe in a
+  feedback loop?
+      |T| is below 1e-12 everywhere.
+
+  stb: no margins: the loop gain is exactly zero at 100 Hz
+      One point at which T is exactly zero is enough: no margin is
+      given, also if the crossings lie below that frequency. A sweep
+      that runs on beyond the crossings gets there when the loop gain
+      is lost in the rounding of the solution. For a loop with many
+      poles that can be little more than a decade above the 0 dB
+      crossing. Stop the sweep soon after the crossings.
+
+  stb: no margins: the sweep has fewer than two points
+  stb: no margins: the sweep does not start above 0 Hz
+  stb: warning: the loop gain is not finite at 1 Hz (31 point(s)); no
+  margins
+
+(Each of these is one line in the output; they are folded here.)
+
+Errors. An analysis that cannot run prints one line that begins with
+"Error: stb:" and names the probe (where one was given), and makes no
+plot; the current plot and stb_marginplot stay as they were. A .stb card
+that cannot be read does not stop the deck from loading. It is reported
+when the analysis runs, and the other analyses of the deck run. As with
+any analysis that fails, "run" then reports the run as aborted and does
+not evaluate the .meas cards of the deck; the plots of the analyses
+that ran are there, and the meas command can be used on them.
+
+An interrupt (Ctrl-C) ends the analysis that is running. No plot is
+made, and the analysis cannot be resumed. One interrupt ends one
+analysis: if "run" has more .stb cards to do, it goes on with the next.
+"resume" after the interrupt does not continue the analysis; it starts
+the run again from the beginning.
+
+
+6  diag=1
+---------
+
+With diag=1 the loop-gain plot holds six more vectors:
+
+  loopgain_normal, loopgain_reverse
+      The two parts of the loop gain, which sum to loopgain: the part of
+      the loop that is controlled by the voltage on the x side of the
+      probe, and the part that is controlled from the y side. A loop
+      that carries signal one way only has one of them at zero. Writing
+      the probe the other way round exchanges them.
+
+  stb_i1, stb_v1
+      the current in the probe and the voltage of node x for a unit
+      voltage in series with the probe
+  stb_i2, stb_v2
+      the same for a unit current into node x
+
+The loop gain is made of the four responses as
+
+  K = 2 (stb_i1 stb_v2 - stb_v1 stb_i2) + stb_v1 + stb_i2
+  loopgain = -K / (1 - K)
+
+In a raw file the four responses are named as any current or voltage is:
+i(stb_i1), v(stb_v1), i(stb_i2), v(stb_v2).
+
+
+7  localgnd=<node>
+------------------
+
+Without it the injected current returns to ground and the voltage of
+node x is taken against ground. That is right for a circuit that is
+built on ground. For a loop that is built on a node of its own, name
+that node:
+
+  .stb vprb dec 20 1 1meg localgnd=ref
+
+The current then returns to ref and the voltage of x is taken against
+ref. If the positive node of the probe is ref, the source is taken the
+other way round, as for ground; the node that is excited may then be
+ground. localgnd=0 gives the same results as no localgnd (the first
+line of the run then names "localgnd = 0"). A node that does not exist
+is an error.
+
+localgnd has been checked against closed forms only. It has not been
+verified against another simulator.
+
+
+8  .print, .plot, meas and .meas
+--------------------------------
+
+  .print stb vdb(loopgain) vp(loopgain)
+  .plot stb vdb(loopgain)
+
+"stb" on these cards selects the loop-gain plot, not the margins plot.
+
+The meas command takes a loop-gain plot as it takes an ac plot. The
+measurement is written with "ac":
+
+  stb vprb dec 50 100 1g
+  meas ac fu when vdb(loopgain)=0 fall=1
+  meas ac lowdb find vdb(loopgain) at=100
+
+The measurements phase_margin and gain_margin expect the return ratio,
+not the loop gain. Give them T:
+
+  let t = -loopgain
+  meas ac pm phase_margin t
+  meas ac gm gain_margin t
+
+There is no ".meas stb" card. The .meas cards that a deck has for its
+other analyses are evaluated by "run" as they are without a .stb card,
+unless a .stb card fails (section 5).
+
+
+9  What the analysis does not do
+--------------------------------
+
+  - A device as the probe (the loop gain "of" a transistor). Name one of
+    its terminals.
+  - Differential and common-mode loops.
+  - Sweeps of anything but the frequency. Use a loop in a .control
+    section, as examples/stb/stb-montecarlo.cir does.
+  - Periodic operating points.
+
+The margins have been checked against the closed forms of textbook
+loops. They have not been compared with the results of another
+simulator.

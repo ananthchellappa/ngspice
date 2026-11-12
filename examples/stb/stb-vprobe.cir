@@ -1,0 +1,68 @@
+Loop gain of a voltage follower, probed with a 0 V source
+*
+* A three-stage amplifier in unity-gain feedback. The loop is broken by the
+* 0 V source vprb between the output and the inverting input; the stb
+* analysis gives the loop gain there without opening the loop, so the
+* operating point is that of the closed loop.
+*
+* The stages do not load each other, so the return ratio is known:
+*     T = T0 / ((1 + j f/f1) (1 + j f/f2) (1 + j f/f3))
+*     T0 = g1 r1 g2 r2 = 1000 (60 dB)
+*     f1 = 1/(2 pi r1 c1) = 1.59 kHz
+*     f2 = 1/(2 pi r2 c2) = 1.59 MHz
+*     f3 = 1/(2 pi r3 c3) = 15.9 MHz
+* The analysis writes loopgain = -T: about 60 dB and 180 degrees at low
+* frequency. It prints a phase margin of about 47.5 degrees near 1.25 MHz
+* and a gain margin of about 20.8 dB near 5.04 MHz.
+*
+* Run it with "ngspice stb-vprobe.cir", or in batch mode with
+* "ngspice -b stb-vprobe.cir".
+
+vin   in  0   dc 1 ac 1
+
+* first stage: transconductance, one pole
+g1    0   n1  in  fb  1m
+r1    n1  0   100k
+c1    n1  0   1n
+* second stage
+g2    0   n2  n1  0   1m
+r2    n2  0   10k
+c2    n2  0   10p
+* output stage: unity gain, one pole, ideal output
+e3    n3  0   n2  0   1
+r3    n3  n4  1k
+c3    n4  0   10p
+eout  out 0   n4  0   1
+
+* the feedback path, with the probe in it
+vprb  out fb  dc 0
+
+.control
+stb vprb dec 50 100 1g
+
+* The loop-gain plot is the current plot. T has the phase of -loopgain.
+let t = -loopgain
+let t_db = db(t)
+let t_deg = 180/pi*cph(t)
+
+* the closed form, for comparison
+let f = real(frequency)
+let f1 = 1/(2*pi*100k*1n)
+let f2 = 1/(2*pi*10k*10p)
+let f3 = 1/(2*pi*1k*10p)
+let t_form = 1000/((1 + j(f/f1))*(1 + j(f/f2))*(1 + j(f/f3)))
+let worst = vecmax(abs(t/t_form - 1))
+echo
+echo largest relative deviation of T from the closed form:
+print worst
+
+* The margins are in a second plot, whose name is in stb_marginplot.
+echo
+echo the margins plot is $stb_marginplot
+print {$stb_marginplot}.phasemargin {$stb_marginplot}.phasemarginfreq
+print {$stb_marginplot}.gainmargin {$stb_marginplot}.gainmarginfreq
+
+* the Bode plot of T
+plot t_db t_deg xlog
+.endc
+.end

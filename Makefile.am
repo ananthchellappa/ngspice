@@ -7,7 +7,7 @@ EXTRA_DIST = FAQ autogen.sh Stuarts_Poly_Notes  \
 		ANALYSES BUGS AUTHORS INSTALL \
 		DEVICES INTERNALS NEWS README README.tcl README.optran\
 		README.shared-xspice README.vdmos README_OSDI.md\
-		README_OSDI_howto README.cpl-gc README.utf8 \
+		README_OSDI_howto README.cpl-gc README.utf8 README.stb \
 		examples m4 visualc Dockerfile \
 		cross-compile.sh cross-compile-shared.sh \
 		compile_min.sh compile_linux.sh compile_min_shared.sh \

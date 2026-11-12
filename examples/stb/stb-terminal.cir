@@ -1,0 +1,90 @@
+Loop gains of two amplifiers, probed at a port of each instance
+*
+* Two instances of one amplifier subcircuit: x1 is a voltage follower, x2
+* an inverting amplifier with the gain -r2/r1 = -4. Each has a feedback
+* loop of its own. No source is placed by hand: the probe is a port of an
+* instance, <instance>:<port>, and ngspice inserts a 0 V source at that
+* port when it reads the netlist. It prints what it has made:
+*
+*   stb: probe x1:inn inserted as v.x1#stb2 (x = x1#stb2, y = mid)
+*
+* x1:inn is the inverting input of x1 only. The output of x1 is on the
+* same net and stays there, so the loop of x1 is opened and nothing else.
+* x2:2 is the second port of x2, another way to write x2:inn.
+*
+* The probe of x1 is on a .stb card, which "run" executes. The probe of x2
+* is in a stb command. It is written out in the .control section, and that
+* is why ngspice finds it when it reads the netlist; a probe that comes
+* from a variable would need a .stb card as well.
+*
+* The stages of the amplifier do not load each other and its output is
+* ideal, so both return ratios are known:
+*     T = b A0 / ((1 + j f/f1) (1 + j f/f2))
+*     A0 = g1 r1 g2 r2 = 1000,  f1 = 1.59 kHz,  f2 = 1.59 MHz
+*     b = 1 for x1, and b = r1/(r1 + r2) = 0.2 for x2
+* The phase margin is 51.90 degrees at 1.2512 MHz for x1 and 79.19 degrees
+* at 312.3 kHz for x2. Two poles never reach 180 degrees of lag: there is
+* no gain margin, the log says why, and gainmargin holds NaN.
+*
+* Run it with "ngspice stb-terminal.cir" or "ngspice -b stb-terminal.cir".
+
+.subckt amp inp inn out
+g1    0   n1  inp inn 1m
+r1    n1  0   100k
+c1    n1  0   1n
+g2    0   n2  n1  0   1m
+r2    n2  0   10k
+c2    n2  0   10p
+eout  out 0   n2  0   1
+.ends
+
+vin   in  0   dc 0.1 ac 1
+x1    in  mid mid amp
+r1    mid sum 10k
+r2    sum out 40k
+x2    0   sum out amp
+
+.stb x1:inn dec 50 100 100meg
+
+.control
+* the closed forms
+let const.f1 = 1/(2*pi*100k*1n)
+let const.f2 = 1/(2*pi*10k*10p)
+
+* the loop of x1: the .stb card
+run
+set gain1 = $curplot
+set marg1 = $stb_marginplot
+let f = real(frequency)
+let poles = (1 + j(f/const.f1))*(1 + j(f/const.f2))
+let worst = vecmax(abs(-loopgain*poles/1000 - 1))
+echo
+echo loop of x1: largest relative deviation of T from the closed form
+print worst
+print {$marg1}.phasemargin {$marg1}.phasemarginfreq {$marg1}.gainmargin
+
+* the loop of x2: a command
+stb x2:2 dec 50 100 100meg
+set gain2 = $curplot
+set marg2 = $stb_marginplot
+let f = real(frequency)
+let poles = (1 + j(f/const.f1))*(1 + j(f/const.f2))
+let worst = vecmax(abs(-loopgain*poles/200 - 1))
+echo
+echo loop of x2: largest relative deviation of T from the closed form
+print worst
+print {$marg2}.phasemargin {$marg2}.phasemarginfreq {$marg2}.gainmargin
+
+* The inserted sources are 0 V sources: the circuit is the same for every
+* other analysis. The dc gain is -4 less the error of the two finite loop
+* gains, -4 / (1 + 1/200) / (1 + 1/1000) = -3.97612.
+echo
+echo dc gain of the closed loops
+op
+print v(out)/v(in)
+
+* the two loop gains, T in dB and in degrees
+plot db({$gain1}.loopgain) db({$gain2}.loopgain) xlog
+plot 180/pi*cph(-{$gain1}.loopgain) 180/pi*cph(-{$gain2}.loopgain) xlog
+.endc
+.end
