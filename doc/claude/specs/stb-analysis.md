@@ -356,6 +356,28 @@ and `#stb` are lower case in every mode.
 Under `preserve` a message prints the probe in the spelling the symbol table
 saw first, which is the deck's for a name of the deck.
 
+**A miss by case under `distinguish`.** A name that is looked up, is not
+found, and differs only in case from a name the circuit has is reported with
+that name (`doc/claude/decisions/0001-distinguish.md`, decision 2). The text
+ends the error of the miss, and the `not inserted` line of the read for a
+terminal probe:
+
+```
+Error: stb: probe vtop: no such instance in the circuit; 'Vtop' differs only in case (casemode=distinguish)
+Error: stb: probe x1.vprb: no such instance in the circuit; the path of 'V.X1.Vprb' differs only in case (casemode=distinguish)
+Error: stb: probe x1:In: no instance named x1; 'X1' differs only in case (casemode=distinguish)
+Error: stb: probe Vtop: localgnd node lg does not exist; 'Lg' differs only in case (casemode=distinguish)
+```
+
+The sites are the instance of the probe by its name or by its path
+(`stb_twin()` in `stban.c`, the lookup of `stb_find()` with the other arm),
+the `localgnd` node (`stb_twin_node()`), and the instance of a terminal probe
+(`stb_why_missing()` in `inpc_stb.c`; a subcircuit instance is noted by
+`inp_stb_xcard()` while its line still exists). The first such name found is
+the one named. Nothing is added under `fold` and `preserve`, where the lookup
+would have succeeded, and nothing if no such name exists. The scans carry
+`case-lint: neither`.
+
 **Shared library.** The file-scope state of `inpc_stb.c` (the probes of the
 deck being read, the sources made for them, the texts of the marker cards of a
 reload, the mark, the flag that the deck's own expansion is going on) is
@@ -367,7 +389,8 @@ freed with it (`com_remcirc`). `stb_version` is set in `ft_cpinit()`.
 
 Tests of this section: `tests/regression/case/stb-*-case.cir` (preserve) and
 `tests/regression/casedist/stb-*-case.cir` (distinguish, with instances and
-nodes that differ only by case).
+nodes that differ only by case; `stb-near-miss-case.cir` for the miss by
+case).
 
 ## 11. Limits and what is not covered
 
@@ -385,8 +408,9 @@ nodes that differ only by case).
   (`BSIZE_SP`); a probe path longer than that is not supported.
 - `show` and other commands that give `#` a meaning do not find an inserted
   source by its name; vectors are not affected.
-- Under `distinguish` a probe that misses only by case is an error like any
-  other miss; the message does not point at the case variant.
+- Under `distinguish` a subcircuit instance given without a port (`stb x1`
+  where the deck has `X1`) and a port name that misses only by case get no
+  pointer to the other spelling; the second message lists the ports.
 - The margins and `localgnd` have been checked against closed forms of
   textbook loops, not against another simulator.
 - Not tested: the interrupt path.

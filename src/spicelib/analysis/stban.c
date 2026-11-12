@@ -89,6 +89,15 @@ stb_ch_eq(char a, char b)
 }
 
 
+/* The same with the arm given: exact is that of the case mode, or 0 in
+ * the search for a name that differs only in case (stb_twin()). */
+static int
+stb_ch_eqx(char a, char b, int exact)
+{
+    return exact ? (a == b) : (tolower_c(a) == tolower_c(b));
+}
+
+
 /* Is path the path of the device whose flattened name goes on at flat?
  * Both are at the start of a part of the name. The flattened name has
  * the letter of the device and a dot before the path, v.x1.x2.vprb for
@@ -97,22 +106,22 @@ stb_ch_eq(char a, char b)
  * that of the flattened name itself; the parts of the path are names of
  * the deck. */
 static int
-stb_is_path(char letter, const char *flat, const char *path)
+stb_is_path(char letter, const char *flat, const char *path, int exact)
 {
     if (flat[0] == letter && flat[1] == '.' &&
-        stb_is_path(letter, flat + 2, path))
+        stb_is_path(letter, flat + 2, path, exact))
         return 1;
 
-    while (*flat && *flat != '.' && stb_ch_eq(*flat, *path)) {
+    while (*flat && *flat != '.' && stb_ch_eqx(*flat, *path, exact)) {
         flat++;
         path++;
     }
-    if (!stb_ch_eq(*flat, *path))
+    if (!stb_ch_eqx(*flat, *path, exact))
         return 0;
     if (!*flat)
         return 1;
 
-    return stb_is_path(letter, flat + 1, path + 1);
+    return stb_is_path(letter, flat + 1, path + 1, exact);
 }
 
 
@@ -171,22 +180,32 @@ stb_minus(IFcomplex a)
  *
  * The table of the instances is looked up byte for byte. Under the case
  * mode preserve another spelling of a name is the same name, so the
- * instances are compared one by one before a path is tried. */
+ * instances are compared one by one before a path is tried.
+ *
+ * exact is the arm of ng_ideq() to compare with: that of the case mode
+ * (stb_find()), or 0 for any spelling whatever the mode (stb_twin()).
+ * *bypath is set if the instance was found by its path. */
 static GENinstance *
-stb_find(CKTcircuit *ckt, char *name)
+stb_find_arm(CKTcircuit *ckt, char *name, int exact, int *bypath)
 {
     GENinstance *inst = CKTfndDev(ckt, name);
     GENmodel *model;
     int i;
 
-    if (!inp_case_exact_ids())
+    *bypath = 0;
+
+    if (!exact)
         for (i = 0; !inst && i < DEVmaxnum; i++)
             for (model = ckt->CKThead[i]; !inst && model;
                  model = model->GENnextModel)
                 for (inst = model->GENinstances; inst;
                      inst = inst->GENnextInstance)
-                    if (ng_ideq(inst->GENname, name))
+                    /* case-lint: helper - the preserve arm of ng_ideq() */
+                    if (cieq(inst->GENname, name))
                         break;
+
+    if (inst)
+        return inst;
 
     for (i = 0; !inst && i < DEVmaxnum; i++)
         for (model = ckt->CKThead[i]; !inst && model;
@@ -197,13 +216,70 @@ stb_find(CKTcircuit *ckt, char *name)
                 const char *p;
                 if (!s[0] || s[1] != '.')
                     continue;
-                for (p = strchr(name, '.'); p && !stb_ch_eq(p[1], s[0]); )
+                for (p = strchr(name, '.');
+                     p && !stb_ch_eqx(p[1], s[0], exact); )
                     p = strchr(p + 1, '.');
-                if (p && stb_is_path(s[0], s + 2, name))
+                if (p && stb_is_path(s[0], s + 2, name, exact))
                     break;
             }
 
+    *bypath = inst != NULL;
     return inst;
+}
+
+
+static GENinstance *
+stb_find(CKTcircuit *ckt, char *name)
+{
+    int bypath;
+
+    return stb_find_arm(ckt, name, inp_case_exact_ids(), &bypath);
+}
+
+
+/* A lookup has failed. Under the case mode distinguish a name that
+ * differs from the one looked up only in case is another name, and the
+ * likely mistake: the text that points at it, to end the message with
+ * (doc/claude/decisions/0001-distinguish.md, decision 2). An empty text
+ * in the other modes, where such a name would have been found, and if
+ * there is none. The caller owns the text.
+ *
+ * The instance called name, or the one whose path name is. */
+static char *
+stb_twin(CKTcircuit *ckt, char *name)
+{
+    GENinstance *inst;
+    int bypath;
+
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return copy("");
+
+    inst = stb_find_arm(ckt, name, 0, &bypath);
+    if (!inst || inst->GENmodPtr->GENmodType < 0)
+        return copy("");
+
+    return tprintf("; %s'%s' differs only in case (casemode=distinguish)",
+                   bypath ? "the path of " : "", inst->GENname);
+}
+
+
+/* The same for the node called name. */
+static char *
+stb_twin_node(CKTcircuit *ckt, const char *name)
+{
+    CKTnode *node;
+
+    if (inp_case_mode() != NG_CASE_DISTINGUISH)
+        return copy("");
+
+    for (node = ckt->CKTnodes; node; node = node->next)
+        /* a name that differs only in case from the one not found */
+        /* case-lint: neither - a deliberate scan without regard to case */
+        if (node->type == SP_VOLTAGE && cieq(node->name, name))
+            return tprintf("; '%s' differs only in case (casemode=distinguish)",
+                           node->name);
+
+    return copy("");
 }
 
 
@@ -571,17 +647,21 @@ STBan(CKTcircuit *ckt, int restart)
     }
 
     issubckt = !inst && stb_is_subckt(ckt, key);
-    tfree(key);
 
     if (!inst || inst->GENmodPtr->GENmodType < 0) {
-        if (issubckt)
+        if (issubckt) {
             fprintf(cp_err, "Error: stb: probe %s is a subcircuit instance: name one of its ports, e.g. %s:1\n",
                     job->STBprobe, job->STBprobe);
-        else
-            fprintf(cp_err, "Error: stb: probe %s: no such instance in the circuit\n",
-                    job->STBprobe);
+        } else {
+            char *twin = stb_twin(ckt, key);
+            fprintf(cp_err, "Error: stb: probe %s: no such instance in the circuit%s\n",
+                    job->STBprobe, twin);
+            tfree(twin);
+        }
+        tfree(key);
         return E_NOTFOUND;
     }
+    tfree(key);
 
     /* Only a voltage source is a probe by itself. The terminal that the
      * message names is written with the name the instance has in the
@@ -618,12 +698,15 @@ STBan(CKTcircuit *ckt, int restart)
     if (job->STBlocalGnd) {
         key = stb_key(job->STBlocalGnd);
         lg = stb_find_node(ckt, key);
-        tfree(key);
         if (lg < 0) {
-            fprintf(cp_err, "Error: stb: probe %s: localgnd node %s does not exist\n",
-                    job->STBprobe, job->STBlocalGnd);
+            char *twin = stb_twin_node(ckt, key);
+            fprintf(cp_err, "Error: stb: probe %s: localgnd node %s does not exist%s\n",
+                    job->STBprobe, job->STBlocalGnd, twin);
+            tfree(twin);
+            tfree(key);
             return E_NOTFOUND;
         }
+        tfree(key);
     }
 
     /* The excited node is the positive node of the source. If that is the

@@ -82,6 +82,8 @@ struct stb_probe {
     char *key;              /* set when the terminal has been found */
     struct stb_ins *ins;    /* NULL when the probe is refused */
     char *reason;           /* why it is refused */
+    char *twin;             /* a subcircuit instance whose name differs
+                             * from inst only in case (distinguish) */
     bool posnote;           /* its number is also the name of a port */
     struct stb_probe *next;
 };
@@ -348,6 +350,7 @@ stb_free_probe(struct stb_probe *p)
     tfree(p->term);
     tfree(p->key);
     tfree(p->reason);
+    tfree(p->twin);
     tfree(p);
 }
 
@@ -508,6 +511,7 @@ stb_add(const char *word)
     p->key = NULL;
     p->ins = NULL;
     p->reason = NULL;
+    p->twin = NULL;
     p->posnote = FALSE;
     p->next = NULL;
     if (!*p->inst || !*p->term)
@@ -648,6 +652,16 @@ inp_stb_xcard(const char *xline, const char *subname, const char *formals,
     bool changed = FALSE;
     int nactual = 0;
     int i;
+
+    /* Under the case mode distinguish an instance whose name differs from
+     * that of a probe only in case is another instance. It is kept for the
+     * message of a probe that finds none (stb_why_missing()): the instance
+     * lines are gone when that is known. */
+    if (inp_case_mode() == NG_CASE_DISTINGUISH)
+        for (p = pending; p; p = p->next)
+            /* case-lint: neither - a deliberate scan without regard to case */
+            if (!p->twin && !ng_ideq(p->inst, name) && cieq(p->inst, name))
+                p->twin = copy(name);
 
     for (p = pending; p; p = p->next)
         if (ng_ideq(p->inst, name))
@@ -1058,9 +1072,11 @@ stb_find_card(struct card *deck, const char *name, bool bypath, int *count)
  * An instance of a subcircuit that is defined inside another subcircuit
  * is expanded with that one, before the instance lines of the deck: its
  * elements are there, its instance line was never seen.
+ * twin is the instance of a subcircuit whose name differs from inst only
+ * in case, if one has been expanded, or NULL.
  * Returns the reason, which the caller owns. */
 static char *
-stb_why_missing(struct card *deck, const char *inst)
+stb_why_missing(struct card *deck, const char *inst, const char *twin)
 {
     char *path = stb_path(inst);
     const char *dot = strrchr(path, '.');
@@ -1094,6 +1110,30 @@ stb_why_missing(struct card *deck, const char *inst)
         tfree(made);
         tfree(first);
     }
+
+    /* Under the case mode distinguish an element whose name differs from
+     * this one only in case is another element, and the likely mistake:
+     * the message points at it (doc/claude/decisions/0001-distinguish.md,
+     * decision 2). In the other modes such a card would have been found. */
+    if (!reason && twin)
+        reason = tprintf("no instance named %s; '%s' differs only in case (casemode=distinguish)", inst, twin);
+    if (!reason && inp_case_mode() == NG_CASE_DISTINGUISH)
+        for (c = deck; c && !reason; c = c->nextcard) {
+            char *first, *made;
+
+            if (!stb_live(c))
+                continue;
+            first = stb_first_token(c->line);
+            made = stb_path(first);
+            /* case-lint: neither - a deliberate scan without regard to case */
+            if (cieq(first, inst))
+                reason = tprintf("no instance named %s; '%s' differs only in case (casemode=distinguish)", inst, first);
+            /* case-lint: neither - the same scan, by the path */
+            else if (cieq(made, path))
+                reason = tprintf("no instance named %s; '%s' differs only in case (casemode=distinguish)", inst, made);
+            tfree(made);
+            tfree(first);
+        }
 
     tfree(bsrc);
     tfree(path);
@@ -1324,7 +1364,7 @@ inp_stb_insert(struct card *deck)
             /* by the path of its instances */
             found = stb_find_card(deck, p->inst, TRUE, &n);
         if (n == 0)
-            p->reason = stb_why_missing(deck, p->inst);
+            p->reason = stb_why_missing(deck, p->inst, p->twin);
         else if (n > 1)
             p->reason = tprintf("%s is not a unique instance name", p->inst);
         else

@@ -6,13 +6,13 @@ Circuit: * stb under casemode=distinguish: terminal probes down the hierarchy, b
 
 stb: probe X4.XL:T inserted as v.X4.XL#stb1 (x = X4.XL#stb1, y = Fb)
 stb: probe x4.XL:T inserted as v.x4.XL#stb1 (x = x4.XL#stb1, y = Fbb)
-stb: probe X4.xl:T not inserted: no instance named X4.xl
+stb: probe X4.xl:T not inserted: no instance named X4.xl; 'X4.XL' differs only in case (casemode=distinguish)
 stb: probe X4.XL:t not inserted: X4.XL has no terminal named t (1 to 2, the ports of Leaf: T U)
 stb: probe X6.XL.G1:3 inserted as v.G.X6.XL.G1#stb3 (x = G.X6.XL.G1#stb3, y = Fc)
 stb: probe x6.XL.G1:3 inserted as v.G.x6.XL.G1#stb3 (x = G.x6.XL.G1#stb3, y = Fcc)
-stb: probe X6.XL.g1:3 not inserted: no instance named X6.XL.g1
+stb: probe X6.XL.g1:3 not inserted: no instance named X6.XL.g1; 'X6.XL.G1' differs only in case (casemode=distinguish)
 stb: probe M1:G inserted as v.M1#stb2 (x = M1#stb2, y = Gg)
-stb: probe m1:g not inserted: no instance named m1
+stb: probe m1:g not inserted: no instance named m1; 'M1' differs only in case (casemode=distinguish)
 stb: probe X9:Sup not inserted: port 2 of Buf is a global node and is not connected through the instance line
 stb: probe X9:sup not inserted: X9 has no terminal named sup (1 to 2, the ports of Buf: In Sup)
 stb: probe X8.R1:1 not inserted: X8.R1 has a behavioural value and is replaced by other elements; place a voltage source

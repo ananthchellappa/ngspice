@@ -157,13 +157,15 @@ Names follow the case mode of the netlist (the variable casemode, see
 NEWS). With the default, fold, and with preserve a name may be written
 in any case. With distinguish it has to be written as the deck spells
 it: x1 and X1 are then two instances, and a spelling that the deck does
-not have names nothing. This holds for the probe of section 2 as well,
-for every part of a path, for the name of a port and for the node of
-localgnd= (section 7). The words of the language are taken in any case
-in every mode: .stb, stb, the step word, localgnd, diag, the letter of
-a terminal, and gnd for ground. The names that ngspice makes carry the
-spelling of the deck: for X1:inn under preserve the node is X1#stb2 and
-the source v.X1#stb2.
+not have names nothing; the error then names an instance or a node of
+the circuit that differs from the word only in case, if there is one.
+This holds for the probe of section 2 as well, for every part of a
+path, for the name of a port and for the node of localgnd= (section 7).
+The words of the language are taken in any case in every mode: .stb,
+stb, the step word, localgnd, diag, the letter of a terminal, and gnd
+for ground. The names that ngspice makes carry the spelling of the
+deck: for X1:inn under preserve the node is X1#stb2 and the source
+v.X1#stb2.
 
 The source is inserted when the netlist is read, not when the analysis
 runs. ngspice therefore has to find the probe in the deck. It collects

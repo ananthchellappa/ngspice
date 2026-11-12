@@ -1,0 +1,402 @@
+* stb under casemode=distinguish: a name that misses only by case
+*
+* Under distinguish a spelling the deck does not have names nothing, and stb
+* ends with an error (the other stb-*-case decks). A name that is being
+* looked up, is not found, and differs only in case from one the circuit
+* has is the mistake the mode invites: the error names that other spelling
+* (doc/claude/decisions/0001-distinguish.md, decision 2). A miss with no
+* such name beside it says nothing more than before.
+*
+* The messages go to cp_err, which the harness does not capture: each
+* command is redirected and the capture read back line by line. Every
+* capture must hold exactly one "Error: stb:" line.
+*
+*   Vtop     a source at the top level
+*   X1       an instance of Loop; its source is V.X1.Vprb, path X1.Vprb
+*   Rg       an element at the top level; X1.R1 is one inside X1
+*   Lg       the node localgnd= is given
+.subckt Loop In Out
+Vprb x y dc 0
+E1 Out 0 0 y 10
+R1 Out x 1k
+C1 x 0 1u
+R2 In x 1meg
+.ends
+X1 inp P2 Loop
+Rg inp 0 1k
+Rl P2 Lg 1k
+Rlg Lg 0 1
+Vtop tx ty dc 0
+E2 tout 0 0 ty 20
+R2 tout tx 1k
+C2 tx 0 1u
+.control
+
+* the name of a source
+set nbefore = $#plots
+set sim_status = 0
+stb vtop dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vtop: no such instance in the circuit; 'Vtop' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-source pass
+else
+  echo stbchk near-miss-source fail
+end
+
+* the name a source has in the circuit
+set nbefore = $#plots
+set sim_status = 0
+stb v.x1.vprb dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe v.x1.vprb: no such instance in the circuit; 'V.X1.Vprb' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-flat pass
+else
+  echo stbchk near-miss-flat fail
+end
+
+* the path of a source: the source is named as the circuit has it
+set nbefore = $#plots
+set sim_status = 0
+stb x1.vprb dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x1.vprb: no such instance in the circuit; the path of 'V.X1.Vprb' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-path pass
+else
+  echo stbchk near-miss-path fail
+end
+
+* the instance of a terminal: a subcircuit instance
+set nbefore = $#plots
+set sim_status = 0
+stb x1:In dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x1:In: no instance named x1; 'X1' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-terminal pass
+else
+  echo stbchk near-miss-terminal fail
+end
+
+* an element, by its name and by its path
+set nbefore = $#plots
+set sim_status = 0
+stb rg:1 dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe rg:1: no instance named rg; 'Rg' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-element pass
+else
+  echo stbchk near-miss-element fail
+end
+
+set nbefore = $#plots
+set sim_status = 0
+stb x1.r1:1 dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x1.r1:1: no instance named x1.r1; 'X1.R1' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-element-path pass
+else
+  echo stbchk near-miss-element-path fail
+end
+
+* the node of localgnd=
+set nbefore = $#plots
+set sim_status = 0
+stb Vtop dec 2 1 1e4 localgnd=lg >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe Vtop: localgnd node lg does not exist; 'Lg' differs only in case (casemode=distinguish)"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 1) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk near-miss-localgnd pass
+else
+  echo stbchk near-miss-localgnd fail
+end
+
+* no name beside the miss: nothing is added
+set nbefore = $#plots
+set sim_status = 0
+stb vnosuch dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe vnosuch: no such instance in the circuit"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 0) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk no-twin-source pass
+else
+  echo stbchk no-twin-source fail
+end
+
+set nbefore = $#plots
+set sim_status = 0
+stb x1.vnosuch dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x1.vnosuch: no such instance in the circuit"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 0) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk no-twin-path pass
+else
+  echo stbchk no-twin-path fail
+end
+
+set nbefore = $#plots
+set sim_status = 0
+stb x9:In dec 2 1 1e4 >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe x9:In: no instance named x9"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 0) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk no-twin-terminal pass
+else
+  echo stbchk no-twin-terminal fail
+end
+
+set nbefore = $#plots
+set sim_status = 0
+stb Vtop dec 2 1 1e4 localgnd=nosuch >& stb-near-miss-case.stberr
+let const.nhit = 0
+let const.ntwin = 0
+let const.nline = 0
+set n1 = 1
+fopen f1 stb-near-miss-case.stberr r
+while $n1 >= 0
+  set ln = "none"
+  fread ln $f1 n1
+  strcmp p1 "$ln" "Error: stb: probe Vtop: localgnd node nosuch does not exist"
+  if $p1 eq 0
+    let const.nhit = const.nhit + 1
+  end
+  strstr p2 "_$ln" "Error: stb:"
+  if $p2 >= 0
+    let const.nline = const.nline + 1
+  end
+  strstr p3 "_$ln" "only in case"
+  if $p3 >= 0
+    let const.ntwin = const.ntwin + 1
+  end
+end
+fclose $f1
+if (const.nhit eq 1) & (const.nline eq 1) & (const.ntwin eq 0) & ($sim_status eq 1) & ($#plots eq $nbefore)
+  echo stbchk no-twin-localgnd pass
+else
+  echo stbchk no-twin-localgnd fail
+end
+
+* the spellings of the deck still run
+set sp0 = $curplot
+stb Vtop dec 2 1 1e4 localgnd=Lg > stb-near-miss-case.stblog
+strcmp same "$curplot" "$sp0"
+if $same ne 0
+  echo stbchk near-miss-exact-source-runs pass
+else
+  echo stbchk near-miss-exact-source-runs fail
+end
+
+set sp0 = $curplot
+stb X1:In dec 2 1 1e4 > stb-near-miss-case.stblog
+strcmp same "$curplot" "$sp0"
+if $same ne 0
+  echo stbchk near-miss-exact-terminal-runs pass
+else
+  echo stbchk near-miss-exact-terminal-runs fail
+end
+.endc
+.end
