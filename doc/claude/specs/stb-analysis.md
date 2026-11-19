@@ -26,7 +26,7 @@ Files:
 | `src/spicelib/analysis/stbsetp.c`, `stbaskq.c` | the parameters of the job |
 | `src/include/ngspice/stbdefs.h` | the job, the margins record, the plot titles |
 | `src/spicelib/parser/inp2dot.c` (`dot_stb`) | the card and the command line |
-| `src/frontend/inpc_stb.c`, `inpc_stb.h` | terminal probes: collection, insertion of the 0 V sources, lookup |
+| `src/frontend/inpc_stb.c`, `inpc_stb.h` | terminal probes: collection, insertion of the 0 V sources, lookup; the same code inserts the current probes of `.probe` (`terminal-current-probes.md`) |
 | `src/frontend/inp.c`, `subckt.c` | the hooks of the reader for the terminal probes |
 | `src/frontend/outitf.c`, `typesdef.c`, `dotcards.c`, `com_measure2.c`, `runcoms.c` | plots, vector types, `.print`/`.plot`, `meas`, `.meas` under `run` |
 | `src/maths/ni/niaciter.c` (`NIacFactor`) | load and factor of the AC matrix without a solve |
