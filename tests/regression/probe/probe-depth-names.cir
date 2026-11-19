@@ -1,0 +1,47 @@
+* probe: a terminal has one name at every depth
+*
+* The same circuit twice: at the top level, and inside x0. Each terminal
+* is probed at both depths with the same spelling, and the vector inside
+* x0 is the one at the top level with x0. in front: the names .probe has
+* had at the top level, by the letter of the device.
+*   rd,1 rd,2   a terminal of an element without letters: n1, n2
+*   m1,b m1,4   the fourth terminal of a mos: b_tj
+*   m1,d        a letter: d
+*   d1,k        the cathode of a diode: c
+*   q1,s        the fourth terminal of a bjt: s
+* The list of the vectors is in the expected output. The values at the
+* two depths are the same to the tolerance of the solution, 1e-15 A: the
+* two copies are at other places in the matrix, and v(d) of one differs
+* from that of the other by some 10 nV, which d1 turns into 1e-20 A.
+vdd vdd 0 1.8
+vg g 0 1
+rd vdd d 1k
+m1 d g 0 0 nmod w=1u l=0.2u
+d1 0 d dmod
+q1 vdd g e 0 qmod
+re e 0 1k
+x0 vdd g blk
+.subckt blk vdd g
+rd vdd d 1k
+m1 d g 0 0 nmod w=1u l=0.2u
+d1 0 d dmod
+q1 vdd g e 0 qmod
+re e 0 1k
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.model dmod d
+.model qmod npn
+.probe I(rd,1) I(rd,2) I(m1,b) I(m1,d) I(d1,k) I(q1,s)
+.probe I(x0.rd,1) I(x0.rd,2) I(x0.m1,4) I(x0.m1,d) I(x0.d1,k) I(x0.q1,s)
+.control
+op
+print all
+let k = 0
+let k = (abs(i(x0.rd:n1) - i(rd:n1)) < 1e-15) & (abs(i(x0.rd:n2) - i(rd:n2)) < 1e-15) & (abs(i(x0.m1:b_tj) - i(m1:b_tj)) < 1e-15) & (abs(i(x0.m1:d) - i(m1:d)) < 1e-15) & (abs(i(x0.d1:c) - i(d1:c)) < 1e-15) & (abs(i(x0.q1:s) - i(q1:s)) < 1e-15) & (i(rd:n1) > 60u)
+if k
+  echo probechk depth-names-same-values pass
+else
+  echo probechk depth-names-same-values fail
+end
+.endc
+.end

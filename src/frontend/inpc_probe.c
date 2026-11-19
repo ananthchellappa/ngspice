@@ -26,6 +26,67 @@ static int setallvsources(struct card* tmpcard, NGHASHPTR instances, char* instn
 
 static int check_for_nodes(char* instance, int numnodes);
 
+/* The text of a probe that is handed over to inpc_stb.c: <instance> or
+   <instance>:<terminal>. */
+static char *
+probe_handover_text(const char *instname, const char *term)
+{
+    if (term && *term)
+        return tprintf("%s:%s", instname, term);
+
+    return copy(instname);
+}
+
+
+/* Is the .probe parameter a current probe, I(<instance>[,<terminal>]) or
+   I(<instance>:<terminal>), that this file does not insert, but hands
+   over to inpc_stb.c, which inserts it after the subcircuits are
+   expanded? That is a probe of
+     - an instance that is not one of the top level (instances holds
+       these): one inside a subcircuit instance, x1.m2 or m.x1.m2;
+     - an OSDI device (n), whose terminals have the names of its model;
+       with alli these are handed over as every terminal, elsewhere;
+     - a port of a subcircuit instance of the top level, by its name or
+       its position: there two spellings of one port get one source.
+   Returns the text to hand over, or NULL. */
+static char *
+probe_handover_for(const char *param, NGHASHPTR instances, bool haveall)
+{
+    char *s, *tofree, *inst, *term, *co, *text = NULL;
+    struct card *card;
+
+    if (!ciprefix("i(", param))
+        return NULL;
+
+    s = tofree = copy(param + 2);
+    co = strchr(s, ':');
+    if (co)
+        *co = ',';
+    inst = gettok_noparens(&s);
+    if (!inst || !*inst) {
+        tfree(inst);
+        tfree(tofree);
+        return NULL;
+    }
+    if (*s == ',')
+        s++;
+    term = gettok_noparens(&s);
+
+    card = nghash_find(instances, inst);
+    if (!card)
+        text = probe_handover_text(inst, term);
+    else if (tolower_c(*inst) == 'n' && !haveall)
+        text = probe_handover_text(inst, term);
+    else if (!haveall && tolower_c(*inst) == 'x' && term && *term)
+        text = probe_handover_text(inst, term);
+
+    tfree(term);
+    tfree(inst);
+    tfree(tofree);
+
+    return text;
+}
+
 /* Find any line starting with .probe: assemble all parameters like
    <empty>     add V(0) current measure sources to all device nodes in addition to .save all
    alli        add V(0) current measure sources to all device nodes in addition to .save all
@@ -48,8 +109,14 @@ void inp_probe(struct card* deck)
     int skip_control = 0;
     int skip_subckt = 0;
     wordlist* probes = NULL, *probeparams = NULL, *wltmp, *allsaves = NULL;
+    /* the parameters once more, in the order of the deck: 'probes' has
+       the last line first and 'probeparams' each line backwards */
+    wordlist *ordered = NULL;
     wordlist *next_wl = NULL;
     bool haveall = FALSE, havedifferential = FALSE, t = TRUE, havesave = FALSE;
+    /* the current probes that this code does not insert, for inpc_stb.c:
+       from alli, and those that are written out */
+    wordlist *handover_all = NULL, *handover = NULL;
     NGHASHPTR instances;   /* instance hash table */
     int ee = 0; /* serial number for sources */
 
@@ -130,8 +197,11 @@ void inp_probe(struct card* deck)
             continue;
         }
 
+        wordlist *line_params = NULL, *line_end = NULL;
+
         while (nextnode && (*nextnode != '\0')) {
             probeparams = wl_cons(nextnode, probeparams);
+            wl_append_word(&line_params, &line_end, copy(nextnode));
 
             if (ciprefix("vd(", nextnode)) {
                 havedifferential = TRUE;
@@ -139,6 +209,7 @@ void inp_probe(struct card* deck)
 
             nextnode = gettok_char(&tmpstr, ')', TRUE, FALSE);
         }
+        ordered = wl_append(line_params, ordered);
     }
     /* don't free the wl_word, they belong to the cards */
     wltmp = probes;
@@ -197,6 +268,16 @@ void inp_probe(struct card* deck)
         tfree(instname);
     }
 
+    /* the current probes that are handed over to inpc_stb.c, in the order
+       of the deck */
+    for (wltmp = ordered; wltmp; wltmp = wltmp->wl_next) {
+        char *text = probe_handover_for(wltmp->wl_word, instances, haveall);
+        if (text)
+            handover = wl_cons(text, handover);
+    }
+    handover = wl_reverse(handover);
+    wl_free(ordered);
+
     if (haveall || probeparams == NULL) {
         /* Either we have 'alli' among the .probe parameters, or we have a single .probe command without parameters:
            Add current measure voltage sources for all devices, add differential E sources only for selected devices. */
@@ -242,6 +323,13 @@ void inp_probe(struct card* deck)
             char* instname = gettok_instance(&curr_line);
             if (!instname)
                 continue;
+
+            /* an OSDI device has the names of its terminals in its model:
+               every terminal, handed over to inpc_stb.c */
+            if (tolower_c(*instname) == 'n') {
+                handover_all = wl_cons(instname, handover_all);
+                continue;
+            }
 
             /* select elements not in need of a measure Vsource */
             if (strchr("ehvk", *instname))
@@ -735,8 +823,9 @@ void inp_probe(struct card* deck)
                 }
             }
 
-            /* No .probe parameter 'alli' (has been treated already), but dedicated current probes requested */
-            else if (!haveall && ciprefix("i(", tmpstr)) {
+            /* Dedicated current probes. With 'alli' (treated already) only
+               those that alli does not reach. */
+            else if (ciprefix("i(", tmpstr)) {
                 char* instname, * node1 = NULL, *nodename1;
                 struct card* tmpcard;
                 int numnodes;
@@ -751,8 +840,15 @@ void inp_probe(struct card* deck)
 
                 instname = gettok_noparens(&tmpstr);
                 tmpcard = nghash_find(instances, instname);
-                if (!tmpcard) {
-                    fprintf(stderr, "Warning: Could not find the instance line for %s,\n   .probe %s will be ignored\n", instname, wltmp->wl_word);
+                /* handed over to inpc_stb.c (probe_handover_for()); an OSDI
+                   device with alli as well */
+                if (!tmpcard || tolower_c(*instname) == 'n') {
+                    tfree(instname);
+                    continue;
+                }
+                /* alli has a source on every terminal of the top level */
+                if (haveall) {
+                    tfree(instname);
                     continue;
                 }
                 char* thisline = tmpcard->line;
@@ -776,6 +872,13 @@ void inp_probe(struct card* deck)
 
                 /* read the input for node1: either a number or a (device dependent) name */
                 node1 = gettok_noparens(&tmpstr);
+                /* a port of a subcircuit instance: handed over
+                   (probe_handover_for()) */
+                if (*node1 != '\0' && tolower_c(*instname) == 'x') {
+                    tfree(node1);
+                    tfree(instname);
+                    continue;
+                }
                 if (*node1 != '\0' && atoi(node1) == 0) {
                     char *nn = get_terminal_number(instname, node1);
                     if (eq(nn, "0")) {
@@ -950,6 +1053,24 @@ void inp_probe(struct card* deck)
     if (probeparams) {
         wl_free(probeparams);
     }
+
+    /* Hand the probes over as .iprobe cards behind the title, in the
+       order of the deck. A card is in the stored copy of the deck, which
+       'reset' reads again, where this function does not run. */
+    if (handover_all || handover) {
+        struct card *at = deck;
+
+        handover_all = wl_reverse(handover_all);
+        for (wltmp = handover_all; wltmp; wltmp = wltmp->wl_next)
+            at = insert_new_line(at, tprintf(".iprobe %s", wltmp->wl_word),
+                                 0, deck->linenum_orig, deck->linesource);
+        for (wltmp = handover; wltmp; wltmp = wltmp->wl_next)
+            at = insert_new_line(at, tprintf(".iprobe %s", wltmp->wl_word),
+                                 0, deck->linenum_orig, deck->linesource);
+        wl_free(handover_all);
+        wl_free(handover);
+    }
+
     nghash_free(instances, NULL, NULL);
 }
 

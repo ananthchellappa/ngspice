@@ -1,0 +1,39 @@
+* probe: alli with probes inside instances
+*
+* alli probes every terminal of the top level, as before; a probe that
+* names a terminal inside an instance is inserted as well.
+*   rl#branch     the top level, from alli: v(out)/10k
+*   x1:p#branch   a port of the instance x1, from alli: into x1 at p
+*   x1.x2.m3:d    inside: the drain of m3, v(x1.mid)/2k
+vdd vdd 0 dc 2
+vg g 0 dc 1.5
+x1 vdd g out amp
+rl out 0 10k
+.subckt amp p in o
+r1 p o 1k
+x2 in o mid stage
+r2 mid 0 2k
+.ends
+.subckt stage i d s
+m3 d i s 0 nmod w=2u l=1u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.probe alli I(x1.x2.m3,d)
+.control
+op
+let k = 0
+let k = (abs(i(rl) - v(out)/10k) < 1e-15) & (abs(i(x1:p) - (2 - v(out))/1k) < 1e-15)
+if k
+  echo probechk alli-top-level pass
+else
+  echo probechk alli-top-level fail
+end
+let k = 0
+let k = (abs(i(x1.x2.m3:d) - v(x1.mid)/2k) < 1e-10) & (i(x1.x2.m3:d) > 1e-5)
+if k
+  echo probechk alli-inside pass
+else
+  echo probechk alli-inside fail
+end
+.endc
+.end

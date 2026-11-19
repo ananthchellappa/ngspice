@@ -1,0 +1,42 @@
+* probe: a terminal that cannot be probed is refused with its reason
+*
+* Each refused probe prints one line; the deck is still read and run,
+* and the probes that can be inserted are.
+*   x1.nope,d     no such instance
+*   x1.x2.m3,q    no terminal of that name: the positions and letters
+*   x1.x2.m3,7    a position the element does not have
+*   x1.x2,zz      no port of that name: the ports of the subcircuit
+*   x1.k1,1       a coupling, which has no terminals
+*   nope,1        no such instance at the top level either
+*   x1.r1,1       inserted: into r1 at p, (2 - v(out))/1k, x1.r1:n1
+vdd vdd 0 dc 2
+vg g 0 dc 1.5
+x1 vdd g out amp
+rl out 0 10k
+.subckt amp p in o
+r1 p o 1k
+x2 in o mid stage
+r2 mid 0 2k
+r9 p n9 1k
+l1 n9 0 1u
+r10 p n10 1k
+l2 n10 0 1u
+k1 l1 l2 0.5
+.ends
+.subckt stage i d s
+m3 d i s 0 nmod w=2u l=1u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.probe I(x1.nope,d) I(x1.x2.m3,q) I(x1.x2.m3,7) I(x1.x2,zz)
+.probe I(x1.k1,1) I(nope,1) I(x1.r1,1)
+.control
+op
+let k = 0
+let k = (abs(i(x1.r1:n1) - (2 - v(out))/1k) < 1e-15)
+if k
+  echo probechk refuse-the-others-are-inserted pass
+else
+  echo probechk refuse-the-others-are-inserted fail
+end
+.endc
+.end

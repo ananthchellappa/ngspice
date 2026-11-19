@@ -1,0 +1,6 @@
+
+probechk names-position-is-the-letter pass
+probechk names-all-terminals-and-circuit-name pass
+probechk names-bjt-all pass
+probechk names-port-position-is-the-port pass
+probechk names-diode-letters pass

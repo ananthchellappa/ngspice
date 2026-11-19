@@ -1,0 +1,6 @@
+
+stb: probe x1.r1:1 inserted as v.r.x1.r1#stb1 (x = r.x1.r1#stb1, y = vdd)
+stb: probe x1:o inserted as v.x1#stb2 (x = x1#stb2, y = out)
+probechk stb-shared-circuit-unchanged pass
+probechk stb-shared-element pass
+probechk stb-shared-port pass

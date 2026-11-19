@@ -1,0 +1,8 @@
+
+probechk hier-bias pass
+probechk hier-drain pass
+probechk hier-terminals-sum pass
+probechk hier-port-nested pass
+probechk hier-two-terminal pass
+probechk hier-position pass
+probechk hier-top-port-by-name pass

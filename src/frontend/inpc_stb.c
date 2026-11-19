@@ -25,6 +25,22 @@
    Adding sources to a deck that is being read is what .probe does as
    well, see inpc_probe.c.
 
+   Current probes. A .probe I(...) that the code of inpc_probe.c cannot
+   serve itself, because it names a terminal inside a subcircuit
+   instance, a port of an instance by its name or a terminal of an OSDI
+   device, is handed over here as an .iprobe card and inserted by the
+   same code as a terminal probe of stb. Such a probe is a current probe:
+   its source has the opposite sign, the net y its positive node, so
+   that its branch is the current into the terminal; its new node has
+   the infix #probe_int_, which no plot saves; after the circuit is made
+   the source is renamed <path>:<terminal>, so that its vector is
+   <path>:<terminal>#branch, and it is saved. Without a terminal a probe
+   stands for every terminal of the instance; for an instance of two
+   terminals it is one probe, named <path>, of the current out of the
+   second terminal, as .probe has it at the top level. A current probe
+   and a probe of stb never share a source: on the same terminal their
+   sources are in series. See doc/claude/specs/terminal-current-probes.md.
+
    The names follow the case mode of the netlist (casemode=fold, preserve
    or distinguish). An instance, a port of a subcircuit, a node and a
    model are names the deck wrote: they are compared with ng_ideq() and
@@ -43,9 +59,11 @@
 #include "ngspice/inpdefs.h"
 #include "ngspice/stringskip.h"
 #include "ngspice/wordlist.h"
+#include "ngspice/ifsim.h"
+#include "ngspice/cktdefs.h"
+#include "ngspice/hash.h"
 
 #ifdef XSPICE
-#include "ngspice/ifsim.h"
 #include "ngspice/mifparse.h"
 #endif
 
@@ -66,6 +84,12 @@ struct stb_ins {
     char *xnode;            /* the new node, on the side of the instance */
     char *ynode;            /* the net the terminal was on */
     char *vname;            /* the source: "v." and the new node */
+    char *cname;            /* a current probe: the name the source gets
+                             * when the circuit is made, else NULL */
+    bool current;           /* made for a current probe (.probe) */
+    bool whole;             /* a current probe of an instance of two
+                             * terminals: at the second, the current out of
+                             * it into the net */
     bool port;              /* made for a port of a subcircuit instance */
     bool live;              /* the new node is in the flat deck */
     bool used;              /* a probe stands for it */
@@ -85,6 +109,12 @@ struct stb_probe {
     char *twin;             /* a subcircuit instance whose name differs
                              * from inst only in case (distinguish) */
     bool posnote;           /* its number is also the name of a port */
+    bool current;           /* a current probe of .probe, not of stb */
+    bool whole;             /* a current probe of an instance of two
+                             * terminals without a terminal: at the
+                             * second, named <path> */
+    bool spawned;           /* a probe without a terminal, which has been
+                             * replaced by one probe per terminal */
     struct stb_probe *next;
 };
 
@@ -103,6 +133,9 @@ static struct stb_ins *hits = NULL;
 static wordlist *restored = NULL;
 /* what the names made here have between the instance and the position */
 static char *infix = NULL;
+/* the same for the nodes of current probes; outitf.c leaves a node with
+ * "probe_int_" in its name out of the plots, as it does for .probe */
+static char *cinfix = NULL;
 /* the subcircuits of that deck are being expanded */
 static bool expanding = FALSE;
 
@@ -338,6 +371,7 @@ stb_free_ins(struct stb_ins *h)
     tfree(h->xnode);
     tfree(h->ynode);
     tfree(h->vname);
+    tfree(h->cname);
     tfree(h);
 }
 
@@ -357,7 +391,7 @@ stb_free_probe(struct stb_probe *p)
 
 static struct stb_ins *
 stb_new_ins(const char *key, const char *inst, int pos, const char *tname,
-            const char *ynode, bool port)
+            const char *ynode, bool port, bool current)
 {
     struct stb_ins *h = TMALLOC(struct stb_ins, 1);
     struct stb_ins *t;
@@ -376,6 +410,9 @@ stb_new_ins(const char *key, const char *inst, int pos, const char *tname,
     h->xnode = n ? tprintf("%s_%d", key, n + 1) : copy(key);
     h->ynode = copy(ynode);
     h->vname = tprintf("v.%s", h->xnode);
+    h->cname = NULL;
+    h->current = current;
+    h->whole = FALSE;
     h->port = port;
     h->live = FALSE;
     h->used = FALSE;
@@ -412,6 +449,7 @@ inp_stb_discard(void)
     wl_free(restored);
     restored = NULL;
     tfree(infix);
+    tfree(cinfix);
     expanding = FALSE;
 }
 
@@ -483,22 +521,25 @@ inp_stb_restore(struct card *deck)
 
 
 /* Keep the word if it is a terminal probe that is written out. Returns
- * TRUE if it is a new one. */
+ * TRUE if it is a new one. A current probe (current) may have no
+ * terminal: it stands for every terminal of the instance. A probe of
+ * stb and a current probe are two probes even when they are spelt the
+ * same, since their sources have opposite signs. */
 static bool
-stb_add(const char *word)
+stb_add_probe(const char *word, bool current)
 {
     struct stb_probe *p, *t;
     char *text, *colon;
 
     /* a word that is made when the command runs is not known here */
-    if (!strchr(word, ':') || strpbrk(word, "$\"'`{}"))
+    if ((!current && !strchr(word, ':')) || strpbrk(word, "$\"'`{}"))
         return FALSE;
 
     text = copy(word);
     stb_fold(text);
 
     for (t = pending; t; t = t->next)
-        if (ng_ideq(t->text, text)) {
+        if (t->current == current && ng_ideq(t->text, text)) {
             tfree(text);
             return FALSE;
         }
@@ -506,15 +547,18 @@ stb_add(const char *word)
     p = TMALLOC(struct stb_probe, 1);
     colon = strrchr(text, ':');
     p->text = text;
-    p->inst = copy_substring(text, colon);
-    p->term = copy(colon + 1);
+    p->inst = colon ? copy_substring(text, colon) : copy(text);
+    p->term = copy(colon ? colon + 1 : "");
     p->key = NULL;
     p->ins = NULL;
     p->reason = NULL;
     p->twin = NULL;
     p->posnote = FALSE;
+    p->current = current;
+    p->whole = FALSE;
+    p->spawned = FALSE;
     p->next = NULL;
-    if (!*p->inst || !*p->term)
+    if (!*p->inst || (colon && !*p->term))
         p->reason = copy("malformed terminal probe");
 
     if (!pending) {
@@ -526,6 +570,56 @@ stb_add(const char *word)
     }
 
     return TRUE;
+}
+
+
+static bool
+stb_add(const char *word)
+{
+    return stb_add_probe(word, FALSE);
+}
+
+
+/* A probe without a terminal has been found to be an instance of
+ * terminals that can be counted: put a probe of the terminal term after
+ * 'after', in the place of the probe p. Returns the new probe. */
+static struct stb_probe *
+stb_spawn(struct stb_probe *p, struct stb_probe *after, const char *term,
+          bool whole)
+{
+    struct stb_probe *q = TMALLOC(struct stb_probe, 1);
+
+    q->text = tprintf("%s:%s", p->inst, term);
+    q->inst = copy(p->inst);
+    q->term = copy(term);
+    q->key = NULL;
+    q->ins = NULL;
+    q->reason = NULL;
+    q->twin = p->twin ? copy(p->twin) : NULL;
+    q->posnote = FALSE;
+    q->current = p->current;
+    q->whole = whole;
+    q->spawned = FALSE;
+    q->next = after->next;
+    after->next = q;
+    p->spawned = TRUE;
+
+    return q;
+}
+
+
+/* The name that the source of a current probe gets: <path>:<terminal>,
+ * or <path> for a probe of an instance of two terminals. Under fold the
+ * name is in lower case, as the names of the deck are. */
+static char *
+stb_cname(const char *path, const char *term, bool whole)
+{
+    char *name = whole ? copy(path) : tprintf("%s:%s", path, term);
+
+    if (inp_case_folding())
+        strtolower(name);
+
+    return name;
 }
 
 
@@ -598,16 +692,38 @@ inp_stb_collect(struct card *deck, wordlist *controls, struct card *mcdeck)
     }
     wl_free(again);
 
+    /* The current probes that inp_probe() (inpc_probe.c) has handed over,
+     * after the probes of stb: on a terminal that is both, the source of
+     * stb is the one next to the net. The cards are in the stored copy
+     * of the deck, so that a deck read again has them as well; here they
+     * become comments. */
+    for (c = deck; c; c = c->nextcard) {
+        char *s = c->line;
+
+        if (ciprefix(".iprobe", s) && isspace_c(s[7])) {
+            char *word = stb_first_token(s + 7);
+            stb_add_probe(word, TRUE);
+            tfree(word);
+            *s = '*';
+        }
+    }
+
     /* The names made here have the infix between the instance and the
      * position. An element line of the deck that has it already makes it
      * longer, so that no made name can be a name of the deck. */
     if (pending) {
+        cinfix = copy("#probe_int_");
         c = deck;
         while (c) {
             if (stb_live(c) && stb_find_name(c->line, infix)) {
                 char *longer = tprintf("%s#", infix);
                 tfree(infix);
                 infix = longer;
+                c = deck;
+            } else if (stb_live(c) && stb_find_name(c->line, cinfix)) {
+                char *longer = tprintf("%s#", cinfix);
+                tfree(cinfix);
+                cinfix = longer;
                 c = deck;
             } else {
                 c = c->nextcard;
@@ -698,8 +814,24 @@ inp_stb_xcard(const char *xline, const char *subname, const char *formals,
         char *key;
         int k = 0;
 
-        if (!ng_ideq(p->inst, name))
+        if (!ng_ideq(p->inst, name) || p->spawned)
             continue;
+
+        /* A current probe without a terminal: every port, as probes of
+         * their own that the loop comes to next. An instance of two ports
+         * is one probe, at the second, as .probe has it at the top level:
+         * the current out of that port. What goes in at the first need
+         * not be the same, since an element inside can be on ground. */
+        if (p->current && !*p->term) {
+            struct stb_probe *at = p;
+
+            if (nformals == 2)
+                stb_spawn(p, p, formal[1], TRUE);
+            else
+                for (i = 0; i < nformals; i++)
+                    at = stb_spawn(p, at, formal[i], FALSE);
+            continue;
+        }
 
         if (stb_all_digits(p->term)) {
             if (strlen(p->term) < 9)
@@ -754,13 +886,24 @@ inp_stb_xcard(const char *xline, const char *subname, const char *formals,
             continue;
         }
 
-        /* two spellings of one port share the source */
-        key = tprintf("%s%s%d", name, infix, k);
+        /* two spellings of one port share the source; a current probe has
+         * a source of its own, in series with that of stb, and the probe
+         * of an instance of two ports another one */
+        if (!p->current)
+            key = tprintf("%s%s%d", name, infix, k);
+        else if (p->whole)
+            key = tprintf("%s%s0", name, cinfix);
+        else
+            key = tprintf("%s%s%d", name, cinfix, k);
         for (h = first; h; h = h->next)
             if (ng_ideq(h->key, key))
                 break;
         if (!h) {
-            h = stb_new_ins(key, name, k, formal[k - 1], actual[k], TRUE);
+            h = stb_new_ins(key, name, k, formal[k - 1], actual[k], TRUE,
+                            p->current);
+            h->whole = p->whole;
+            if (p->current)
+                h->cname = stb_cname(name, formal[k - 1], p->whole);
             if (!first)
                 first = h;
             tfree(actual[k]);
@@ -821,6 +964,130 @@ stb_is_model(struct card *deck, const char *name)
 }
 
 
+/* The letters of the terminals for a current probe: those of stb, and a
+ * c for a diode, the anode and the cathode (k is the cathode as well). */
+static const char *
+stb_cur_letters(char dev)
+{
+    if (tolower_c(dev) == 'd')
+        return "ac";
+
+    return stb_letters(dev);
+}
+
+
+/* The device of an N line (an OSDI device) whose model is the word after
+ * its n nodes: the type on the .model card of that model, or NULL. A
+ * model that is binned has cards name.1, name.2, ... of one type. */
+static IFdevice *
+stb_osdi_device(struct card *deck, char *line, int n)
+{
+    char *start, *end, *model;
+    char *s = NULL, *e = NULL;
+    struct card *c;
+    size_t len;
+    int i;
+
+    if (!stb_token(line, n + 1, &start, &end))
+        return NULL;
+    model = copy_substring(start, end);
+    len = strlen(model);
+
+    for (c = deck; c; c = c->nextcard) {
+        if (!c->line || !ciprefix(".model", c->line) || !isspace_c(c->line[6]))
+            continue;
+        s = skip_ws(c->line + 6);
+        if (!stb_ideqn(s, model, len))
+            continue;
+        s += len;
+        if (*s == '.' && isdigit_c(s[1]))
+            for (s++; isdigit_c(*s); s++)
+                ;
+        if (!isspace_c(*s))
+            continue;
+        s = skip_ws(s);
+        for (e = s; *e && !isspace_c(*e) && *e != '('; e++)
+            ;
+        break;
+    }
+    tfree(model);
+    if (!c)
+        return NULL;
+
+    /* the type of a model is a word the simulator defines: any case */
+    for (i = 0; i < ft_sim->numDevices; i++) {
+        IFdevice *dev = ft_sim->devices[i];
+
+        if (dev && dev->termNames && dev->terms &&
+            strlen(dev->name) == (size_t) (e - s) && ciprefix(dev->name, s))
+            return dev;
+    }
+
+    return NULL;
+}
+
+
+/* The spelling of terminal k (from 1) of an element for a current probe
+ * that stands for one terminal of a probe without a terminal: its letter,
+ * the name the OSDI device gives it, or its position. */
+static char *
+stb_term_name(const char *letters, const IFdevice *odev, int k)
+{
+    if (letters && k <= (int) strlen(letters))
+        return tprintf("%c", letters[k - 1]);
+    if (odev && k <= *odev->terms && odev->termNames[k - 1])
+        return copy(odev->termNames[k - 1]);
+
+    return tprintf("%d", k);
+}
+
+
+/* The name of terminal k (from 1) of an element in the vector of a
+ * current probe: the name .probe gives it at the top level
+ * (get_terminal_name() of inpc_probe.c), so that a terminal has one name
+ * at every depth; of an OSDI device the name its model gives it, which
+ * the top level has from here as well. */
+static char *
+stb_vec_term(char dev, const IFdevice *odev, int k)
+{
+    static const char *const mos[] = { "d", "g", "s", "b_tj", "tc", "n6", "n7" };
+    static const char *const bjt[] = { "c", "b", "e", "s", "t" };
+    static const char *const jfet[] = { "d", "g", "s" };
+    static const char *const diode[] = { "a", "c" };
+    const char *const *names = NULL;
+    int n = 0;
+
+    if (odev && k <= *odev->terms && odev->termNames[k - 1])
+        return copy(odev->termNames[k - 1]);
+
+    switch (tolower_c(dev)) {
+    case 'm':
+        names = mos;
+        n = 7;
+        break;
+    case 'q':
+        names = bjt;
+        n = 5;
+        break;
+    case 'j':
+    case 'z':
+        names = jfet;
+        n = 3;
+        break;
+    case 'd':
+        names = diode;
+        n = 2;
+        break;
+    default:
+        break;
+    }
+    if (k <= n)
+        return copy(names[k - 1]);
+
+    return tprintf("n%d", k);
+}
+
+
 /* The probe names a terminal of the element on card c: put the terminal
  * on a new node. On failure the probe gets the reason. */
 static void
@@ -828,7 +1095,9 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
 {
     char *line = c->line;
     char *name = stb_first_token(line);
-    const char *letters = stb_letters(*name);
+    const char *letters = p->current ? stb_cur_letters(*name) :
+                                       stb_letters(*name);
+    IFdevice *odev = NULL;
     struct stb_ins *h;
     char *start, *end;
     char *key, *ynode;
@@ -891,16 +1160,75 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
         tfree(made);
     }
 
+    /* the terminals of an OSDI device have the names of its model */
+    if (!p->reason && p->current && tolower_c(*name) == 'n')
+        odev = stb_osdi_device(deck, line, n);
+
+    /* A current probe without a terminal: every terminal, as probes of
+     * their own that the caller comes to next; of a controlled source or
+     * a switch the two nodes of its output. An element of two terminals
+     * is one probe, at the second, as .probe has it at the top level: the
+     * current out of it, which is the current through the element from
+     * its first terminal to its second. */
+    if (!p->reason && p->current && !*p->term) {
+        struct stb_probe *at = p;
+        int nn = strchr("efghsw", tolower_c(*name)) ? 2 : n;
+        char *term;
+
+        if (nn == 2) {
+            term = stb_term_name(letters, odev, 2);
+            stb_spawn(p, p, term, TRUE);
+            tfree(term);
+        } else {
+            for (k = 1; k <= nn; k++) {
+                term = stb_term_name(letters, odev, k);
+                at = stb_spawn(p, at, term, FALSE);
+                tfree(term);
+            }
+        }
+        tfree(name);
+        return;
+    }
+
     if (!p->reason) {
         const char *l = NULL;
 
-        if (letters && p->term[0] && !p->term[1])
-            l = strchr(letters, tolower_c(p->term[0]));
-        if (stb_all_digits(p->term)) {
+        if (letters && p->term[0] && !p->term[1]) {
+            char t = (char) tolower_c(p->term[0]);
+            /* k, the cathode of a diode, is c */
+            if (p->current && tolower_c(*name) == 'd' && t == 'k')
+                t = 'c';
+            l = strchr(letters, t);
+        }
+        if (odev && !stb_all_digits(p->term)) {
+            int i;
+            /* a name of a terminal is a word of the model: any case */
+            for (i = 0; i < *odev->terms && !k; i++)
+                if (odev->termNames[i] &&
+                    strlen(odev->termNames[i]) == strlen(p->term) &&
+                    ciprefix(odev->termNames[i], p->term))
+                    k = i + 1;
+        }
+        if (k) {
+            ;
+        } else if (stb_all_digits(p->term)) {
             if (strlen(p->term) < 9)
                 k = atoi(p->term);
         } else if (l && l - letters < n) {
             k = (int) (l - letters) + 1;
+        } else if (odev) {
+            char *list = copy(odev->termNames[0] ? odev->termNames[0] : "");
+            int i;
+
+            for (i = 1; i < *odev->terms && i < n; i++) {
+                char *more = tprintf("%s %s", list,
+                                     odev->termNames[i] ? odev->termNames[i] : "");
+                tfree(list);
+                list = more;
+            }
+            p->reason = tprintf("%s has no terminal named %s (1 to %d, or %s)",
+                                p->inst, p->term, n, list);
+            tfree(list);
         } else if (letters) {
             /* the letters of the nodes that the line has */
             char *list = TMALLOC(char, 2 * strlen(letters) + 1);
@@ -928,13 +1256,27 @@ stb_element(struct card *deck, struct card *c, struct stb_probe *p)
         return;
     }
 
-    key = tprintf("%s%s%d", name, infix, k);
+    if (!p->current)
+        key = tprintf("%s%s%d", name, infix, k);
+    else if (p->whole)
+        key = tprintf("%s%s0", name, cinfix);
+    else
+        key = tprintf("%s%s%d", name, cinfix, k);
     for (h = hits; h; h = h->next)
         if (!h->port && ng_ideq(h->key, key))
             break;
     if (!h) {
         ynode = copy_substring(start, end);
-        h = stb_new_ins(key, name, k, NULL, ynode, FALSE);
+        h = stb_new_ins(key, name, k, NULL, ynode, FALSE, p->current);
+        h->whole = p->whole;
+        if (p->current) {
+            char *path = stb_path(name);
+            char *term = stb_vec_term(*name, odev, k);
+
+            h->cname = stb_cname(path, term, p->whole);
+            tfree(path);
+            tfree(term);
+        }
         c->line = tprintf("%.*s%s%s", (int) (start - line), line,
                           h->xnode, end);
         tfree(line);
@@ -1281,11 +1623,12 @@ inp_stb_insert(struct card *deck)
         return;
 
     /* a word with a colon that is the name of an element is no terminal
-     * probe: .probe makes such names */
+     * probe: .probe makes such names. A current probe is one of .probe. */
     for (pp = &pending; (p = *pp) != NULL; ) {
         bool isname = FALSE;
 
-        for (c = deck; c && !isname && !p->key; c = c->nextcard)
+        for (c = deck; c && !isname && !p->key && !p->current;
+             c = c->nextcard)
             if (stb_live(c)) {
                 char *name = stb_first_token(c->line);
                 isname = ng_ideq(name, p->text);
@@ -1307,6 +1650,31 @@ inp_stb_insert(struct card *deck)
                 h->live = TRUE;
                 h->card = c;
             }
+
+    /* A port with a probe of stb and a current probe has two sources in
+     * series: the elements are on the new node of the inner one, whose y
+     * is the new node of the outer one. That node is on no card until
+     * the inner source is placed, behind the same card. */
+    for (;;) {
+        bool more = FALSE;
+
+        for (h = hits; h; h = h->next) {
+            struct stb_ins *t;
+
+            if (h->live || !h->port)
+                continue;
+            for (t = hits; t; t = t->next)
+                if (t != h && t->live && t->port &&
+                    ng_ideq(t->ynode, h->xnode)) {
+                    h->live = TRUE;
+                    h->card = t->card;
+                    more = TRUE;
+                    break;
+                }
+        }
+        if (!more)
+            break;
+    }
 
     for (p = pending; p; p = p->next) {
         struct stb_ins *found = NULL;
@@ -1345,10 +1713,18 @@ inp_stb_insert(struct card *deck)
     }
 #endif
 
-    /* a new node that no probe stands for goes back to its net */
+    /* a new node that no probe stands for goes back to its net, also as
+     * the y of a source in series with it */
     for (h = hits; h; h = h->next)
         if (h->live && !h->used) {
+            struct stb_ins *t;
+
             stb_replace_all(deck, h->xnode, h->ynode);
+            for (t = hits; t; t = t->next)
+                if (t != h && ng_ideq(t->ynode, h->xnode)) {
+                    tfree(t->ynode);
+                    t->ynode = copy(h->ynode);
+                }
             h->live = FALSE;
         }
 
@@ -1357,7 +1733,7 @@ inp_stb_insert(struct card *deck)
         struct card *found;
         int n;
 
-        if (p->key || p->reason)
+        if (p->key || p->reason || p->spawned)
             continue;
         found = stb_find_card(deck, p->inst, FALSE, &n);
         if (n == 0)
@@ -1371,17 +1747,38 @@ inp_stb_insert(struct card *deck)
             stb_element(deck, found, p);
     }
 
-    /* the sources: the new node is the positive one */
+    /* the sources: for stb the new node is the positive one, for a
+     * current probe the net, so that the branch is the current into the
+     * terminal; for the probe of an instance of two terminals, at the
+     * second, the new node again: the current out of it */
     for (h = hits; h; h = h->next)
-        if (h->live && h->used)
+        if (h->live && h->used) {
+            bool into = h->current && !h->whole;
+
             insert_new_line(h->card,
-                            tprintf("%s %s %s dc 0", h->vname, h->xnode, h->ynode),
+                            tprintf("%s %s %s dc 0", h->vname,
+                                    into ? h->ynode : h->xnode,
+                                    into ? h->xnode : h->ynode),
                             0, h->card->linenum_orig,
                             h->card->linesource ? h->card->linesource : "internal");
+        }
 
     stb_ic_twin(deck);
 
+    /* A current probe is silent when it is inserted, as .probe is; when it
+     * is not, the line says why. */
     for (p = pending; p; p = p->next) {
+        if (p->spawned)
+            continue;
+        if (p->current) {
+            if (p->posnote)
+                fprintf(cp_out, "probe: I(%s): %s is taken as a position, not as the port named %s\n",
+                        p->text, p->term, p->term);
+            if (!p->ins)
+                fprintf(cp_out, "probe: I(%s) not inserted: %s\n",
+                        p->text, p->reason ? p->reason : "no such terminal");
+            continue;
+        }
         if (p->posnote)
             fprintf(cp_out, "stb: probe %s: %s is taken as a position, not as the port named %s\n",
                     p->text, p->term, p->term);
@@ -1394,6 +1791,68 @@ inp_stb_insert(struct card *deck)
             fprintf(cp_out, "stb: probe %s not inserted: %s\n",
                     p->text, p->reason);
         }
+    }
+}
+
+
+/* The deck is flat and its probes are inserted: the .save of the vectors
+ * of the current probes, appended to the list of the dot cards of the
+ * deck (inp.c). .probe has added '.save all' already if the deck has no
+ * save of its own. */
+wordlist *
+inp_stb_saves(wordlist *wl)
+{
+    struct stb_ins *h;
+    char *line = NULL;
+
+    for (h = hits; h; h = h->next) {
+        char *more;
+
+        if (!h->current || !h->live || !h->used || !h->cname)
+            continue;
+        more = line ? tprintf("%s %s#branch", line, h->cname) :
+                      tprintf(".save %s#branch", h->cname);
+        tfree(line);
+        line = more;
+    }
+    if (line)
+        wl = wl_append(wl, wl_cons(line, NULL));
+
+    return wl;
+}
+
+
+/* The circuit has been made: the source of each current probe gets the
+ * name of its probe, <path>:<terminal>, so that the branch it makes when
+ * the circuit is set up is <path>:<terminal>#branch. The name is entered
+ * into the table of the names of the circuit in place of the old one,
+ * unless an instance has it already (an element of two terminals at the
+ * top level, which gives its name to its probe as .probe does). */
+void
+inp_stb_rename(CKTcircuit *ckt, INPtables *tab)
+{
+    struct stb_ins *h;
+
+    if (!ckt || !tab)
+        return;
+
+    for (h = hits; h; h = h->next) {
+        GENinstance *inst;
+        char *name;
+
+        if (!h->current || !h->live || !h->used || !h->cname)
+            continue;
+        inst = ft_sim->findInstance(ckt, h->vname);
+        if (!inst)
+            continue;
+        name = copy(h->cname);
+        INPinsert(&name, tab);
+        nghash_delete(ckt->DEVnameHash, inst->GENname);
+        inst->GENname = name;
+        if (!nghash_find(ckt->DEVnameHash, name))
+            nghash_insert(ckt->DEVnameHash, name, inst);
+        tfree(h->vname);
+        h->vname = copy(name);
     }
 }
 
@@ -1460,8 +1919,10 @@ inp_stb_lookup(CKTcircuit *ckt, const char *probe, const char **vname,
     text = copy(probe);
     stb_fold(text);
 
+    /* a current probe of .probe is none of the analysis: its source has
+     * the other sign */
     for (p = ft_curckt->ci_stbprobes; p && ret < 0; p = p->next)
-        if (ng_ideq(p->text, text)) {
+        if (!p->current && ng_ideq(p->text, text)) {
             if (p->ins) {
                 *vname = p->ins->vname;
                 ret = 0;
@@ -1476,7 +1937,7 @@ inp_stb_lookup(CKTcircuit *ckt, const char *probe, const char **vname,
         char *inst = copy_substring(text, colon);
 
         for (p = ft_curckt->ci_stbprobes; p && ret < 0; p = p->next)
-            if (p->ins && stb_same_terminal(p->ins, colon + 1) &&
+            if (!p->current && p->ins && stb_same_terminal(p->ins, colon + 1) &&
                 (ng_ideq(p->ins->inst, inst) ||
                  stb_names(p->ins->inst, inst))) {
                 *vname = p->ins->vname;

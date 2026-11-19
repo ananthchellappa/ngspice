@@ -1,0 +1,44 @@
+* probe: terminal currents down the hierarchy in a transient analysis
+*
+* x1 (filt): r1 1k from a to b, c1 1u from b to ground, driven by a step
+* of 1 V. b has nothing but r1 and c1 on it, so at every time point
+*   x1.c1     into c1 at b: (v(in) - v(out))/1k, what r1 hands on
+*   x1.r1:n2  out of r1 at b, the same with the other sign
+*   x1:a      into the port a: (v(in) - v(out))/1k as well
+* and after the step c1 charges with the time constant 1 ms: the
+* current is 1m exp(-t/1m), to within the error of the integration.
+vin in 0 pwl(0 0 1n 1 10m 1)
+x1 in out filt
+.subckt filt a b
+r1 a b 1k
+c1 b 0 1u
+.ends
+.probe I(x1.c1) I(x1.r1,2) I(x1,a)
+.control
+tran 5u 3m 0 5u
+let k = 0
+let ir = (v(in) - v(out))/1k
+let k = (vecmax(abs(i(x1.c1) - ir)) < 1e-9) & (vecmax(abs(i(x1.c1))) > 9e-4)
+if k
+  echo probechk tran-capacitor pass
+else
+  echo probechk tran-capacitor fail
+end
+let k = 0
+let k = (vecmax(abs(i(x1.r1:n2) + ir)) < 1e-9) & (vecmax(abs(i(x1:a) - ir)) < 1e-9)
+if k
+  echo probechk tran-resistor-and-port pass
+else
+  echo probechk tran-resistor-and-port fail
+end
+let k = 0
+let late = time ge 10u
+let ia = 1m*exp(-(time - 0.5n)/1m)
+let k = (vecmax(late*abs(i(x1.c1) - ia)) < 5e-6)
+if k
+  echo probechk tran-time-constant pass
+else
+  echo probechk tran-time-constant fail
+end
+.endc
+.end

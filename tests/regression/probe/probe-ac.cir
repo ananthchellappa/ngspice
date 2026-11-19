@@ -1,0 +1,55 @@
+* probe: terminal currents down the hierarchy in an ac analysis
+*
+* x1 (filt): r1 1k from a to b, c1 1u from b to ground.
+*   x1.c1    an element of two terminals without a terminal: the small
+*            signal into c1, j w 1u v(out), complex, at every frequency
+*   x1:a     a port by its name: (v(in) - v(out))/1k
+* x2 (cs): rd 1k from p to d, m1 with its gate on the port g and its
+* source on ground; level 1, lambda 0: the small signal into the drain
+* is gm v(g2), gm = kp w/l (vgs - vt) = 100u (1 - 0.5) = 50 uS.
+*   x2.m1:d  gm, real, at every frequency. The bias point value
+*            @m.x2.m1[id] is no small signal: the probe is not that
+vin in 0 dc 0 ac 1
+x1 in out filt
+.subckt filt a b
+r1 a b 1k
+c1 b 0 1u
+.ends
+vdd vdd 0 dc 2
+vg2 g2 0 dc 1 ac 1
+x2 vdd g2 d2 cs
+.subckt cs p g d
+rd p d 1k
+m1 d g 0 0 nmod w=1u l=1u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.probe I(x1.c1) I(x1,a) I(x2.m1,d)
+.control
+ac dec 2 10 100k
+let k = 0
+let w = 2*pi*frequency
+let e = mag(i(x1.c1) - j(w*1u*v(out)))
+let k = (vecmax(e) < 1e-12) & (vecmax(mag(i(x1.c1))) > 1e-5)
+if k
+  echo probechk ac-capacitor pass
+else
+  echo probechk ac-capacitor fail
+end
+let k = 0
+let e = mag(i(x1:a) - (v(in) - v(out))/1k)
+let k = (vecmax(e) < 1e-12) & (vecmax(mag(i(x1:a))) > 1e-5)
+if k
+  echo probechk ac-port pass
+else
+  echo probechk ac-port fail
+end
+let k = 0
+let e = mag(i(x2.m1:d) - 50u)
+let k = (vecmax(e) < 1e-12)
+if k
+  echo probechk ac-mos-drain pass
+else
+  echo probechk ac-mos-drain fail
+end
+.endc
+.end

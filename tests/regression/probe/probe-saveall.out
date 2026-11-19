@@ -1,0 +1,8 @@
+
+out = 1.818182e+00
+vdd = 2.000000e+00
+vdd#branch = -1.81818e-04
+x1.m = 1.909091e+00
+x1.r1#branch = 1.818182e-04
+x1:o#branch = -1.81818e-04
+probechk saveall-probes pass

@@ -1,0 +1,4 @@
+
+probechk legacy-mos pass
+probechk legacy-bjt pass
+probechk legacy-two-terminal-and-port pass

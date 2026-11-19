@@ -1129,6 +1129,9 @@ inp_spsource(FILE *fp, bool comfile, char *filename, bool intfile)
             /* If user wants all currents saved (.options savecurrents), add .save 
             to wl_first with all terminal currents available on selected devices */
             wl_first = inp_savecurrents(deck, options, wl_first, controls);
+            /* the vectors of the current probes of .probe that are inside
+               instances (inpc_stb.c) */
+            wl_first = inp_stb_saves(wl_first);
 #ifdef REM_UNUSED
             /* Circuit is flat, all numbers expanded.
                So again try to remove unused MOS models.
@@ -1485,6 +1488,9 @@ inp_dodeck(
         if (cp_getvar("probe_is_given", CP_BOOL, NULL, 0)) {
             modprobenames(tab);
         }
+        /* the sources of the current probes inside instances get the
+           names of their vectors (inpc_stb.c) */
+        inp_stb_rename(ckt, tab);
     } else {
         ckt = NULL;
     }

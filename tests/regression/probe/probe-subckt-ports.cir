@@ -1,0 +1,49 @@
+* probe: the ports of a subcircuit instance, at the top level and inside
+*
+* two holds r1 1k from a to y and rg 1k from y to ground, so what goes
+* in at a does not all come out at y. x1 is an instance of two at the
+* top level, xa.x1 the same inside xa; each drives 1k to ground. Then
+* v(y) = 1/3 V, 2/3 mA go in at a and -1/3 mA at y (out into the load).
+*
+*   x1, xa.x1          a subcircuit instance of two ports without a port:
+*                      one vector, the current out of the second port, as
+*                      .probe has had it at the top level, named after the
+*                      instance at every depth: x1#branch, xa.x1#branch,
+*                      1/3 mA. Into the first port go 2/3 mA: x1:a
+*   x1,1 and x1,a      two spellings of one port: one source, x1:a#branch;
+*                      at the top level as inside
+*   xa.x1,2 and xa.x1,y one source, xa.x1:y#branch
+* The list of the vectors is in the expected output: a second source for
+* a second spelling would be a second line.
+vdd vdd 0 1
+x1 vdd m1 two
+rl1 m1 0 1k
+xa vdd m2 wrap
+rl2 m2 0 1k
+.subckt two a y
+r1 a y 1k
+rg y 0 1k
+.ends
+.subckt wrap p o
+x1 p o two
+.ends
+.probe I(x1) I(xa.x1) I(x1,1) I(x1,a) I(xa.x1,2) I(xa.x1,y)
+.control
+op
+print all
+let k = 0
+let k = (abs(i(x1) - 1m/3) < 1e-15) & (abs(i(xa.x1) - i(x1)) < 1e-15)
+if k
+  echo probechk ports-whole-instance pass
+else
+  echo probechk ports-whole-instance fail
+end
+let k = 0
+let k = (abs(i(x1:a) - 2m/3) < 1e-15) & (abs(i(xa.x1:y) + 1m/3) < 1e-15)
+if k
+  echo probechk ports-two-spellings pass
+else
+  echo probechk ports-two-spellings fail
+end
+.endc
+.end

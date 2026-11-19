@@ -1,0 +1,4 @@
+
+probechk ac-capacitor pass
+probechk ac-port pass
+probechk ac-mos-drain pass

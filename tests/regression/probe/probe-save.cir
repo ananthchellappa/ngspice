@@ -1,0 +1,27 @@
+* probe: a probe inside an instance is saved next to the .save of the deck
+*
+* With a .save of its own the deck keeps what it names and the probes:
+* v(out) and x1.r1#branch, nothing else. The new node of a probe is not
+* a vector.
+vdd vdd 0 dc 2
+x1 vdd out amp
+rl out 0 10k
+.subckt amp p o
+r1 p o 1k
+.ends
+.save v(out)
+.probe I(x1.r1)
+.control
+op
+print all
+let k = 0
+let k = (abs(i(x1.r1) - (2 - v(out))/1k) < 1e-12)
+let k2 = 1
+let k2 = 0 * length(vdd#branch)
+if k & k2
+  echo probechk save-the-deck-and-the-probe pass
+else
+  echo probechk save-the-deck-and-the-probe fail
+end
+.endc
+.end

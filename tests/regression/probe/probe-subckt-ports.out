@@ -1,0 +1,11 @@
+
+m1 = 3.333333e-01
+m2 = 3.333333e-01
+vdd = 1.000000e+00
+vdd#branch = -1.33333e-03
+x1#branch = 3.333333e-04
+x1:a#branch = 6.666667e-04
+xa.x1#branch = 3.333333e-04
+xa.x1:y#branch = -3.33333e-04
+probechk ports-whole-instance pass
+probechk ports-two-spellings pass

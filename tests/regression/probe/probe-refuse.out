@@ -1,0 +1,8 @@
+
+probe: I(x1.nope:d) not inserted: no instance named x1.nope
+probe: I(x1.x2.m3:q) not inserted: x1.x2.m3 has no terminal named q (1 to 4, or d g s b)
+probe: I(x1.x2.m3:7) not inserted: x1.x2.m3 has 4 terminals
+probe: I(x1.x2:zz) not inserted: x1.x2 has no terminal named zz (1 to 3, the ports of stage: i d s)
+probe: I(x1.k1:1) not inserted: x1.k1 has no terminals
+probe: I(nope:1) not inserted: no instance named nope
+probechk refuse-the-others-are-inserted pass

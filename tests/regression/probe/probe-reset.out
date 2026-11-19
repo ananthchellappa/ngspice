@@ -1,0 +1,4 @@
+
+Reset re-loads circuit * probe: the probes inside instances survive 'reset'
+
+probechk reset-probes-again pass

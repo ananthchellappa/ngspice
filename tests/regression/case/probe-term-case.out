@@ -1,0 +1,9 @@
+
+OUT = 1.818182e+00
+VDD#branch = -1.81818e-04
+X1.Mid = 1.909091e+00
+X1.R1#branch = 1.818182e-04
+X1.R2:n2#branch = -1.81818e-04
+X1:O#branch = -1.81818e-04
+vdd = 2.000000e+00
+probechk case-preserve pass

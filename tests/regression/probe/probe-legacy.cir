@@ -1,0 +1,54 @@
+* probe: the probes of the top level keep their names and values
+*
+* What .probe did at the top level before it reached into instances is
+* unchanged: the same vectors, under the same names.
+*   m1,d     m1:d#branch, the drain: (1.8 - v(d))/1k, 62.5 uA
+*   m1,b     m1:b_tj#branch, the fourth node of an m line
+*   q1       all terminals of the bjt: q1:c, q1:b, q1:e; into the base
+*            (1.8 - v(b1))/100k, into the emitter -v(e1)/1k; the three
+*            sum to the gmin current of the substrate, which is not on
+*            the line
+*   rd       an element of two terminals: rd#branch, into rd at vdd
+*   x1,2     a port of a subcircuit instance by its position: named by
+*            the port, x1:y#branch, out of x1 into rl: -v(mid)/10k
+vdd vdd 0 1.8
+vg g 0 1.0
+rd vdd d 1k
+m1 d g 0 0 nmod w=1u l=0.2u
+q1 vdd b1 e1 qmod
+rb vdd b1 100k
+re e1 0 1k
+x1 vdd mid inv
+rl mid 0 10k
+.subckt inv a y
+r1 a y 1k
+m2 y a 0 0 nmod w=1u l=0.2u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.model qmod npn bf=100
+.probe I(m1,d) I(m1,b) I(q1) I(rd) I(x1,2)
+.control
+op
+let k = 0
+let k = (abs(i(m1:d) - (1.8 - v(d))/1k) < 1e-15) & (abs(i(m1:d) - 62.5u) < 1e-10) & (abs(i(m1:b_tj)) < 1e-10)
+if k
+  echo probechk legacy-mos pass
+else
+  echo probechk legacy-mos fail
+end
+let k = 0
+let k = (abs(i(q1:b) - (1.8 - v(b1))/100k) < 1e-15) & (abs(i(q1:e) + v(e1)/1k) < 1e-15) & (abs(i(q1:c) + i(q1:b) + i(q1:e)) < 1e-11) & (abs(i(q1:c) - @q1[ic]) < 2e-3*@q1[ic])
+if k
+  echo probechk legacy-bjt pass
+else
+  echo probechk legacy-bjt fail
+end
+let k = 0
+let k = (abs(i(rd) - (1.8 - v(d))/1k) < 1e-15) & (abs(i(x1:y) + v(mid)/10k) < 1e-15)
+if k
+  echo probechk legacy-two-terminal-and-port pass
+else
+  echo probechk legacy-two-terminal-and-port fail
+end
+.endc
+.end

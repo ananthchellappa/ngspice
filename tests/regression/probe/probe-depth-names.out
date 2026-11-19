@@ -1,0 +1,22 @@
+
+d = 1.737500e+00
+d1:c#branch = 1.747500e-12
+e = 2.607905e-01
+g = 1.000000e+00
+m1:b_tj#branch = -1.74750e-12
+m1:d#branch = 6.250000e-05
+q1:s#branch = -1.80000e-12
+rd:n1#branch = 6.250000e-05
+rd:n2#branch = -6.25000e-05
+vdd = 1.800000e+00
+vdd#branch = -6.41417e-04
+vg#branch = -5.16417e-06
+x0.d = 1.737500e+00
+x0.d1:c#branch = 1.747500e-12
+x0.e = 2.607905e-01
+x0.m1:b_tj#branch = -1.74750e-12
+x0.m1:d#branch = 6.250000e-05
+x0.q1:s#branch = -1.80000e-12
+x0.rd:n1#branch = 6.250000e-05
+x0.rd:n2#branch = -6.25000e-05
+probechk depth-names-same-values pass

@@ -22,7 +22,7 @@ TESTS = harness-alive.cir node-case-split.cir \
 	save-near-miss-node-list.cir \
 	casemode-announce-report.cir curcasemode-relatch.cir \
 	rawfile-casemode-header.cir node-case-collision-report.cir \
-	stb-vprobe-case.cir stb-term-case.cir \
+	stb-vprobe-case.cir stb-term-case.cir probe-term-case.cir \
 	stb-term-hier-case.cir stb-localgnd-case.cir \
 	stb-near-miss-case.cir
 

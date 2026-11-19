@@ -1,0 +1,25 @@
+* probe: without a .save of the deck everything is saved but the new nodes
+*
+* The deck has no .save: .probe saves all vectors and its own. The new
+* node of each probe is not one of them, as for the probes of the top
+* level: print all shows the nets, the sources and the probes only.
+vdd vdd 0 dc 2
+x1 vdd out amp
+rl out 0 10k
+.subckt amp p o
+r1 p m 500
+r2 m o 500
+.ends
+.probe I(x1.r1) I(x1,o)
+.control
+op
+print all
+let k = 0
+let k = (abs(i(x1.r1) - (2 - v(out))/1k) < 1e-12) & (abs(i(x1:o) + v(out)/10k) < 1e-12)
+if k
+  echo probechk saveall-probes pass
+else
+  echo probechk saveall-probes fail
+end
+.endc
+.end

@@ -1,0 +1,32 @@
+* .probe under casemode=preserve: terminal currents inside an instance
+*
+* VDD 2 V, X1 an instance of AMP (R1 500 from P to Mid, R2 500 from Mid
+* to O), RL 10k from OUT to ground: v(OUT) = 20/11 V and 2/11 mA flow
+* through X1.
+*
+* Under preserve the names keep the spelling of the deck and two
+* spellings of one name are one name. So X1,O and x1,o are one port and
+* get one source, which is named after the instance and the port as the
+* deck spells them: X1:O#branch. X1.R1 is the resistor R1 of X1, whose
+* vector is X1.R1#branch; x1.r2,2 is its terminal 2, X1.R2:n2#branch. A
+* second source for another spelling would show as a second vector.
+VDD vdd 0 dc 2
+X1 vdd OUT AMP
+RL OUT 0 10k
+.subckt AMP P O
+R1 P Mid 500
+R2 Mid O 500
+.ends
+.probe I(X1.R1) I(x1.r2,2) I(X1,O) I(x1,o)
+.control
+op
+print all
+let k = 0
+let k = (abs(i(X1.R1) - (2 - v(OUT))/1k) < 1e-15) & (abs(i(X1.R2:n2) + i(X1.R1)) < 1e-15) & (abs(i(X1:O) + v(OUT)/10k) < 1e-15)
+if k
+  echo probechk case-preserve pass
+else
+  echo probechk case-preserve fail
+end
+.endc
+.end

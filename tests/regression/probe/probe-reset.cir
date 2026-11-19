@@ -1,0 +1,36 @@
+* probe: the probes inside instances survive 'reset'
+*
+* 'reset' reads the circuit again from its stored copy. The probes of
+* the .probe card are made again, with the same names: the second
+* operating point has the vectors of the first, with the same values
+* (the first are kept in the plot op1).
+vdd vdd 0 dc 2
+vg g 0 dc 1.5
+x1 vdd g out amp
+rl out 0 10k
+.subckt amp p in o
+r1 p o 1k
+x2 in o mid stage
+r2 mid 0 2k
+.ends
+.subckt stage i d s
+m3 d i s 0 nmod w=2u l=1u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.probe I(x1.x2.m3,d) I(x1.x2,s) I(x1.r1)
+.control
+op
+let first_d = i(x1.x2.m3:d)
+let first_s = i(x1.x2:s)
+let first_r = i(x1.r1)
+reset
+op
+let k = 0
+let k = (abs(i(x1.x2.m3:d) - op1.first_d) < 1e-15) & (abs(i(x1.x2:s) - op1.first_s) < 1e-15) & (abs(i(x1.r1) - op1.first_r) < 1e-15) & (abs(i(x1.x2.m3:d) - v(x1.mid)/2k) < 1e-10)
+if k
+  echo probechk reset-probes-again pass
+else
+  echo probechk reset-probes-again fail
+end
+.endc
+.end

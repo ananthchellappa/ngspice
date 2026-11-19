@@ -1,0 +1,87 @@
+* probe: the spellings of a terminal and the names of the vectors
+*
+* A terminal is a position, counted from 1, a letter of a transistor or
+* a diode, or the name of a port of a subcircuit instance. Its vector
+* is <path>:<terminal>#branch, with the path of the instances and the
+* name .probe gives the terminal at the top level: the letter, b_tj for
+* the fourth of a mos, the name of the port, or n and the position.
+* Two spellings of one terminal are one vector.
+*
+*   x1.x2.m3,1 and x1.x2.m3:d   one vector, x1.x2.m3:d#branch
+*   m.x1.x2.m3,g                the name in the circuit: x1.x2.m3:g
+*   x1.x2.m3                    all four terminals: :d :g :s :b_tj
+*   x1.q1                       all three terminals of the bjt: :c :b :e;
+*                               into the base what vg gives, into the
+*                               emitter -v(x1.e1)/10k, and @q.x1.q1[ic]
+*                               within the tolerance of the solution
+*   x1.x2,2                     port 2 of stage, which is d: x1.x2:d
+*   x1.d1,a and x1.d1,k         the anode and the cathode, k is c:
+*                               x1.d1:a, x1.d1:c; d1 is reversed, a
+*                               small negative current into the anode
+vdd vdd 0 dc 2
+vg g 0 dc 1.5
+x1 vdd g out amp
+rl out 0 10k
+.subckt amp p in o
+r1 p o 1k
+x2 in o mid stage
+r2 mid 0 2k
+q1 p in e1 qmod
+re e1 0 10k
+d1 0 o dmod
+.ends
+.subckt stage i d s
+m3 d i s 0 nmod w=2u l=1u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.model qmod npn bf=100
+.model dmod d
+.probe I(x1.x2.m3,1) I(x1.x2.m3:d) I(m.x1.x2.m3,g) I(x1.x2.m3)
+.probe I(x1.q1) I(x1.x2,2) I(x1.d1,a) I(x1.d1,k)
+.control
+op
+let k = 0
+let k = (length(i(x1.x2.m3:d)) = 1) & (abs(i(x1.x2.m3:s) + v(x1.mid)/2k) < 1e-15) & (abs(i(x1.x2.m3:d) - v(x1.mid)/2k) < 1e-10)
+let k2 = 1
+let k2 = 0 * length(i(x1.x2.m3:1))
+if k & k2
+  echo probechk names-position-is-the-letter pass
+else
+  echo probechk names-position-is-the-letter fail
+end
+let k = 0
+let k = (abs(i(x1.x2.m3:d) + i(x1.x2.m3:g) + i(x1.x2.m3:s) + i(x1.x2.m3:b_tj)) < 1e-15)
+let k2 = 1
+let k2 = 0 * length(i(m.x1.x2.m3:g))
+if k & k2
+  echo probechk names-all-terminals-and-circuit-name pass
+else
+  echo probechk names-all-terminals-and-circuit-name fail
+end
+let k = 0
+let k = (abs(i(x1.q1:b) + vg#branch) < 1e-15) & (abs(i(x1.q1:e) + v(x1.e1)/10k) < 1e-15) & (abs(i(x1.q1:c) + i(x1.q1:b) + i(x1.q1:e)) < 1e-11) & (abs(i(x1.q1:c) - @q.x1.q1[ic]) < 2e-3*@q.x1.q1[ic]) & (i(x1.q1:c) > 1e-5)
+if k
+  echo probechk names-bjt-all pass
+else
+  echo probechk names-bjt-all fail
+end
+let k = 0
+let k = (abs(i(x1.x2:d) - i(x1.x2.m3:d)) < 1e-15)
+let k2 = 1
+let k2 = 0 * length(i(x1.x2:2))
+if k & k2
+  echo probechk names-port-position-is-the-port pass
+else
+  echo probechk names-port-position-is-the-port fail
+end
+let k = 0
+let k = (abs(i(x1.d1:a) + i(x1.d1:c)) < 1e-18) & (i(x1.d1:a) < 0) & (i(x1.d1:a) > -1e-10)
+let k2 = 1
+let k2 = 0 * length(i(x1.d1:k))
+if k & k2
+  echo probechk names-diode-letters pass
+else
+  echo probechk names-diode-letters fail
+end
+.endc
+.end

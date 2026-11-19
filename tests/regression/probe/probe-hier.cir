@@ -1,0 +1,89 @@
+* probe: terminal currents down the hierarchy (op)
+*
+* x1 (amp) holds r1 from p to o, an instance x2 of stage, and r2 from
+* mid to ground. stage is one nmos, m3: drain d, gate i, source s.
+* vg = 1.5 V, vt = 0.5 V, kp = 100u, w/l = 2, so in saturation
+* id = 100u (1 - v(x1.mid))^2 with v(x1.mid) = 2k id:
+* v(x1.mid) = (7 - sqrt(45))/2 = 0.145898 V and id = 72.949 uA.
+*
+*   x1.x2.m3:d   into the drain: id. The @m.x1.x2.m3[id] of the model is
+*                id at the iterate before the last: equal within the
+*                tolerance of the solution, not to rounding
+*   x1.x2.m3:g   with s and b: the four terminals sum to zero
+*   x1.x2.m3:s   into the source: -id, -v(x1.mid)/2k to rounding
+*   x1.x2.m3:b_tj  the fourth, named as .probe has it at the top level
+*   x1.x2:d      the port d of x2 inside x1: only the drain is on it, id
+*   x1.x2:s      the port s: -id
+*   x1.r1        an element of two terminals without a terminal: into
+*                r1 at p, (2 - v(out))/1k
+*   x1.r2:n1     into r2 at mid: v(x1.mid)/2k, which is id again
+*   x1:o         a port of an instance of the top level, by its name:
+*                -v(out)/10k
+vdd vdd 0 dc 2
+vg g 0 dc 1.5
+x1 vdd g out amp
+rl out 0 10k
+.subckt amp p in o
+r1 p o 1k
+x2 in o mid stage
+r2 mid 0 2k
+.ends
+.subckt stage i d s
+m3 d i s 0 nmod w=2u l=1u
+.ends
+.model nmod nmos level=1 vto=0.5 kp=100u
+.probe I(x1.x2.m3,d) I(x1.x2.m3,g) I(x1.x2.m3,s) I(x1.x2.m3,b)
+.probe I(x1.x2,d) I(x1.x2,s) I(x1.r1) I(x1.r2,1) I(x1,o)
+.control
+op
+let k = 0
+let k = (abs(v(x1.mid) - (7 - sqrt(45))/2) < 1e-6)
+if k
+  echo probechk hier-bias pass
+else
+  echo probechk hier-bias fail
+end
+let k = 0
+let k = (abs(i(x1.x2.m3:d) - @m.x1.x2.m3[id]) < 1e-3*@m.x1.x2.m3[id]) & (abs(i(x1.x2.m3:s) + v(x1.mid)/2k) < 1e-15) & (abs(i(x1.x2.m3:d) - v(x1.mid)/2k) < 1e-10)
+if k
+  echo probechk hier-drain pass
+else
+  echo probechk hier-drain fail
+end
+let k = 0
+let k = (abs(i(x1.x2.m3:d) + i(x1.x2.m3:g) + i(x1.x2.m3:s) + i(x1.x2.m3:b_tj)) < 1e-15) & (abs(i(x1.x2.m3:g)) < 1e-15) & (abs(i(x1.x2.m3:b_tj)) < 1e-10)
+if k
+  echo probechk hier-terminals-sum pass
+else
+  echo probechk hier-terminals-sum fail
+end
+let k = 0
+let k = (abs(i(x1.x2:d) - i(x1.x2.m3:d)) < 1e-15) & (abs(i(x1.x2:s) - i(x1.x2.m3:s)) < 1e-15)
+if k
+  echo probechk hier-port-nested pass
+else
+  echo probechk hier-port-nested fail
+end
+let k = 0
+let k = (abs(i(x1.r1) - (2 - v(out))/1k) < 1e-15)
+if k
+  echo probechk hier-two-terminal pass
+else
+  echo probechk hier-two-terminal fail
+end
+let k = 0
+let k = (abs(i(x1.r2:n1) - v(x1.mid)/2k) < 1e-15)
+if k
+  echo probechk hier-position pass
+else
+  echo probechk hier-position fail
+end
+let k = 0
+let k = (abs(i(x1:o) + v(out)/10k) < 1e-15)
+if k
+  echo probechk hier-top-port-by-name pass
+else
+  echo probechk hier-top-port-by-name fail
+end
+.endc
+.end
