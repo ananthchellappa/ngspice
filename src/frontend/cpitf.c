@@ -183,6 +183,14 @@ ft_cpinit(void)
         cp_vset("stb_version", CP_NUM, &stbv);
     }
 
+    /* .probe I(...) reaches a terminal of any instance at any depth
+       (inpc_stb.c); the number goes up when the names or the sign of the
+       vectors change */
+    {
+        int probev = 1;
+        cp_vset("probe_version", CP_NUM, &probev);
+    }
+
     /* Make vectors from values in predefs[] for the current plot.
        Define functions from entries in udfs[] (like user defined functions).
     */

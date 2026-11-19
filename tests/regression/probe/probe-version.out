@@ -1,0 +1,8 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * probe: the variable probe_version says that .probe reaches any terminal
+
+probechk version-set pass
+probechk version-value pass

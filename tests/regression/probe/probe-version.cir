@@ -1,0 +1,22 @@
+* probe: the variable probe_version says that .probe reaches any terminal
+*
+* A script, or a tool that writes decks, tests $?probe_version before it
+* writes a .probe I(...) of a terminal inside a subcircuit instance. The
+* number is 1; it goes up when the names or the sign of the vectors
+* change.
+v1 a 0 1
+r1 a 0 1k
+.control
+if $?probe_version
+  echo probechk version-set pass
+  if $probe_version = 1
+    echo probechk version-value pass
+  else
+    echo probechk version-value fail
+  end
+else
+  echo probechk version-set fail
+  echo probechk version-value fail
+end
+.endc
+.end

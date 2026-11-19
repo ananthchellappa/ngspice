@@ -7,7 +7,7 @@
 TESTS = probe-hier.cir probe-names.cir probe-ac.cir probe-tran.cir \
 	probe-refuse.cir probe-reset.cir probe-save.cir probe-saveall.cir \
 	probe-stb-shared.cir probe-alli.cir probe-legacy.cir \
-	probe-subckt-ports.cir probe-depth-names.cir
+	probe-subckt-ports.cir probe-depth-names.cir probe-version.cir
 
 TESTS_ENVIRONMENT = ngspice_vpath=$(srcdir) $(SHELL) $(top_srcdir)/tests/bin/check.sh $(top_builddir)/src/ngspice
 

@@ -22,6 +22,7 @@ Files:
 | `src/frontend/inpc_stb.c`, `inpc_stb.h` | the current probes: collection of the `.iprobe` cards, the terminal, the 0 V source, the name, the `.save`, the rename after parsing |
 | `src/frontend/inp.c` | the two hooks: `inp_stb_saves()` behind the `.save` cards, `inp_stb_rename()` behind `modprobenames()` |
 | `src/frontend/subckt.c` | the hook of the expansion that `stb` has already (`inp_stb_xcard()`) |
+| `src/frontend/cpitf.c` (`ft_cpinit`) | `probe_version` |
 | `tests/regression/probe/` | the tests; also `tests/regression/case/probe-term-case.cir`, `tests/regression/casedist/probe-term-case.cir` |
 
 ## 1. Interface
@@ -49,6 +50,13 @@ Files:
 
 Two spellings of one terminal, `x1.x2.m3,1` and `x1.x2.m3:d`, are one probe
 and one vector.
+
+`probe_version` (number, 1) is set at start-up in `ft_cpinit()`, which the
+executable and the shared library both run. A script, or a tool that writes
+decks, tests for the feature with `$?probe_version`. The number goes up when
+the names or the sign of the vectors change. An ngspice without the feature
+does not set it, and drops a probe inside an instance with `Warning: Could not
+find the instance line for <instance>`.
 
 ## 2. Names of the vectors
 
@@ -216,5 +224,6 @@ spelled otherwise is no port of the subcircuit.
 | `probe-stb-shared.cir` | an `stb` probe and a current probe on one terminal |
 | `probe-alli.cir` | `alli` with a probe inside an instance |
 | `probe-legacy.cir` | the top level: the names and values of before |
+| `probe-version.cir` | `probe_version` is set, and is 1 |
 
 The two `probe-term-case.cir` decks check `preserve` and `distinguish`.
